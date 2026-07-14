@@ -93,13 +93,7 @@ dialog,.drawer{overscroll-behavior:contain}
 .login-panel form{width:min(400px,100%)}
 .login-panel h2{font-size:26px;margin:6px 0 6px}
 .login-sub{color:var(--slate);font-size:13px;margin:0 0 22px}
-.demo-block{margin-top:26px;border-top:1px solid var(--border);padding-top:18px}
-.demo-block>p{font-size:12px;color:var(--slate);margin:0 0 10px}
-.demo-block small{color:var(--muted)}
-.demo-chips{display:flex;flex-wrap:wrap;gap:7px}
-.demo-chip{border:1px solid var(--border);background:#fff;border-radius:9px;padding:6px 11px;font-size:11px;color:var(--slate);transition:var(--ease-fast)}
-.demo-chip b{color:var(--text)}
-.demo-chip:hover{border-color:var(--blue);background:var(--blue-bg)}
+.login-help{margin:18px 0 0;border-top:1px solid var(--border);padding-top:14px;font-size:12px;color:var(--muted)}
 
 /* ── App shell ─────────────────────────────────────────────────────────── */
 .app{display:grid;grid-template-columns:264px minmax(0,1fr);height:100dvh}

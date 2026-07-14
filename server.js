@@ -17,6 +17,11 @@ const production = process.env.NODE_ENV === 'production';
 const demoMode = process.env.MAT_DEMO_MODE === '1' || !production;
 const ephemeral = process.env.MAT_EPHEMERAL === '1' || !!process.env.NODE_TEST_CONTEXT || process.env.NODE_ENV === 'test';
 const postgresMode = process.env.MAT_DB_MODE === 'postgres' && !ephemeral;
+// Fail-fast: di luar mode uji, runtime WAJIB PostgreSQL. Adapter in-memory tidak
+// boleh menyala diam-diam hanya karena env lupa diset (mis. di VPS baru).
+if (!ephemeral && !postgresMode && process.env.MAT_ALLOW_MEMORY_RUNTIME !== '1') {
+  throw new Error('RUNTIME_MODE_BLOCKED: set MAT_DB_MODE=postgres (runtime produksi) atau MAT_ALLOW_MEMORY_RUNTIME=1 untuk demo in-memory secara eksplisit.');
+}
 const api = postgresMode ? require('./backend/api-postgres') : require('./backend/api');
 if (postgresMode) {
   // PostgreSQL adalah sumber kebenaran; snapshot JSON tidak boleh ikut dimuat.

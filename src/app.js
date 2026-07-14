@@ -121,17 +121,8 @@
   }
 
   // ── Login form ────────────────────────────────────────────────────────────
-  const DEMO_ACCOUNTS = [
-    ['andi', 'Owner'], ['dewi', 'Finance'], ['rina', 'Accounting'], ['tono', 'Tax'],
-    ['sari', 'HRD'], ['bima', 'Sales'], ['rudi', 'Procurement'], ['joko', 'Warehouse'], ['budi', 'Production']
-  ];
-  api('/api/runtime').then((runtime) => {
-    if (!runtime.demoMode) return;
-    document.getElementById('demoBlock').hidden = false;
-    document.getElementById('demoChips').innerHTML = DEMO_ACCOUNTS.map(([u, role]) =>
-      `<button type="button" class="demo-chip" data-demo="${u}"><b>${u}</b> ${role}</button>`).join('');
-  }).catch(() => { /* login tetap dapat digunakan tanpa metadata runtime */ });
-
+  // Tidak ada kredensial demo di klien: akun dikelola administrator via seed
+  // UAT/produksi, dan reset sandi berjalan lewat alur sandi sementara.
   const loginForm = document.getElementById('loginForm');
   const loginCredentials = document.getElementById('loginCredentials');
   const loginChallenge = document.getElementById('loginChallenge');
@@ -148,13 +139,6 @@
     document.getElementById('loginBtn').textContent = pendingChallenge.type === 'password' ? 'Simpan & masuk' : 'Verifikasi kode';loginForm.challenge.focus();
   }
   document.getElementById('challengeBack').addEventListener('click', () => { resetLoginChallenge(); loginForm.username.focus(); });
-  loginForm.addEventListener('click', (e) => {
-    const chipBtn = e.target.closest('[data-demo]');
-    if (!chipBtn) return;
-    loginForm.username.value = chipBtn.dataset.demo;
-    loginForm.password.value = 'materp2026';
-    loginForm.querySelector('button[type=submit]').focus();
-  });
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const errorEl = document.getElementById('loginError');
