@@ -1,0 +1,34 @@
+# Skema PostgreSQL MAT ERP V2
+
+## Migration
+
+| File | Ruang lingkup |
+|---|---|
+| `001_core_foundation.sql` | branch, user, dokumen berversi, idempotency, audit, file metadata |
+| `002_business_modules.sql` | master, lines, inventory, accounting, payroll, tax, session, job |
+| `003_runtime_security.sql` | RBAC/ABAC user, MFA, indeks dan constraint security |
+| `004_transaction_runtime.sql` | sequence atomic, auth pending, outbox, approval state |
+| `005_persistent_jobs.sql` | priority, lease, retry, recovery, claim index |
+| `006_auth_challenges.sql` | payload challenge MFA/password dan indeks expiry |
+| `007_transaction_ledgers.sql` | posting marker, default stock partition, COA, ledger constraints |
+| `008_enterprise_operations.sql` | relasi dokumen, setting persisten, private artifact, delivery, backup restore metadata |
+| `009_finance_hr_operations.sql` | payment allocation audit, attendance, leave balance, payroll component, bank reconciliation, import batch, akun finance/HR |
+| `010_employee_self_service.sql` | tautan unik user–employee untuk isolasi attendance, leave, payroll, dan slip pribadi |
+
+Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
+menyala bila migration terbaru belum aktif.
+
+## Pola transaksi
+
+- UUID sebagai primary key.
+- Nomor dokumen unik `PREFIX-MMYY-SEQ3` dari sequence atomic.
+- `version` untuk optimistic locking; stale update menghasilkan HTTP 409.
+- Mutasi kritis menggunakan idempotency record dan advisory lock.
+- Audit bersifat append-only; role aplikasi tidak memiliki UPDATE/DELETE.
+- Event domain ditulis ke outbox pada transaction yang sama.
+
+## Runtime
+
+`MAT_DB_MODE=postgres` memakai pool user `mat_erp_app` yang bukan superuser,
+tidak dapat membuat database/role/schema, dan hanya terhubung ke localhost.
+Adapter in-memory hanya aktif dalam automated test terisolasi.

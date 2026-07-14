@@ -1,0 +1,12 @@
+BEGIN;
+DROP TABLE IF EXISTS import_batches;
+DROP TABLE IF EXISTS reconciliation_runs;
+DROP TABLE IF EXISTS bank_transactions;
+DROP TABLE IF EXISTS payroll_components;
+DROP TABLE IF EXISTS leave_balances;
+DROP TABLE IF EXISTS attendance_records;
+DROP INDEX IF EXISTS ix_payment_alloc_invoice;
+DROP INDEX IF EXISTS ux_tax_document_type;
+ALTER TABLE payment_allocations DROP COLUMN IF EXISTS created_by;
+DELETE FROM chart_of_accounts WHERE code IN('2200','2400','4200','6200','6210');
+COMMIT;

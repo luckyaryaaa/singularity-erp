@@ -1,0 +1,164 @@
+'use strict';
+const { randomUUID } = require('node:crypto');
+const { AppError } = require('../../../core/errors');
+const { createHash } = require('node:crypto');
+const posting = require('./posting');
+
+const PREFIXES = {
+  CUSTOMER_INQUIRY:'INQ',QUOTATION:'QUO',CUSTOMER_PO:'CPO',SALES_ORDER:'SO',PROJECT:'PRJ',WORK_ORDER:'WO',
+  PURCHASE_REQUEST:'PR',PURCHASE_ORDER:'PO',GOODS_RECEIPT:'GR',QC_INSPECTION:'QC',MATERIAL_ISSUE:'MI',
+  STOCK_TRANSFER:'TRF',STOCK_ADJUSTMENT:'ADJ',DELIVERY:'DO',INVOICE:'INV',CUSTOMER_PAYMENT:'PAY',
+  SUPPLIER_INVOICE:'SINV',SUPPLIER_PAYMENT:'SPAY',EXPENSE:'EXP',JOURNAL:'JRN',PAYROLL_RUN:'PRL',
+  TAX_DOCUMENT:'TAX',LEAVE_REQUEST:'LVE',REPORT:'RPT'
+};
+
+function camel(row) {
+  if (!row) return null;
+  const out = {};
+  for (const [key,value] of Object.entries(row)) out[key.replace(/_([a-z])/g,(_,c)=>c.toUpperCase())]=value;
+  if (out.amount !== undefined) out.amount = Number(out.amount);
+  return out;
+}
+
+async function nextNumber(client,{documentType,branchId,date=new Date()}) {
+  const prefix=PREFIXES[documentType];
+  if(!prefix) throw new AppError('VALIDATION_ERROR',`Tipe dokumen '${documentType}' tidak dikenal.`);
+  const period=`${String(date.getMonth()+1).padStart(2,'0')}${String(date.getFullYear()).slice(-2)}`;
+  const result=await client.query(`INSERT INTO document_sequences(document_type,branch_id,period,current_value)
+    VALUES($1,$2,$3,1) ON CONFLICT(document_type,branch_id,period) DO UPDATE
+    SET current_value=document_sequences.current_value+1,updated_at=now() RETURNING current_value`,[documentType,branchId,period]);
+  return `${prefix}-${period}-${String(result.rows[0].current_value).padStart(3,'0')}`;
+}
+
+async function audit(client,entry) {
+  await client.query(`INSERT INTO audit_logs(user_id,action,module,entity_type,entity_id,document_number,old_value,new_value,reason,request_id,session_id,ip,branch_id)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,[
+    entry.userId||null,entry.action,entry.module,entry.entityType,entry.entityId||null,entry.documentNumber||null,
+    entry.oldValue||null,entry.newValue||null,entry.reason||null,entry.requestId||randomUUID(),entry.sessionId||null,entry.ip||null,entry.branchId||null
+  ]);
+}
+
+async function outbox(client,eventType,payload={}) {
+  const id=randomUUID();
+  await client.query(`INSERT INTO domain_event_outbox(id,event_type,entity_id,branch_id,payload) VALUES($1,$2,$3,$4,$5)`,
+    [id,eventType,payload.entityId||null,payload.branchId||null,payload]);
+  return id;
+}
+
+async function createDocument(client,{type,user,title,amount=0,partyId,partyName,dueDate,payload={},requestId}) {
+  if(!(Number(amount)>=0)) throw new AppError('VALIDATION_ERROR','Nilai dokumen tidak boleh negatif.');
+  const id=randomUUID(); const documentNumber=await nextNumber(client,{documentType:type,branchId:user.branchId});
+  const result=await client.query(`INSERT INTO business_documents
+    (id,document_number,document_type,branch_id,status,version,amount,payload,title,party_id,party_name,due_date,created_by,updated_by)
+    VALUES($1,$2,$3,$4,'DRAFT',1,$5,$6,$7,$8,$9,$10,$11,$11) RETURNING *`,
+    [id,documentNumber,type,user.branchId,amount,payload,title||type,partyId||null,partyName||null,dueDate||null,user.id]);
+  await posting.syncDocumentLines(client,id,payload?.lines);
+  await audit(client,{userId:user.id,action:'CREATE',module:type.toLowerCase(),entityType:type,entityId:id,documentNumber,newValue:{title:title||type,amount:Number(amount)},requestId,branchId:user.branchId});
+  await outbox(client,`${type.toLowerCase()}.created`,{entityId:documentNumber,documentType:type,branchId:user.branchId,version:1});
+  return camel(result.rows[0]);
+}
+
+async function updateDocument(client,{id,expectedVersion,patch,user,requestId}) {
+  const current=await client.query('SELECT * FROM business_documents WHERE id=$1',[id]);
+  if(!current.rowCount) throw new AppError('RESOURCE_NOT_FOUND','Dokumen tidak ditemukan.');
+  const doc=current.rows[0];
+  if(!['DRAFT','REVISION_REQUIRED'].includes(doc.status)) throw new AppError('STATUS_INVALID',`Dokumen berstatus ${doc.status} tidak dapat diedit.`);
+  const result=await client.query(`UPDATE business_documents SET
+    title=COALESCE($3,title),amount=COALESCE($4,amount),due_date=COALESCE($5,due_date),payload=COALESCE($6,payload),
+    party_id=COALESCE($7,party_id),party_name=COALESCE($8,party_name),version=version+1,updated_at=now(),updated_by=$9
+    WHERE id=$1 AND version=$2 RETURNING *`,[id,expectedVersion,patch.title??null,patch.amount??null,patch.dueDate??null,patch.payload??null,patch.partyId??null,patch.partyName??null,user.id]);
+  if(!result.rowCount) throw new AppError('DOCUMENT_CONFLICT','Dokumen telah diubah pengguna lain. Muat ulang versi terbaru.');
+  const updated=camel(result.rows[0]);
+  if(Array.isArray(patch.payload?.lines))await posting.syncDocumentLines(client,id,patch.payload.lines);
+  await audit(client,{userId:user.id,action:'UPDATE',module:doc.document_type.toLowerCase(),entityType:doc.document_type,entityId:id,documentNumber:doc.document_number,oldValue:{version:doc.version},newValue:{version:updated.version},requestId,branchId:doc.branch_id});
+  await outbox(client,'document.updated',{entityId:doc.document_number,documentType:doc.document_type,branchId:doc.branch_id,version:updated.version});
+  return updated;
+}
+
+async function getDocument(client,id) { return camel((await client.query('SELECT * FROM business_documents WHERE id=$1',[id])).rows[0]); }
+async function documentRelations(client,id){return(await client.query(`SELECT r.relation_type,p.id parent_id,p.document_number parent_number,p.document_type parent_type,c.id child_id,c.document_number child_number,c.document_type child_type,r.created_at FROM document_relations r JOIN business_documents p ON p.id=r.parent_document_id JOIN business_documents c ON c.id=r.child_document_id WHERE r.parent_document_id=$1 OR r.child_document_id=$1 ORDER BY r.created_at`,[id])).rows.map(camel);}
+const CONVERSIONS={QUOTATION:{target:'SALES_ORDER',relation:'QUOTATION_TO_ORDER'},SALES_ORDER:{target:'PROJECT',relation:'ORDER_TO_PROJECT'},PROJECT:{target:'WORK_ORDER',relation:'PROJECT_TO_WORK_ORDER'},PURCHASE_REQUEST:{target:'PURCHASE_ORDER',relation:'REQUEST_TO_ORDER'},PURCHASE_ORDER:{target:'GOODS_RECEIPT',relation:'ORDER_TO_RECEIPT'},DELIVERY:{target:'INVOICE',relation:'DELIVERY_TO_INVOICE'}};
+async function convertDocument(client,{id,user,requestId}){
+  const locked=(await client.query('SELECT * FROM business_documents WHERE id=$1 FOR UPDATE',[id])).rows[0];
+  const source=camel(locked);if(!source)throw new AppError('RESOURCE_NOT_FOUND');
+  const spec=CONVERSIONS[source.documentType];if(!spec)throw new AppError('VALIDATION_ERROR',`Dokumen ${source.documentType} tidak memiliki konversi lanjutan.`);
+  if(!['APPROVED','COMPLETED','CLOSED'].includes(source.status))throw new AppError('STATUS_INVALID','Dokumen sumber harus disetujui atau selesai sebelum dikonversi.');
+  const existing=(await client.query(`SELECT c.* FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id WHERE r.parent_document_id=$1 AND r.relation_type=$2 LIMIT 1`,[source.id,spec.relation])).rows[0];
+  if(existing)return{source,child:camel(existing),relationType:spec.relation,alreadyConverted:true};
+  const child=await createDocument(client,{type:spec.target,user:{...user,branchId:source.branchId},title:source.title,amount:source.amount,partyId:source.partyId,partyName:source.partyName,dueDate:source.dueDate,payload:{...(source.payload||{}),sourceDocumentId:source.id,sourceDocumentNumber:source.documentNumber},requestId});
+  await client.query(`INSERT INTO document_relations(parent_document_id,child_document_id,relation_type,created_by) VALUES($1,$2,$3,$4)`,[source.id,child.id,spec.relation,user.id]);
+  await outbox(client,'document.converted',{entityId:source.documentNumber,childId:child.id,childNumber:child.documentNumber,documentType:spec.target,branchId:source.branchId});return{source,child,relationType:spec.relation,alreadyConverted:false};
+}
+async function listDocuments(client,{types,user,page=1,limit=25,q,sortKey='updated_at',sortDir='desc'}){
+  limit=Math.min(Math.max(Number(limit)||25,1),100);page=Math.max(Number(page)||1,1);
+  const allowed=new Set(['document_number','title','amount','status','created_at','updated_at','due_date']);const sort=allowed.has(sortKey)?sortKey:'updated_at',dir=sortDir==='asc'?'ASC':'DESC';
+  const params=[types];let where="document_type=ANY($1) AND is_archived=false";
+  if(!['owner','admin'].includes(user.role)&&user.branchScope!=='*'){params.push(user.branchId);where+=` AND branch_id=$${params.length}`;}
+  if(q){params.push(`%${String(q).slice(0,120)}%`);where+=` AND (document_number ILIKE $${params.length} OR title ILIKE $${params.length} OR party_name ILIKE $${params.length})`;}
+  const count=Number((await client.query(`SELECT count(*) n FROM business_documents WHERE ${where}`,params)).rows[0].n);params.push(limit,(page-1)*limit);
+  const items=(await client.query(`SELECT * FROM business_documents WHERE ${where} ORDER BY ${sort} ${dir} LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows.map(camel);
+  return{items,page,limit,total:count,totalPages:Math.max(Math.ceil(count/limit),1)};
+}
+async function auditTrail(client,id,limit=15){return (await client.query(`SELECT a.*,u.display_name user_name FROM audit_logs a LEFT JOIN app_users u ON u.id=a.user_id WHERE a.entity_id=$1 ORDER BY occurred_at DESC LIMIT $2`,[id,limit])).rows.map(camel);}
+async function pendingApprovals(client,user,{page=1,limit=25}={}){
+  limit=Math.min(Math.max(Number(limit)||25,1),100);page=Math.max(Number(page)||1,1);const level=roleLevel[user.role];if(!level)return{items:[],page,limit,total:0,totalPages:1};
+  const params=[];let scope="status='WAITING_APPROVAL'";if(user.role!=='owner'){params.push(level);scope+=" AND required_approval_levels ? $1 AND NOT approvals @> jsonb_build_array(jsonb_build_object('level',$1))";}
+  if(!['owner','admin'].includes(user.role)&&user.branchScope!=='*'){params.push(user.branchId);scope+=` AND branch_id=$${params.length}`;}
+  const total=Number((await client.query(`SELECT count(*) n FROM business_documents WHERE ${scope}`,params)).rows[0].n);params.push(limit,(page-1)*limit);
+  const rows=(await client.query(`SELECT *,floor(extract(epoch from(now()-COALESCE(submitted_at,created_at)))/86400)::int age_days FROM business_documents WHERE ${scope} ORDER BY amount DESC LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows.map(camel);
+  const items=rows.map(d=>{const done=(d.approvals||[]).map(a=>a.level),levels=d.requiredApprovalLevels||[];return{...d,approvalLevel:`${done.length+1}/${levels.length}`,nextLevel:levels.find(x=>!done.includes(x)),risk:d.amount>100000000?'high':d.amount>25000000?'medium':'low'};});
+  return{items,page,limit,total,totalPages:Math.max(Math.ceil(total/limit),1)};
+}
+
+const APPROVAL_TIERS=[{max:5_000_000,levels:['supervisor']},{max:50_000_000,levels:['supervisor','finance']},{max:Infinity,levels:['supervisor','finance','owner']}];
+const TRANSITIONS={submit:{from:['DRAFT','REVISION_REQUIRED'],to:'WAITING_APPROVAL'},approve:{from:['WAITING_APPROVAL'],to:'APPROVED'},reject:{from:['WAITING_APPROVAL'],to:'REJECTED'},revise:{from:['WAITING_APPROVAL'],to:'REVISION_REQUIRED'},start:{from:['APPROVED'],to:'IN_PROCESS'},complete:{from:['IN_PROCESS','PARTIALLY_COMPLETED'],to:'COMPLETED'},close:{from:['COMPLETED','PARTIALLY_PAID'],to:'CLOSED'},cancel:{from:['DRAFT','WAITING_APPROVAL','REVISION_REQUIRED','APPROVED'],to:'CANCELLED'},void:{from:['APPROVED','IN_PROCESS','COMPLETED','CLOSED','PARTIALLY_PAID'],to:'VOID'}};
+const roleLevel={admin:'supervisor',sales:'supervisor',procurement:'supervisor',warehouse:'supervisor',production:'supervisor',hrd:'supervisor',finance:'finance',accounting:'finance',owner:'owner'};
+
+async function transitionDocument(client,{id,action,user,reason,requestId,allowOwnerOverride=false}){
+  const result=await client.query('SELECT * FROM business_documents WHERE id=$1 FOR UPDATE',[id]);
+  if(!result.rowCount)throw new AppError('RESOURCE_NOT_FOUND','Dokumen tidak ditemukan.');
+  const doc=result.rows[0],rule=TRANSITIONS[action];
+  if(!rule)throw new AppError('VALIDATION_ERROR',`Aksi '${action}' tidak dikenal.`);
+  if(!rule.from.includes(doc.status))throw new AppError('STATUS_INVALID',`Aksi '${action}' tidak diizinkan dari ${doc.status}.`);
+  if(['void','cancel','reject','revise'].includes(action)&&!reason)throw new AppError('REASON_REQUIRED');
+  let status=rule.to,approvals=Array.isArray(doc.approvals)?doc.approvals:[],levels=doc.required_approval_levels||[];
+  const extra={};
+  if(action==='submit'){levels=APPROVAL_TIERS.find(t=>Number(doc.amount)<=t.max).levels;approvals=[];extra.submitted_at=new Date();}
+  if(['approve','reject','revise'].includes(action)){
+    const done=approvals.map(a=>a.level),next=levels.find(level=>!done.includes(level));
+    const actual=roleLevel[user.role];
+    if(actual!==next&&!(allowOwnerOverride&&user.role==='owner'))throw new AppError('PERMISSION_DENIED',`Approval berikutnya membutuhkan level ${next}.`);
+    if(action==='approve'){
+      approvals=[...approvals,{level:next,userId:user.id,userName:user.displayName,at:new Date().toISOString(),comment:reason||null,override:actual!==next}];
+      status=levels.some(level=>!approvals.some(a=>a.level===level))?'WAITING_APPROVAL':'APPROVED';
+      if(status==='APPROVED'){extra.approved_at=new Date();extra.approved_by=user.id;}
+    }
+  }
+  if(action==='cancel'){extra.cancelled_at=new Date();extra.cancelled_by=user.id;}
+  if(action==='void'){extra.voided_at=new Date();extra.voided_by=user.id;}
+  const columns=['status=$2','version=version+1','updated_at=now()','updated_by=$3','approvals=$4','required_approval_levels=$5'];
+  const values=[id,status,user.id,JSON.stringify(approvals),levels];let n=6;
+  for(const [key,value] of Object.entries(extra)){columns.push(`${key}=$${n++}`);values.push(value);}
+  const updated=(await client.query(`UPDATE business_documents SET ${columns.join(',')} WHERE id=$1 RETURNING *`,values)).rows[0];
+  await audit(client,{userId:user.id,action:{submit:'SUBMIT',approve:'APPROVE',reject:'REJECT',revise:'REQUEST_REVISION',start:'POST',complete:'POST',close:'POST',cancel:'CANCEL',void:'VOID'}[action]||'UPDATE',module:doc.document_type.toLowerCase(),entityType:doc.document_type,entityId:id,documentNumber:doc.document_number,oldValue:{status:doc.status},newValue:{status},reason,requestId,branchId:doc.branch_id});
+  await outbox(client,['submit','approve','reject','revise'].includes(action)?'approval.updated':'document.updated',{entityId:doc.document_number,documentType:doc.document_type,branchId:doc.branch_id,version:updated.version,status});
+  return camel(updated);
+}
+
+const stableJson=value=>JSON.stringify(value&&typeof value==='object'&&!Array.isArray(value)?Object.keys(value).sort().reduce((o,k)=>(o[k]=value[k],o),{}):value??{});
+async function withIdempotency(client,{userId,operation,key,body},execute){
+  if(!key)throw new AppError('VALIDATION_ERROR','Idempotency-Key wajib untuk operasi kritis.');
+  const requestHash=createHash('sha256').update(stableJson(body)).digest('hex');
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`${userId}:${operation}:${key}`]);
+  const existing=(await client.query(`SELECT * FROM idempotency_records WHERE user_id=$1 AND operation=$2 AND idempotency_key=$3 AND expires_at>now()`,[userId,operation,key])).rows[0];
+  if(existing){
+    if(existing.request_hash!==requestHash)throw new AppError('DUPLICATE_REQUEST','Idempotency-Key sudah dipakai dengan payload berbeda.');
+    return {status:existing.response_status,body:{...existing.response_body,idempotentReplay:true}};
+  }
+  const response=await execute();
+  await client.query(`INSERT INTO idempotency_records(id,user_id,operation,idempotency_key,request_hash,response_status,response_body,expires_at)
+    VALUES($1,$2,$3,$4,$5,$6,$7,now()+interval '24 hours')`,[randomUUID(),userId,operation,key,requestHash,response.status,response.body]);
+  return response;
+}
+
+module.exports={PREFIXES,camel,nextNumber,audit,outbox,createDocument,updateDocument,getDocument,documentRelations,convertDocument,listDocuments,auditTrail,pendingApprovals,transitionDocument,withIdempotency,APPROVAL_TIERS,CONVERSIONS};

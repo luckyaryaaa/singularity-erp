@@ -1,0 +1,28 @@
+{
+  "name": "mat-erp-v2",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node --test --test-concurrency=1",
+    "db:health": "node scripts/db.js health",
+    "db:provision": "node scripts/provision-db.js",
+    "db:status": "node scripts/db.js status",
+    "db:migrate": "node scripts/db.js migrate",
+    "db:validate": "node scripts/db.js validate",
+    "db:grant-runtime": "node scripts/grant-runtime.js"
+    ,"db:seed:dev": "node scripts/seed-postgres-dev.js"
+    ,"security:rotate-owner": "node scripts/rotate-owner-password.js"
+    ,"db:seed:uat": "node scripts/seed-postgres-uat.js"
+    ,"db:seed:uat:sprint4": "node scripts/seed-postgres-uat-sprint4.js"
+    ,"backup:run": "node scripts/backup-postgres.js run"
+    ,"backup:restore-test": "node scripts/backup-postgres.js restore-test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}
