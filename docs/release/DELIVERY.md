@@ -1,4 +1,24 @@
-# MAT ERP V2 — Delivery PostgreSQL v0.5.0 / Sprint 4
+# MAT ERP V2 — Delivery v0.6.0 (Pengerasan Produksi)
+
+## Status v0.6.0 — siap runbook go-live VPS
+
+- Git repository aktif (baseline + commit per item); dead code legacy dihapus.
+- Migrasi 011: partisi audit 2026–2031 + DEFAULT + maintenance otomatis —
+  bom waktu tulis massal 1 Jan 2027 tertutup dan terverifikasi (insert 2027 →
+  partisi 2027, insert 2040 → DEFAULT).
+- Fail-fast `MAT_DB_MODE`; kredensial demo hilang total dari klien.
+- Backup 3-2-1: offsite terenkripsi AES-256-GCM + retensi 14 + decrypt CLI;
+  restore drill terbaru menghasilkan 52 tabel + migrasi 011.
+- Alert webhook operasional + `/api/health` publik untuk uptime monitor.
+- FIX SSE runtime postgres (koneksi kini terdaftar ke event bus — realtime hidup).
+- Paket deploy: `deploy/Caddyfile`, `deploy/mat-erp.service` (hardened),
+  `deploy/firewall.sh`, `docs/release/vps-runbook.md` (go-live 6 fase +
+  rollback kode/migrasi/offsite).
+- `npm run predeploy`: 4/4 hijau. `npm run load:smoke`: p50 6 ms / p95 135 ms /
+  p99 259 ms @ 300 req 12 konkuren, 0 gagal (target p95 < 500 ms).
+- 41/41 automated tests; self-test runtime 9/9; gerbang rilis terbuka.
+
+# Riwayat v0.5.0 / Sprint 4
 
 ## Status
 

@@ -4,6 +4,11 @@ Semua endpoint berada di `/api`. Sesi memakai cookie HttpOnly `mat_session`.
 Mutasi wajib `X-CSRF-Token`; operasi kritis wajib `Idempotency-Key`. Error
 selalu berbentuk `{ code, message, detail? }`.
 
+## Publik (tanpa autentikasi)
+
+- `GET /api/health` — untuk uptime monitor eksternal; hanya
+  `{ ok, db, at }`, dibatasi rate limit per IP; 503 bila database tumbang.
+
 ## Auth
 
 - `POST /api/auth/login`
@@ -68,4 +73,6 @@ Job Sprint 4: `IMPORT_CSV`, `RECONCILIATION`, `PAYROLL_SLIPS`,
 `REPORT_GENERATE`, `EXPORT_EXCEL`, `GENERATE_PDF`, dan `BACKUP_RUN`.
 
 Rate limit: read 120/menit, write 30/menit, login 5/15 menit per akun+IP,
-export 3/menit. HTTP 429 menyertakan `Retry-After`.
+export 3/menit. HTTP 429 menyertakan `Retry-After`. Baseline dapat dituning
+per lingkungan via env `MAT_RATE_READ_PER_MIN`, `MAT_RATE_WRITE_PER_MIN`,
+`MAT_RATE_LOGIN_PER_15MIN`, `MAT_RATE_PDF_PER_MIN`, `MAT_RATE_EXPORT_PER_MIN`.
