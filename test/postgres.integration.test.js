@@ -34,7 +34,8 @@ pgTest('PostgreSQL integration: app role minimum, localhost, schema, dan CRUD tr
     assert.equal(identity.can_create_schema, false);
 
     const migrations = await client.query('SELECT filename FROM schema_migrations ORDER BY filename');
-    assert.deepEqual(migrations.rows.map((r) => r.filename), ['001_core_foundation.sql','002_business_modules.sql','003_runtime_security.sql','004_transaction_runtime.sql','005_persistent_jobs.sql','006_auth_challenges.sql','007_transaction_ledgers.sql','008_enterprise_operations.sql','009_finance_hr_operations.sql','010_employee_self_service.sql']);
+    const expectedMigrations = require('../backend/infrastructure/database/migrations').migrationFiles();
+    assert.deepEqual(migrations.rows.map((r) => r.filename), expectedMigrations, 'seluruh migrasi repo harus diterapkan');
     const tables = await client.query("SELECT count(*)::int AS count FROM information_schema.tables WHERE table_schema='public'");
     assert.ok(tables.rows[0].count >= 20);
 

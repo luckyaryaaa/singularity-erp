@@ -88,8 +88,10 @@ async function boot() {
     if (production && (!process.env.MAT_MFA_ENCRYPTION_KEY || process.env.MAT_MFA_ENCRYPTION_KEY.startsWith('CHANGE_ME'))) throw new Error('PRODUCTION_BOOT_BLOCKED: MAT_MFA_ENCRYPTION_KEY wajib berupa secret kuat.');
     const { getPool, close } = require('./backend/infrastructure/database/pool');
     const outbox = require('./backend/infrastructure/database/outbox-dispatcher');
+    // Gate dinamis: bandingkan dengan file migrasi terbaru di repo, bukan nama hardcode.
+    const expected = require('./backend/infrastructure/database/migrations').migrationFiles().at(-1);
     const latest = (await getPool().query('SELECT filename FROM schema_migrations ORDER BY filename DESC LIMIT 1')).rows[0]?.filename;
-    if (latest !== '010_employee_self_service.sql') throw new Error(`DATABASE_MIGRATION_REQUIRED: latest=${latest || 'none'}`);
+    if (latest !== expected) throw new Error(`DATABASE_MIGRATION_REQUIRED: applied=${latest || 'none'} expected=${expected}`);
     worker = require('./backend/workers/postgres-worker').start();
     outbox.start();
     const shutdown = () => { worker.stop(); outbox.stop(); server.close(() => close().finally(() => process.exit(0))); };
