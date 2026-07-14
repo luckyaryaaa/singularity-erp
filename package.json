@@ -18,6 +18,9 @@
     ,"db:seed:uat:sprint4": "node scripts/seed-postgres-uat-sprint4.js"
     ,"backup:run": "node scripts/backup-postgres.js run"
     ,"backup:restore-test": "node scripts/backup-postgres.js restore-test"
+    ,"backup:decrypt": "node scripts/backup-postgres.js decrypt"
+    ,"predeploy": "node scripts/predeploy-gate.js"
+    ,"load:smoke": "node scripts/load-smoke.js"
   },
   "engines": {
     "node": ">=20"

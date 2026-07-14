@@ -1,0 +1,34 @@
+# Caddyfile — reverse proxy produksi MAT ERP V2
+# Ganti erp.contoh-domain.id dengan domain/subdomain milik perusahaan.
+# Caddy mengurus sertifikat HTTPS (Let's Encrypt) + pembaruan otomatis.
+
+erp.contoh-domain.id {
+	# Aplikasi hanya bind 127.0.0.1:4173 — tidak pernah terekspos langsung.
+	reverse_proxy 127.0.0.1:4173
+
+	encode gzip
+
+	header {
+		# HSTS setelah HTTPS terverifikasi berjalan baik (mulai tanpa preload).
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# Header keamanan aplikasi sudah dikirim server Node; jangan duplikasi CSP di sini.
+		-Server
+	}
+
+	# Batasi ukuran body (upload maksimal aplikasi 20 MB + overhead).
+	request_body {
+		max_size 25MB
+	}
+
+	log {
+		output file /var/log/caddy/mat-erp-access.log {
+			roll_size 50MiB
+			roll_keep 14
+		}
+	}
+}
+
+# Tolak akses lewat IP mentah / host lain (anti-scanning).
+:80, :443 {
+	respond "" 444
+}

@@ -3,12 +3,17 @@
 
 const { AppError } = require('./errors');
 
+// Batas dapat dikonfigurasi per lingkungan (default = baseline produksi).
+const intEnv = (name, fallback) => {
+  const value = Number.parseInt(process.env[name] || '', 10);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+};
 const POLICIES = {
-  read:   { limit: 120, windowMs: 60_000 },
-  write:  { limit: 30,  windowMs: 60_000 },
-  login:  { limit: 5,   windowMs: 15 * 60_000 },
-  pdf:    { limit: 10,  windowMs: 60_000 },
-  export: { limit: 3,   windowMs: 60_000 }
+  read:   { limit: intEnv('MAT_RATE_READ_PER_MIN', 120), windowMs: 60_000 },
+  write:  { limit: intEnv('MAT_RATE_WRITE_PER_MIN', 30),  windowMs: 60_000 },
+  login:  { limit: intEnv('MAT_RATE_LOGIN_PER_15MIN', 5), windowMs: 15 * 60_000 },
+  pdf:    { limit: intEnv('MAT_RATE_PDF_PER_MIN', 10),  windowMs: 60_000 },
+  export: { limit: intEnv('MAT_RATE_EXPORT_PER_MIN', 3), windowMs: 60_000 }
 };
 
 const buckets = new Map();

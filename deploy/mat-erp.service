@@ -1,0 +1,48 @@
+# systemd unit — /etc/systemd/system/mat-erp.service
+# Aktifkan: systemctl daemon-reload && systemctl enable --now mat-erp
+
+[Unit]
+Description=MAT ERP V2 (Mandiri Abadi Teknik)
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=materp
+Group=materp
+WorkingDirectory=/opt/mat-erp
+# Seluruh secret hanya di file env root-only (chmod 600, chown materp).
+EnvironmentFile=/etc/mat-erp/mat-erp.env
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+# Log terstruktur JSON ke journald; rotasi diatur journald (SystemMaxUse).
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mat-erp
+
+# Pengerasan systemd
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallFilter=@system-service
+# Folder yang boleh ditulis aplikasi: storage (file privat, artifact, backup).
+ReadWritePaths=/opt/mat-erp/storage
+
+# Batas sumber daya wajar untuk VPS kecil
+MemoryMax=1G
+TasksMax=256
+
+[Install]
+WantedBy=multi-user.target
