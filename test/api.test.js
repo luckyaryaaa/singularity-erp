@@ -55,6 +55,15 @@ test('tanpa sesi: API mengembalikan 401 SESSION_EXPIRED', async () => {
   assert.equal(res.data.code, 'SESSION_EXPIRED');
 });
 
+test('/api/health terbuka untuk uptime monitor tanpa membocorkan detail', async () => {
+  const res = await call('/api/health');
+  assert.equal(res.status, 200);
+  assert.equal(res.data.ok, true);
+  assert.equal(res.data.db, 'up');
+  const keys = Object.keys(res.data).sort();
+  assert.deepEqual(keys, ['at', 'db', 'ok'], 'tidak ada field sensitif tambahan');
+});
+
 test('mutasi tanpa CSRF token ditolak 403', async () => {
   const session = await login('bima');
   const res = await fetch(`${base}/api/notifications/read-all`, {

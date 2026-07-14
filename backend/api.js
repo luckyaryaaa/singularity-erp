@@ -52,6 +52,10 @@ route('GET', '/api/runtime', { auth: false, policy: 'read' }, () => ({
   status: 200,
   body: { demoMode: process.env.MAT_DEMO_MODE === '1' || process.env.NODE_ENV !== 'production' }
 }));
+// Paritas kontrak dengan runtime PostgreSQL: health check tanpa autentikasi.
+route('GET', '/api/health', { auth: false, policy: 'read' }, () => ({
+  status: 200, body: { ok: true, db: 'up', at: new Date().toISOString() }
+}));
 route('POST', '/api/auth/mfa', { policy: 'login', auth: false }, (ctx) =>
   sessionResponse(ctx, auth.completeMfa({ mfaToken: ctx.body.mfaToken, code: ctx.body.code, ip: ctx.ip, device: ctx.device })));
 route('POST', '/api/auth/change-password-required', { policy: 'login', auth: false }, (ctx) =>
