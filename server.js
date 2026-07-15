@@ -91,6 +91,11 @@ async function boot() {
   let worker = null;
   if (postgresMode) {
     if (production && (!process.env.MAT_MFA_ENCRYPTION_KEY || process.env.MAT_MFA_ENCRYPTION_KEY.startsWith('CHANGE_ME'))) throw new Error('PRODUCTION_BOOT_BLOCKED: MAT_MFA_ENCRYPTION_KEY wajib berupa secret kuat.');
+    // Gate aktivasi produksi (§34 master update): R026 hanya setelah checklist
+    // ditandatangani; nilai 1 di-set manual saat go-live, bukan default.
+    if (production && process.env.MAT_PRODUCTION_ACTIVATION_ALLOWED !== '1') {
+      throw new Error('PRODUCTION_BOOT_BLOCKED: MAT_PRODUCTION_ACTIVATION_ALLOWED belum 1 — production gate R026 belum ditandatangani.');
+    }
     const { getPool, close } = require('./backend/infrastructure/database/pool');
     const outbox = require('./backend/infrastructure/database/outbox-dispatcher');
     // Gate dinamis: bandingkan dengan file migrasi terbaru di repo, bukan nama hardcode.

@@ -27,7 +27,21 @@ async function nextNumber(client,{documentType,branchId,date=new Date()}) {
   const result=await client.query(`INSERT INTO document_sequences(document_type,branch_id,period,current_value)
     VALUES($1,$2,$3,1) ON CONFLICT(document_type,branch_id,period) DO UPDATE
     SET current_value=document_sequences.current_value+1,updated_at=now() RETURNING current_value`,[documentType,branchId,period]);
-  return `${prefix}-${period}-${String(result.rows[0].current_value).padStart(3,'0')}`;
+  const seq=String(result.rows[0].current_value).padStart(3,'0');
+  // Format dari konfigurasi ber-versi (P0 4.3). Sequence per branch sudah atomic;
+  // kode branch pada nomor menutup tabrakan unique constraint antarcabang.
+  const config=(await client.query(`SELECT format FROM numbering_configurations WHERE active LIMIT 1`)).rows[0];
+  const format=config?config.format:'{PREFIX}-{BRANCH}-{MMYY}-{SEQ:3}';
+  let branchCode='HO';
+  if(format.includes('{BRANCH}')){
+    const branch=(await client.query('SELECT code FROM branches WHERE id=$1',[branchId])).rows[0];
+    branchCode=(branch?branch.code:'HO').replace(/[^A-Z0-9]/gi,'').toUpperCase()||'HO';
+  }
+  return format
+    .replace('{PREFIX}',prefix)
+    .replace('{BRANCH}',branchCode)
+    .replace('{MMYY}',period)
+    .replace(/\{SEQ(?::\d+)?\}/,seq);
 }
 
 async function audit(client,entry) {
