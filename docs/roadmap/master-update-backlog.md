@@ -6,6 +6,19 @@
 > 17 audit final → 18 LAN-UAT → 19 VPS go-live. Setiap item wajib berstatus
 > `SELESAI` atau punya alasan tertulis sebelum R026 (aktivasi VPS).
 >
+> **Sprint 8B — Fondasi arsitektur & UI: ◐ DIMULAI 15 Juli 2026.**
+> ✅ My Work inbox lintas modul (§10.7): GET /api/my-work + halaman
+> `src/modules/my-work.js` — file modul frontend pertama hasil pemecahan
+> pages.js (router sama, tanpa renderer kedua) · ✅ HTTP hardening §5.1
+> (requestTimeout 30s, headersTimeout 15s, keepAlive 7s, maxRequestsPerSocket
+> 1000, konfigurasi via env) · ✅ liveness `/api/live` terpisah dari readiness
+> `/api/health` + kontrak tes · ✅ i18n baseline §10.15 (src/i18n.js +
+> locales id-ID/en-US, pengalih bahasa di topbar, nav & login ter-i18n).
+> ⬜ Sisa 8B: pemecahan penuh pages.js/api-postgres.js/styles.css per modul,
+> Design System 2.0 token, component library, Approval Center 2.0 (§10.8),
+> enterprise table lanjutan (saved views/column chooser/density), aksesibilitas
+> audit formal, visual regression test, static asset fingerprint + precompress.
+>
 > **Sprint 8A — Release Closure v0.11.0: ✅ SELESAI 15 Juli 2026.**
 > Rotasi secret owner+runtime (sesi dicabut, UAT wajib ganti sandi, kunci backup
 > lama dipertahankan) · backup segar + offsite terenkripsi · rollback drill 018

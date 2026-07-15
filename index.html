@@ -33,8 +33,8 @@
     <section class="login-panel">
       <form id="loginForm" novalidate>
         <p class="eyebrow">MANDIRI ABADI TEKNIK</p>
-        <h2>Masuk ke ruang kerja</h2>
-        <p class="login-sub">Gunakan akun internal Anda. Lima kali gagal akan mengunci akun 15 menit.</p>
+        <h2 data-i18n="login.title">Masuk ke ruang kerja</h2>
+        <p class="login-sub" data-i18n="login.sub">Gunakan akun internal Anda. Lima kali gagal akan mengunci akun 15 menit.</p>
         <div id="loginCredentials">
           <label class="field"><span>Nama pengguna</span>
             <input name="username" autocomplete="username" spellcheck="false" required placeholder="mis. andi…">
@@ -51,8 +51,8 @@
           <button class="text-btn" id="challengeBack" type="button">Kembali ke login</button>
         </div>
         <p class="error-text" id="loginError" role="alert"></p>
-        <button class="btn primary block" id="loginBtn" type="submit">Masuk</button>
-        <p class="login-help">Lupa kata sandi? Hubungi administrator sistem untuk reset — sandi sementara wajib diganti saat masuk.</p>
+        <button class="btn primary block" id="loginBtn" type="submit" data-i18n="login.submit">Masuk</button>
+        <p class="login-help" data-i18n="login.help">Lupa kata sandi? Hubungi administrator sistem untuk reset — sandi sementara wajib diganti saat masuk.</p>
       </form>
     </section>
   </div>
@@ -118,9 +118,11 @@
     <span><b></b><small></small></span>
   </div>
 
+  <script src="src/i18n.js" defer></script>
   <script src="src/core.js" defer></script>
   <script src="src/components.js" defer></script>
   <script src="src/pages.js" defer></script>
+  <script src="src/modules/my-work.js" defer></script>
   <script src="src/app.js" defer></script>
 </body>
 </html>

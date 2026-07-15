@@ -6,8 +6,16 @@ selalu berbentuk `{ code, message, detail? }`.
 
 ## Publik (tanpa autentikasi)
 
-- `GET /api/health` — untuk uptime monitor eksternal; hanya
-  `{ ok, db, at }`, dibatasi rate limit per IP; 503 bila database tumbang.
+- `GET /api/live` — liveness: proses hidup, tanpa menyentuh database.
+- `GET /api/health` — readiness: termasuk cek database; untuk uptime monitor
+  dan load balancer; hanya `{ ok, db, at }`, dibatasi rate limit per IP;
+  503 bila database tumbang.
+
+## Ruang kerja (Sprint 8B)
+
+- `GET /api/my-work` — inbox lintas modul (§10.7): menunggu persetujuan saya,
+  dibuat saya yang masih berjalan, dikembalikan untuk revisi, dokumen jatuh
+  tempo (ber-scope cabang), job gagal, notifikasi perlu tindakan.
 
 ## Auth
 

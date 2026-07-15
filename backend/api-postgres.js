@@ -100,6 +100,35 @@ async function dispatch(client, req, url, ctx) {
     const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`documents.${body.action}:${current.id}`,key:req.headers['idempotency-key'],body},async()=>{const updated=await runtime.transitionDocument(client,{id:current.id,action:body.action,user:ctx.user,reason:body.reason,requestId:ctx.requestId,allowOwnerOverride});await posting.postDocument(client,updated,ctx.user);if(body.action==='approve'&&['INVOICE','SUPPLIER_INVOICE','PAYROLL_RUN'].includes(updated.documentType))await businessOps.syncTaxes(client,updated.documentType==='PAYROLL_RUN'?updated.payload?.period:undefined);return{status:200,body:updated};});
     if(['approve','reject','revise'].includes(body.action))await operations.notify(client,{userId:current.createdBy,category:body.action==='approve'?'SUCCESS':'ACTION_REQUIRED',title:`${current.documentNumber} diperbarui`,body:body.reason||`Oleh ${ctx.user.displayName}.`,link:`#/doc/${current.id}`,dedupeKey:`act:${current.id}:${result.body.version}`});return result.body;
   }
+  // ── Sprint 8B: My Work — satu inbox lintas modul (§10.7) ──────────────────
+  if(method==='GET'&&p==='/api/my-work'){
+    assertPermission(ctx.user,'dashboard.view');
+    const scopeAll=['owner','admin','system_admin'].includes(ctx.user.role)||ctx.user.branchScope==='*';
+    const approvals=await runtime.pendingApprovals(client,ctx.user,{limit:5});
+    const q=async(sql,params)=>(await client.query(sql,params)).rows.map(runtime.camel);
+    const mine=await q(`SELECT id,document_number,document_type,title,status,amount,due_date,updated_at FROM business_documents
+      WHERE created_by=$1 AND status IN('DRAFT','WAITING_APPROVAL','SUBMITTED') AND NOT is_archived ORDER BY updated_at DESC LIMIT 5`,[ctx.user.id]);
+    const revision=await q(`SELECT id,document_number,document_type,title,status,amount,updated_at FROM business_documents
+      WHERE created_by=$1 AND status='REVISION_REQUIRED' AND NOT is_archived ORDER BY updated_at DESC LIMIT 5`,[ctx.user.id]);
+    const overdue=await q(`SELECT id,document_number,document_type,title,status,amount,due_date FROM business_documents
+      WHERE due_date<current_date AND status IN('APPROVED','IN_PROCESS','PARTIALLY_COMPLETED','PARTIALLY_PAID','OVERDUE')
+      AND ($1 OR branch_id=$2) AND NOT is_archived ORDER BY due_date ASC LIMIT 5`,[scopeAll,ctx.user.branchId]);
+    const failedJobs=await q(`SELECT id,job_type,label,status,error,created_at FROM background_jobs
+      WHERE status IN('FAILED','DEAD_LETTER') AND ($1 OR requested_by=$2) ORDER BY created_at DESC LIMIT 5`,[scopeAll,ctx.user.id]);
+    const actions=await q(`SELECT id,title,body,link,created_at FROM notifications
+      WHERE category='ACTION_REQUIRED' AND read_at IS NULL AND (user_id=$1 OR target_role IN($2,'*')) ORDER BY created_at DESC LIMIT 5`,[ctx.user.id,ctx.user.role]);
+    const count=async(sql,params)=>Number((await client.query(sql,params)).rows[0].n);
+    return{
+      waitingForMe:{items:approvals.items,total:approvals.total},
+      createdByMe:{items:mine,total:await count(`SELECT count(*) n FROM business_documents WHERE created_by=$1 AND status IN('DRAFT','WAITING_APPROVAL','SUBMITTED') AND NOT is_archived`,[ctx.user.id])},
+      returnedForRevision:{items:revision,total:revision.length},
+      overdue:{items:overdue,total:await count(`SELECT count(*) n FROM business_documents WHERE due_date<current_date AND status IN('APPROVED','IN_PROCESS','PARTIALLY_COMPLETED','PARTIALLY_PAID','OVERDUE') AND ($1 OR branch_id=$2) AND NOT is_archived`,[scopeAll,ctx.user.branchId])},
+      failedJobs:{items:failedJobs,total:failedJobs.length},
+      actionRequired:{items:actions,total:actions.length},
+      generatedAt:new Date().toISOString()
+    };
+  }
+
   // ── Wave 2: RFQ, three-way match, payment proposal, credit control ────────
   m=p.match(/^\/api\/credit\/([0-9a-f-]{36})$/);
   if(method==='GET'&&m){assertPermission(ctx.user,'credit.view');const status=await procurement.creditStatus(client,m[1]);if(!status)throw new AppError('RESOURCE_NOT_FOUND');return status;}
@@ -286,8 +315,11 @@ async function dispatch(client, req, url, ctx) {
 async function handle(req,res){const started=Date.now(),requestId=randomUUID(),url=new URL(req.url,'http://localhost'),network=requestContext(req),ctx={requestId,...network,device:(req.headers['user-agent']||'unknown').slice(0,120)};
   try{
     if(process.env.NODE_ENV==='production'&&process.env.MAT_REQUIRE_HTTPS==='1'&&ctx.protocol!=='https'&&url.pathname!=='/api/health')throw new AppError('PERMISSION_DENIED','HTTPS wajib untuk runtime production.');
-    // Health check tanpa autentikasi untuk uptime monitor eksternal — tanpa
-    // detail sensitif, tetap dibatasi rate limit per IP.
+    // Liveness: proses hidup, tanpa menyentuh database (§5.1 readiness/liveness terpisah).
+    if(req.method==='GET'&&url.pathname==='/api/live'){
+      return json(res,200,{ok:true,uptimeSeconds:Math.round(process.uptime()),at:new Date().toISOString()},{'X-Request-Id':requestId});
+    }
+    // Readiness/health: termasuk cek database — dipakai uptime monitor & load balancer.
     if(req.method==='GET'&&url.pathname==='/api/health'){
       ratelimit.consume('read',`health:${ctx.ip}`);
       let db='up';try{await getPool().query('SELECT 1');}catch{db='down';}

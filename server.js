@@ -89,6 +89,13 @@ const server = http.createServer((req, res) => {
   res.end(raw);
 });
 
+// HTTP hardening (§5.1 dokumen terpadu): batasi umur request/header/socket
+// agar koneksi macet atau slowloris tidak menggantung event loop.
+server.requestTimeout = Number(process.env.MAT_HTTP_REQUEST_TIMEOUT_MS) || 30_000;
+server.headersTimeout = Number(process.env.MAT_HTTP_HEADERS_TIMEOUT_MS) || 15_000;
+server.keepAliveTimeout = Number(process.env.MAT_HTTP_KEEPALIVE_TIMEOUT_MS) || 7_000;
+server.maxRequestsPerSocket = Number(process.env.MAT_HTTP_MAX_REQUESTS_PER_SOCKET) || 1_000;
+
 async function boot() {
   let worker = null;
   if (postgresMode) {

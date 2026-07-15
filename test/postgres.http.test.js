@@ -12,9 +12,13 @@ async function stop(proc){if(proc.child.exitCode!==null)return;proc.child.kill('
 httpTest('PostgreSQL HTTP E2E: transaksi dan sesi bertahan setelah restart server',async()=>{
   const port=45000+Math.floor(Math.random()*1000),base=`http://127.0.0.1:${port}`;let proc=startServer(port),cookie,csrf,doc,child,customer;
   try{
-    await waitReady(base,proc);let response=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:process.env.MAT_BOOTSTRAP_OWNER_USERNAME,password:process.env.MAT_BOOTSTRAP_OWNER_PASSWORD})});assert.equal(response.status,200);cookie=response.headers.get('set-cookie').split(';')[0];let body=await response.json();csrf=body.csrfToken;
+    await waitReady(base,proc);
+    // Sprint 8B: liveness terpisah dari readiness — tanpa auth, tanpa detail sensitif.
+    let response=await fetch(`${base}/api/live`);assert.equal(response.status,200);let body=await response.json();assert.equal(body.ok,true);assert.deepEqual(Object.keys(body).sort(),['at','ok','uptimeSeconds']);
+    response=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:process.env.MAT_BOOTSTRAP_OWNER_USERNAME,password:process.env.MAT_BOOTSTRAP_OWNER_PASSWORD})});assert.equal(response.status,200);cookie=response.headers.get('set-cookie').split(';')[0];body=await response.json();csrf=body.csrfToken;
     const contracts=[
       ['/api/dashboard',x=>x.kpi&&x.health&&x.attention&&Array.isArray(x.activeJobs)],['/api/approvals',x=>Array.isArray(x.items)],['/api/notifications',x=>Array.isArray(x.items)],
+      ['/api/my-work',x=>x.waitingForMe&&x.createdByMe&&x.returnedForRevision&&x.overdue&&x.failedJobs&&x.actionRequired&&Array.isArray(x.waitingForMe.items)],
       ['/api/customers',x=>Array.isArray(x.items)],['/api/suppliers',x=>Array.isArray(x.items)],['/api/products',x=>Array.isArray(x.items)],['/api/employees',x=>Array.isArray(x.items)],['/api/inventory',x=>Array.isArray(x.items)],
       ['/api/accounting/summary',x=>x.profitLoss&&Array.isArray(x.trialBalance)],['/api/tax/summary',x=>Array.isArray(x.deadlines)&&Array.isArray(x.documents)],['/api/audit',x=>Array.isArray(x.items)],['/api/jobs',x=>Array.isArray(x.items)],
       ['/api/system/users',x=>Array.isArray(x.items)],['/api/system/settings',x=>x.company?.bank&&Array.isArray(x.approvalMatrix)],['/api/system/monitoring',x=>x.api&&x.storage&&x.security&&x.jobs&&x.sse],['/api/system/self-test',x=>Array.isArray(x.results)&&typeof x.releaseBlocked==='boolean'],['/api/auth/devices',x=>Array.isArray(x.items)]

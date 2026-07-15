@@ -11,9 +11,10 @@
   // ── Navigasi (visibilitas menu = kenyamanan; keamanan tetap di backend) ──
   const NAV = [
     ['RUANG KERJA', [
-      ['#/dashboard', 'Dashboard', 'grid', 'dashboard.view'],
-      ['#/approvals', 'Persetujuan saya', 'checkCircle', 'approval.view'],
-      ['#/notifications', 'Notifikasi', 'bell', 'notification.view', true]
+      ['#/dashboard', 'Dashboard', 'grid', 'dashboard.view', false, 'nav.dashboard'],
+      ['#/my-work', 'My Work', 'inbox', 'dashboard.view', false, 'nav.mywork'],
+      ['#/approvals', 'Persetujuan saya', 'checkCircle', 'approval.view', false, 'nav.approvals'],
+      ['#/notifications', 'Notifikasi', 'bell', 'notification.view', true, 'nav.notifications']
     ]],
     ['PENJUALAN', [
       ['#/sales/inquiries', 'Inquiry', 'help', 'inquiry.view'],
@@ -69,13 +70,15 @@
     ]]
   ];
 
+  const GROUP_I18N = { 'RUANG KERJA': 'nav.group.workspace', 'PENJUALAN': 'nav.group.sales', 'OPERASIONAL': 'nav.group.operations', 'KEUANGAN': 'nav.group.finance', 'ORGANISASI': 'nav.group.organization', 'MASTER DATA': 'nav.group.masterdata', 'SISTEM': 'nav.group.system' };
+  const ti = (key, fallback) => (window.MAT_I18N && key) ? window.MAT_I18N.t(key, fallback) : fallback;
   function renderNav() {
     const nav = document.getElementById('nav');
     nav.innerHTML = NAV.map(([label, items]) => {
       const visible = items.filter(([, , , perm]) => can(perm));
       if (!visible.length) return '';
-      return `<p class="nav-label">${esc(label)}</p>` + visible.map(([href, name, icon, , badge]) =>
-        `<a class="nav-item" data-nav href="${href}">${ICONS[icon]}<span>${esc(name)}</span>${badge ? `<span class="count" id="navBadge" hidden>0</span>` : ''}</a>`
+      return `<p class="nav-label">${esc(ti(GROUP_I18N[label], label))}</p>` + visible.map(([href, name, icon, , badge, i18nKey]) =>
+        `<a class="nav-item" data-nav href="${href}">${ICONS[icon]}<span>${esc(ti(i18nKey, name))}</span>${badge ? `<span class="count" id="navBadge" hidden>0</span>` : ''}</a>`
       ).join('');
     }).join('');
   }
@@ -236,8 +239,24 @@
     }
   });
 
+  // Pengalih bahasa (§10.15) — pilihan tersimpan lokal, bukan data sensitif.
+  const langBtn = document.createElement('button');
+  langBtn.className = 'icon-btn';
+  langBtn.id = 'langBtn';
+  langBtn.setAttribute('aria-label', 'Ganti bahasa / Change language');
+  langBtn.style.fontSize = '10px';
+  langBtn.style.fontWeight = '700';
+  document.querySelector('.top-actions').prepend(langBtn);
+  function paintLang() { langBtn.textContent = (window.MAT_I18N && window.MAT_I18N.locale === 'en-US') ? 'EN' : 'ID'; }
+  langBtn.addEventListener('click', () => {
+    if (!window.MAT_I18N) return;
+    window.MAT_I18N.setLocale(window.MAT_I18N.locale === 'en-US' ? 'id-ID' : 'en-US');
+  });
+
   // ── Boot ──────────────────────────────────────────────────────────────────
   (async () => {
+    if (window.MAT_I18N) { await window.MAT_I18N.load(); window.MAT_I18N.applyStatic(); }
+    paintLang();
     try {
       const data = await api('/api/auth/session');
       applySession(data);
