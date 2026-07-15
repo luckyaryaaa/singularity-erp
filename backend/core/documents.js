@@ -31,7 +31,7 @@ const TRANSITIONS = {
 // Peta tipe dokumen → modul permission (satu sumber untuk validasi izin).
 const TYPE_MODULE = {
   CUSTOMER_INQUIRY: 'inquiry', QUOTATION: 'quotation', CUSTOMER_PO: 'customer_po', SALES_ORDER: 'sales_order',
-  PROJECT: 'project', WORK_ORDER: 'work_order', PURCHASE_REQUEST: 'purchase_request', PURCHASE_ORDER: 'purchase_order',
+  PROJECT: 'project', WORK_ORDER: 'work_order', PURCHASE_REQUEST: 'purchase_request', RFQ: 'rfq', PURCHASE_ORDER: 'purchase_order', PAYMENT_PROPOSAL: 'payment_proposal',
   GOODS_RECEIPT: 'goods_receipt', QC_INSPECTION: 'quality', MATERIAL_ISSUE: 'material_issue',
   STOCK_TRANSFER: 'stock_transfer', STOCK_ADJUSTMENT: 'stock_adjustment', DELIVERY: 'delivery',
   INVOICE: 'invoice', CUSTOMER_PAYMENT: 'payment', SUPPLIER_INVOICE: 'supplier_invoice',

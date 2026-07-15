@@ -84,8 +84,8 @@
 
 | Release | Ruang lingkup | Status |
 |---|---|---|
-| R016 Sales & Order-to-Cash | inquiry→quotation revisi→PO→SO/proyek→credit control→delivery→invoice→collection→warranty | ◐ alur dasar ✅; credit control, revisi quotation, RMA/warranty ⬜ |
-| R017 Procurement Source-to-Pay | PR→budget→RFQ→comparison→PO→GR→three-way match→payment proposal | ◐ PR/PO/GR/invoice/payment ✅; RFQ, three-way match, payment proposal batch ⬜ |
+| R016 Sales & Order-to-Cash | inquiry→quotation revisi→PO→SO/proyek→credit control→delivery→invoice→collection→warranty | ◐ alur dasar + **credit control (hold/limit + override finance, enforce saat submit SO/Invoice)** ✅ Wave 2; revisi quotation ber-versi, dunning/collection, RMA/warranty ⬜ |
+| R017 Procurement Source-to-Pay | PR→budget→RFQ→comparison→PO→GR→three-way match→payment proposal | ◐ PR/PO/GR/invoice/payment ✅ + **RFQ+perbandingan landed cost+pilih→PO, three-way match ber-toleransi (blokir approve+override), payment proposal batch** ✅ Wave 2; budget check & RFQ multi-line ⬜ |
 | R018 Warehouse & Inventory | hierarchy, bin, lot/serial/heat, reservation, opname, valuation policy | ◐ movement ledger+balance ✅; bin/lot/serial, opname, valuasi policy ⬜ |
 | R019 Production, BOM, MRP & QC | routing, work center, MRP, capacity, WIP, job costing, inspection plan, NCR/CAPA, kalibrasi | ◐ WO+QC dasar ✅; BOM skema Wave 1b; MRP/capacity/NCR ⬜ |
 | R020 Finance, Accounting & Fixed Asset | posting profile, segmented COA, subledger, closing cockpit, fixed asset, budgeting | ◐ posting+closing+rekonsiliasi ✅; posting profile config, subledger formal, fixed asset ⬜ |

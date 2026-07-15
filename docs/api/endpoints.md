@@ -100,6 +100,21 @@ finance/payroll. Harga supplier append-only (revisi bertambah, tidak menimpa).
 - `POST /api/system/users/:id/reset-password`
 - `GET /api/events` — SSE terautentikasi
 
+## Wave 2 — Source-to-Pay & credit control
+
+- `GET /api/credit/:customerId` — status kredit (hold, limit, eksposur, sisa plafon)
+- `POST /api/documents/:id/credit-override` — override kredit (finance, ber-alasan)
+- `GET|POST /api/rfq/:id/quotes` — daftar/tambah kuota supplier (landed cost otomatis)
+- `POST /api/rfq/:id/quotes/:quoteId/select` — pilih supplier (ber-alasan, audit)
+- `POST /api/rfq/:id/create-po` — konversi RFQ terpilih → Purchase Order (idempoten)
+- `GET|POST /api/supplier-invoices/:id/match` — three-way match (PO vs GR vs invoice)
+- `POST /api/payment-proposals` — buat batch usulan pembayaran tagihan jatuh tempo
+- `GET /api/payment-proposals/:id/lines` — baris usulan (rekening belum verifikasi ditahan)
+
+Kontrol otomatis: submit SO/Invoice diblokir `409 CREDIT_HOLD` bila pelanggan
+hold/over-limit tanpa override; approve Supplier Invoice diblokir `409 MATCH_FAILED`
+bila three-way match EXCEPTION tanpa `matchOverrideReason`.
+
 Job Sprint 4: `IMPORT_CSV`, `RECONCILIATION`, `PAYROLL_SLIPS`,
 `REPORT_GENERATE`, `EXPORT_EXCEL`, `GENERATE_PDF`, dan `BACKUP_RUN`.
 

@@ -100,6 +100,8 @@ dialog,.drawer{overscroll-behavior:contain}
 .master-tab{border:0;background:none;padding:11px 15px;font-size:12.5px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;transition:var(--ease-fast)}
 .master-tab:hover{color:var(--text)}
 .master-tab.active{color:var(--blue-ink);border-bottom-color:var(--blue-ink)}
+tr.row-selected{background:var(--blue-bg)}
+tr.row-selected td:first-child{box-shadow:inset 3px 0 var(--blue-ink)}
 .master-tab .tab-count{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;margin-left:5px;border-radius:7px;background:var(--soft-gray);color:var(--gray-ink);font-size:10px;vertical-align:1px}
 .master-tab.active .tab-count{background:var(--blue-bg);color:var(--blue-ink)}
 

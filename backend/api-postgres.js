@@ -19,6 +19,7 @@ const businessOps = require('./infrastructure/database/repositories/business-ope
 const masterData = require('./infrastructure/database/repositories/master-data');
 const governance = require('./infrastructure/database/repositories/governance');
 const organization = require('./infrastructure/database/repositories/organization');
+const procurement = require('./infrastructure/database/repositories/procurement');
 const { migrationFiles } = require('./infrastructure/database/migrations');
 const { requestContext } = require('./core/request-context');
 const fs = require('node:fs/promises');
@@ -89,10 +90,35 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m){
     const current=await runtime.getDocument(client,m[1]);if(!current)throw new AppError('RESOURCE_NOT_FOUND');const body=await readBody(req);const permission={submit:'submit',approve:'approve',reject:'approve',revise:'approve',start:'post',complete:'post',close:'post',cancel:'cancel',void:'void'}[body.action];if(!permission)throw new AppError('VALIDATION_ERROR',`Aksi '${body.action}' tidak dikenal.`);assertPermission(ctx.user,`${documentCore.moduleOf(current.documentType)}.${permission}`,{branchId:current.branchId});
     if(body.action==='void'&&['INVOICE','CUSTOMER_PAYMENT','SUPPLIER_PAYMENT','PAYROLL_RUN'].includes(current.documentType)){if(ctx.user.role!=='owner')throw new AppError('PIN_REQUIRED');const row=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!row?.owner_pin_hash||!verifyPassword(String(body.pin),row.owner_pin_hash))throw new AppError('PIN_REQUIRED');}
+    // R016 credit control: SO/Invoice tidak boleh diajukan bila pelanggan
+    // dalam hold atau melewati batas kredit tanpa override finance.
+    if(body.action==='submit'&&['SALES_ORDER','INVOICE'].includes(current.documentType)){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertCreditOk(client,raw);}
+    // R017 three-way match: tagihan supplier tidak boleh disetujui bila selisih
+    // PO/GR/invoice melampaui toleransi, kecuali override ber-alasan.
+    if(body.action==='approve'&&current.documentType==='SUPPLIER_INVOICE'){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertMatchOk(client,raw,{overrideReason:body.matchOverrideReason,user:ctx.user});}
     let allowOwnerOverride=false;if(body.action==='approve'&&current.createdBy===ctx.user.id){if(ctx.user.role!=='owner')throw new AppError('SOD_CONFLICT','Pembuat dokumen tidak boleh menjadi approver.');if(!body.reason)throw new AppError('REASON_REQUIRED');const pinRow=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!pinRow?.owner_pin_hash||!verifyPassword(String(body.pin),pinRow.owner_pin_hash))throw new AppError('PIN_REQUIRED');await governance.createOverride(client,{targetUserId:ctx.user.id,permissionCode:'approval.approve',scopeType:'BRANCH',scopeId:current.branchId,hours:1,reason:`SoD document override ${current.documentNumber}: ${body.reason}`,user:ctx.user});allowOwnerOverride=true;}
     const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`documents.${body.action}:${current.id}`,key:req.headers['idempotency-key'],body},async()=>{const updated=await runtime.transitionDocument(client,{id:current.id,action:body.action,user:ctx.user,reason:body.reason,requestId:ctx.requestId,allowOwnerOverride});await posting.postDocument(client,updated,ctx.user);if(body.action==='approve'&&['INVOICE','SUPPLIER_INVOICE','PAYROLL_RUN'].includes(updated.documentType))await businessOps.syncTaxes(client,updated.documentType==='PAYROLL_RUN'?updated.payload?.period:undefined);return{status:200,body:updated};});
     if(['approve','reject','revise'].includes(body.action))await operations.notify(client,{userId:current.createdBy,category:body.action==='approve'?'SUCCESS':'ACTION_REQUIRED',title:`${current.documentNumber} diperbarui`,body:body.reason||`Oleh ${ctx.user.displayName}.`,link:`#/doc/${current.id}`,dedupeKey:`act:${current.id}:${result.body.version}`});return result.body;
   }
+  // ── Wave 2: RFQ, three-way match, payment proposal, credit control ────────
+  m=p.match(/^\/api\/credit\/([0-9a-f-]{36})$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'credit.view');const status=await procurement.creditStatus(client,m[1]);if(!status)throw new AppError('RESOURCE_NOT_FOUND');return status;}
+  m=p.match(/^\/api\/documents\/([0-9a-f-]{36})\/credit-override$/);
+  if(method==='POST'&&m){const body=await readBody(req);return procurement.grantCreditOverride(client,{documentId:m[1],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/rfq\/([0-9a-f-]{36})\/quotes$/);
+  if(method==='GET'&&m)return{items:await procurement.listQuotes(client,m[1],ctx.user)};
+  if(method==='POST'&&m){const body=await readBody(req);ctx.status=201;return procurement.addQuote(client,{rfqId:m[1],body,user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/rfq\/([0-9a-f-]{36})\/quotes\/([0-9a-f-]{36})\/select$/);
+  if(method==='POST'&&m){const body=await readBody(req);return procurement.selectQuote(client,{rfqId:m[1],quoteId:m[2],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/rfq\/([0-9a-f-]{36})\/create-po$/);
+  if(method==='POST'&&m){const body=await readBody(req);const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`rfq.po:${m[1]}`,key:req.headers['idempotency-key'],body},async()=>({status:201,body:await procurement.rfqToPurchaseOrder(client,{rfqId:m[1],user:ctx.user,requestId:ctx.requestId})}));ctx.status=result.status;return result.body;}
+  m=p.match(/^\/api\/supplier-invoices\/([0-9a-f-]{36})\/match$/);
+  if(method==='GET'&&m){const existing=await procurement.getMatch(client,m[1],ctx.user);return existing||procurement.evaluateThreeWayMatch(client,{supplierInvoiceId:m[1],user:ctx.user,requestId:ctx.requestId});}
+  if(method==='POST'&&m){assertPermission(ctx.user,'supplier_invoice.view');return procurement.evaluateThreeWayMatch(client,{supplierInvoiceId:m[1],user:ctx.user,requestId:ctx.requestId});}
+  if(method==='POST'&&p==='/api/payment-proposals'){const body=await readBody(req);const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:'payment-proposal.generate',key:req.headers['idempotency-key'],body},async()=>({status:201,body:await procurement.generatePaymentProposal(client,{user:ctx.user,requestId:ctx.requestId,branchId:body.branchId,dueBefore:body.dueBefore})}));ctx.status=result.status;return result.body;}
+  m=p.match(/^\/api\/payment-proposals\/([0-9a-f-]{36})\/lines$/);
+  if(method==='GET'&&m)return{items:await procurement.proposalLines(client,m[1],ctx.user)};
+
   m=p.match(/^\/api\/documents\/([^/]+)\/convert$/);
   if(method==='POST'&&m){
     const current=await runtime.getDocument(client,m[1]);if(!current)throw new AppError('RESOURCE_NOT_FOUND');

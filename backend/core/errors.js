@@ -22,6 +22,9 @@ const CATALOG = {
   DATABASE_TIMEOUT:   { status: 504, message: 'Basis data tidak merespons tepat waktu. Coba lagi.' },
   JOB_FAILED:         { status: 500, message: 'Proses latar belakang gagal. Tim sistem sudah menerima detailnya.' },
   JOB_LIMIT:          { status: 429, message: 'Batas proses latar belakang aktif per pengguna tercapai.' },
+  CREDIT_HOLD:        { status: 409, message: 'Pelanggan berada dalam credit hold atau melampaui batas kredit. Butuh persetujuan finance.' },
+  MATCH_FAILED:       { status: 409, message: 'Three-way match gagal: selisih PO, penerimaan, dan tagihan melebihi toleransi.' },
+  DUPLICATE_MASTER:   { status: 409, message: 'Data master serupa sudah ada. Periksa kemungkinan duplikat.' },
   INTERNAL:           { status: 500, message: 'Terjadi kesalahan internal. Detail teknis sudah dicatat.' }
 };
 
