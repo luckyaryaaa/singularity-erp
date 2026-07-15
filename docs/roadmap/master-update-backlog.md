@@ -22,8 +22,8 @@
 | Rotasi credential yang pernah masuk ZIP | 4.1 | ⬜ (jalankan `security:rotate-owner` + ganti PG password sebelum release berikutnya) |
 | Release script allowlist + secret scan + checksum + manifest | 4.1 | ⬜ |
 | Environment guard LOCAL-DEV / LOCAL-INTEGRATION / LAN-UAT / PRODUCTION | 4.2 | ◐ fail-fast MAT_DB_MODE + guard production ada; pemisahan nama DB & seed guard per env ⬜ |
-| Gate `MAT_PRODUCTION_ACTIVATION_ALLOWED` (§34) | 34 | 🔨 Wave 1c |
-| Numbering multi-branch `{DOC}-{BRANCH}-{MMYY}-{SEQ}` + config version + concurrency 100 | 4.3 | 🔨 Wave 1c |
+| Gate `MAT_PRODUCTION_ACTIVATION_ALLOWED` (§34) | 34 | ✅ boot produksi diblokir tanpa flag=1 |
+| Numbering multi-branch `{DOC}-{BRANCH}-{MMYY}-{SEQ}` + config version + concurrency 100 | 4.3 | ✅ migrasi 014, uji 100 paralel unik |
 | Session touch throttle 5–10 mnt (hapus FOR UPDATE per request) | 4.4 | ⬜ |
 | Stable CSRF multi-tab tanpa false 403 | 4.4 | ◐ (CSRF stabil per sesi; uji multi-tab formal ⬜) |
 | Revoke session saat password/role berubah + risk data IP/UA | 4.4 | ◐ (revoke saat reset password ✅; role change & risk data ⬜) |
