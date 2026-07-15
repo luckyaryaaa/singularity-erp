@@ -14,6 +14,10 @@
 | `008_enterprise_operations.sql` | relasi dokumen, setting persisten, private artifact, delivery, backup restore metadata |
 | `009_finance_hr_operations.sql` | payment allocation audit, attendance, leave balance, payroll component, bank reconciliation, import batch, akun finance/HR |
 | `010_employee_self_service.sql` | tautan unik user–employee untuk isolasi attendance, leave, payroll, dan slip pribadi |
+| `011_audit_partition_lifecycle.sql` | partisi audit 2027–2031 + DEFAULT + fungsi maintenance otomatis (tutup bom waktu 2027) |
+| `012_enterprise_organization.sql` | legal entity, business unit, department, cost/profit center, plant, warehouse mandiri, storage location, bin, work center, project WBS, fiscal calendar, ledger + dimensi akuntansi pada dokumen |
+| `013_enterprise_master_data.sql` | lifecycle MDM 4 master + 13 sub-tabel employee + customer contacts/addresses/harga + supplier bank maker-checker/materials/price history/evaluasi + product variant/UoM/BOM revision/HPP versioning |
+| `014_branch_aware_numbering.sql` | konfigurasi penomoran ber-versi; format branch-aware {DOC}-{BRANCH}-{MMYY}-{SEQ} |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.

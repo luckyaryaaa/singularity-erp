@@ -42,6 +42,19 @@ Aksi dokumen: `submit`, `approve`, `reject`, `revise`, `start`, `complete`,
 
 - `GET|POST /api/customers|suppliers|products|employees`
 - `PATCH /api/customers|suppliers|products|employees/:id`
+
+### Master data enterprise (R014/R015)
+
+- `GET /api/masters/{employees|customers|suppliers|products}/:id` — overview + subCounts
+- `POST /api/masters/{master}/:id/lifecycle` — `{action, reason?}` DRAFT→…→ARCHIVED
+- `GET|POST /api/masters/{master}/:id/{sub}` — sub-resource per tab (kontak, alamat,
+  kontrak, kompensasi ber-izin payroll, pajak, BPJS, bank, dokumen, dst.)
+- `POST /api/masters/suppliers/:id/bank-accounts/:bankId/approve` — maker-checker (SoD)
+- `POST /api/masters/products/:id/cost-revisions/:revId/{review|approve|lock|activate}` — HPP versioning; activate menjadikan Active HPP + snapshot `products.hpp`
+- `POST /api/masters/products/:id/bom/:bomId/{review|approve|effective}` — BOM revision
+
+Masking server-side: nomor rekening & gaji tertutup bila peran tanpa izin
+finance/payroll. Harga supplier append-only (revisi bertambah, tidak menimpa).
 - `GET /api/inventory`
 - `GET /api/accounting/summary`
 - `GET /api/accounting/accounts`

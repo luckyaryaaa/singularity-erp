@@ -15,6 +15,26 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.7.0 — Master data & organisasi enterprise (R012–R015 Wave 1)
+
+- Struktur organisasi enterprise: legal entity → business unit → branch → plant
+  → warehouse mandiri → storage location → bin, plus department, cost/profit
+  center, work center, project WBS, fiscal calendar, ledger (migrasi 012).
+- Master data ternormalisasi (migrasi 013): **employee 13 sub-tabel** (personal,
+  posisi, riwayat kerja, kontrak, kompensasi, pajak, BPJS per program, asuransi,
+  bank ber-verifikasi, dokumen, sertifikasi, kontak darurat, akses); **customer**
+  contacts/addresses/harga khusus + credit control; **supplier** bank
+  maker-checker (SoD), approved materials, price history append-only, evaluasi;
+  **product** varian/UoM/BOM ber-revisi/HPP ber-versi + Active HPP lock.
+- Lifecycle MDM DRAFT→PENDING_REVIEW→APPROVED→ACTIVE→SUSPENDED→BLOCKED→OBSOLETE→ARCHIVED.
+- Halaman master detail bertab (Employee 10+ tab) dengan masking gaji/rekening
+  server-side dan aktivasi HPP satu klik.
+- Numbering branch-aware `{DOC}-{BRANCH}-{MMYY}-{SEQ}` — uji 100 paralel tanpa
+  tabrakan; nomor legacy tetap terbaca.
+- Gate produksi `MAT_PRODUCTION_ACTIVATION_ALLOWED` (§34 master update).
+- Backlog resmi seluruh FINAL MASTER UPDATE: `docs/roadmap/master-update-backlog.md`.
+- 42/42 automated tests lulus (termasuk master data enterprise E2E).
+
 ## Status v0.6.0 — Pengerasan produksi (pra go-live VPS)
 
 - Git version control aktif; dead code legacy dihapus.

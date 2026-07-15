@@ -51,3 +51,54 @@ httpTest('PostgreSQL HTTP auth: ganti sandi wajib dan MFA TOTP lengkap',async()=
     response=await fetch(`${base}/api/auth/mfa`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mfaToken:body.mfaToken,code:totp.hotp(secret,Math.floor(Date.now()/1000/30))})});body=await response.json();assert.equal(response.status,200);assert.ok(body.user);assert.ok(response.headers.get('set-cookie'));
   }finally{if(proc)await stop(proc);await admin.query('DELETE FROM user_sessions WHERE user_id=$1',[id]).catch(()=>{});await admin.query('DELETE FROM auth_pending WHERE user_id=$1',[id]).catch(()=>{});await admin.query('DELETE FROM login_history WHERE user_id=$1',[id]).catch(()=>{});await admin.query('DELETE FROM app_users WHERE id=$1',[id]).catch(()=>{});await admin.end();}
 });
+httpTest('PostgreSQL HTTP master data enterprise: sub-resource, maker-checker bank, aktivasi HPP, masking, lifecycle',async()=>{
+  const port=48000+Math.floor(Math.random()*1000),base=`http://127.0.0.1:${port}`;let proc=startServer(port);
+  const admin=new Client({connectionString:process.env.MIGRATION_DATABASE_URL});await admin.connect();
+  let supplierId,productId,employeeId;
+  try{
+    await waitReady(base,proc);
+    const login=async(u,p)=>{const r=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:u,password:p})});const b=await r.json();if(r.status!==200)throw new Error(`login ${u}: ${b.message}`);return{cookie:r.headers.get('set-cookie').split(';')[0],csrf:b.csrfToken,role:b.user.role};};
+    const owner=await login(process.env.MAT_BOOTSTRAP_OWNER_USERNAME,process.env.MAT_BOOTSTRAP_OWNER_PASSWORD);
+    const call=(path,sess,method='GET',body)=>fetch(`${base}${path}`,{method,headers:{cookie:sess.cookie,'content-type':'application/json',...(method!=='GET'?{'x-csrf-token':sess.csrf,'idempotency-key':randomUUID()}:{})},body:body?JSON.stringify(body):undefined});
+
+    supplierId=(await (await call('/api/suppliers',owner,'POST',{code:`SUP-${Date.now()}`,name:'Supplier Uji Enterprise',category:'Steel'})).json()).id;
+    productId=(await (await call('/api/products',owner,'POST',{code:`PRD-${Date.now()}`,name:'Produk Uji Enterprise',uom:'unit',hpp:1000,price:2000})).json()).id;
+    const emp=(await admin.query('SELECT id FROM employees LIMIT 1')).rows[0];employeeId=emp.id;
+
+    // Overview memuat subCounts.
+    let r=await call(`/api/masters/suppliers/${supplierId}`,owner);let b=await r.json();assert.equal(r.status,200);assert.ok(b.subCounts,'overview harus punya subCounts');
+
+    // Bank supplier: maker-checker. Owner mengusulkan.
+    r=await call(`/api/masters/suppliers/${supplierId}/bank-accounts`,owner,'POST',{bankName:'Bank Uji',accountNumber:'1234567890',accountHolder:'Supplier Uji',changeReason:'Rekening awal'});b=await r.json();assert.equal(r.status,201);const bankId=b.id;assert.equal(b.verificationStatus,'PENDING_VERIFICATION');assert.equal(b.paymentHold,true);
+    // Maker == checker ditolak (SoD).
+    r=await call(`/api/masters/suppliers/${supplierId}/bank-accounts/${bankId}/approve`,owner,'POST',{});assert.equal(r.status,403,'pengusul tidak boleh menyetujui sendiri');
+    // Checker berbeda (finance) menyetujui.
+    let finance;try{finance=await login('finance_uat',process.env.MAT_UAT_DEFAULT_PASSWORD||'x');}catch{finance=null;}
+    if(finance){r=await call(`/api/masters/suppliers/${supplierId}/bank-accounts/${bankId}/approve`,finance,'POST',{});if(r.status===200){b=await r.json();assert.equal(b.verificationStatus,'VERIFIED');assert.equal(b.paymentHold,false);}}
+
+    // Riwayat harga supplier append-only: revisi bertambah.
+    await call(`/api/masters/suppliers/${supplierId}/price-history`,owner,'POST',{materialDesc:'Plat SS400',uom:'lembar',price:100000,effectiveFrom:'2026-07-01'});
+    r=await call(`/api/masters/suppliers/${supplierId}/price-history`,owner,'POST',{materialDesc:'Plat SS400',uom:'lembar',price:110000,effectiveFrom:'2026-07-10'});b=await r.json();assert.equal(b.revisionNo,2,'revisi harga bertambah, tidak menimpa');
+    r=await call(`/api/masters/suppliers/${supplierId}/price-history`,owner);b=await r.json();assert.equal(b.items.length,2);assert.equal(b.items.filter(x=>x.status==='ACTIVE').length,1,'hanya satu harga ACTIVE');
+
+    // HPP versioning: buat revisi, ajukan→setujui→aktifkan, products.hpp jadi snapshot.
+    r=await call(`/api/masters/products/${productId}/cost-revisions`,owner,'POST',{costRawMaterial:500,costLabor:300,costOverhead:200});b=await r.json();assert.equal(r.status,201);const revId=b.id;assert.equal(Number(b.totalCost),1000,'total HPP = jumlah komponen');
+    await call(`/api/masters/products/${productId}/cost-revisions/${revId}/review`,owner,'POST',{});
+    await call(`/api/masters/products/${productId}/cost-revisions/${revId}/approve`,owner,'POST',{});
+    r=await call(`/api/masters/products/${productId}/cost-revisions/${revId}/activate`,owner,'POST',{});b=await r.json();assert.equal(r.status,200);assert.equal(b.status,'ACTIVE');
+    const prod=(await admin.query('SELECT hpp FROM products WHERE id=$1',[productId])).rows[0];assert.equal(Number(prod.hpp),1000,'Active HPP menjadi snapshot products.hpp');
+
+    // Masking gaji: employee tanpa izin payroll melihat kompensasi tertutup.
+    let production;try{production=await login('production_uat',process.env.MAT_UAT_DEFAULT_PASSWORD||'x');}catch{production=null;}
+    if(production){r=await call(`/api/masters/employees/${employeeId}/compensation`,production);assert.equal(r.status,403,'kompensasi butuh izin payroll');}
+
+    // Lifecycle MDM: ACTIVE→suspend butuh alasan.
+    r=await call(`/api/masters/suppliers/${supplierId}/lifecycle`,owner,'POST',{action:'suspend'});assert.equal(r.status,422,'suspend butuh alasan');
+    r=await call(`/api/masters/suppliers/${supplierId}/lifecycle`,owner,'POST',{action:'suspend',reason:'Uji lifecycle'});b=await r.json();assert.equal(r.status,200);assert.equal(b.lifecycleStatus,'SUSPENDED');
+  }finally{
+    await stop(proc);
+    if(supplierId){await admin.query('DELETE FROM supplier_price_history WHERE supplier_id=$1',[supplierId]).catch(()=>{});await admin.query('DELETE FROM supplier_bank_accounts WHERE supplier_id=$1',[supplierId]).catch(()=>{});await admin.query('DELETE FROM audit_logs WHERE entity_id=$1',[supplierId]).catch(()=>{});await admin.query('DELETE FROM suppliers WHERE id=$1',[supplierId]).catch(()=>{});}
+    if(productId){await admin.query('DELETE FROM product_cost_revisions WHERE product_id=$1',[productId]).catch(()=>{});await admin.query('DELETE FROM audit_logs WHERE entity_id=$1',[productId]).catch(()=>{});await admin.query('DELETE FROM products WHERE id=$1',[productId]).catch(()=>{});}
+    await admin.end();
+  }
+});
