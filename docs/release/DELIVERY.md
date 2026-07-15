@@ -1,4 +1,52 @@
-# MAT ERP V2 — Delivery v0.6.0 (Pengerasan Produksi)
+# MAT ERP V2 — Delivery v0.10.0 (Sprint 7 / R014)
+
+## Status v0.10.0 — Enterprise Organization & Employee Master
+
+- Organization Workbench menjadi single source of truth identitas legal,
+  hierarchy, aset, authorized signatory, identitas pajak, dan rekening perusahaan.
+- Rekening perusahaan memakai maker-checker, Owner PIN, MFA step-up 10 menit,
+  reason, audit old/new termasking, dan hanya status VERIFIED yang disnapshot.
+- Dokumen transaksi baru menyimpan snapshot immutable identitas organisasi,
+  rekening, dan penandatangan pada saat creation.
+- Employee Workbench mengikuti tepat 10 tab final dengan grouped renderer tunggal;
+  kompensasi dan payroll bank memakai maker-checker serta masking server-side.
+- Migration 017 dan rollback tervalidasi. Suite 54/54, Self-Test 12/12,
+  backup offsite terenkripsi dan restore drill 108 tabel seluruhnya lulus.
+Catatan readiness: implementasi R014 selesai. Kelengkapan data legal harus diisi
+dari dokumen resmi perusahaan; nilai yang belum tersedia tidak difabrikasi.
+
+## Status v0.9.0 — Enterprise IAM, SoD & Approval Governance
+
+- Migration 016 menyediakan 13 role enterprise, assignment role
+  maker-checker/effective-dated, rule dan event SoD, emergency override,
+  access review, serta approval policy versioned.
+- API menolak perubahan role langsung. Persetujuan assignment dan aktivasi
+  policy memerlukan checker berbeda; perubahan akses mencabut sesi aktif.
+- Assignment kedaluwarsa tidak lagi dapat login atau mempertahankan sesi.
+- Creator dokumen tidak dapat menjadi approver; override Owner wajib PIN,
+  alasan, scope, durasi, dan audit trail.
+- Approval policy aktif diselesaikan pada submit dan disnapshot immutable ke
+  dokumen. Access review mendukung retain/revoke hingga completion gate.
+- UI governance mencakup IAM, SoD conflict center, policy builder, daftar dan
+  workbench access review. Self-test/predeploy memverifikasi kontrol R013.
+- Rilis ini tetap local build. LAN-UAT, sign-off Owner, dan aktivasi VPS R026
+  tetap merupakan gate terpisah setelah seluruh backlog berikutnya selesai.
+
+## Status v0.8.0 — local build gate selesai
+
+- Environment guard, trusted proxy, session/CSRF hardening, job lifecycle dan
+  policy registry, file quarantine/scanner, serta data scope report/export/file
+  aktif dan memiliki regression test.
+- Credential runtime telah dirotasi pada 15 Juli 2026; nilai hanya berada di
+  `.env`, tidak dicetak dan tidak dimasukkan ke paket release.
+- Release dibangun dari allowlist, melewati secret scan, dan memiliki manifest
+  SHA-256. `npm run predeploy` menjalankan audit dependency, checksum migration,
+  full test, load smoke, boot/health, pemeriksaan R012, dan backup freshness.
+- LOCAL BUILD READY bukan PRODUCTION READY. Production tetap diblokir sampai
+  LAN-UAT serta `docs/uat/FINAL_SIGNOFF.json` disetujui Owner dan VPS diaktifkan
+  pada R026.
+
+# Riwayat v0.6.0 — Pengerasan Produksi
 
 ## Status v0.6.0 — siap runbook go-live VPS
 

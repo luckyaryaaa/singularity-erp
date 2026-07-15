@@ -62,10 +62,19 @@ async function outbox(client,eventType,payload={}) {
 async function createDocument(client,{type,user,title,amount=0,partyId,partyName,dueDate,payload={},requestId}) {
   if(!(Number(amount)>=0)) throw new AppError('VALIDATION_ERROR','Nilai dokumen tidak boleh negatif.');
   const id=randomUUID(); const documentNumber=await nextNumber(client,{documentType:type,branchId:user.branchId});
+  const org=(await client.query(`SELECT le.id legal_entity_id,le.code,le.legal_name,le.trade_name,le.npwp,le.legal_address,le.operational_address,le.phone,le.whatsapp,le.email,le.website,le.document_footer,
+    (SELECT jsonb_build_object('bankName',b.bank_name,'accountNumber',b.account_number,'accountHolder',b.account_holder,'currency',b.currency,'usagePurpose',b.usage_purpose)
+      FROM company_bank_accounts b WHERE b.legal_entity_id=le.id AND b.verification_status='VERIFIED' AND b.effective_from<=current_date AND (b.effective_to IS NULL OR b.effective_to>=current_date)
+      ORDER BY b.is_primary DESC,b.approved_at DESC LIMIT 1) bank,
+    (SELECT jsonb_build_object('name',s.signatory_name,'positionTitle',s.position_title,'signatureAssetId',s.signature_asset_id)
+      FROM organization_signatories s WHERE s.legal_entity_id=le.id AND s.active AND s.effective_from<=current_date AND (s.effective_to IS NULL OR s.effective_to>=current_date)
+      ORDER BY s.effective_from DESC LIMIT 1) signatory
+    FROM branches br JOIN legal_entities le ON le.id=br.legal_entity_id WHERE br.id=$1`,[user.branchId])).rows[0]||{};
+  const legalEntityId=org.legal_entity_id||null; delete org.legal_entity_id;
   const result=await client.query(`INSERT INTO business_documents
-    (id,document_number,document_type,branch_id,status,version,amount,payload,title,party_id,party_name,due_date,created_by,updated_by)
-    VALUES($1,$2,$3,$4,'DRAFT',1,$5,$6,$7,$8,$9,$10,$11,$11) RETURNING *`,
-    [id,documentNumber,type,user.branchId,amount,payload,title||type,partyId||null,partyName||null,dueDate||null,user.id]);
+    (id,document_number,document_type,branch_id,legal_entity_id,organization_identity_snapshot,status,version,amount,payload,title,party_id,party_name,due_date,created_by,updated_by)
+    VALUES($1,$2,$3,$4,$5,$6,'DRAFT',1,$7,$8,$9,$10,$11,$12,$13,$13) RETURNING *`,
+    [id,documentNumber,type,user.branchId,legalEntityId,org,amount,payload,title||type,partyId||null,partyName||null,dueDate||null,user.id]);
   await posting.syncDocumentLines(client,id,payload?.lines);
   await audit(client,{userId:user.id,action:'CREATE',module:type.toLowerCase(),entityType:type,entityId:id,documentNumber,newValue:{title:title||type,amount:Number(amount)},requestId,branchId:user.branchId});
   await outbox(client,`${type.toLowerCase()}.created`,{entityId:documentNumber,documentType:type,branchId:user.branchId,version:1});
@@ -126,7 +135,16 @@ async function pendingApprovals(client,user,{page=1,limit=25}={}){
 
 const APPROVAL_TIERS=[{max:5_000_000,levels:['supervisor']},{max:50_000_000,levels:['supervisor','finance']},{max:Infinity,levels:['supervisor','finance','owner']}];
 const TRANSITIONS={submit:{from:['DRAFT','REVISION_REQUIRED'],to:'WAITING_APPROVAL'},approve:{from:['WAITING_APPROVAL'],to:'APPROVED'},reject:{from:['WAITING_APPROVAL'],to:'REJECTED'},revise:{from:['WAITING_APPROVAL'],to:'REVISION_REQUIRED'},start:{from:['APPROVED'],to:'IN_PROCESS'},complete:{from:['IN_PROCESS','PARTIALLY_COMPLETED'],to:'COMPLETED'},close:{from:['COMPLETED','PARTIALLY_PAID'],to:'CLOSED'},cancel:{from:['DRAFT','WAITING_APPROVAL','REVISION_REQUIRED','APPROVED'],to:'CANCELLED'},void:{from:['APPROVED','IN_PROCESS','COMPLETED','CLOSED','PARTIALLY_PAID'],to:'VOID'}};
-const roleLevel={admin:'supervisor',sales:'supervisor',procurement:'supervisor',warehouse:'supervisor',production:'supervisor',hrd:'supervisor',finance:'finance',accounting:'finance',owner:'owner'};
+const roleLevel={sales:'supervisor',procurement:'supervisor',warehouse:'supervisor',production:'supervisor',hrd:'supervisor',finance_manager:'finance',finance:'finance',accounting:'finance',owner:'owner'};
+
+async function approvalPolicy(client,doc){
+  const row=(await client.query(`SELECT * FROM approval_policy_versions WHERE status='ACTIVE' AND document_type IN($1,'*')
+    AND (branch_id IS NULL OR branch_id=$2) AND min_amount<=$3 AND (max_amount IS NULL OR max_amount>=$3)
+    AND effective_from<=now() AND (effective_until IS NULL OR effective_until>now())
+    ORDER BY (document_type=$1) DESC,(branch_id=$2) DESC,min_amount DESC,version DESC LIMIT 1`,[doc.document_type,doc.branch_id,Number(doc.amount)])).rows[0];
+  if(!row)return{levels:APPROVAL_TIERS.find(t=>Number(doc.amount)<=t.max).levels,id:null,snapshot:{source:'LEGACY_FALLBACK',resolvedAt:new Date().toISOString()}};
+  const steps=(row.steps||[]).sort((a,b)=>a.sequence-b.sequence);return{levels:steps.map(x=>x.level),id:row.id,snapshot:{policyId:row.id,policyKey:row.policy_key,version:row.version,documentType:row.document_type,branchId:row.branch_id,minAmount:Number(row.min_amount),maxAmount:row.max_amount===null?null:Number(row.max_amount),steps,resolvedAt:new Date().toISOString()}};
+}
 
 async function transitionDocument(client,{id,action,user,reason,requestId,allowOwnerOverride=false}){
   const result=await client.query('SELECT * FROM business_documents WHERE id=$1 FOR UPDATE',[id]);
@@ -137,8 +155,9 @@ async function transitionDocument(client,{id,action,user,reason,requestId,allowO
   if(['void','cancel','reject','revise'].includes(action)&&!reason)throw new AppError('REASON_REQUIRED');
   let status=rule.to,approvals=Array.isArray(doc.approvals)?doc.approvals:[],levels=doc.required_approval_levels||[];
   const extra={};
-  if(action==='submit'){levels=APPROVAL_TIERS.find(t=>Number(doc.amount)<=t.max).levels;approvals=[];extra.submitted_at=new Date();}
+  if(action==='submit'){const resolved=await approvalPolicy(client,doc);levels=resolved.levels;approvals=[];extra.submitted_at=new Date();extra.approval_policy_version_id=resolved.id;extra.approval_policy_snapshot=resolved.snapshot;}
   if(['approve','reject','revise'].includes(action)){
+    if(doc.created_by===user.id&&!allowOwnerOverride)throw new AppError('SOD_CONFLICT','Pembuat dokumen tidak boleh menjadi approver dokumen yang sama.');
     const done=approvals.map(a=>a.level),next=levels.find(level=>!done.includes(level));
     const actual=roleLevel[user.role];
     if(actual!==next&&!(allowOwnerOverride&&user.role==='owner'))throw new AppError('PERMISSION_DENIED',`Approval berikutnya membutuhkan level ${next}.`);
@@ -175,4 +194,4 @@ async function withIdempotency(client,{userId,operation,key,body},execute){
   return response;
 }
 
-module.exports={PREFIXES,camel,nextNumber,audit,outbox,createDocument,updateDocument,getDocument,documentRelations,convertDocument,listDocuments,auditTrail,pendingApprovals,transitionDocument,withIdempotency,APPROVAL_TIERS,CONVERSIONS};
+module.exports={PREFIXES,camel,nextNumber,audit,outbox,createDocument,updateDocument,getDocument,documentRelations,convertDocument,listDocuments,auditTrail,pendingApprovals,transitionDocument,withIdempotency,approvalPolicy,APPROVAL_TIERS,CONVERSIONS};

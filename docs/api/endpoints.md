@@ -72,13 +72,31 @@ finance/payroll. Harga supplier append-only (revisi bertambah, tidak menimpa).
 - `GET /api/payroll/runs/:id/items`
 - `GET /api/payroll/my` — hanya data employee yang sedang login
 - `GET /api/audit`
+- `GET /api/governance/roles`
+- `GET|POST /api/governance/assignments`
+- `POST /api/governance/assignments/:id/{approve|reject|revoke}` — maker-checker; Owner approval/revoke memakai PIN
+- `GET /api/governance/sod`
+- `GET|POST /api/governance/overrides` — emergency access Owner + PIN, maksimum 24 jam
+- `GET|POST /api/governance/approval-policies`
+- `POST /api/governance/approval-policies/:id/activate` — checker berbeda dan overlap guard
+- `GET|POST /api/governance/access-reviews`
+- `GET /api/governance/access-reviews/:id`
+- `POST /api/governance/access-reviews/items/:id/decide`
+- `POST /api/governance/access-reviews/:id/complete`
+- `GET /api/organization` — profil legal entity + skor kelengkapan + jumlah hierarchy
+- `PATCH /api/organization/:id` — identitas versioned, Owner + PIN + alasan
+- `GET /api/organization/:id/hierarchy`
+- `GET|POST /api/organization/:id/{assets|signatories|tax-identities|bank-accounts}`
+- `POST /api/organization/:id/bank-accounts/:bankId/{approve|reject}` — Owner PIN + MFA terbaru + maker ≠ checker
+- `GET /api/masters/employees/:id/audit`
+- `POST /api/masters/employees/:id/{bank-accounts|compensation}/:rowId/{approve|reject}` — maker-checker employee
 - `GET|POST /api/jobs`
 - `GET /api/artifacts`
 - `GET /api/artifacts/:id` — unduhan privat milik pemohon
 - `GET|POST /api/files`
 - `GET|DELETE /api/files/:id`
 - `GET /api/system/users|settings|monitoring|self-test`
-- `PATCH /api/system/settings/company` — Owner + PIN + alasan
+- `PATCH /api/system/settings/company` — compatibility facade ke Organization Master; rekening wajib melalui maker-checker
 - `POST /api/system/users/:id/reset-password`
 - `GET /api/events` — SSE terautentikasi
 

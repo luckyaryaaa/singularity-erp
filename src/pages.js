@@ -398,7 +398,7 @@
                 <button class="btn secondary block" id="detailPdf">${ICONS.doc} Buat PDF (latar belakang)</button>
                 ${doc.documentType === 'PAYROLL_RUN' && can('payroll.view') ? `<button class="btn secondary block" id="payrollSlips">${ICONS.payslip} Buat seluruh slip gaji</button>` : ''}
                 ${can(`${moduleCode}.edit`) ? `<button class="btn secondary block" id="detailUpload">${ICONS.plus} Unggah lampiran</button><input id="detailFile" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xlsx,.docx" hidden>` : ''}
-                <div class="file-list">${files.items.map(file => `<div class="file-row"><span>${ICONS.doc}<span><b>${esc(file.originalFilename)}</b><small>${Math.ceil(file.sizeBytes / 1024).toLocaleString('id-ID')} KB · ${fmtDateTime(file.uploadedAt)}</small></span></span><span><a class="icon-btn" href="/api/files/${esc(file.id)}" aria-label="Unduh ${esc(file.originalFilename)}">${ICONS.arrow}</a>${can(`${moduleCode}.edit`) ? `<button class="icon-btn" data-file-delete="${esc(file.id)}" aria-label="Hapus ${esc(file.originalFilename)}">${ICONS.close}</button>` : ''}</span></div>`).join('') || '<p class="muted">Belum ada lampiran.</p>'}</div>
+                <div class="file-list">${files.items.map(file => `<div class="file-row"><span>${ICONS.doc}<span><b>${esc(file.originalFilename)}</b><small>${Math.ceil(file.sizeBytes / 1024).toLocaleString('id-ID')} KB · ${fmtDateTime(file.uploadedAt)} · ${chip(file.scanStatus || 'PENDING_SCAN')}</small></span></span><span>${file.scanStatus === 'CLEAN' ? `<a class="icon-btn" href="/api/files/${esc(file.id)}" aria-label="Unduh ${esc(file.originalFilename)}">${ICONS.arrow}</a>` : ''}${can(`${moduleCode}.edit`) ? `<button class="icon-btn" data-file-delete="${esc(file.id)}" aria-label="Hapus ${esc(file.originalFilename)}">${ICONS.close}</button>` : ''}</span></div>`).join('') || '<p class="muted">Belum ada lampiran.</p>'}</div>
                 <p class="muted">File tersimpan di storage privat; unduhan melalui endpoint yang memeriksa izin.</p>
               </div>
             </article>
@@ -655,6 +655,50 @@
     ]
   });
 
+  const iamGovernance = {
+    permission: 'iam.view',
+    async render(main, _p, signal) {
+      const [roles, assignments, users] = await Promise.all([
+        api('/api/governance/roles', { signal }), api('/api/governance/assignments', { signal }), api('/api/system/users', { signal })
+      ]);
+      const pending=assignments.items.filter(x=>x.status==='PENDING');
+      main.innerHTML=pageHead({eyebrow:'ENTERPRISE IAM',title:'IAM & role assignment',sub:'Role tidak dapat lagi diubah langsung. Setiap assignment memiliki scope, effective date, pengusul, approver, histori, dan session revocation.',actions:can('iam.create')?`<button class="btn primary" id="iamRequest">${ICONS.people} Usulkan role</button>`:''})+`
+        <section class="metrics">
+          ${kpiCard({label:'Role enterprise',value:String(roles.items.length),note:'Katalog terpisah platform, control, business, dan self-service',orb:'people',orbTone:'blue'})}
+          ${kpiCard({label:'Menunggu approval',value:String(pending.length),note:'Maker dan checker wajib berbeda',orb:'approval',orbTone:pending.length?'amber':'mint'})}
+          ${kpiCard({label:'Assignment aktif',value:String(assignments.items.filter(x=>x.status==='ACTIVE').length),note:'Effective-dated dan dapat direview',orb:'lock',orbTone:'lavender'})}
+        </section>
+        <section class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">ROLE CATALOG</p><h2>Pemisahan kewenangan</h2></div></header><div class="panel-body stack">${roles.items.map(r=>`<div class="stat-row"><span><b>${esc(r.name)}</b><small>${esc(r.description)}</small></span><span><span class="chip ${r.privileged?'coral':'blue'}">${esc(r.code)}</span><small>${r.assignedCount} aktif · ${r.permissions.length} izin</small></span></div>`).join('')}</div></article>
+        <article class="panel"><header><div><p class="eyebrow">MAKER–CHECKER</p><h2>Assignment terbaru</h2></div></header><div class="panel-body stack">${assignments.items.slice(0,30).map(a=>`<div class="stat-row"><span><b>${esc(a.displayName)}</b><small>${esc(a.roleName)} · ${esc(a.scopeType)}</small></span><span>${chip(a.status)}${a.status==='PENDING'&&can('iam.approve')?`<span class="row-actions"><button class="btn primary sm" data-assignment="${a.id}" data-decision="approve">Setujui</button><button class="btn danger-outline sm" data-assignment="${a.id}" data-decision="reject">Tolak</button></span>`:''}</span></div>`).join('')||'<p class="muted">Belum ada assignment.</p>'}</div></article></section>`;
+      main.querySelector('#iamRequest')?.addEventListener('click',async()=>{const value=await formDialog({title:'Usulkan role enterprise',description:'Usulan harus disetujui pengguna lain. Role/scope lama tetap aktif sampai approval.',fields:[{name:'targetUserId',label:'Pengguna',type:'select',options:users.items.map(x=>[x.id,`${x.displayName} · ${x.role}`]),required:true},{name:'roleCode',label:'Role',type:'select',options:roles.items.map(x=>[x.code,x.name]),required:true},{name:'scopeType',label:'Data scope',type:'select',options:['GLOBAL','BRANCH','OWN_RECORD'].map(x=>[x,x]),required:true},{name:'reason',label:'Alasan bisnis',type:'textarea',required:true}],submitLabel:'Kirim usulan'});if(!value)return;try{await api('/api/governance/assignments',{method:'POST',body:value});toast('Assignment diusulkan','Menunggu checker yang berbeda.');this.render(main);}catch(e){toast('Usulan gagal',e.message,'coral');}});
+      main.querySelectorAll('[data-assignment]').forEach(btn=>btn.addEventListener('click',async()=>{const answer=await actionDialog({title:btn.dataset.decision==='approve'?'Setujui assignment':'Tolak assignment',description:'Keputusan tercatat permanen dan perubahan role akan mencabut seluruh sesi pengguna.',requireReason:true,requirePin:btn.dataset.decision==='approve'&&state.user.role==='owner',confirmLabel:btn.dataset.decision==='approve'?'Setujui':'Tolak'});if(!answer)return;try{await api(`/api/governance/assignments/${btn.dataset.assignment}/${btn.dataset.decision}`,{method:'POST',body:answer});toast('Keputusan tersimpan');this.render(main);}catch(e){toast('Keputusan gagal',e.message,'coral');}}));
+    }
+  };
+
+  const sodCenter={permission:'sod.view',async render(main,_p,signal){const [sod,overrides]=await Promise.all([api('/api/governance/sod',{signal}),api('/api/governance/overrides',{signal})]);main.innerHTML=pageHead({eyebrow:'SEGREGATION OF DUTIES',title:'SoD conflict center',sub:'Konflik role dan transaksi sensitif diblokir sebelum perubahan state. Emergency access dibatasi maksimal 24 jam.',actions:''})+`<section class="metrics">${kpiCard({label:'Aturan aktif',value:String(sod.rules.length),note:'Role conflict dan transaction duty',orb:'shield',orbTone:'blue'})}${kpiCard({label:'Konflik tercatat',value:String(sod.conflicts.length),note:'Blocked, overridden, dan resolved',orb:'warning',orbTone:sod.conflicts.length?'coral':'mint'})}${kpiCard({label:'Emergency access aktif',value:String(overrides.items.filter(x=>x.status==='ACTIVE').length),note:'Owner PIN + expiry wajib',orb:'lock',orbTone:'amber'})}</section><section class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">CONTROL LIBRARY</p><h2>Aturan SoD</h2></div></header><div class="panel-body stack">${sod.rules.map(r=>`<div class="stat-row"><span><b>${esc(r.name)}</b><small>${esc(r.description)}</small></span><span class="chip ${r.severity==='CRITICAL'?'coral':'amber'}">${esc(r.severity)}</span></div>`).join('')}</div></article><article class="panel"><header><div><p class="eyebrow">EXCEPTIONS</p><h2>Override & konflik</h2></div></header><div class="panel-body stack">${[...overrides.items,...sod.conflicts].slice(0,30).map(x=>`<div class="stat-row"><span><b>${esc(x.permissionCode||x.ruleName||'Conflict')}</b><small>${esc(x.userName||'—')}</small></span>${chip(x.status)}</div>`).join('')||'<p class="muted">Tidak ada exception.</p>'}</div></article></section>`;}};
+
+  const approvalPolicies={permission:'approval_policy.view',async render(main,_p,signal){const data=await api('/api/governance/approval-policies',{signal});main.innerHTML=pageHead({eyebrow:'APPROVAL GOVERNANCE',title:'Approval policy builder',sub:'Policy berbasis modul, nominal, cabang, versi, dan effective date. Snapshot terkunci saat dokumen diajukan.',actions:can('approval_policy.create')?`<button class="btn primary" id="policyCreate">${ICONS.approval} Versi baru</button>`:''})+`<section class="panel"><header><div><p class="eyebrow">POLICY VERSIONS</p><h2>Matrix aktif dan draft</h2></div></header><div class="table-wrap"><table><thead><tr><th>Policy</th><th>Dokumen</th><th>Rentang</th><th>Steps</th><th>Versi</th><th>Status</th><th></th></tr></thead><tbody>${data.items.map(p=>`<tr><td><b>${esc(p.policyKey)}</b><small>${esc(p.branchName||'Semua cabang')}</small></td><td>${esc(p.documentType)}</td><td>${fmtIDR(Number(p.minAmount))} – ${p.maxAmount===null?'∞':fmtIDR(Number(p.maxAmount))}</td><td>${(p.steps||[]).map(x=>`<span class="chip blue">${esc(x.level)}</span>`).join(' ')}</td><td>v${p.version}</td><td>${chip(p.status)}</td><td>${p.status==='DRAFT'&&can('approval_policy.approve')?`<button class="btn primary sm" data-policy="${p.id}">Aktifkan</button>`:''}</td></tr>`).join('')}</tbody></table></div></section>`;main.querySelector('#policyCreate')?.addEventListener('click',async()=>{const v=await formDialog({title:'Buat versi approval policy',fields:[{name:'policyKey',label:'Policy key',required:true},{name:'documentType',label:'Jenis dokumen',placeholder:'* untuk semua',required:true},{name:'minAmount',label:'Nominal minimum',type:'number',min:0,required:true},{name:'maxAmount',label:'Nominal maksimum (kosong = tanpa batas)',type:'number',min:0},{name:'steps',label:'Step dipisahkan koma',placeholder:'supervisor,finance,owner',required:true},{name:'changeReason',label:'Alasan versi',type:'textarea',required:true}],submitLabel:'Simpan draft'});if(!v)return;v.steps=String(v.steps).split(',').map(x=>x.trim()).filter(Boolean);v.maxAmount=v.maxAmount||null;try{await api('/api/governance/approval-policies',{method:'POST',body:v});toast('Draft policy dibuat');this.render(main);}catch(e){toast('Gagal membuat policy',e.message,'coral');}});main.querySelectorAll('[data-policy]').forEach(b=>b.addEventListener('click',async()=>{const a=await actionDialog({title:'Aktifkan policy',description:'Pembuat versi tidak boleh menjadi aktivator. Policy overlap akan ditolak.',requireReason:true,confirmLabel:'Aktifkan'});if(!a)return;try{await api(`/api/governance/approval-policies/${b.dataset.policy}/activate`,{method:'POST',body:a});toast('Policy diaktifkan');this.render(main);}catch(e){toast('Aktivasi gagal',e.message,'coral');}}));}};
+
+  const accessReviews={
+    permission:'access_review.view',
+    async render(main,_p,signal){
+      const data=await api('/api/governance/access-reviews',{signal});
+      main.innerHTML=pageHead({eyebrow:'PERIODIC CONTROL',title:'Access review',sub:'Security Admin meninjau assignment aktif secara periodik. Keputusan retain/revoke memiliki approver, waktu, dan alasan.',actions:can('access_review.create')?`<button class="btn primary" id="reviewCreate">${ICONS.audit} Mulai review</button>`:''})+`<section class="report-grid">${data.items.map(r=>`<article class="panel report-card"><div class="clay-orb ${r.pendingItems?'amber':'mint'}">${ICONS.audit}</div><p class="eyebrow">${esc(r.scopeType)}</p><h2>${esc(r.title)}</h2><p>${r.pendingItems} dari ${r.totalItems} assignment menunggu keputusan.</p><div class="stat-row"><span>Jatuh tempo</span><b>${fmtDate(r.dueAt)}</b></div>${chip(r.status)} <a class="btn secondary" href="#/system/access-reviews/${r.id}">Tinjau assignment</a></article>`).join('')||'<article class="panel"><div class="empty-state"><h3>Belum ada access review</h3></div></article>'}</section>`;
+      main.querySelector('#reviewCreate')?.addEventListener('click',async()=>{const v=await formDialog({title:'Mulai access review',fields:[{name:'title',label:'Judul review',required:true},{name:'scopeType',label:'Scope',type:'select',options:[['GLOBAL','Global'],['BRANCH','Branch']],required:true},{name:'dueAt',label:'Jatuh tempo',type:'date',required:true}],submitLabel:'Buat review'});if(!v)return;try{await api('/api/governance/access-reviews',{method:'POST',body:v});toast('Access review dibuat');this.render(main);}catch(e){toast('Gagal membuat review',e.message,'coral');}});
+    }
+  };
+
+  const accessReviewDetail={
+    permission:'access_review.view',
+    async render(main,params,signal){
+      const review=await api(`/api/governance/access-reviews/${params.id}`,{signal});
+      const pending=review.items.filter(item=>item.decision==='PENDING').length;
+      main.innerHTML=pageHead({eyebrow:'ACCESS REVIEW WORKBENCH',title:review.title,sub:`${review.scopeType} · jatuh tempo ${fmtDate(review.dueAt)} · ${pending} assignment belum diputuskan.`,actions:`<a class="btn secondary" href="#/system/access-reviews">Kembali</a>${can('access_review.approve')&&review.status==='OPEN'&&!pending?'<button class="btn primary" id="reviewComplete">Selesaikan review</button>':''}`})+`<section class="panel"><div class="table-wrap"><table><thead><tr><th>Pengguna</th><th>Role</th><th>Scope</th><th>Keputusan</th><th>Aksi</th></tr></thead><tbody>${review.items.map(item=>`<tr><td><b>${esc(item.userName)}</b></td><td>${esc(item.roleCode)}</td><td>${esc(item.scopeType)}${item.scopeId?` · ${esc(item.scopeId)}`:''}</td><td>${chip(item.decision)}</td><td>${can('access_review.approve')&&item.decision==='PENDING'?`<div class="row-actions"><button class="btn secondary small" data-review-decision="RETAIN" data-id="${item.id}">Retain</button><button class="btn danger small" data-review-decision="REVOKE" data-id="${item.id}">Revoke</button></div>`:`<small>${esc(item.reason||'Sudah diputuskan')}</small>`}</td></tr>`).join('')||'<tr><td colspan="5">Tidak ada assignment dalam scope ini.</td></tr>'}</tbody></table></div></section>`;
+      main.querySelectorAll('[data-review-decision]').forEach(button=>button.addEventListener('click',async()=>{const decision=button.dataset.reviewDecision,confirm=await actionDialog({title:decision==='REVOKE'?'Cabut assignment':'Pertahankan assignment',description:decision==='REVOKE'?'Akses pengguna dan sesi aktifnya akan dicabut sesuai hasil review.':'Assignment tetap aktif dan keputusan dicatat permanen.',requireReason:true,confirmLabel:decision==='REVOKE'?'Revoke':'Retain'});if(!confirm)return;try{await api(`/api/governance/access-reviews/items/${button.dataset.id}/decide`,{method:'POST',body:{decision,reason:confirm.reason}});toast(`Assignment ${decision.toLowerCase()} berhasil dicatat`);router.render();}catch(error){toast('Keputusan gagal',error.message,'coral');}}));
+      main.querySelector('#reviewComplete')?.addEventListener('click',async()=>{const confirm=await actionDialog({title:'Selesaikan access review',description:'Review yang selesai tidak dapat menerima keputusan baru.',confirmLabel:'Selesaikan'});if(!confirm)return;try{await api(`/api/governance/access-reviews/${params.id}/complete`,{method:'POST',body:{}});toast('Access review selesai');router.go('#/system/access-reviews');}catch(error){toast('Review belum dapat diselesaikan',error.message,'coral');}});
+    }
+  };
+
   const auditPage = {
     permission: 'audit.view',
     render(main) {
@@ -764,6 +808,53 @@
     }
   };
 
+  const organizationPage = {
+    permission: 'organization.view',
+    async render(main, _p, signal) {
+      const org = await api('/api/organization', { signal });
+      const base = `/api/organization/${org.id}`;
+      const [hierarchy, assets, signatories, tax, banks] = await Promise.all([
+        api(`${base}/hierarchy`, { signal }), api(`${base}/assets`, { signal }), api(`${base}/signatories`, { signal }),
+        api(`${base}/tax-identities`, { signal }), api(`${base}/bank-accounts`, { signal })
+      ]);
+      const count = (items) => (items || []).length;
+      main.innerHTML = pageHead({
+        eyebrow: 'ENTERPRISE ORGANIZATION', title: org.tradeName || org.legalName,
+        sub: `${org.code} · ${org.lifecycleStatus} · versi master ${org.mdmVersion}`,
+        actions: can('organization.edit') && state.user?.role === 'owner' ? `<button class="btn primary" id="orgEdit">${ICONS.gear} Edit identitas</button>` : ''
+      }) + `
+        <section class="kpi-grid">
+          <article class="kpi"><span>Data lengkap</span><strong>${Number(org.completeness?.score || 0)}%</strong><small>${Number(org.completeness?.completed || 0)} dari ${Number(org.completeness?.total || 0)} atribut wajib</small></article>
+          <article class="kpi"><span>Cabang & lokasi</span><strong>${count(hierarchy.branches) + count(hierarchy.workLocations)}</strong><small>${count(hierarchy.plants)} plant · ${count(hierarchy.warehouses)} gudang</small></article>
+          <article class="kpi"><span>Struktur biaya</span><strong>${count(hierarchy.departments)}</strong><small>${count(hierarchy.costCenters)} cost center · ${count(hierarchy.profitCenters)} profit center</small></article>
+          <article class="kpi"><span>Governance</span><strong>${count(assets) + count(signatories)}</strong><small>${count(tax)} identitas pajak · ${count(banks)} rekening</small></article>
+        </section>
+        <section class="dashboard-grid">
+          <article class="panel"><header><div><p class="eyebrow">IDENTITAS RESMI</p><h2>Legal entity</h2></div>${chip(org.lifecycleStatus)}</header><div class="panel-body"><dl class="detail-dl">
+            <div><dt>Nama legal</dt><dd>${esc(org.legalName || '—')}</dd></div><div><dt>Nama dagang</dt><dd>${esc(org.tradeName || '—')}</dd></div>
+            <div><dt>Bidang usaha</dt><dd>${esc(org.businessField || '—')}</dd></div><div><dt>NPWP</dt><dd>${esc(org.npwp || '—')}</dd></div>
+            <div><dt>Email</dt><dd>${esc(org.email || '—')}</dd></div><div><dt>Telepon / WhatsApp</dt><dd>${esc([org.phone, org.whatsapp].filter(Boolean).join(' · ') || '—')}</dd></div>
+            <div><dt>Alamat legal</dt><dd>${esc(org.legalAddress || '—')}</dd></div><div><dt>Alamat operasional</dt><dd>${esc(org.operationalAddress || '—')}</dd></div>
+          </dl></div></article>
+          <article class="panel"><header><div><p class="eyebrow">HIERARKI</p><h2>Struktur terkendali</h2></div></header><div class="panel-body stack">
+            ${[['Business unit',hierarchy.businessUnits],['Cabang',hierarchy.branches],['Departemen',hierarchy.departments],['Plant',hierarchy.plants],['Gudang',hierarchy.warehouses],['Work location',hierarchy.workLocations],['Ledger',hierarchy.ledgers],['Kalender fiskal',hierarchy.fiscalCalendars]].map(([label,items])=>`<div class="stat-row"><span>${esc(label)}</span><b>${count(items)} unit</b></div>`).join('')}
+          </div></article>
+        </section>
+        <section class="panel table-panel"><header><div><p class="eyebrow">TREASURY CONTROL</p><h2>Rekening perusahaan</h2></div>${can('organization.edit') ? `<button class="btn primary sm" id="orgBankAdd">${ICONS.plus} Ajukan rekening</button>` : ''}</header>
+          <div class="table-wrap"><table><thead><tr><th>Bank</th><th>Nomor rekening</th><th>Tujuan</th><th>Status</th><th>Efektif</th><th></th></tr></thead><tbody>${banks.length ? banks.map(b=>`<tr><td><b>${esc(b.bankName)}</b><small>${esc(b.accountHolder)}</small></td><td>${esc(b.accountNumber)}</td><td>${esc(b.currency)} · ${esc(b.usagePurpose)}</td><td>${chip(b.verificationStatus)}</td><td>${fmtDate(b.effectiveFrom)}</td><td class="right">${b.verificationStatus==='PENDING_VERIFICATION'&&can('organization.approve')?`<button class="btn secondary sm" data-org-bank="${esc(b.id)}">Periksa</button>`:''}</td></tr>`).join('') : '<tr><td colspan="6"><div class="empty-state"><h3>Belum ada rekening terverifikasi</h3><p>Ajukan rekening dan selesaikan maker–checker sebelum digunakan pada dokumen.</p></div></td></tr>'}</tbody></table></div>
+        </section>
+        <section class="dashboard-grid">
+          <article class="panel"><header><div><p class="eyebrow">PAJAK & LEGAL</p><h2>Identitas resmi</h2></div>${can('organization.edit')?`<button class="btn secondary sm" id="orgTaxAdd">${ICONS.plus} Tambah</button>`:''}</header><div class="panel-body stack">${tax.map(x=>`<div class="stat-row"><span><b>${esc(x.identityType)}</b><small>${esc(x.registeredName || '')}</small></span><b>${esc(x.identityNumber)}</b></div>`).join('') || '<p class="muted">Belum ada identitas pajak.</p>'}</div></article>
+          <article class="panel"><header><div><p class="eyebrow">BRAND & OTORISASI</p><h2>Aset dan penandatangan</h2></div></header><div class="panel-body stack"><div class="stat-row"><span>Logo, kop, stempel, tanda tangan</span><b>${assets.length} aset</b></div><div class="stat-row"><span>Authorized signatory</span><b>${signatories.length} orang</b></div><p class="muted">Versi aktif disimpan sebagai snapshot pada saat dokumen dibuat sehingga histori tidak berubah.</p></div></article>
+        </section>`;
+
+      main.querySelector('#orgEdit')?.addEventListener('click', async()=>{const value=await formDialog({title:'Edit identitas legal entity',description:'Gunakan sumber dokumen resmi. Perubahan menaikkan versi master.',initial:org,fields:[{name:'legalName',label:'Nama legal',required:true},{name:'tradeName',label:'Nama dagang'},{name:'businessField',label:'Bidang usaha'},{name:'tagline',label:'Tagline'},{name:'npwp',label:'NPWP'},{name:'phone',label:'Telepon'},{name:'whatsapp',label:'WhatsApp'},{name:'email',label:'Email',type:'email'},{name:'website',label:'Website'},{name:'legalAddress',label:'Alamat legal',type:'textarea'},{name:'operationalAddress',label:'Alamat operasional',type:'textarea'},{name:'documentFooter',label:'Footer dokumen',type:'textarea'}],submitLabel:'Lanjut verifikasi'});if(!value)return;const verify=await actionDialog({title:'Verifikasi perubahan identitas',description:'PIN Owner dan alasan wajib untuk audit trail.',requireReason:true,requirePin:true,confirmLabel:'Simpan versi baru'});if(!verify)return;try{await api(base,{method:'PATCH',body:{...value,...verify}});toast('Identitas organisasi diperbarui');this.render(main);}catch(error){toast('Pembaruan gagal',error.message,'coral');}});
+      main.querySelector('#orgBankAdd')?.addEventListener('click',async()=>{const value=await formDialog({title:'Ajukan rekening perusahaan',description:'Usulan tidak dapat dipakai sebelum disetujui Owner yang berbeda melalui PIN + MFA.',fields:[{name:'bankName',label:'Nama bank',required:true},{name:'accountNumber',label:'Nomor rekening',required:true},{name:'accountHolder',label:'Nama pemilik',required:true},{name:'currency',label:'Mata uang',value:'IDR',required:true},{name:'usagePurpose',label:'Tujuan',type:'select',options:[['OPERATING','Operasional'],['PAYROLL','Payroll'],['TAX','Pajak'],['COLLECTION','Penerimaan']],required:true},{name:'effectiveFrom',label:'Berlaku sejak',type:'date',required:true},{name:'isPrimary',label:'Rekening utama',type:'checkbox'},{name:'changeReason',label:'Alasan pengajuan',type:'textarea',required:true}],submitLabel:'Kirim usulan'});if(!value)return;try{await api(`${base}/bank-accounts`,{method:'POST',body:value,idempotencyKey:newIdemKey()});toast('Rekening diajukan','Menunggu checker Owner yang berbeda.');this.render(main);}catch(error){toast('Pengajuan gagal',error.message,'coral');}});
+      main.querySelector('#orgTaxAdd')?.addEventListener('click',async()=>{const value=await formDialog({title:'Tambah identitas pajak/legal',description:'Nomor harus bersumber dari dokumen resmi.',fields:[{name:'identityType',label:'Jenis',type:'select',options:[['NPWP','NPWP'],['NITKU','NITKU'],['PKP','PKP'],['NIB','NIB'],['OTHER','Lainnya']],required:true},{name:'identityNumber',label:'Nomor identitas',required:true},{name:'registeredName',label:'Nama terdaftar'},{name:'effectiveFrom',label:'Berlaku sejak',type:'date',required:true},{name:'isPrimary',label:'Identitas utama',type:'checkbox'}],submitLabel:'Simpan'});if(!value)return;try{await api(`${base}/tax-identities`,{method:'POST',body:value});toast('Identitas resmi ditambahkan');this.render(main);}catch(error){toast('Gagal',error.message,'coral');}});
+      main.querySelectorAll('[data-org-bank]').forEach(btn=>btn.addEventListener('click',async()=>{const verify=await actionDialog({title:'Setujui rekening perusahaan',description:'Wajib login dengan MFA aktif dalam 10 menit terakhir. Maker dan checker harus berbeda.',requireReason:true,requirePin:true,confirmLabel:'Setujui rekening'});if(!verify)return;try{await api(`${base}/bank-accounts/${btn.dataset.orgBank}/approve`,{method:'POST',body:verify});toast('Rekening perusahaan terverifikasi');this.render(main);}catch(error){toast('Persetujuan gagal',error.message,'coral');}}));
+    }
+  };
+
   const settings = {
     permission: 'settings.view',
     async render(main, _p, signal) {
@@ -802,7 +893,7 @@
         await api('/api/auth/logout-all', { method: 'POST' });
         window.MAT.sessionLost();
       });
-      main.querySelector('#settingsEdit')?.addEventListener('click', async () => { const value = await formDialog({ title: 'Edit profil perusahaan', description: 'Setelah formulir ini, PIN Owner dan alasan perubahan akan diminta.', initial: { name: c.name, npwp: c.npwp, address: c.address, bankName: c.bank.name, bankAccount: c.bank.account, numberingFormat: c.numberingFormat, fiscalYear: c.fiscalYear }, fields: [{ name: 'name', label: 'Nama perusahaan', required: true }, { name: 'npwp', label: 'NPWP' }, { name: 'address', label: 'Alamat', type: 'textarea' }, { name: 'bankName', label: 'Nama bank' }, { name: 'bankAccount', label: 'Nomor rekening' }, { name: 'numberingFormat', label: 'Format penomoran', required: true }, { name: 'fiscalYear', label: 'Tahun fiskal', type: 'number', min: 2000, max: 2200 }], submitLabel: 'Lanjut verifikasi' }); if (!value) return; const verify = await actionDialog({ title: 'Verifikasi perubahan', description: 'Perubahan sensitif memerlukan PIN Owner dan alasan tertulis untuk audit trail.', requireReason: true, requirePin: true, confirmLabel: 'Simpan perubahan' }); if (!verify) return; try { await api('/api/system/settings/company', { method: 'PATCH', body: { company: { name: value.name, npwp: value.npwp, address: value.address, bank: { name: value.bankName, account: value.bankAccount }, numberingFormat: value.numberingFormat, fiscalYear: value.fiscalYear }, ...verify } }); invalidate('settings'); toast('Pengaturan diperbarui'); this.render(main); } catch (error) { toast('Pembaruan gagal', error.message, 'coral'); } });
+      main.querySelector('#settingsEdit')?.addEventListener('click', async () => { const value = await formDialog({ title: 'Edit identitas & konfigurasi', description: 'Rekening perusahaan hanya dapat diubah melalui Organization Workbench dan workflow maker–checker.', initial: { name: c.name, npwp: c.npwp, address: c.address, numberingFormat: c.numberingFormat, fiscalYear: c.fiscalYear }, fields: [{ name: 'name', label: 'Nama perusahaan', required: true }, { name: 'npwp', label: 'NPWP' }, { name: 'address', label: 'Alamat', type: 'textarea' }, { name: 'numberingFormat', label: 'Format penomoran', required: true }, { name: 'fiscalYear', label: 'Tahun fiskal', type: 'number', min: 2000, max: 2200 }], submitLabel: 'Lanjut verifikasi' }); if (!value) return; const verify = await actionDialog({ title: 'Verifikasi perubahan', description: 'Perubahan sensitif memerlukan PIN Owner dan alasan tertulis untuk audit trail.', requireReason: true, requirePin: true, confirmLabel: 'Simpan perubahan' }); if (!verify) return; try { await api('/api/system/settings/company', { method: 'PATCH', body: { company: value, ...verify } }); invalidate('settings'); toast('Pengaturan diperbarui'); this.render(main); } catch (error) { toast('Pembaruan gagal', error.message, 'coral'); } });
     }
   };
 
@@ -885,6 +976,27 @@
     }
   };
 
+  // Susunan final R014: tepat 10 tab employee, sementara sub-tabel tetap ternormalisasi.
+  {
+    const legacy = Object.fromEntries(MASTER_DETAIL.employees.tabs.map(t => [t.id, t]));
+    const certification = { label:'Sertifikasi', sub:'certifications', cols:[['name','Sertifikasi'],['issuer','Penerbit'],['certificateNumber','Nomor'],['expiryDate','Kedaluwarsa','date']], form:[{name:'name',label:'Nama sertifikasi',required:true},{name:'issuer',label:'Penerbit'},{name:'certificateNumber',label:'Nomor'},{name:'issuedDate',label:'Terbit',type:'date'},{name:'expiryDate',label:'Kedaluwarsa',type:'date'}] };
+    const claim = { label:'Riwayat klaim', sub:'insurance-claims', cols:[['claimNumber','No. Klaim'],['claimDate','Tanggal','date'],['claimType','Jenis'],['amount','Nilai','money'],['status','Status','chip']], form:[{name:'claimNumber',label:'Nomor klaim'},{name:'claimDate',label:'Tanggal klaim',type:'date',required:true},{name:'claimType',label:'Jenis klaim'},{name:'amount',label:'Nilai',type:'number',min:0},{name:'status',label:'Status',type:'select',options:[['SUBMITTED','Diajukan'],['IN_REVIEW','Ditinjau'],['APPROVED','Disetujui'],['REJECTED','Ditolak'],['PAID','Dibayar']]}] };
+    const restricted = { label:'Restricted record', sub:'restricted-records', cols:[['recordType','Jenis'],['title','Judul'],['effectiveFrom','Berlaku','date']], form:[{name:'recordType',label:'Jenis',type:'select',options:[['MEDICAL','Medis'],['DISCIPLINARY','Disipliner'],['BACKGROUND_CHECK','Background check'],['LEGAL','Legal'],['OTHER','Lainnya']],required:true},{name:'title',label:'Judul',required:true},{name:'restrictedNotes',label:'Catatan terbatas',type:'textarea',required:true},{name:'effectiveFrom',label:'Berlaku',type:'date',required:true}] };
+    legacy.compensation.label='Kompensasi (maker–checker)'; legacy.compensation.employeeApprove=true; legacy.compensation.statusKey='approvalStatus'; legacy.compensation.cols=[['baseSalary','Gaji pokok','money'],['fixedAllowance','Tunjangan','money'],['effectiveFrom','Berlaku','date'],['approvalStatus','Status','chip']];
+    legacy['bank-accounts'].label='Payroll Bank'; legacy['bank-accounts'].employeeApprove=true; legacy['bank-accounts'].statusKey='verificationStatus'; legacy['bank-accounts'].cols=[['bankName','Bank'],['accountNumber','No. Rekening'],['verificationStatus','Status','chip'],['isPrimary','Utama','bool']];
+    MASTER_DETAIL.employees.tabs = [
+      legacy.overview,
+      {id:'employment',label:'Employment & Position',groups:[legacy.positions,legacy['employment-history'],legacy.contracts,legacy.compensation]},
+      {...legacy['tax-profiles'],label:'Pajak'}, legacy.bpjs,
+      {id:'insurance-final',label:'Insurance',groups:[legacy.insurance,claim]},
+      legacy['bank-accounts'],
+      {id:'documents-final',label:'Documents & Certifications',groups:[legacy.documents,certification]},
+      {id:'emergency-final',label:'Emergency & Restricted',perm:'employee.edit',groups:[legacy['emergency-contacts'],restricted]},
+      {...legacy.access,label:'System Access & Role'},
+      {id:'audit',label:'Audit & Change History',sub:'audit',noAdd:true,cols:[['occurredAt','Waktu','date'],['action','Aksi','chip'],['entityType','Objek'],['reason','Alasan'],['requestId','Request ID']]}
+    ];
+  }
+
   const LIFECYCLE_BTN = { DRAFT: [['submit','Ajukan review']], PENDING_REVIEW: [['approve','Setujui']], APPROVED: [['activate','Aktifkan']], ACTIVE: [['suspend','Suspend']], SUSPENDED: [['activate','Aktifkan'],['block','Blokir']], BLOCKED: [['obsolete','Usangkan']], OBSOLETE: [['archive','Arsipkan']] };
   const fmtCell = (row, col) => {
     const [key, , type] = col; const v = row[key];
@@ -925,20 +1037,41 @@
         const body = main.querySelector('#tabBody');
         const tab = cfg.tabs.find((t) => t.id === tabId);
         if (tabId === 'overview') {
+          if (params.type === 'employees') {
+            const s=overview.enterpriseSummary||{},pos=s.currentPosition||{},employment=s.employment||{},comp=s.compensation||{},tax=s.tax||{},bank=s.payrollBank||{},completeness=overview.completeness||{};
+            body.innerHTML=`<section class="kpi-grid"><article class="kpi"><span>Kelengkapan profil</span><strong>${Number(completeness.score||0)}%</strong><small>${Number(completeness.completed||0)} dari ${Number(completeness.total||0)} kontrol utama</small></article><article class="kpi"><span>Status kerja</span><strong>${esc(employment.employmentStatus||'—')}</strong><small>${esc(employment.employmentType||'Belum dikonfigurasi')}</small></article><article class="kpi"><span>Dokumen segera kedaluwarsa</span><strong>${Number(s.expiringDocuments||0)}</strong><small>Dalam 90 hari</small></article><article class="kpi"><span>Akun sistem aktif</span><strong>${Number(s.activeUserAccounts||0)}</strong><small>Akses ditinjau melalui IAM</small></article></section>
+              <section class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">EMPLOYMENT SNAPSHOT</p><h2>Posisi & kompensasi terkendali</h2></div>${chip(overview.lifecycleStatus||'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl"><div><dt>NIK</dt><dd>${esc(overview.nik)}</dd></div><div><dt>Nama</dt><dd>${esc(overview.name)}</dd></div><div><dt>Jabatan</dt><dd>${esc(pos.positionTitle||overview.jobTitle||'—')}</dd></div><div><dt>Divisi / departemen</dt><dd>${esc(pos.division||overview.department||'—')}</dd></div><div><dt>Lokasi kerja</dt><dd>${esc(pos.workLocation||'—')}</dd></div><div><dt>Grade</dt><dd>${esc(pos.salaryGrade||comp.salaryGrade||'—')}</dd></div><div><dt>Gaji pokok</dt><dd>${typeof comp.baseSalary==='number'?fmtIDR(comp.baseSalary):esc(comp.baseSalary||overview.baseSalary||'—')}</dd></div><div><dt>Tunjangan tetap</dt><dd>${typeof comp.fixedAllowance==='number'?fmtIDR(comp.fixedAllowance):esc(comp.fixedAllowance||'—')}</dd></div></dl></div></article>
+              <article class="panel"><header><div><p class="eyebrow">COMPLIANCE SNAPSHOT</p><h2>Pajak, benefit & risiko</h2></div></header><div class="panel-body stack"><div class="stat-row"><span>PTKP / TER</span><b>${esc([tax.ptkpStatus,tax.terCategory].filter(Boolean).join(' · ')||'—')}</b></div><div class="stat-row"><span>Program BPJS aktif</span><b>${Number(s.bpjsPrograms||0)}</b></div><div class="stat-row"><span>Polis asuransi aktif</span><b>${Number(s.insurancePolicies||0)}</b></div><div class="stat-row"><span>Rekening payroll</span><b>${esc(bank.bankName||'Belum ada')} · ${esc(bank.accountNumber||'—')}</b></div><div class="stat-row"><span>Kehadiran bulan ini</span><b>${Number(s.attendanceDays||0)} hari</b></div><div class="stat-row"><span>Sisa cuti</span><b>${Number(s.leaveBalance?.remaining||0)} hari</b></div></div></article></section>`;
+            return;
+          }
           const rows = cfg.tabs.filter((t) => t.sub).map((t) => `<div class="stat-row"><span>${esc(t.label)}</span><b>${(overview.subCounts && overview.subCounts[t.sub]) || 0} entri</b></div>`).join('');
           body.innerHTML = `<div class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">RINGKASAN</p><h2>Informasi utama</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${Object.entries(overview).filter(([k, v]) => !['subCounts','id'].includes(k) && typeof v !== 'object' && v !== null && v !== '').slice(0, 12).map(([k, v]) => `<div><dt>${esc(k.replace(/([A-Z])/g, ' $1'))}</dt><dd>${esc(String(v))}</dd></div>`).join('')}</dl></div></article><article class="panel"><header><div><p class="eyebrow">KELENGKAPAN</p><h2>Sub-data</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
           return;
         }
         if (tab.perm && !can(tab.perm)) { body.innerHTML = `<div class="empty-state">${clayOrb('amber','lock')}<h3>Akses dibatasi</h3><p>Tab ini membutuhkan izin khusus.</p></div>`; return; }
+        if (tab.groups) {
+          body.innerHTML = `<div class="panel"><div class="panel-body"><span class="spinner"></span> Memuat kelompok data…</div></div>`;
+          const groups = tab.groups.filter(g => !g.perm || can(g.perm));
+          try {
+            const datasets = await Promise.all(groups.map(g => api(`${cfg.base}/${params.id}/${g.sub}`)));
+            body.innerHTML = groups.map((g, index) => {
+              const items=datasets[index].items||[];
+              return `<div class="panel table-panel"><header><div><p class="eyebrow">${esc(tab.label.toUpperCase())}</p><h2>${esc(g.label)}</h2></div>${can(`${cfg.module}.edit`)&&g.form?`<button class="btn primary sm" data-group-add="${index}">${ICONS.plus} Tambah</button>`:''}</header><div class="table-wrap"><table><thead><tr>${g.cols.map(c=>`<th>${esc(c[1])}</th>`).join('')}${g.employeeApprove?'<th></th>':''}</tr></thead><tbody>${items.length?items.map(row=>`<tr>${g.cols.map(c=>`<td>${fmtCell(row,c)}</td>`).join('')}${g.employeeApprove?`<td class="right">${['PENDING_APPROVAL','PENDING_VERIFICATION'].includes(row[g.statusKey])&&can('employee.approve')?`<button class="btn secondary sm" data-employee-approve="${esc(row.id)}" data-resource="${esc(g.sub)}">Setujui</button>`:''}</td>`:''}</tr>`).join(''):`<tr><td colspan="${g.cols.length+1}"><div class="empty-state"><h3>Belum ada data</h3><p>Tambahkan ${esc(g.label.toLowerCase())} pertama.</p></div></td></tr>`}</tbody></table></div></div>`;
+            }).join('');
+            body.querySelectorAll('[data-group-add]').forEach(btn=>btn.addEventListener('click',async()=>{const g=groups[Number(btn.dataset.groupAdd)],fields=typeof g.form==='function'?await g.form():g.form;const value=await formDialog({title:`Tambah ${g.label}`,description:'Data tercatat pada audit trail dan mengikuti effective date.',fields,submitLabel:'Simpan'});if(!value)return;try{await api(`${cfg.base}/${params.id}/${g.sub}`,{method:'POST',body:value,idempotencyKey:newIdemKey()});toast(`${g.label} ditambahkan`);renderTab(tabId);}catch(error){toast('Gagal menyimpan',error.message,'coral');}}));
+            body.querySelectorAll('[data-employee-approve]').forEach(btn=>btn.addEventListener('click',async()=>{const answer=await actionDialog({title:'Setujui perubahan sensitif',description:'Maker dan checker harus pengguna berbeda. Keputusan dicatat permanen.',requireReason:true,confirmLabel:'Setujui'});if(!answer)return;try{await api(`${cfg.base}/${params.id}/${btn.dataset.resource}/${btn.dataset.employeeApprove}/approve`,{method:'POST',body:answer});toast('Perubahan disetujui');renderTab(tabId);}catch(error){toast('Persetujuan gagal',error.message,'coral');}}));
+          } catch (error) { body.innerHTML=`<div class="panel"><div class="panel-body error-text">${esc(error.message)}</div></div>`; }
+          return;
+        }
         body.innerHTML = `<div class="panel"><div class="panel-body"><span class="spinner"></span> Memuat…</div></div>`;
         let data;
         try { data = await api(`${cfg.base}/${params.id}/${tab.sub}`); }
         catch (error) { body.innerHTML = `<div class="panel"><div class="panel-body error-text">${esc(error.message)}</div></div>`; return; }
         const canEdit = can(`${cfg.module}.edit`);
-        const addBtn = canEdit ? `<button class="btn primary sm" id="tabAdd">${ICONS.plus} Tambah</button>` : '';
+        const addBtn = canEdit && !tab.noAdd ? `<button class="btn primary sm" id="tabAdd">${ICONS.plus} Tambah</button>` : '';
         body.innerHTML = `<div class="panel table-panel"><header><div><p class="eyebrow">${esc(cfg.title.toUpperCase())}</p><h2>${esc(tab.label)}</h2></div><div class="panel-tools">${addBtn}</div></header>
-          <div class="table-wrap"><table><thead><tr>${tab.cols.map((c) => `<th>${esc(c[1])}</th>`).join('')}${(tab.bankApprove || tab.costActivate) ? '<th></th>' : ''}</tr></thead>
-          <tbody>${data.items.length ? data.items.map((row) => `<tr>${tab.cols.map((c) => `<td>${fmtCell(row, c)}</td>`).join('')}${tab.bankApprove ? `<td class="right">${row.verificationStatus !== 'VERIFIED' && can('supplier.approve') ? `<button class="btn secondary sm" data-approve-bank="${esc(row.id)}">Verifikasi</button>` : ''}</td>` : ''}${tab.costActivate ? `<td class="right">${['APPROVED','LOCKED'].includes(row.status) && can('product.approve') ? `<button class="btn secondary sm" data-activate-cost="${esc(row.id)}">Set Active HPP</button>` : ['DRAFT','REVIEW'].includes(row.status) && can('product.approve') ? `<button class="btn secondary sm" data-promote-cost="${esc(row.id)}" data-next="${row.status === 'DRAFT' ? 'review' : 'approve'}">${row.status === 'DRAFT' ? 'Ajukan review' : 'Setujui'}</button>` : ''}</td>` : ''}</tr>`).join('') : `<tr><td colspan="${tab.cols.length + 1}"><div class="empty-state">${clayOrb('blue','inbox')}<h3>Belum ada data</h3><p>Tambahkan entri pertama untuk ${esc(tab.label.toLowerCase())}.</p></div></td></tr>`}</tbody></table></div></div>`;
+          <div class="table-wrap"><table><thead><tr>${tab.cols.map((c) => `<th>${esc(c[1])}</th>`).join('')}${(tab.bankApprove || tab.costActivate || tab.employeeApprove) ? '<th></th>' : ''}</tr></thead>
+          <tbody>${data.items.length ? data.items.map((row) => `<tr>${tab.cols.map((c) => `<td>${fmtCell(row, c)}</td>`).join('')}${tab.bankApprove ? `<td class="right">${row.verificationStatus !== 'VERIFIED' && can('supplier.approve') ? `<button class="btn secondary sm" data-approve-bank="${esc(row.id)}">Verifikasi</button>` : ''}</td>` : ''}${tab.employeeApprove ? `<td class="right">${['PENDING_APPROVAL','PENDING_VERIFICATION'].includes(row[tab.statusKey])&&can('employee.approve')?`<button class="btn secondary sm" data-employee-approve="${esc(row.id)}">Setujui</button>`:''}</td>`:''}${tab.costActivate ? `<td class="right">${['APPROVED','LOCKED'].includes(row.status) && can('product.approve') ? `<button class="btn secondary sm" data-activate-cost="${esc(row.id)}">Set Active HPP</button>` : ['DRAFT','REVIEW'].includes(row.status) && can('product.approve') ? `<button class="btn secondary sm" data-promote-cost="${esc(row.id)}" data-next="${row.status === 'DRAFT' ? 'review' : 'approve'}">${row.status === 'DRAFT' ? 'Ajukan review' : 'Setujui'}</button>` : ''}</td>` : ''}</tr>`).join('') : `<tr><td colspan="${tab.cols.length + 1}"><div class="empty-state">${clayOrb('blue','inbox')}<h3>Belum ada data</h3><p>Tambahkan entri pertama untuk ${esc(tab.label.toLowerCase())}.</p></div></td></tr>`}</tbody></table></div></div>`;
 
         main.querySelector('#tabAdd')?.addEventListener('click', async () => {
           const fields = typeof tab.form === 'function' ? await tab.form() : tab.form;
@@ -950,6 +1083,11 @@
         body.querySelectorAll('[data-approve-bank]').forEach((b) => b.addEventListener('click', async () => {
           try { await api(`${cfg.base}/${params.id}/bank-accounts/${b.dataset.approveBank}/approve`, { method: 'POST' }); toast('Rekening terverifikasi', 'Payment hold dilepas.'); renderTab(tabId); }
           catch (error) { toast('Verifikasi gagal', error.message, 'coral'); }
+        }));
+        body.querySelectorAll('[data-employee-approve]').forEach((b) => b.addEventListener('click', async () => {
+          const answer=await actionDialog({title:'Setujui perubahan sensitif',description:'Maker dan checker harus berbeda. Keputusan tercatat pada audit trail.',requireReason:true,confirmLabel:'Setujui'});if(!answer)return;
+          try { await api(`${cfg.base}/${params.id}/${tab.sub}/${b.dataset.employeeApprove}/approve`,{method:'POST',body:answer});toast('Perubahan disetujui');renderTab(tabId); }
+          catch(error){toast('Persetujuan gagal',error.message,'coral');}
         }));
         body.querySelectorAll('[data-activate-cost]').forEach((b) => b.addEventListener('click', async () => {
           try { await api(`${cfg.base}/${params.id}/cost-revisions/${b.dataset.activateCost}/activate`, { method: 'POST' }); toast('Active HPP diperbarui', 'Revisi ini kini menjadi HPP aktif.'); renderTab(tabId); }
@@ -978,6 +1116,7 @@
   const R = router.register.bind(router);
   R('/masters/:type/detail/:id', masterDetail);
   R('/dashboard', dashboard);
+  R('/organization', organizationPage);
   R('/approvals', approvals);
   R('/notifications', notifications);
   R('/doc/:id', docDetail);
@@ -1067,6 +1206,11 @@
   }));
 
   R('/system/users', systemUsers);
+  R('/system/iam', iamGovernance);
+  R('/system/sod', sodCenter);
+  R('/system/approval-policies', approvalPolicies);
+  R('/system/access-reviews', accessReviews);
+  R('/system/access-reviews/:id', accessReviewDetail);
   R('/system/audit', auditPage);
   R('/system/monitoring', monitoring);
   R('/system/jobs', jobsPage);

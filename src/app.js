@@ -41,6 +41,7 @@
       ['#/tax', 'Perpajakan', 'tax', 'tax.view']
     ]],
     ['ORGANISASI', [
+      ['#/organization', 'Struktur perusahaan', 'building', 'organization.view'],
       ['#/hr/employees', 'Karyawan', 'people', 'employee.view'],
       ['#/hr/attendance', 'Kehadiran', 'clock', 'attendance.view'],
       ['#/hr/leave', 'Cuti', 'clock', 'leave.view'],
@@ -54,6 +55,10 @@
     ]],
     ['SISTEM', [
       ['#/system/users', 'Pengguna & peran', 'people', 'user.view'],
+      ['#/system/iam', 'IAM & role assignment', 'lock', 'iam.view'],
+      ['#/system/sod', 'SoD conflict center', 'shield', 'sod.view'],
+      ['#/system/approval-policies', 'Approval policy', 'approval', 'approval_policy.view'],
+      ['#/system/access-reviews', 'Access review', 'audit', 'access_review.view'],
       ['#/system/audit', 'Log audit', 'audit', 'audit.view'],
       ['#/system/monitoring', 'Monitoring', 'monitor', 'monitoring.view'],
       ['#/system/jobs', 'Job latar belakang', 'job', 'job.view'],

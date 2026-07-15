@@ -30,7 +30,7 @@ test('PostgreSQL document transaction: audit+outbox atomic dan stale version dit
   const branchId=randomUUID(),userId=randomUUID();
   await admin.query('INSERT INTO branches(id,code,name) VALUES($1,$2,$3)',[branchId,`DT${Date.now()}`,'Document Test']);
   await admin.query(`INSERT INTO app_users(id,username,password_hash,display_name,branch_id,role,must_change_password)
-    VALUES($1,$2,'test','Integration User',$3,'admin',false)`,[userId,`it-${Date.now()}`,branchId]);
+    VALUES($1,$2,'test','Integration User',$3,'system_admin',false)`,[userId,`it-${Date.now()}`,branchId]);
   const user={id:userId,branchId,displayName:'Integration User'}; let doc;
   try {
     const client=new Client({connectionString:process.env.DATABASE_URL}); await client.connect();
@@ -58,7 +58,7 @@ test('PostgreSQL idempotency: 12 request paralel mengeksekusi handler tepat seka
   const admin=new Client({connectionString:process.env.MIGRATION_DATABASE_URL});await admin.connect();
   const branchId=randomUUID(),userId=randomUUID(),key=`idem-${Date.now()}`;let executions=0;
   await admin.query('INSERT INTO branches(id,code,name) VALUES($1,$2,$3)',[branchId,`ID${Date.now()}`,'Idempotency Test']);
-  await admin.query("INSERT INTO app_users(id,username,password_hash,display_name,branch_id,role,must_change_password) VALUES($1,$2,'x','Idem User',$3,'admin',false)",[userId,`idem-${Date.now()}`,branchId]);
+  await admin.query("INSERT INTO app_users(id,username,password_hash,display_name,branch_id,role,must_change_password) VALUES($1,$2,'x','Idem User',$3,'system_admin',false)",[userId,`idem-${Date.now()}`,branchId]);
   try{
     const results=await Promise.all(Array.from({length:12},async()=>{
       const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();
@@ -76,12 +76,12 @@ test('PostgreSQL approval: jenjang supervisor → finance → owner tidak dapat 
   const adminDb=new Client({connectionString:process.env.MIGRATION_DATABASE_URL});await adminDb.connect();
   const branchId=randomUUID();const users={};let doc;
   await adminDb.query('INSERT INTO branches(id,code,name) VALUES($1,$2,$3)',[branchId,`AP${Date.now()}`,'Approval Test']);
-  for(const role of ['admin','finance','owner']){users[role]={id:randomUUID(),role,branchId,displayName:role};await adminDb.query("INSERT INTO app_users(id,username,password_hash,display_name,branch_id,role,must_change_password) VALUES($1,$2,'x',$3,$4,$5,false)",[users[role].id,`${role}-${Date.now()}`,role,branchId,role]);}
+  for(const role of ['sales','hrd','finance_manager','owner']){users[role]={id:randomUUID(),role,branchId,displayName:role};await adminDb.query("INSERT INTO app_users(id,username,password_hash,display_name,branch_id,role,must_change_password) VALUES($1,$2,'x',$3,$4,$5,false)",[users[role].id,`${role}-${Date.now()}`,role,branchId,role]);}
   const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();
   try{
-    await client.query('BEGIN');doc=await runtime.createDocument(client,{type:'PURCHASE_ORDER',user:users.admin,title:'PO besar',amount:75_000_000});await runtime.transitionDocument(client,{id:doc.id,action:'submit',user:users.admin});await client.query('COMMIT');
+    await client.query('BEGIN');doc=await runtime.createDocument(client,{type:'PURCHASE_ORDER',user:users.sales,title:'PO besar',amount:75_000_000});await runtime.transitionDocument(client,{id:doc.id,action:'submit',user:users.sales});await client.query('COMMIT');
     await client.query('BEGIN');await assert.rejects(()=>runtime.transitionDocument(client,{id:doc.id,action:'approve',user:users.owner}),e=>e.code==='PERMISSION_DENIED');await client.query('ROLLBACK');
-    for(const role of ['admin','finance','owner']){await client.query('BEGIN');doc=await runtime.transitionDocument(client,{id:doc.id,action:'approve',user:users[role]});await client.query('COMMIT');}
+    for(const role of ['hrd','finance_manager','owner']){await client.query('BEGIN');doc=await runtime.transitionDocument(client,{id:doc.id,action:'approve',user:users[role]});await client.query('COMMIT');}
     assert.equal(doc.status,'APPROVED');assert.equal(doc.approvals.length,3);
   }finally{
     await client.end();if(doc){await adminDb.query('DELETE FROM audit_logs WHERE entity_id=$1',[doc.id]);await adminDb.query('DELETE FROM domain_event_outbox WHERE entity_id=$1',[doc.documentNumber]);await adminDb.query('DELETE FROM business_documents WHERE id=$1',[doc.id]);}

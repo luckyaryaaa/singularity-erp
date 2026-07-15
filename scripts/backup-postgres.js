@@ -11,7 +11,7 @@ const backup=require('../backend/infrastructure/database/backup');
     const fs=require('node:fs');const crypto=require('../backend/infrastructure/database/backup-crypto');
     const input=process.argv[3];if(!input)throw new Error('Gunakan: decrypt <file.dump.enc> [keluaran.dump]');
     const output=process.argv[4]||input.replace(/\.enc$/,'');
-    fs.writeFileSync(output,crypto.decrypt(fs.readFileSync(input),process.env.MAT_BACKUP_ENCRYPTION_KEY));
+    const encrypted=fs.readFileSync(input),keys=[process.env.MAT_BACKUP_ENCRYPTION_KEY,process.env.MAT_BACKUP_PREVIOUS_ENCRYPTION_KEY].filter(Boolean);let plain,lastError;for(const key of keys){try{plain=crypto.decrypt(encrypted,key);break;}catch(error){lastError=error;}}if(!plain)throw lastError||new Error('Kunci dekripsi backup tidak tersedia.');fs.writeFileSync(output,plain);
     console.log(JSON.stringify({ok:true,output},null,2));
   }
   else throw new Error('Gunakan: run | restore-test | decrypt');}catch(error){console.error(error.message);process.exitCode=1;}finally{await pool.close();}})();

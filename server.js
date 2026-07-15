@@ -1,5 +1,5 @@
 'use strict';
-require('./backend/core/env').loadEnv();
+const envCore=require('./backend/core/env');envCore.loadEnv();
 // Entry point tunggal: static app shell + API modular monolith.
 // Produksi: letakkan di belakang reverse proxy HTTPS; PostgreSQL tidak dipublikkan.
 
@@ -14,6 +14,7 @@ const persistence = require('./backend/infrastructure/database/persistence');
 // Mode uji: ephemeral (seed segar, tanpa tulis disk). Mode normal: durable —
 // muat snapshot bila ada, seed hanya saat pertama kali, lalu pantau perubahan.
 const production = process.env.NODE_ENV === 'production';
+const environment=envCore.assertEnvironment({forBoot:production});
 const demoMode = process.env.MAT_DEMO_MODE === '1' || !production;
 const ephemeral = process.env.MAT_EPHEMERAL === '1' || !!process.env.NODE_TEST_CONTEXT || process.env.NODE_ENV === 'test';
 const postgresMode = process.env.MAT_DB_MODE === 'postgres' && !ephemeral;
@@ -45,7 +46,8 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy': "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; img-src 'self' data:; connect-src 'self'"
+  'Content-Security-Policy': "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; img-src 'self' data:; connect-src 'self'",
+  ...(production?{'Strict-Transport-Security':'max-age=31536000; includeSubDomains'}:{})
 };
 
 const PUBLIC_EXACT = new Set(['/index.html']);
@@ -107,8 +109,8 @@ async function boot() {
     const shutdown = () => { worker.stop(); outbox.stop(); server.close(() => close().finally(() => process.exit(0))); };
     process.once('SIGINT', shutdown); process.once('SIGTERM', shutdown);
   }
-  const port=Number(process.env.PORT)||4173;
-  server.listen(port, '127.0.0.1', () =>
+  const port=Number(process.env.PORT)||4173,host=process.env.MAT_BIND_HOST||'127.0.0.1';
+  server.listen(port, host, () =>
     console.log(JSON.stringify({ level:'info', service:'mat-erp-v2', message:`MAT ERP V2 · http://127.0.0.1:${port}`, at:new Date().toISOString() })));
 }
 if (require.main === module) boot().catch((error) => {

@@ -5,6 +5,7 @@ node_modules/
 data/runtime/
 storage/
 coverage/
+release/
 *.log
 *.err
 *.tmp

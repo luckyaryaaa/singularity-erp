@@ -1,11 +1,22 @@
 {
   "name": "mat-erp-v2",
-  "version": "0.1.0",
+  "version": "0.10.0",
   "private": true,
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "test": "node --test --test-concurrency=1",
+    "test": "node --test --test-concurrency=1 \"test/*.test.js\"",
+    "test:unit": "node --test test/app.test.js test/database-infrastructure.test.js",
+    "test:integration": "node --test --test-concurrency=1 test/postgres-auth.integration.test.js test/postgres-concurrency.integration.test.js test/postgres.integration.test.js",
+    "test:e2e": "node --test --test-concurrency=1 test/postgres.http.test.js",
+    "test:security": "node --test --test-concurrency=1 --test-name-pattern=\"auth|CSRF|session|permission|lockout|security\" test/api.test.js test/postgres.http.test.js",
+    "test:authorization": "node --test --test-concurrency=1 --test-name-pattern=\"role|ditolak|approval|scope|permission\" test/api.test.js test/postgres.http.test.js",
+    "test:migration": "node --test test/database-infrastructure.test.js",
+    "test:performance": "node scripts/load-smoke.js",
+    "test:ui": "node --test test/app.test.js",
+    "test:all": "npm test",
+    "security:scan": "node scripts/secret-scan.js",
+    "release:build": "node scripts/build-release.js",
     "db:health": "node scripts/db.js health",
     "db:provision": "node scripts/provision-db.js",
     "db:status": "node scripts/db.js status",
@@ -14,6 +25,7 @@
     "db:grant-runtime": "node scripts/grant-runtime.js"
     ,"db:seed:dev": "node scripts/seed-postgres-dev.js"
     ,"security:rotate-owner": "node scripts/rotate-owner-password.js"
+    ,"security:rotate-runtime": "node scripts/rotate-runtime-secrets.js"
     ,"db:seed:uat": "node scripts/seed-postgres-uat.js"
     ,"db:seed:uat:sprint4": "node scripts/seed-postgres-uat-sprint4.js"
     ,"backup:run": "node scripts/backup-postgres.js run"

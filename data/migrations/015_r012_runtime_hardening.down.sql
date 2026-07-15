@@ -1,0 +1,16 @@
+BEGIN;
+DROP INDEX IF EXISTS ix_files_scan_queue;
+ALTER TABLE file_metadata DROP CONSTRAINT IF EXISTS file_metadata_scan_status_check;
+UPDATE file_metadata SET scan_status='REJECTED' WHERE scan_status NOT IN('CLEAN','REJECTED');
+ALTER TABLE file_metadata ADD CONSTRAINT file_metadata_scan_status_check CHECK(scan_status IN('PENDING','CLEAN','REJECTED'));
+ALTER TABLE file_metadata DROP COLUMN IF EXISTS legal_entity_id,DROP COLUMN IF EXISTS branch_id,DROP COLUMN IF EXISTS confidentiality,DROP COLUMN IF EXISTS scanned_at,DROP COLUMN IF EXISTS scan_detail,DROP COLUMN IF EXISTS scan_engine;
+DROP INDEX IF EXISTS ix_jobs_runtime_lease;
+DROP INDEX IF EXISTS ux_jobs_execution_key;
+ALTER TABLE background_jobs DROP CONSTRAINT IF EXISTS background_jobs_status_check;
+UPDATE background_jobs SET status='PROCESSING' WHERE status IN('CLAIMED','RUNNING');
+UPDATE background_jobs SET status='COMPLETED' WHERE status='SUCCEEDED';
+UPDATE background_jobs SET status='FAILED' WHERE status='DEAD_LETTER';
+ALTER TABLE background_jobs ADD CONSTRAINT background_jobs_status_check CHECK(status IN('QUEUED','PROCESSING','COMPLETED','FAILED','CANCELLED'));
+ALTER TABLE background_jobs DROP COLUMN IF EXISTS artifact_retention_days,DROP COLUMN IF EXISTS policy_snapshot,DROP COLUMN IF EXISTS cancel_reason,DROP COLUMN IF EXISTS cancel_requested_at,DROP COLUMN IF EXISTS deadline_at,DROP COLUMN IF EXISTS timeout_seconds,DROP COLUMN IF EXISTS execution_key;
+ALTER TABLE user_sessions DROP COLUMN IF EXISTS previous_csrf_valid_until,DROP COLUMN IF EXISTS previous_csrf_token_hash,DROP COLUMN IF EXISTS risk_updated_at,DROP COLUMN IF EXISTS risk_flags,DROP COLUMN IF EXISTS last_device,DROP COLUMN IF EXISTS last_ip;
+COMMIT;

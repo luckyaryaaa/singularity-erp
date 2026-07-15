@@ -9,6 +9,10 @@
 - Lockout 5 kegagalan selama 15 menit dan login rate limit terpisah.
 - Password-change dan MFA challenge persisten, berlaku 5 menit, sekali pakai.
 - TOTP RFC 6238; secret terenkripsi AES-256-GCM.
+- `last_seen_at` ditulis maksimal sekali per 5 menit; perubahan IP/perangkat
+  disimpan sebagai risk flag. Rotasi CSRF mempertahankan hash sebelumnya selama
+  10 menit agar beberapa tab aktif tidak menghasilkan false 403.
+- Perubahan password, role, atau status akun mencabut seluruh sesi pengguna.
 
 ## Authorization dan proteksi request
 
@@ -17,12 +21,49 @@
 - Void finansial dan aksi kritis membutuhkan PIN Owner serta alasan.
 - CSP, frame deny, nosniff, referrer policy, dan permissions policy aktif.
 - Audit append-only mencatat request ID, user, aksi, entity, nilai, alasan, IP.
+- Forwarded IP/protocol/host hanya diterima dari `MAT_TRUSTED_PROXIES` yang
+  mendukung exact IP dan IPv4 CIDR; spoofing dari peer lain diabaikan.
+- Scope organisasi baku: GLOBAL, LEGAL_ENTITY, BUSINESS_UNIT, BRANCH, PLANT,
+  WAREHOUSE, DEPARTMENT, PROJECT, dan OWN_RECORD. Snapshot scope ikut disimpan
+  pada policy job; report/export/file difilter kembali di worker/repository.
+
+## Enterprise IAM, SoD, dan access review (v0.9.0)
+
+- 13 role enterprise dipisahkan antara executive, platform, control, business,
+  dan self-service. System Admin tidak dapat posting transaksi; Security Admin
+  tidak dapat menjalankan fungsi finance; Auditor bersifat read/export only.
+- Perubahan role langsung pada user ditolak API. Security Admin mengusulkan
+  assignment dan checker berbeda menyetujui; sesi dicabut setelah perubahan.
+- Assignment primary aktif dan effective-dated adalah sumber otorisasi login
+  serta sesi. Assignment kedaluwarsa ditandai EXPIRED dan sesi berakhir dengan
+  alasan `access_expired`.
+- SoD rule engine memblokir role konflik dan creator=approver. Emergency access
+  hanya Owner + PIN + alasan, scoped, maksimal 24 jam, dan selalu diaudit.
+- Access review menyimpan snapshot assignment serta keputusan retain/revoke.
+  Review hanya dapat selesai setelah seluruh item diputuskan.
+- Approval policy ber-versi memakai maker-checker dan overlap guard; snapshot
+  policy pada dokumen menjaga bukti approval historis.
 
 ## Credential operations
 
 `npm.cmd run security:rotate-owner` menghasilkan secret langsung ke `.env`,
 memperbarui hash PostgreSQL, menghapus challenge tertunda, mencabut sesi Owner,
 dan tidak mencetak password. `.env` diabaikan Git dan tidak boleh dikirim.
+
+Untuk rotasi lengkap gunakan `npm.cmd run security:rotate-runtime`. Perintah ini
+merotasi password Owner/UAT, password role aplikasi PostgreSQL, kunci MFA, dan
+kunci backup, mencabut sesi/challenge, serta mempertahankan kunci backup lama
+hanya sementara untuk pemulihan arsip. Nilai secret tidak pernah masuk log.
+
+## File dan background job (v0.8.0)
+
+- File baru selalu `QUARANTINED`; download hanya tersedia setelah status CLEAN.
+- Signature/MIME, ukuran, archive bomb, checksum, pola EICAR, dan engine malware
+  diperiksa. Production menolak scanner builtin.
+- Job berjalan QUEUED → CLAIMED → RUNNING → SUCCEEDED, dengan heartbeat,
+  deadline, exponential backoff, retry/cancel manual, dan DEAD_LETTER.
+- Registry per jenis job membatasi role/permission, scope, MFA/PIN, concurrency,
+  jumlah baris, timeout, jumlah percobaan, serta retensi artifact.
 
 PostgreSQL hanya listen di `127.0.0.1:5432`; akses remote wajib melalui lapisan
 aplikasi dan VPN/zero-trust, bukan port forwarding database.

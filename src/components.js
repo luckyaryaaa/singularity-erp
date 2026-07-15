@@ -32,6 +32,7 @@
     filter: I('<path d="M4 6h16M7 12h10M10 18h4"/>'),
     trend: I('<path d="m4 15 5-5 4 4 7-8M15 6h5v5"/>'),
     alert: I('<path d="M12 3 2 20h20zM12 10v5M12 18h.01"/>'),
+    warning: I('<path d="M12 3 2 20h20zM12 10v5M12 18h.01"/>'),
     lock: I('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
     clock: I('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>'),
     truck: I('<path d="M3 6h11v10H3zM14 9h4l3 3v4h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>'),
@@ -55,7 +56,8 @@
     CANCELLED: ['Dibatalkan', 'gray'], VOID: ['Void', 'coral'], ON_HOLD: ['Ditahan', 'amber'],
     EXPIRED: ['Kedaluwarsa', 'gray'], OVERDUE: ['Jatuh tempo', 'coral'], PARTIALLY_COMPLETED: ['Selesai sebagian', 'blue'],
     PARTIALLY_PAID: ['Dibayar sebagian', 'blue'], ARCHIVED: ['Diarsipkan', 'gray'],
-    QUEUED: ['Antre', 'gray'], PROCESSING: ['Diproses', 'blue'], FAILED: ['Gagal', 'coral'],
+    QUEUED: ['Antre', 'gray'], CLAIMED: ['Diambil worker', 'blue'], RUNNING: ['Diproses', 'blue'], PROCESSING: ['Diproses', 'blue'], SUCCEEDED: ['Selesai', 'mint'], DEAD_LETTER: ['Butuh intervensi', 'coral'], CANCELLED: ['Dibatalkan', 'gray'], FAILED: ['Gagal', 'coral'],
+    QUARANTINED: ['Karantina', 'amber'], PENDING_SCAN: ['Menunggu scan', 'amber'], SCANNING: ['Dipindai', 'blue'], CLEAN: ['Aman', 'mint'], INFECTED: ['Terinfeksi', 'coral'], REJECTED: ['Ditolak', 'coral'],
     ACTION_REQUIRED: ['Perlu tindakan', 'amber'], WARNING: ['Peringatan', 'coral'], INFORMATION: ['Informasi', 'blue'],
     SUCCESS: ['Berhasil', 'mint'], SYSTEM_ALERT: ['Sistem', 'coral'], SELESAI: ['Selesai', 'mint'], BERJALAN: ['Berjalan', 'blue'], MENUNGGU: ['Menunggu', 'amber'],
     PRESENT: ['Hadir', 'mint'], LATE: ['Terlambat', 'amber'], ABSENT: ['Tidak hadir', 'coral'], LEAVE: ['Cuti', 'blue'], SICK: ['Sakit', 'amber'], REMOTE: ['Remote', 'blue'], OPEN: ['Belum dilaporkan', 'amber']

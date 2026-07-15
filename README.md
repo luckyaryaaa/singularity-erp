@@ -15,6 +15,46 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.9.0 — Sprint 6 / R013 IAM, SoD & Approval Governance
+
+- 13 enterprise roles memisahkan Owner, System Admin, Security Admin,
+  Finance Manager, Auditor, dan business roles; perubahan role wajib melalui
+  assignment maker-checker dengan effective date dan scope organisasi.
+- Role assignment menjadi sumber otorisasi sesi. Assignment kedaluwarsa
+  otomatis berstatus EXPIRED dan seluruh sesi terkait dicabut.
+- SoD engine memblokir pasangan role konflik, self-approval dokumen, dan
+  self-activation policy. Emergency override hanya oleh Owner, memakai PIN,
+  alasan, scope, audit trail, dan maksimum 24 jam.
+- Approval policy tersimpan sebagai versi effective-dated. Dokumen menyimpan
+  policy ID dan snapshot immutable ketika diajukan sehingga histori tidak
+  berubah saat konfigurasi berikutnya aktif.
+- Access review periodik menyediakan snapshot assignment, keputusan
+  retain/revoke, pencabutan sesi, completion gate, dan audit trail.
+- Self-test serta predeploy gate memverifikasi tabel IAM/SoD, policy aktif,
+  expiry assignment, migration checksum, backup/restore, dan regresi penuh.
+
+## Status v0.8.0 — Sprint 5 / R012 runtime hardening
+
+- Credential runtime, Owner/UAT, MFA, dan backup sudah dirotasi tanpa mencetak
+  secret; seluruh sesi lama dicabut dan `.env` tetap di luar repository.
+- Environment guard memisahkan LOCAL-DEVELOPMENT, LOCAL-INTEGRATION, LAN-UAT,
+  dan PRODUCTION; seed serta aktivasi production bersifat fail-closed.
+- Session touch ditahan 5 menit, CSRF memiliki grace token untuk multi-tab,
+  perubahan password/role mencabut sesi, dan perubahan IP/perangkat ditandai.
+- Header forwarding hanya dipercaya dari trusted proxy; HTTPS, secure cookie,
+  HSTS, host, origin, dan bind address dikendalikan environment.
+- Job registry menetapkan izin, role, data scope, MFA/PIN, limit, timeout,
+  retry/backoff, heartbeat, cancel, dead-letter, serta retensi artifact.
+- Lampiran memakai quarantine → scan → CLEAN, validasi signature/archive,
+  checksum, EICAR policy, dan filter akses cabang. Production wajib Defender
+  atau ClamAV; scanner builtin hanya untuk development.
+- Report/export dan file memakai scope organisasi baku (GLOBAL sampai
+  OWN_RECORD), termasuk filter cabang pada worker asynchronous.
+- Release allowlist menghasilkan checksum manifest dan secret scan. Gerbang
+  stage-aware membedakan LOCAL, LAN-UAT, dan PRODUCTION.
+- 49 automated tests lulus, termasuk regression R012; backup offsite terenkripsi
+  dan restore drill PostgreSQL tetap wajib sebelum rilis.
+
 ## Status v0.7.0 — Master data & organisasi enterprise (R012–R015 Wave 1)
 
 - Struktur organisasi enterprise: legal entity → business unit → branch → plant

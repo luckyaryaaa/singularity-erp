@@ -18,6 +18,9 @@
 | `012_enterprise_organization.sql` | legal entity, business unit, department, cost/profit center, plant, warehouse mandiri, storage location, bin, work center, project WBS, fiscal calendar, ledger + dimensi akuntansi pada dokumen |
 | `013_enterprise_master_data.sql` | lifecycle MDM 4 master + 13 sub-tabel employee + customer contacts/addresses/harga + supplier bank maker-checker/materials/price history/evaluasi + product variant/UoM/BOM revision/HPP versioning |
 | `014_branch_aware_numbering.sql` | konfigurasi penomoran ber-versi; format branch-aware {DOC}-{BRANCH}-{MMYY}-{SEQ} |
+| `015_r012_runtime_hardening.sql` | environment/runtime hardening, session CSRF grace, job policy snapshot, file scanner metadata, dan scope organisasi |
+| `016_enterprise_iam_sod_approval.sql` | 13 enterprise roles, role assignment maker-checker/effective-dated, SoD rules/events, emergency override, access review, approval policy version, dan snapshot policy dokumen |
+| `017_enterprise_organization_employee.sql` | identitas organisasi versioned, asset/signatory/tax registry, company-bank maker-checker, MFA step-up session, snapshot identitas dokumen, employee compensation/payroll-bank approval, claim history, dan restricted records |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.
@@ -30,6 +33,12 @@ menyala bila migration terbaru belum aktif.
 - Mutasi kritis menggunakan idempotency record dan advisory lock.
 - Audit bersifat append-only; role aplikasi tidak memiliki UPDATE/DELETE.
 - Event domain ditulis ke outbox pada transaction yang sama.
+- Role efektif berasal dari `user_role_assignments` primary yang aktif dan
+  masih dalam masa berlaku; expiry mencabut sesi secara otomatis.
+- Approval policy diselesaikan saat submit dan disalin ke
+  `business_documents.approval_policy_snapshot` sebagai histori immutable.
+- Identitas legal, rekening terverifikasi, serta penandatangan aktif disalin ke
+  `business_documents.organization_identity_snapshot` pada saat dokumen dibuat.
 
 ## Runtime
 

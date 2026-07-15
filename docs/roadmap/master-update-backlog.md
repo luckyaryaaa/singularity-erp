@@ -6,6 +6,12 @@
 > `SELESAI` atau punya alasan tertulis sebelum R026 (aktivasi VPS).
 >
 > Status: ✅ selesai · 🔨 sedang dikerjakan · ⬜ belum · ◐ sebagian (ada catatan)
+>
+> **Audit verifikasi terakhir — 15 Juli 2026 (v0.10.0):** migrasi 001–017
+> checksum valid · 54/54 automated tests lulus · self-test runtime 12/12,
+> rilis tidak diblokir · gerbang predeploy 9/9 hijau (environment stage,
+> secret scan 296 file 0 temuan, dependency audit, load smoke, kontrol
+> runtime R012+R013, backup+restore drill) · SSE, dashboard, login owner OK.
 
 ## Keputusan arsitektur terkunci (§2)
 
@@ -19,51 +25,60 @@
 
 | Item | Ref | Status |
 |---|---|---|
-| Rotasi credential yang pernah masuk ZIP | 4.1 | ⬜ (jalankan `security:rotate-owner` + ganti PG password sebelum release berikutnya) |
-| Release script allowlist + secret scan + checksum + manifest | 4.1 | ⬜ |
-| Environment guard LOCAL-DEV / LOCAL-INTEGRATION / LAN-UAT / PRODUCTION | 4.2 | ◐ fail-fast MAT_DB_MODE + guard production ada; pemisahan nama DB & seed guard per env ⬜ |
+| Rotasi credential yang pernah masuk ZIP | 4.1 | ✅ rotasi lengkap 15 Juli 2026; sesi/challenge dicabut, secret hanya `.env` |
+| Release script allowlist + secret scan + checksum + manifest | 4.1 | ✅ `release:build` + `security:scan` |
+| Environment guard LOCAL-DEV / LOCAL-INTEGRATION / LAN-UAT / PRODUCTION | 4.2 | ✅ nama environment, DB guard, seed guard, secure-cookie/scanner/activation guard |
 | Gate `MAT_PRODUCTION_ACTIVATION_ALLOWED` (§34) | 34 | ✅ boot produksi diblokir tanpa flag=1 |
 | Numbering multi-branch `{DOC}-{BRANCH}-{MMYY}-{SEQ}` + config version + concurrency 100 | 4.3 | ✅ migrasi 014, uji 100 paralel unik |
-| Session touch throttle 5–10 mnt (hapus FOR UPDATE per request) | 4.4 | ⬜ |
-| Stable CSRF multi-tab tanpa false 403 | 4.4 | ◐ (CSRF stabil per sesi; uji multi-tab formal ⬜) |
-| Revoke session saat password/role berubah + risk data IP/UA | 4.4 | ◐ (revoke saat reset password ✅; role change & risk data ⬜) |
-| Trusted proxy: X-Forwarded-Proto/Host/For + IP asli utk audit/rate limit | 4.5 | ⬜ |
-| Worker heartbeat 15–20 dtk + status CLAIMED/RUNNING/DEAD_LETTER + backoff + manual retry/cancel + timeout per job | 4.6 | ◐ (lease+retry+recovery ✅; heartbeat, DEAD_LETTER, manual retry/cancel ⬜) |
-| Job policy registry (permission/role/scope/MFA/PIN/max rows/frequency/retention per job type) | 4.7 | ⬜ |
-| Data scope standar (GLOBAL…OWN_RECORD) di semua repository + export + artifact + file + audit | 4.8 | ◐ (branch scope & self-service ✅; standarisasi enum scope penuh ⬜) |
-| Pisah Owner/System Admin/Security Admin/dst (12 role governance) | 4.9 | ⬜ |
-| SoD rule engine (Creator≠Approver dst + conflict detection + override ber-PIN) | 4.10 | ◐ (creator≠approver dokumen ✅; engine aturan + deteksi konflik role ⬜) |
-| Approval engine configuration-driven dari `approval_matrix` + policy snapshot per dokumen | 4.11 | ⬜ |
-| File security pipeline (quarantine→validate→scan→classify→CLEAN) + status file | 4.12 | ◐ (validasi MIME/size/checksum/audit ✅; quarantine & scan hook ⬜) |
+| Session touch throttle 5–10 mnt (hapus FOR UPDATE per request) | 4.4 | ✅ throttle 5 menit, tanpa row lock setiap request |
+| Stable CSRF multi-tab tanpa false 403 | 4.4 | ✅ previous-token grace 10 menit + regression test |
+| Revoke session saat password/role berubah + risk data IP/UA | 4.4 | ✅ password/role/status revoke + IP/UA risk flags |
+| Trusted proxy: X-Forwarded-Proto/Host/For + IP asli utk audit/rate limit | 4.5 | ✅ exact/CIDR trusted proxy; forwarding asing diabaikan |
+| Worker heartbeat 15–20 dtk + status CLAIMED/RUNNING/DEAD_LETTER + backoff + manual retry/cancel + timeout per job | 4.6 | ✅ heartbeat 15 dtk, lifecycle eksplisit, deadline, retry/cancel/backoff |
+| Job policy registry (permission/role/scope/MFA/PIN/max rows/frequency/retention per job type) | 4.7 | ✅ registry + immutable policy/data-scope snapshot |
+| Data scope standar (GLOBAL…OWN_RECORD) di semua repository + export + artifact + file + audit | 4.8 | ✅ enum baku; transaksi, worker report/export, artifact ownership, file, dan audit terscope |
+| Pisah Owner/System Admin/Security Admin/dst (13 role governance) | 4.9 | ✅ Sprint 6: katalog role, least privilege, assignment maker-checker/effective-dated |
+| SoD rule engine (Creator≠Approver dst + conflict detection + override ber-PIN) | 4.10 | ✅ rule/event konflik, creator≠approver, override Owner scoped maks. 24 jam |
+| Approval engine configuration-driven + policy snapshot per dokumen | 4.11 | ✅ policy versioned/effective-dated, maker-checker, overlap guard, immutable snapshot |
+| File security pipeline (quarantine→validate→scan→classify→CLEAN) + status file | 4.12 | ✅ quarantine, signature/archive, async scan, status, branch scope; production AV fail-closed |
 | Backup lokal + restore drill + alert (§4.13) | 4.13 | ✅ v0.6.0 (offsite terenkripsi + drill + alert) |
 
 ## R013 — Enterprise Organization, IAM & SoD (§5)
 
 | Item | Status |
 |---|---|
-| 13 entitas organisasi (legal_entities…ledgers) | 🔨 Wave 1a — migrasi 012 |
-| Aturan organisasi (warehouse ≠ FK branches; transaksi ber-cost center; movement ber-warehouse) | ◐ skema Wave 1a; enforcement transaksi bertahap |
-| Multi-currency future-ready (functional/transaction/reporting, FX) | ◐ kolom currency di skema; engine FX ⬜ |
-| Role redesign + field masking + access review | ⬜ (masking bank/salary server-side 🔨 Wave 1d) |
+| 13 entitas organisasi (legal_entities…ledgers) | ✅ migrasi 012 terpasang + seed MAT terverifikasi (9 dept, 9 CC, 3 PC, plant/gudang/bin/WC) |
+| Aturan organisasi (warehouse ≠ FK branches; transaksi ber-cost center; movement ber-warehouse) | ◐ skema + snapshot identitas ✅; enforcement cost-center wajib pada transaksi finansial ⬜ |
+| Multi-currency future-ready (functional/transaction/reporting, FX) | ◐ kolom currency di skema; engine FX & kurs ⬜ |
+| Role redesign + field masking + access review | ✅ role enterprise + masking bank/salary + access review retain/revoke/completion |
 
 ## R014 — Master Organization & Employee (§7–8)
 
+### Sprint 7 completion record — v0.10.0 (15 Juli 2026)
+
+- ✅ Organization Workbench: legal identity versioning, hierarchy, assets, signatory, tax identity, bank registry.
+- ✅ Company bank control: maker ≠ checker, Owner PIN, recent MFA step-up, reason, masked audit old/new.
+- ✅ Business documents store an immutable organization identity/bank/signatory snapshot at creation.
+- ✅ Employee UI follows exactly 10 final tabs; normalized sub-tables are grouped without a duplicate renderer.
+- ✅ Compensation and payroll-bank changes use maker-checker; salary, bank, restricted records remain permission-masked.
+- ✅ Migration 017, rollback, integration coverage, self-test gate, and release manifest are included.
+
 | Item | Status |
 |---|---|
-| Master Organization: identitas lengkap + aset dokumen + signatory | ◐ (profil dasar + PIN ✅; logo/letterhead/signatory ⬜) |
-| Bank account governance perusahaan (maker-checker + PIN + audit old/new) | ◐ (PIN+alasan ✅; maker-checker ⬜) |
-| Employee 13 sub-tabel ternormalisasi (§8.10) | 🔨 Wave 1b — migrasi 013 |
-| 10 tab UI Employee (Overview…Audit) | 🔨 Wave 1d |
-| MDM lifecycle DRAFT→ARCHIVED + effective date + versioning + change reason (§6) | 🔨 Wave 1b |
+| Master Organization: identitas lengkap + aset dokumen + signatory | ✅ Organization Workbench (identitas ber-versi, hierarki, aset, signatory, identitas pajak, registry bank) — migrasi 017 |
+| Bank account governance perusahaan (maker-checker + PIN + audit old/new) | ✅ maker ≠ checker + PIN Owner + step-up MFA + alasan + audit old/new ter-masking |
+| Employee 13 sub-tabel ternormalisasi (§8.10) | ✅ migrasi 013 + 017 (termasuk klaim asuransi & restricted records) |
+| 10 tab UI Employee (Overview…Audit) | ✅ 10 tab final tanpa renderer ganda |
+| MDM lifecycle DRAFT→ARCHIVED + effective date + versioning + change reason (§6) | ✅ lifecycle + versi + alasan + audit pada 4 master |
 
 ## R015 — Master Customer, Supplier & Product (§9–11)
 
 | Item | Status |
 |---|---|
-| Customer: PIC multipel, alamat multipel, commercial control, credit, dokumen, wizard | 🔨 Wave 1b/1d (wizard link ⬜) |
-| Supplier: onboarding, legal&tax, bank governance maker-checker, approved material, price history revisioned, scoring | 🔨 Wave 1b/1d (scoring otomatis ⬜) |
-| Product: varian, UoM konversi, BOM revision lifecycle, cost components, HPP versioning + Active HPP lock + snapshot | 🔨 Wave 1b (BOM/HPP skema; kalkulasi trace ⬜) |
-| Duplicate detection master | ⬜ |
+| Customer: PIC multipel, alamat multipel, commercial control, credit, dokumen, wizard | ◐ PIC/alamat/harga khusus/credit field + tab UI ✅; **Customer Link Wizard (§9.5) ⬜; enforcement credit hold pada SO/invoice ⬜** |
+| Supplier: onboarding, legal&tax, bank governance maker-checker, approved material, price history revisioned, scoring | ◐ semuanya ✅ kecuali **skor evaluasi otomatis dari data PO/GR ⬜** |
+| Product: varian, UoM konversi, BOM revision lifecycle, cost components, HPP versioning + Active HPP lock + snapshot | ◐ skema+API+UI+aktivasi Active HPP ✅; **kalkulasi trace HPP dari BOM ⬜; varian UI ⬜** |
+| Duplicate detection master | ⬜ (deteksi nama/NPWP mirip saat create) |
 
 ## R016–R023 — Modul lanjutan (§12–23)
 
@@ -82,10 +97,10 @@
 
 | Item | Status |
 |---|---|
-| Pemisahan skrip test (unit/integration/e2e/security/authorization/migration/performance/ui) | ⬜ |
+| Pemisahan skrip test (unit/integration/e2e/security/authorization/migration/performance/ui) | ✅ script terpisah dan tervalidasi |
 | Negative authorization tests lengkap (§29.4) | ◐ sebagian di suite |
 | Load test 10/25 user LAN | ◐ smoke 12 konkuren ✅; skenario tulis ⬜ |
-| Self-Test final PASS/WARNING/FAIL/BLOCKED (§30) | ◐ 9 cek ✅; financial/inventory/payroll reconciliation checks ⬜ |
+| Self-Test final PASS/WARNING/FAIL/BLOCKED (§30) | ◐ 12 cek ✅ (verifikasi 15 Jul); rekonsiliasi financial/inventory/payroll + partition health + orphan check ⬜ |
 | Dokumentasi & SOP (§31, 18 dokumen) | ◐ 8 dokumen ada |
 | LAN multi-user pilot & UAT per divisi + Owner sign-off (R025) | ⬜ (butuh boss & staf) |
 | R026 VPS activation (runbook siap) | ⬜ ditahan sampai gate §34 penuh |

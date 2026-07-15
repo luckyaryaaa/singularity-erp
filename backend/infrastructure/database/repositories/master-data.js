@@ -9,7 +9,7 @@ const runtime = require('./runtime');
 const maskAccount = (value) => value ? `••••${String(value).slice(-4)}` : value;
 const maskMoney = () => 'Rp ••••••••';
 const canSeeSalary = (user) => hasPermission(user, 'payroll.view') || hasPermission(user, '*');
-const canSeeBank = (user) => ['owner', 'admin', 'finance'].includes(user.role) || hasPermission(user, '*');
+const canSeeBank = (user) => ['owner','finance_manager','accounting'].includes(user.role) || hasPermission(user, '*');
 
 // Registry sub-resource: tabel, kolom yang boleh ditulis, urutan, dan masking.
 const REGISTRY = {
@@ -27,19 +27,21 @@ const REGISTRY = {
       'contracts': { table: 'employee_contracts', fk: 'employee_id', order: 'start_date DESC',
         cols: ['contract_number','contract_type','start_date','end_date','probation_end','permanent_date','file_id','status'] },
       'compensation': { table: 'employee_compensation_history', fk: 'employee_id', order: 'effective_from DESC',
-        cols: ['base_salary','fixed_allowance','variable_allowance','salary_grade','effective_from','approval_reason'],
+        cols: ['base_salary','fixed_allowance','variable_allowance','salary_grade','effective_from','effective_to','approval_reason'],
         viewGuard: (u) => { if (!canSeeSalary(u)) throw new AppError('PERMISSION_DENIED', 'Data kompensasi membutuhkan izin payroll.'); },
-        reason: true },
+        reason: true, makerChecker: true, workflow: 'compensation' },
       'tax-profiles': { table: 'employee_tax_profiles', fk: 'employee_id', order: 'effective_from DESC',
-        cols: ['npwp','tax_subject','tax_scheme','ptkp_status','ter_category','tax_method','previous_employer_income','effective_from'] },
+        cols: ['npwp','tax_subject','tax_scheme','ptkp_status','ter_category','ter_rate','tax_method','previous_employer_income','effective_from','effective_to','calculation_version'] },
       'bpjs': { table: 'employee_bpjs_profiles', fk: 'employee_id', order: 'program',
         cols: ['program','membership_number','wage_base','risk_category','employer_pct','employee_pct','ceiling_amount','floor_amount','active_from','active_to','calculation_version'] },
       'insurance': { table: 'employee_insurance_profiles', fk: 'employee_id', order: 'effective_from DESC',
         cols: ['insurer','policy_number','coverage_type','family_covered','premium','employer_contribution','employee_contribution','effective_from','expiry_date','file_id'] },
+      'insurance-claims': { table: 'employee_insurance_claim_history', fk: 'employee_id', order: 'claim_date DESC',
+        cols: ['insurance_profile_id','claim_number','claim_date','claim_type','amount','status','notes'] },
       'bank-accounts': { table: 'employee_bank_accounts', fk: 'employee_id', order: 'created_at DESC',
-        cols: ['bank_name','account_number','account_holder','effective_from','is_primary'],
-        reason: true,
-        mask: (row, u) => canSeeSalary(u) ? row : { ...row, accountNumber: maskAccount(row.accountNumber) } },
+        cols: ['bank_name','account_number','account_holder','currency','effective_from','effective_to','is_primary','change_reason'],
+        reason: true, makerChecker: true, workflow: 'employeeBank',
+        mask: (row, u) => canSeeBank(u) ? row : { ...row, accountNumber: maskAccount(row.accountNumber) } },
       'documents': { table: 'employee_documents', fk: 'employee_id', order: 'created_at DESC',
         cols: ['document_type','title','file_id','expiry_date','verified'] },
       'certifications': { table: 'employee_certifications', fk: 'employee_id', order: 'expiry_date',
@@ -47,6 +49,9 @@ const REGISTRY = {
       'emergency-contacts': { table: 'employee_emergency_contacts', fk: 'employee_id', order: 'name',
         cols: ['name','relationship','phone','address','restricted_notes','confidentiality'],
         viewGuard: (u) => assertPermission(u, 'employee.edit') },
+      'restricted-records': { table: 'employee_restricted_records', fk: 'employee_id', order: 'created_at DESC',
+        cols: ['record_type','title','restricted_notes','file_id','effective_from','effective_to'],
+        guard: (u) => assertPermission(u,'employee.edit'), viewGuard: (u) => assertPermission(u,'employee.edit') },
       'access': { table: 'employee_access_assignments', fk: 'employee_id', order: 'access_start DESC',
         cols: ['user_id','role','org_scope','access_start','access_end','review_note'] }
     }
@@ -132,7 +137,26 @@ async function overview(client, master, id, user) {
   for (const [name, s] of Object.entries(m.subs)) {
     counts[name] = Number((await client.query(`SELECT count(*)::int n FROM ${s.table} WHERE ${s.fk}=$1`, [id])).rows[0].n);
   }
-  if (master === 'employees' && !canSeeSalary(user)) parent.baseSalary = maskMoney();
+  if (master === 'employees') {
+    const summary=(await client.query(`SELECT
+      (SELECT row_to_json(x) FROM (SELECT position_title,division,work_location,salary_grade,effective_from FROM employee_positions WHERE employee_id=$1 AND effective_from<=current_date AND (effective_to IS NULL OR effective_to>=current_date) ORDER BY effective_from DESC LIMIT 1)x) current_position,
+      (SELECT row_to_json(x) FROM (SELECT employment_type,employment_status,event_date FROM employee_employment_history WHERE employee_id=$1 ORDER BY event_date DESC LIMIT 1)x) employment,
+      (SELECT row_to_json(x) FROM (SELECT base_salary,fixed_allowance,variable_allowance,salary_grade,effective_from,approval_status FROM employee_compensation_history WHERE employee_id=$1 ORDER BY effective_from DESC LIMIT 1)x) compensation,
+      (SELECT row_to_json(x) FROM (SELECT ptkp_status,ter_category,ter_rate,tax_scheme,tax_method,effective_from FROM employee_tax_profiles WHERE employee_id=$1 AND effective_from<=current_date AND (effective_to IS NULL OR effective_to>=current_date) ORDER BY effective_from DESC LIMIT 1)x) tax,
+      (SELECT count(*)::int FROM employee_bpjs_profiles WHERE employee_id=$1 AND active_from<=current_date AND (active_to IS NULL OR active_to>=current_date)) bpjs_programs,
+      (SELECT count(*)::int FROM employee_insurance_profiles WHERE employee_id=$1 AND COALESCE(effective_from,current_date)<=current_date AND (expiry_date IS NULL OR expiry_date>=current_date)) insurance_policies,
+      (SELECT row_to_json(x) FROM (SELECT bank_name,account_number,account_holder,currency,verification_status FROM employee_bank_accounts WHERE employee_id=$1 ORDER BY is_primary DESC,created_at DESC LIMIT 1)x) payroll_bank,
+      (SELECT count(*)::int FROM employee_documents WHERE employee_id=$1 AND expiry_date BETWEEN current_date AND current_date+interval '90 days') expiring_documents,
+      (SELECT count(*)::int FROM attendance_records WHERE employee_id=$1 AND work_date>=date_trunc('month',current_date)) attendance_days,
+      (SELECT jsonb_build_object('entitlement',entitlement,'used',used,'remaining',entitlement-used) FROM leave_balances WHERE employee_id=$1 AND year=extract(year from current_date)) leave_balance,
+      (SELECT count(*)::int FROM app_users WHERE employee_id=$1 AND active) active_user_accounts`,[id])).rows[0];
+    const required=[parent.nik,parent.name,parent.department,parent.branchId,parent.joinDate,summary.current_position,summary.employment,summary.tax,summary.payroll_bank];
+    parent.completeness={score:Math.round(required.filter(Boolean).length/required.length*100),completed:required.filter(Boolean).length,total:required.length};
+    const enterprise=runtime.camel(summary);
+    if(!canSeeSalary(user)){parent.baseSalary=maskMoney();if(enterprise.compensation){enterprise.compensation.baseSalary=maskMoney();enterprise.compensation.fixedAllowance=maskMoney();enterprise.compensation.variableAllowance=maskMoney();}}
+    if(enterprise.payrollBank&&!canSeeBank(user))enterprise.payrollBank.accountNumber=maskAccount(enterprise.payrollBank.accountNumber);
+    parent.enterpriseSummary=enterprise;
+  }
   return { ...parent, subCounts: counts };
 }
 
@@ -173,7 +197,9 @@ async function createSub(client, master, id, sub, body, user, requestId) {
       [id, payload.material_desc || '']);
   }
   // Bank supplier: maker-checker (§10.3) — masuk sebagai usulan ber-hold.
-  if (s.makerChecker) { payload.proposed_by = user.id; payload.payment_hold = true; payload.verification_status = 'PENDING_VERIFICATION'; }
+  if (s.makerChecker && s.workflow === 'employeeBank') { payload.proposed_by = user.id; payload.verification_status = 'PENDING_VERIFICATION'; }
+  if (s.makerChecker && s.workflow === 'compensation') { payload.created_by = user.id; payload.approval_status = 'PENDING_APPROVAL'; }
+  if (s.makerChecker && !s.workflow) { payload.proposed_by = user.id; payload.payment_hold = true; payload.verification_status = 'PENDING_VERIFICATION'; }
   if (s.cols.includes('created_by') || ['employee_positions','employee_contracts','employee_documents','customer_contacts','product_files'].includes(s.table)) payload.created_by = user.id;
   if (s.table === 'employee_compensation_history') { payload.created_by = user.id; payload.approval_reason = body.change_reason || body.changeReason || payload.approval_reason; }
 
@@ -208,6 +234,41 @@ async function approveSupplierBank(client, supplierId, bankId, user, requestId) 
     requestId, branchId: user.branchId
   });
   return runtime.camel(updated);
+}
+
+// Perubahan gaji dan rekening payroll selalu melalui maker-checker.
+async function decideEmployeeSensitive(client,{employeeId,kind,rowId,decision,reason,user,requestId}){
+  assertPermission(user,decision==='approve'?'employee.approve':'employee.reject');
+  const config=kind==='bank-accounts'
+    ?{table:'employee_bank_accounts',statusCol:'verification_status',pending:'PENDING_VERIFICATION',approved:'VERIFIED',rejected:'REJECTED',maker:'proposed_by'}
+    :kind==='compensation'
+      ?{table:'employee_compensation_history',statusCol:'approval_status',pending:'PENDING_APPROVAL',approved:'APPROVED',rejected:'REJECTED',maker:'created_by'}:null;
+  if(!config)throw new AppError('VALIDATION_ERROR');
+  const row=(await client.query(`SELECT * FROM ${config.table} WHERE id=$1 AND employee_id=$2 FOR UPDATE`,[rowId,employeeId])).rows[0];
+  if(!row)throw new AppError('RESOURCE_NOT_FOUND');
+  if(row[config.maker]===user.id)throw new AppError('SOD_CONFLICT','Maker tidak boleh menjadi checker untuk perubahan sensitif employee.');
+  if(row[config.statusCol]!==config.pending)throw new AppError('STATUS_INVALID');
+  if(decision==='reject'&&!String(reason||'').trim())throw new AppError('REASON_REQUIRED');
+  if(decision==='approve'&&kind==='bank-accounts'&&row.is_primary){
+    await client.query(`UPDATE employee_bank_accounts SET is_primary=false WHERE employee_id=$1 AND verification_status='VERIFIED'`,[employeeId]);
+  }
+  if(decision==='approve'&&kind==='compensation'){
+    await client.query(`UPDATE employee_compensation_history SET approval_status='SUPERSEDED',effective_to=COALESCE(effective_to,$2::date-1) WHERE employee_id=$1 AND approval_status='APPROVED'`,[employeeId,row.effective_from]);
+    await client.query('UPDATE employees SET base_salary=$2,updated_at=now() WHERE id=$1',[employeeId,row.base_salary]);
+  }
+  const sql=decision==='approve'
+    ?`UPDATE ${config.table} SET ${config.statusCol}=$2,approved_by=$3,approved_at=now() WHERE id=$1 RETURNING *`
+    :`UPDATE ${config.table} SET ${config.statusCol}=$2,rejected_by=$3,rejected_at=now(),rejection_reason=$4 WHERE id=$1 RETURNING *`;
+  const updated=(await client.query(sql,decision==='approve'?[rowId,config.approved,user.id]:[rowId,config.rejected,user.id,reason])).rows[0];
+  await runtime.audit(client,{userId:user.id,action:decision==='approve'?'APPROVE':'REJECT',module:'employee',entityType:`EMPLOYEE_${kind.toUpperCase()}`,entityId:rowId,oldValue:{status:row[config.statusCol]},newValue:{status:updated[config.statusCol]},reason:reason||row.change_reason||row.approval_reason,requestId,branchId:user.branchId});
+  return runtime.camel(updated);
+}
+
+async function employeeAudit(client,employeeId,user){
+  assertPermission(user,'employee.view'); await parentRow(client,'employees',employeeId);
+  return (await client.query(`SELECT id,occurred_at,user_id,action,module,entity_type,old_value,new_value,reason,request_id
+    FROM audit_logs WHERE entity_id=$1 OR (module='employee' AND (old_value->>'parent'=$1::text OR new_value->>'parent'=$1::text))
+    ORDER BY occurred_at DESC LIMIT 200`,[employeeId])).rows.map(runtime.camel);
 }
 
 // Aktivasi HPP (§11.4): APPROVED → ACTIVE; revisi ACTIVE lama SUPERSEDED;
@@ -263,8 +324,11 @@ async function lifecycle(client, master, id, action, reason, user, requestId) {
   if (!rule.from.includes(row.lifecycle_status)) {
     throw new AppError('STATUS_INVALID', `Lifecycle '${action}' tidak diizinkan dari status ${row.lifecycle_status}.`);
   }
+  if (action === 'approve' && row.data_steward && row.data_steward === user.id) {
+    throw new AppError('SOD_CONFLICT', 'Data steward/pengusul tidak boleh menyetujui master yang sama.');
+  }
   const updated = (await client.query(
-    `UPDATE ${m.parent} SET lifecycle_status=$2, mdm_version=mdm_version+1, change_reason=$3, data_steward=$4, updated_at=now() WHERE id=$1 RETURNING *`,
+    `UPDATE ${m.parent} SET lifecycle_status=$2, mdm_version=mdm_version+1, change_reason=$3, data_steward=COALESCE(data_steward,$4), updated_at=now() WHERE id=$1 RETURNING *`,
     [id, rule.to, reason || null, user.id])).rows[0];
   await runtime.audit(client, {
     userId: user.id, action: action === 'approve' || action === 'activate' ? 'APPROVE' : 'UPDATE', module: m.module,
@@ -275,4 +339,4 @@ async function lifecycle(client, master, id, action, reason, user, requestId) {
   return runtime.camel(updated);
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, activateCostRevision, promoteRevision, lifecycle };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideEmployeeSensitive, employeeAudit, activateCostRevision, promoteRevision, lifecycle };
