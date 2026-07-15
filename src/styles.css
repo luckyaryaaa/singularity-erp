@@ -2,34 +2,8 @@
    MAT ERP V2 — Soft Clay Enterprise Design System
    70% clean enterprise · 20% soft rounded · 10% clay accent.
    Clay hanya pada: KPI, login, empty/error state, banner perhatian.
+   Token dipisah ke src/design-system/tokens.css (DS 2.0, dimuat lebih dahulu).
    ========================================================================== */
-
-:root{
-  /* Base — §29.1 */
-  --cloud:#f8fafc; --ivory:#fffdf8; --soft-gray:#eef2f6;
-  --navy:#162033; --navy-2:#22304a; --navy-3:#2b3c5c;
-  --text:#20293a; --slate:#475569; --muted:#7c8799; --border:#e2e8f0;
-  /* Accent — §29.2 */
-  --blue:#8db9ff; --mint:#9edcc5; --amber:#f5c878; --lavender:#b8aef5; --coral:#f2a7a0;
-  /* Tonal pairs (bg / teks kontras) */
-  --blue-bg:#eaf3ff; --blue-ink:#3a6ea8;
-  --mint-bg:#e7f7f0; --mint-ink:#2e7d5f;
-  --amber-bg:#fdf3dc; --amber-ink:#9a6a15;
-  --coral-bg:#fdeeec; --coral-ink:#b04a42;
-  --lav-bg:#f0edfd;  --lav-ink:#6656b5;
-  --gray-bg:#eef2f6; --gray-ink:#5b6980;
-  /* Elevation & bentuk — §31 */
-  --shadow:0 10px 30px rgba(39,55,81,.07);
-  --shadow-lift:0 16px 38px rgba(39,55,81,.11);
-  --shadow-clay:inset 4px 4px 10px rgba(255,255,255,.65), inset -6px -6px 12px rgba(44,61,90,.14), 0 10px 22px rgba(37,50,74,.14);
-  --r-card:20px; --r-btn:11px; --r-input:10px; --r-chip:8px;
-  /* Motion — §33 */
-  --ease-fast:150ms cubic-bezier(.2,.8,.2,1);
-  --ease:180ms cubic-bezier(.2,.8,.2,1);
-  --ease-drawer:220ms cubic-bezier(.2,.8,.2,1);
-  --font-display:"Manrope",system-ui,sans-serif;
-  --font-body:"Plus Jakarta Sans",system-ui,sans-serif;
-}
 
 /* ── Reset & dasar ─────────────────────────────────────────────────────── */
 *{box-sizing:border-box}

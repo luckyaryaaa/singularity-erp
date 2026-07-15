@@ -14,10 +14,15 @@
 > 1000, konfigurasi via env) · ✅ liveness `/api/live` terpisah dari readiness
 > `/api/health` + kontrak tes · ✅ i18n baseline §10.15 (src/i18n.js +
 > locales id-ID/en-US, pengalih bahasa di topbar, nav & login ter-i18n).
-> ⬜ Sisa 8B: pemecahan penuh pages.js/api-postgres.js/styles.css per modul,
-> Design System 2.0 token, component library, Approval Center 2.0 (§10.8),
-> enterprise table lanjutan (saved views/column chooser/density), aksesibilitas
-> audit formal, visual regression test, static asset fingerprint + precompress.
+> ✅ Approval Center 2.0 (§10.8): antrean persetujuan kini menampilkan eksposur
+> kredit pelanggan (sisa plafon / over-limit / hold) + versi snapshot kebijakan
+> approval per dokumen · ✅ Design System 2.0 (awal): token dipisah ke
+> `src/design-system/tokens.css` (dimuat sebelum styles.css) + lapisan token
+> semantik §10.3 (--bg-canvas/--space-N/--radius-N/--elevation-N).
+> ⬜ Sisa 8B: pemecahan penuh pages.js/api-postgres.js per modul, component
+> library terpisah, enterprise table lanjutan (saved views/column chooser/
+> density), aksesibilitas audit formal, visual regression test, static asset
+> fingerprint + precompress.
 >
 > **Sprint 8A — Release Closure v0.11.0: ✅ SELESAI 15 Juli 2026.**
 > Rotasi secret owner+runtime (sesi dicabut, UAT wajib ganti sandi, kunci backup

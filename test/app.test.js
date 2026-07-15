@@ -12,8 +12,13 @@ test('single app shell and accessible landmarks exist',()=>{
   assert.match(html,/prefers-reduced-motion|src\/styles.css/);
 });
 test('design system uses semantic tokens and responsive breakpoints',()=>{
+  // DS 2.0: token dipisah ke src/design-system/tokens.css, dimuat sebelum styles.css.
+  const tokens=fs.readFileSync(path.join(__dirname,'..','src','design-system','tokens.css'),'utf8');
+  assert.match(tokens,/:root\{/); assert.match(tokens,/--bg-canvas/); assert.match(tokens,/--space-4/);
   const css=fs.readFileSync(path.join(__dirname,'..','src','styles.css'),'utf8');
-  assert.match(css,/:root\{/); assert.match(css,/@media\(max-width:700px\)/); assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
+  assert.match(css,/@media\(max-width:700px\)/); assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(html,/design-system\/tokens\.css/);
 });
 test('server returns security headers and prevents traversal',async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));

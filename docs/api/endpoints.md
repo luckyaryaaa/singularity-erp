@@ -16,6 +16,9 @@ selalu berbentuk `{ code, message, detail? }`.
 - `GET /api/my-work` — inbox lintas modul (§10.7): menunggu persetujuan saya,
   dibuat saya yang masih berjalan, dikembalikan untuk revisi, dokumen jatuh
   tempo (ber-scope cabang), job gagal, notifikasi perlu tindakan.
+- `GET /api/approvals` — Approval Center 2.0 (§10.8): tiap item kini menyertakan
+  `policyVersion` (versi snapshot kebijakan approval) dan `credit` (hold,
+  limit, exposure, projected, overLimit) untuk dokumen pelanggan.
 
 ## Auth
 

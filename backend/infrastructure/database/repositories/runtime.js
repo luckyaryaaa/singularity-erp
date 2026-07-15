@@ -126,11 +126,22 @@ async function listDocuments(client,{types,user,page=1,limit=25,q,sortKey='updat
 async function auditTrail(client,id,limit=15){return (await client.query(`SELECT a.*,u.display_name user_name FROM audit_logs a LEFT JOIN app_users u ON u.id=a.user_id WHERE a.entity_id=$1 ORDER BY occurred_at DESC LIMIT $2`,[id,limit])).rows.map(camel);}
 async function pendingApprovals(client,user,{page=1,limit=25}={}){
   limit=Math.min(Math.max(Number(limit)||25,1),100);page=Math.max(Number(page)||1,1);const level=roleLevel[user.role];if(!level)return{items:[],page,limit,total:0,totalPages:1};
-  const params=[];let scope="status='WAITING_APPROVAL'";if(user.role!=='owner'){params.push(level);scope+=" AND required_approval_levels ? $1 AND NOT approvals @> jsonb_build_array(jsonb_build_object('level',$1))";}
-  if(!['owner','admin'].includes(user.role)&&user.branchScope!=='*'){params.push(user.branchId);scope+=` AND branch_id=$${params.length}`;}
-  const total=Number((await client.query(`SELECT count(*) n FROM business_documents WHERE ${scope}`,params)).rows[0].n);params.push(limit,(page-1)*limit);
-  const rows=(await client.query(`SELECT *,floor(extract(epoch from(now()-COALESCE(submitted_at,created_at)))/86400)::int age_days FROM business_documents WHERE ${scope} ORDER BY amount DESC LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows.map(camel);
-  const items=rows.map(d=>{const done=(d.approvals||[]).map(a=>a.level),levels=d.requiredApprovalLevels||[];return{...d,approvalLevel:`${done.length+1}/${levels.length}`,nextLevel:levels.find(x=>!done.includes(x)),risk:d.amount>100000000?'high':d.amount>25000000?'medium':'low'};});
+  // Kondisi memakai alias d. sejak awal agar query dengan LEFT JOIN customers aman.
+  const params=[];let scope="d.status='WAITING_APPROVAL'";if(user.role!=='owner'){params.push(level);scope+=" AND d.required_approval_levels ? $1 AND NOT d.approvals @> jsonb_build_array(jsonb_build_object('level',$1))";}
+  if(!['owner','admin'].includes(user.role)&&user.branchScope!=='*'){params.push(user.branchId);scope+=` AND d.branch_id=$${params.length}`;}
+  const total=Number((await client.query(`SELECT count(*) n FROM business_documents d WHERE ${scope}`,params)).rows[0].n);params.push(limit,(page-1)*limit);
+  // Approval Center 2.0 (§10.8): sertakan versi snapshot policy + eksposur kredit
+  // pelanggan (subquery, hanya untuk dokumen pelanggan) langsung di antrean.
+  const rows=(await client.query(`SELECT d.*,floor(extract(epoch from(now()-COALESCE(d.submitted_at,d.created_at)))/86400)::int age_days,
+    c.credit_hold,c.credit_limit_amount,
+    (SELECT COALESCE(sum(i.amount-COALESCE((i.payload->>'paid')::numeric,0)),0) FROM business_documents i
+      WHERE i.document_type='INVOICE' AND i.party_id=d.party_id AND i.status IN('APPROVED','PARTIALLY_PAID','OVERDUE','IN_PROCESS')) credit_exposure
+    FROM business_documents d LEFT JOIN customers c ON c.id=d.party_id AND d.document_type IN('SALES_ORDER','INVOICE','QUOTATION')
+    WHERE ${scope} ORDER BY d.amount DESC LIMIT $${params.length-1} OFFSET $${params.length}`,params)).rows.map(camel);
+  const items=rows.map(d=>{const done=(d.approvals||[]).map(a=>a.level),levels=d.requiredApprovalLevels||[];
+    const snap=d.approvalPolicySnapshot||{};
+    const credit=(d.creditLimitAmount!=null)?{hold:d.creditHold,limit:Number(d.creditLimitAmount),exposure:Number(d.creditExposure||0),projected:Number(d.creditExposure||0)+Number(d.amount||0),overLimit:Number(d.creditLimitAmount)>0&&(Number(d.creditExposure||0)+Number(d.amount||0))>Number(d.creditLimitAmount)}:null;
+    return{...d,approvalLevel:`${done.length+1}/${levels.length}`,nextLevel:levels.find(x=>!done.includes(x)),risk:d.amount>100000000?'high':d.amount>25000000?'medium':'low',policyVersion:snap.version||null,policyKey:snap.policyKey||snap.source||null,credit};});
   return{items,page,limit,total,totalPages:Math.max(Math.ceil(total/limit),1)};
 }
 

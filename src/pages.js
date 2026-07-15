@@ -159,7 +159,7 @@
     render(main) {
       main.innerHTML = pageHead({
         eyebrow: 'PUSAT PERSETUJUAN', title: 'Persetujuan saya',
-        sub: 'Keputusan diurutkan dari nilai terbesar. Routing mengikuti matriks approval terpusat.'
+        sub: 'Keputusan diurutkan dari nilai terbesar, dengan eksposur kredit pelanggan dan versi kebijakan approval yang berlaku.'
       }) + `<section id="apprTable"></section>`;
       const riskChip = { high: '<span class="chip coral">Risiko tinggi</span>', medium: '<span class="chip amber">Risiko sedang</span>', low: '<span class="chip gray">Risiko rendah</span>' };
       this._table = dataTable(main.querySelector('#apprTable'), {
@@ -169,7 +169,8 @@
           { label: 'Dokumen', render: (r) => `<b>${esc(r.documentNumber)}</b><small>${esc(TYPE_LABEL[r.documentType] || r.documentType)} · ${esc(r.title)}</small>` },
           { label: 'Pemohon', render: (r) => `${esc(r.createdByName)}<small>${esc(r.partyName || '')}</small>` },
           { label: 'Nilai', right: true, render: (r) => `<span class="money">${fmtIDR(r.amount)}</span>` },
-          { label: 'Jenjang', render: (r) => `<span class="chip blue">Level ${esc(r.approvalLevel)} · ${esc(r.nextLevel || '')}</span>` },
+          { label: 'Jenjang', render: (r) => `<span class="chip blue">Level ${esc(r.approvalLevel)} · ${esc(r.nextLevel || '')}</span>${r.policyVersion ? `<small class="muted">policy v${esc(r.policyVersion)}</small>` : ''}` },
+          { label: 'Kredit', render: (r) => !r.credit ? '<span class="muted">—</span>' : r.credit.hold ? '<span class="chip coral">Hold</span>' : r.credit.overLimit ? `<span class="chip coral">Over ${fmtIDR(r.credit.projected - r.credit.limit)}</span>` : r.credit.limit > 0 ? `<span class="chip mint">Sisa ${fmtIDR(r.credit.limit - r.credit.exposure)}</span>` : '<span class="chip gray">Tanpa batas</span>' },
           { label: 'Umur', render: (r) => `${r.ageDays} hari` },
           { label: 'Risiko', render: (r) => riskChip[r.risk] },
           { label: '', render: (r) => can('approval.approve') || can('*') ? `<div class="row-actions"><button class="btn primary sm" data-quick="approve" data-id="${esc(r.id)}">Setujui</button><button class="btn danger-outline sm" data-quick="reject" data-id="${esc(r.id)}">Tolak</button></div>` : '' }
