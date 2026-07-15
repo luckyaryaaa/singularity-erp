@@ -1,9 +1,17 @@
-# Backlog Resmi — FINAL MASTER UPDATE MAT ERP V2
+# Backlog Resmi — MAT ERP V2
 
-> Sumber: `FINAL_MASTER_UPDATE_MAT_ERP_V2.md` (14 Juli 2026). Dokumen ini adalah
-> **acuan tunggal**: daftar backlog resmi, urutan implementasi, acceptance
-> criteria, dan production-readiness gate. Setiap item di bawah wajib berstatus
+> **Sumber acuan tunggal (terbaru): `FINAL_MASTER_UPDATE_TERPADU_MAT_ERP_V2_2026-07-15.md`**
+> (menggantikan `FINAL_MASTER_UPDATE_MAT_ERP_V2.md` 14 Juli). Urutan sprint resmi:
+> 8A release closure → 8B arsitektur/UI → 8C master data final → 9–16 modul →
+> 17 audit final → 18 LAN-UAT → 19 VPS go-live. Setiap item wajib berstatus
 > `SELESAI` atau punya alasan tertulis sebelum R026 (aktivasi VPS).
+>
+> **Sprint 8A — Release Closure v0.11.0: ✅ SELESAI 15 Juli 2026.**
+> Rotasi secret owner+runtime (sesi dicabut, UAT wajib ganti sandi, kunci backup
+> lama dipertahankan) · backup segar + offsite terenkripsi · rollback drill 018
+> bolak-balik di DB disposable PASS · restore drill 113 tabel s.d. 018 PASS ·
+> predeploy gate 9/9 (60/60 tes, scan 0, dep audit, load smoke, boot, kontrol
+> R012+R013) · versi 0.11.0 · paket release allowlist + manifest SHA-256 · tag git.
 >
 > Status: ✅ selesai · 🔨 sedang dikerjakan · ⬜ belum · ◐ sebagian (ada catatan)
 >

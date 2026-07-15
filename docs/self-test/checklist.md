@@ -6,7 +6,7 @@ Rilis diblokir bila pemeriksaan kritis gagal.
 Pemeriksaan runtime:
 
 1. koneksi PostgreSQL;
-2. migration terbaru `017_enterprise_organization_employee.sql`;
+2. migration terbaru (dinamis dari folder migrasi — saat ini `018_procurement_credit_control.sql`);
 3. hashing token session dan CSRF;
 4. persistent job queue;
 5. persistent auth challenge;
@@ -18,7 +18,9 @@ Pemeriksaan runtime:
 11. Organization & Employee Master, MFA step-up, dan snapshot identitas dokumen;
 12. backup completed dan restore drill berhasil.
 
-Suite `npm.cmd test` berisi 54 test: session, CSRF, Origin, lockout, rate limit,
+Suite `npm.cmd test` berisi 60 test (termasuk Wave 2: RFQ+perbandingan,
+three-way match ber-toleransi, credit control, payment proposal): session,
+CSRF, Origin, lockout, rate limit,
 RBAC, pagination, optimistic locking, concurrency, idempotency, approval tier,
 PIN Owner, SSE, migration checksum, least privilege, PostgreSQL localhost,
 outbox, job claim, seluruh kontrak endpoint UI, restart persistence, password
