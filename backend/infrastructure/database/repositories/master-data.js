@@ -5,6 +5,7 @@
 const { AppError } = require('../../../core/errors');
 const { assertPermission, hasPermission } = require('../../../core/permissions');
 const runtime = require('./runtime');
+const masterGovernance = require('./master-governance');
 
 const maskAccount = (value) => value ? `••••${String(value).slice(-4)}` : value;
 const maskMoney = () => 'Rp ••••••••';
@@ -64,7 +65,7 @@ const REGISTRY = {
       'addresses': { table: 'customer_addresses', fk: 'customer_id', order: 'address_type, is_default DESC',
         cols: ['address_type','label','address','city','province','postal_code','is_default','active'] },
       'prices': { table: 'customer_product_prices', fk: 'customer_id', order: 'effective_from DESC',
-        cols: ['product_id','price','currency','effective_from','expiry_date','status'] }
+        cols: ['product_id','price','currency','effective_from','expiry_date','status'], overlap: { from:'effective_from', to:'expiry_date', key:'product_id' } }
     }
   },
   suppliers: {
@@ -79,7 +80,7 @@ const REGISTRY = {
         reason: true, makerChecker: true,
         mask: (row, u) => canSeeBank(u) ? row : { ...row, accountNumber: maskAccount(row.accountNumber) } },
       'materials': { table: 'supplier_materials', fk: 'supplier_id', order: 'category',
-        cols: ['product_id','category','grade_spec','brand','supplier_part_number','uom','moq','lead_time_days','certification','approved_status','valid_from','valid_to'] },
+        cols: ['product_id','category','grade_spec','brand','supplier_part_number','uom','moq','lead_time_days','certification','approved_status','valid_from','valid_to'], overlap: { from:'valid_from', to:'valid_to', key:'category' } },
       'price-history': { table: 'supplier_price_history', fk: 'supplier_id', order: 'effective_from DESC',
         cols: ['product_id','material_desc','grade','specification','uom','currency','price','tax_included','freight_included','lead_time_days','moq','supplier_part_number','effective_from','expiry_date','source_quotation'],
         appendOnly: true },
@@ -97,7 +98,9 @@ const REGISTRY = {
       'bom': { table: 'bom_headers', fk: 'product_id', order: 'revision_no DESC',
         cols: ['revision_no','bom_type','effective_date','notes'] },
       'cost-revisions': { table: 'product_cost_revisions', fk: 'product_id', order: 'revision_no DESC',
-        cols: ['revision_no','cost_raw_material','cost_consumable','cost_bought_out','cost_subcontract','cost_labor','cost_machine','cost_tooling','cost_electricity','cost_overhead','cost_packaging','cost_freight','cost_qc','cost_other','calculation_notes'] }
+        cols: ['revision_no','cost_raw_material','cost_consumable','cost_bought_out','cost_subcontract','cost_labor','cost_machine','cost_tooling','cost_electricity','cost_overhead','cost_packaging','cost_freight','cost_qc','cost_other','calculation_notes'] },
+      'variants': { table: 'product_variants', fk: 'parent_product_id', order: 'variant_code',
+        cols: ['variant_product_id','variant_code','variant_name','attributes','uom','price','status','effective_from','effective_to'] }
     }
   }
 };
@@ -186,6 +189,17 @@ async function createSub(client, master, id, sub, body, user, requestId) {
   }
   if (!Object.keys(payload).length) throw new AppError('VALIDATION_ERROR', 'Tidak ada kolom valid untuk disimpan.');
 
+  if (s.overlap && payload[s.overlap.from]) {
+    const { from, to, key, activeOnly } = s.overlap;
+    const params=[id,payload[from],payload[to]||null];
+    let where=`${s.fk}=$1 AND daterange(${from},COALESCE(${to},'infinity'::date),'[]') && daterange($2::date,COALESCE($3::date,'infinity'::date),'[]')`;
+    if(key && payload[key]){params.push(payload[key]);where+=` AND ${key}=$${params.length}`;}
+    if(key && !payload[key])where+=` AND ${key} IS NULL`;
+    if(activeOnly)where+=` AND status='ACTIVE'`;
+    if((await client.query(`SELECT 1 FROM ${s.table} WHERE ${where} LIMIT 1`,params)).rowCount)
+      throw new AppError('VALIDATION_ERROR','Periode efektif tumpang tindih dengan data yang sudah ada.');
+  }
+
   // Riwayat harga supplier: append-only dengan nomor revisi berjalan (§10.5).
   if (s.appendOnly && s.table === 'supplier_price_history') {
     const rev = (await client.query(
@@ -213,6 +227,7 @@ async function createSub(client, master, id, sub, body, user, requestId) {
     entityId: inserted.id, newValue: { parent: id, ...payload, account_number: payload.account_number ? maskAccount(payload.account_number) : undefined, base_salary: payload.base_salary ? 'REDACTED' : undefined },
     reason: body.change_reason || body.changeReason || null, requestId, branchId: user.branchId
   });
+  await masterGovernance.refreshQuality(client, master, id);
   return runtime.camel(inserted);
 }
 

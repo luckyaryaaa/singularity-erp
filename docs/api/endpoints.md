@@ -63,6 +63,12 @@ Aksi dokumen: `submit`, `approve`, `reject`, `revise`, `start`, `complete`,
 - `POST /api/masters/suppliers/:id/bank-accounts/:bankId/approve` — maker-checker (SoD)
 - `POST /api/masters/products/:id/cost-revisions/:revId/{review|approve|lock|activate}` — HPP versioning; activate menjadikan Active HPP + snapshot `products.hpp`
 - `POST /api/masters/products/:id/bom/:bomId/{review|approve|effective}` — BOM revision
+- `GET /api/master-governance/quality` — quality scan + issue prioritas empat master
+- `POST /api/master-governance/quality/scan` — jalankan ulang quality rules (settings.edit)
+- `GET /api/master-governance/currencies` — currency registry aktif
+- `GET|POST /api/master-governance/exchange-rates` — kurs effective-dated dan audit
+- `GET /api/master-governance/products/:id/cost-trace` — trace BOM × Active HPP
+- `GET|POST /api/masters/products/:id/variants` — normalized product variant matrix
 
 Masking server-side: nomor rekening & gaji tertutup bila peran tanpa izin
 finance/payroll. Harga supplier append-only (revisi bertambah, tidak menimpa).

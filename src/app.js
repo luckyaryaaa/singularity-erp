@@ -53,6 +53,7 @@
       ['#/reports', 'Laporan', 'chart', 'report.view']
     ]],
     ['MASTER DATA', [
+      ['#/masters/governance', 'Data Quality & FX', 'shield', 'settings.view'],
       ['#/masters/customers', 'Pelanggan', 'building', 'customer.view'],
       ['#/masters/suppliers', 'Supplier', 'truck', 'supplier.view'],
       ['#/masters/products', 'Produk & jasa', 'box', 'product.view']

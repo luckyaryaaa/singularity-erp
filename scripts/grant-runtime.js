@@ -16,6 +16,11 @@ const q = `"${appUser}"`;
     await client.query(`REVOKE CREATE ON SCHEMA public FROM ${q}`);
     await client.query(`REVOKE UPDATE,DELETE,TRUNCATE ON audit_logs,audit_logs_2026 FROM ${q}`);
     await client.query(`REVOKE UPDATE,DELETE,TRUNCATE ON schema_migrations FROM ${q}`);
+    // Selalu terapkan ulang deny-list setelah broad grant. Ini menjaga script
+    // idempotent tanpa membatalkan hardening tabel append-only/controlled flow.
+    await client.query(`REVOKE UPDATE,DELETE ON work_order_time_logs FROM ${q}`);
+    await client.query(`REVOKE DELETE ON work_order_operations,work_order_materials,mrp_suggestions FROM ${q}`);
+    await client.query(`REVOKE UPDATE,DELETE ON qc_inspections FROM ${q}`);
   } finally { await client.end(); }
   console.log(JSON.stringify({ granted: true, role: appUser, createSchema: false }));
 })().catch((error) => { console.error(error.message); process.exitCode = 1; });

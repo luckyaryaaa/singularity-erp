@@ -16,6 +16,15 @@
 > + restore 124 tabel PASS, predeploy LOCAL 9/9. Capacity/WIP/inspection plan/
 > calibration tetap backlog R019 lanjutan; status bukan PRODUCTION READY.
 >
+> **Sprint 8C Wave 1 — Enterprise Master Governance: ✅ SELESAI 16 Juli 2026
+> (v0.15.0).** Migration 023–024 menambah currency/FX effective-dated, policy
+> dimensi, immutable currency+dimension snapshot, normalized product variants,
+> quality score/issue registry. Form parent Customer/Supplier/Product membuka
+> field enterprise, duplicate code/NPWP diblokir, Data Quality & FX Center serta
+> BOM Cost Trace aktif. Evidence: 82/82 tes, rollback disposable, a11y 18/18,
+> visual 8/8, predeploy LOCAL 11/11. Dua item Wave 2 masih eksplisit terbuka:
+> Customer Link Wizard server-autosave dan supplier scoring otomatis PO/GR/QC.
+>
 > **Sprint 8B — Fondasi arsitektur & UI: ✅ SELESAI 16 Juli 2026 (v0.14.0).**
 > ✅ My Work inbox lintas modul (§10.7): GET /api/my-work + halaman
 > `src/modules/my-work.js` — file modul frontend pertama hasil pemecahan
@@ -48,8 +57,8 @@
 >
 > Status: ✅ selesai · 🔨 sedang dikerjakan · ⬜ belum · ◐ sebagian (ada catatan)
 >
-> **Audit verifikasi terakhir — 16 Juli 2026 (v0.14.0):** migrasi 001–022
-> checksum valid · 79/79 automated tests lulus · aksesibilitas 18/18 · visual
+> **Audit verifikasi terakhir — 16 Juli 2026 (v0.15.0):** migrasi 001–024
+> checksum valid · 82/82 automated tests lulus · aksesibilitas 18/18 · visual
 > regression 8/8 · asset fingerprint/Brotli/immutable PASS · gerbang predeploy
 > LOCAL 11/11 hijau · secret/dependency audit bersih · backup + restore drill
 > valid.
@@ -89,8 +98,8 @@
 | Item | Status |
 |---|---|
 | 13 entitas organisasi (legal_entities…ledgers) | ✅ migrasi 012 terpasang + seed MAT terverifikasi (9 dept, 9 CC, 3 PC, plant/gudang/bin/WC) |
-| Aturan organisasi (warehouse ≠ FK branches; transaksi ber-cost center; movement ber-warehouse) | ◐ skema + snapshot identitas ✅; enforcement cost-center wajib pada transaksi finansial ⬜ |
-| Multi-currency future-ready (functional/transaction/reporting, FX) | ◐ kolom currency di skema; engine FX & kurs ⬜ |
+| Aturan organisasi (warehouse ≠ FK branches; transaksi ber-cost center; movement ber-warehouse) | ✅ policy per tipe dokumen + auto-resolution cost center aktif + validasi legal entity + immutable dimension snapshot (023) |
+| Multi-currency future-ready (functional/transaction/reporting, FX) | ✅ registry mata uang, kurs effective-dated direct/inverse, functional/reporting amount + immutable FX snapshot (023) |
 | Role redesign + field masking + access review | ✅ role enterprise + masking bank/salary + access review retain/revoke/completion |
 
 ## R014 — Master Organization & Employee (§7–8)
@@ -116,10 +125,10 @@
 
 | Item | Status |
 |---|---|
-| Customer: PIC multipel, alamat multipel, commercial control, credit, dokumen, wizard | ◐ PIC/alamat/harga khusus/credit field + tab UI ✅; **Customer Link Wizard (§9.5) ⬜; enforcement credit hold pada SO/invoice ⬜** |
+| Customer: PIC multipel, alamat multipel, commercial control, credit, dokumen, wizard | ◐ PIC/alamat/harga khusus/commercial field + credit hold/limit/override enforcement ✅; **Customer Link Wizard server-autosave (§9.5) ⬜** |
 | Supplier: onboarding, legal&tax, bank governance maker-checker, approved material, price history revisioned, scoring | ◐ semuanya ✅ kecuali **skor evaluasi otomatis dari data PO/GR ⬜** |
-| Product: varian, UoM konversi, BOM revision lifecycle, cost components, HPP versioning + Active HPP lock + snapshot | ◐ skema+API+UI+aktivasi Active HPP ✅; **kalkulasi trace HPP dari BOM ⬜; varian UI ⬜** |
-| Duplicate detection master | ⬜ (deteksi nama/NPWP mirip saat create) |
+| Product: varian, UoM konversi, BOM revision lifecycle, cost components, HPP versioning + Active HPP lock + snapshot | ✅ Variant Matrix + UoM + BOM lifecycle + cost components + Active HPP + BOM Cost Trace berbasis sumber dan scrap |
+| Duplicate detection master | ✅ normalized code/NIK + NPWP guard sebelum create/update; DB unique tetap lapisan terakhir |
 
 ## R016–R023 — Modul lanjutan (§12–23)
 

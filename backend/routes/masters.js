@@ -4,12 +4,20 @@ const { assertPermission } = require('../core/permissions');
 const operations = require('../infrastructure/database/repositories/operations');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const masterData = require('../infrastructure/database/repositories/master-data');
+const masterGovernance = require('../infrastructure/database/repositories/master-governance');
 const masterModules={customers:'customer',suppliers:'supplier',products:'product',employees:'employee'};
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
   const p=url.pathname, method=req.method;
   let m;
+  if(method==='GET'&&p==='/api/master-governance/currencies'){assertPermission(ctx.user,'dashboard.view');return{items:(await masterGovernance.listCurrencies(client)).map(runtime.camel)};}
+  if(method==='GET'&&p==='/api/master-governance/exchange-rates'){assertPermission(ctx.user,'settings.view');return{items:(await masterGovernance.listExchangeRates(client,Object.fromEntries(url.searchParams))).map(runtime.camel)};}
+  if(method==='POST'&&p==='/api/master-governance/exchange-rates'){assertPermission(ctx.user,'settings.edit');const body=await readBody(req);const item=runtime.camel(await masterGovernance.createExchangeRate(client,body,ctx.user));await runtime.audit(client,{userId:ctx.user.id,action:'UPSERT',module:'settings',entityType:'EXCHANGE_RATE',entityId:item.id,newValue:{fromCurrency:item.fromCurrency,toCurrency:item.toCurrency,rate:item.rate,effectiveDate:item.effectiveDate,source:item.source},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  if(method==='GET'&&p==='/api/master-governance/quality'){assertPermission(ctx.user,'settings.view');const result=await masterGovernance.qualityDashboard(client);return{summary:result.summary.map(runtime.camel),issues:result.issues.map(runtime.camel)};}
+  if(method==='POST'&&p==='/api/master-governance/quality/scan'){assertPermission(ctx.user,'settings.edit');const result=await masterGovernance.scanQuality(client);await runtime.audit(client,{userId:ctx.user.id,action:'SCAN',module:'settings',entityType:'MASTER_DATA_QUALITY',newValue:{issues:result.issues.length},requestId:ctx.requestId,branchId:ctx.user.branchId});return{summary:result.summary.map(runtime.camel),issues:result.issues.map(runtime.camel)};}
+  m=p.match(/^\/api\/master-governance\/products\/([0-9a-f-]{36})\/cost-trace$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'product.view');const result=await masterGovernance.productCostTrace(client,m[1]);return{...result,product:runtime.camel(result.product),bom:runtime.camel(result.bom),lines:result.lines.map(runtime.camel)};}
   m=p.match(/^\/api\/(customers|suppliers|products|employees)$/);
   if(method==='GET'&&m){assertPermission(ctx.user,`${masterModules[m[1]]}.view`);return operations.listMaster(client,m[1],Object.fromEntries(url.searchParams));}
   if(method==='POST'&&m){const name=m[1],module=masterModules[name],body=await readBody(req);assertPermission(ctx.user,`${module}.create`);const item=await operations.createMaster(client,name,body,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module,entityType:module.toUpperCase(),entityId:item.id,newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}

@@ -3,6 +3,7 @@ const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
 const { createHash } = require('node:crypto');
 const posting = require('./posting');
+const masterGovernance = require('./master-governance');
 
 const PREFIXES = {
   CUSTOMER_INQUIRY:'INQ',QUOTATION:'QUO',CUSTOMER_PO:'CPO',SALES_ORDER:'SO',PROJECT:'PRJ',WORK_ORDER:'WO',
@@ -60,7 +61,7 @@ async function outbox(client,eventType,payload={}) {
   return id;
 }
 
-async function createDocument(client,{type,user,title,amount=0,partyId,partyName,dueDate,payload={},requestId}) {
+async function createDocument(client,{type,user,title,amount=0,partyId,partyName,dueDate,payload={},requestId,transactionCurrency,currencyDate,departmentId,costCenterId,profitCenterId,projectWbsId}) {
   if(!(Number(amount)>=0)) throw new AppError('VALIDATION_ERROR','Nilai dokumen tidak boleh negatif.');
   const id=randomUUID(); const documentNumber=await nextNumber(client,{documentType:type,branchId:user.branchId});
   const org=(await client.query(`SELECT le.id legal_entity_id,le.code,le.legal_name,le.trade_name,le.npwp,le.legal_address,le.operational_address,le.phone,le.whatsapp,le.email,le.website,le.document_footer,
@@ -72,10 +73,16 @@ async function createDocument(client,{type,user,title,amount=0,partyId,partyName
       ORDER BY s.effective_from DESC LIMIT 1) signatory
     FROM branches br JOIN legal_entities le ON le.id=br.legal_entity_id WHERE br.id=$1`,[user.branchId])).rows[0]||{};
   const legalEntityId=org.legal_entity_id||null; delete org.legal_entity_id;
+  const currency=await masterGovernance.resolveCurrency(client,{legalEntityId,transactionCurrency:transactionCurrency||payload.currency||'IDR',date:currencyDate||payload.exchangeRateDate,amount});
+  const dimensions=await masterGovernance.resolveDimensions(client,{type,legalEntityId,departmentId:departmentId||payload.departmentId,costCenterId:costCenterId||payload.costCenterId,profitCenterId:profitCenterId||payload.profitCenterId,projectWbsId:projectWbsId||payload.projectWbsId});
   const result=await client.query(`INSERT INTO business_documents
-    (id,document_number,document_type,branch_id,legal_entity_id,organization_identity_snapshot,status,version,amount,payload,title,party_id,party_name,due_date,created_by,updated_by)
-    VALUES($1,$2,$3,$4,$5,$6,'DRAFT',1,$7,$8,$9,$10,$11,$12,$13,$13) RETURNING *`,
-    [id,documentNumber,type,user.branchId,legalEntityId,org,amount,payload,title||type,partyId||null,partyName||null,dueDate||null,user.id]);
+    (id,document_number,document_type,branch_id,legal_entity_id,department_id,cost_center_id,profit_center_id,project_wbs_id,organization_identity_snapshot,dimension_snapshot,
+     transaction_currency,functional_currency,reporting_currency,exchange_rate,exchange_rate_date,functional_amount,reporting_amount,currency_snapshot,
+     status,version,amount,payload,title,party_id,party_name,due_date,created_by,updated_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'DRAFT',1,$20,$21,$22,$23,$24,$25,$26,$26) RETURNING *`,
+    [id,documentNumber,type,user.branchId,legalEntityId,dimensions.departmentId,dimensions.costCenterId,dimensions.profitCenterId,dimensions.projectWbsId,org,dimensions.snapshot,
+      currency.transactionCurrency,currency.functionalCurrency,currency.reportingCurrency,currency.exchangeRate,currency.exchangeRateDate,currency.functionalAmount,currency.reportingAmount,currency.snapshot,
+      amount,payload,title||type,partyId||null,partyName||null,dueDate||null,user.id]);
   await posting.syncDocumentLines(client,id,payload?.lines);
   await audit(client,{userId:user.id,action:'CREATE',module:type.toLowerCase(),entityType:type,entityId:id,documentNumber,newValue:{title:title||type,amount:Number(amount)},requestId,branchId:user.branchId});
   await outbox(client,`${type.toLowerCase()}.created`,{entityId:documentNumber,documentType:type,branchId:user.branchId,version:1});
@@ -109,7 +116,7 @@ async function convertDocument(client,{id,user,requestId}){
   if(!['APPROVED','COMPLETED','CLOSED'].includes(source.status))throw new AppError('STATUS_INVALID','Dokumen sumber harus disetujui atau selesai sebelum dikonversi.');
   const existing=(await client.query(`SELECT c.* FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id WHERE r.parent_document_id=$1 AND r.relation_type=$2 LIMIT 1`,[source.id,spec.relation])).rows[0];
   if(existing)return{source,child:camel(existing),relationType:spec.relation,alreadyConverted:true};
-  const child=await createDocument(client,{type:spec.target,user:{...user,branchId:source.branchId},title:source.title,amount:source.amount,partyId:source.partyId,partyName:source.partyName,dueDate:source.dueDate,payload:{...(source.payload||{}),sourceDocumentId:source.id,sourceDocumentNumber:source.documentNumber},requestId});
+  const child=await createDocument(client,{type:spec.target,user:{...user,branchId:source.branchId},title:source.title,amount:source.amount,partyId:source.partyId,partyName:source.partyName,dueDate:source.dueDate,transactionCurrency:source.transactionCurrency,currencyDate:source.exchangeRateDate,departmentId:source.departmentId,costCenterId:source.costCenterId,profitCenterId:source.profitCenterId,projectWbsId:source.projectWbsId,payload:{...(source.payload||{}),sourceDocumentId:source.id,sourceDocumentNumber:source.documentNumber},requestId});
   await client.query(`INSERT INTO document_relations(parent_document_id,child_document_id,relation_type,created_by) VALUES($1,$2,$3,$4)`,[source.id,child.id,spec.relation,user.id]);
   await outbox(client,'document.converted',{entityId:source.documentNumber,childId:child.id,childNumber:child.documentNumber,documentType:spec.target,branchId:source.branchId});return{source,child,relationType:spec.relation,alreadyConverted:false};
 }

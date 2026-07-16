@@ -15,6 +15,22 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.15.0 — Enterprise Master Governance (Sprint 8C Wave 1)
+
+- Customer, Supplier, dan Product dapat dipelihara memakai field enterprise;
+  duplicate code/NPWP diblokir sebelum penyimpanan.
+- Data Quality & FX Center menampilkan skor kualitas empat master, issue
+  prioritas, currency registry, dan kurs effective-dated.
+- Dokumen menyimpan immutable currency/dimension snapshot, nilai
+  transaction/functional/reporting, serta cost center tervalidasi legal entity.
+- Product memiliki Variant Matrix dan BOM Cost Trace berbasis Active HPP.
+- Regression 82/82, aksesibilitas 18/18, visual 8/8, migration 001–024,
+  rollback disposable, serta predeploy LOCAL 11/11 lulus.
+
+Rilis ini berstatus **LOCAL BUILD READY**. Dua pekerjaan Sprint 8C yang masih
+terbuka adalah Customer Link Wizard server-autosave dan supplier performance
+scoring otomatis dari PO/GR/QC; aktivasi VPS tetap belum dilakukan.
+
 ## Status v0.14.0 — Modular Monolith Foundation (Sprint 8B Selesai)
 
 - Frontend terdiri dari 11 bounded module; `pages.js` hanya menyimpan PageKit

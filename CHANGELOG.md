@@ -3,6 +3,37 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.15.0] — 2026-07-16
+
+### Added
+
+- Migration 023–024: currency registry, effective-dated FX rates, transaction
+  dimension policies, normalized product variants, dan master quality issue
+  registry dengan reopen guard dan rollback penuh.
+- Data Quality & FX Center untuk skor Customer/Supplier/Product/Employee,
+  temuan prioritas, dan pemeliharaan kurs efektif.
+- Product Variant Matrix dan BOM Cost Trace yang menjelaskan sumber Active HPP,
+  scrap, unit cost, extended cost, serta komponen tanpa cost.
+- Integration proof Sprint 8C untuk FX/cost-center snapshot, duplicate guard,
+  quality score, variant, dan cost trace.
+
+### Changed
+
+- Form induk Customer, Supplier, dan Product kini membuka field enterprise yang
+  sebelumnya sudah ada di skema tetapi belum dapat dipelihara dari UI/API.
+- Dokumen menyimpan transaction/functional/reporting currency, kurs efektif,
+  nilai hasil konversi, dan immutable currency/dimension snapshot.
+- Tipe transaksi finansial/operasional terkontrol memperoleh cost center aktif
+  yang tervalidasi terhadap legal entity.
+- `db:grant-runtime` kembali menerapkan deny-list setelah broad grant agar
+  hardening append-only Production/QC/MRP tidak pernah terlepas.
+
+### Verified
+
+- 82/82 automated tests; migration 001–024 dan disposable rollback lulus;
+  accessibility 18/18; visual regression 8/8; secret scan 357 file/0 temuan;
+  predeploy LOCAL 11/11 lulus.
+
 ## [0.14.0] — 2026-07-16
 
 ### Added

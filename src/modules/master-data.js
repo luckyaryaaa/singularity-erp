@@ -71,12 +71,15 @@
       head: (o) => `<b>${esc(o.name)}</b><small>${esc(o.code)} · ${esc(o.category || o.uom || '')}</small>`,
       tabs: [
         { id: 'overview', label: 'Overview' },
+        { id: 'cost-trace', label: 'Cost Trace', custom: true, noAdd: true },
         { id: 'cost-revisions', label: 'BOM & HPP', sub: 'cost-revisions', costActivate: true, cols: [['revisionNo','Rev.'],['totalCost','Total HPP','money'],['status','Status','chip'],['createdAt','Dibuat','date']],
           form: [{name:'costRawMaterial',label:'Bahan baku',type:'number',min:0},{name:'costConsumable',label:'Consumable',type:'number',min:0},{name:'costSubcontract',label:'Subkontrak',type:'number',min:0},{name:'costLabor',label:'Tenaga kerja',type:'number',min:0},{name:'costMachine',label:'Mesin',type:'number',min:0},{name:'costOverhead',label:'Overhead',type:'number',min:0},{name:'costFreight',label:'Ongkir',type:'number',min:0},{name:'costOther',label:'Lainnya',type:'number',min:0},{name:'calculationNotes',label:'Catatan kalkulasi',type:'textarea'}] },
         { id: 'uom-conversions', label: 'Konversi Satuan', sub: 'uom-conversions', cols: [['fromUom','Dari'],['toUom','Ke'],['factor','Faktor']],
           form: [{name:'fromUom',label:'Dari satuan',required:true},{name:'toUom',label:'Ke satuan',required:true},{name:'factor',label:'Faktor konversi',type:'number',min:0,required:true}] },
         { id: 'files', label: 'File Produk', sub: 'files', cols: [['title','Judul'],['fileType','Jenis'],['revision','Rev.'],['confidentiality','Kerahasiaan']],
-          form: [{name:'title',label:'Judul',required:true},{name:'fileType',label:'Jenis',type:'select',options:[['DRAWING','Gambar'],['CAD','CAD'],['SPECIFICATION','Spesifikasi'],['QC_STANDARD','Standar QC'],['WORK_INSTRUCTION','Instruksi kerja'],['PHOTO','Foto'],['CERTIFICATE','Sertifikat']],required:true},{name:'revision',label:'Revisi'},{name:'confidentiality',label:'Kerahasiaan',type:'select',options:[['PUBLIC','Publik'],['INTERNAL','Internal'],['CONFIDENTIAL','Rahasia']]},{name:'customerOwned',label:'Milik pelanggan',type:'checkbox'}] }
+          form: [{name:'title',label:'Judul',required:true},{name:'fileType',label:'Jenis',type:'select',options:[['DRAWING','Gambar'],['CAD','CAD'],['SPECIFICATION','Spesifikasi'],['QC_STANDARD','Standar QC'],['WORK_INSTRUCTION','Instruksi kerja'],['PHOTO','Foto'],['CERTIFICATE','Sertifikat']],required:true},{name:'revision',label:'Revisi'},{name:'confidentiality',label:'Kerahasiaan',type:'select',options:[['PUBLIC','Publik'],['INTERNAL','Internal'],['CONFIDENTIAL','Rahasia']]},{name:'customerOwned',label:'Milik pelanggan',type:'checkbox'}] },
+        { id: 'variants', label: 'Variant Matrix', sub: 'variants', cols: [['variantCode','Kode'],['variantName','Nama'],['uom','Satuan'],['price','Harga','money'],['status','Status','chip']],
+          form: [{name:'variantCode',label:'Kode varian',required:true},{name:'variantName',label:'Nama varian',required:true},{name:'attributes',label:'Atribut JSON',type:'textarea',placeholder:'{"size":"M","finish":"Zinc"}'},{name:'uom',label:'Satuan'},{name:'price',label:'Harga',type:'number',min:0},{name:'status',label:'Status',type:'select',options:[['DRAFT','Draft'],['ACTIVE','Aktif'],['BLOCKED','Diblokir'],['OBSOLETE','Usang']],required:true},{name:'effectiveFrom',label:'Berlaku sejak',type:'date',required:true}] }
       ]
     }
   };
@@ -153,6 +156,14 @@
           body.innerHTML = `<div class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">RINGKASAN</p><h2>Informasi utama</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${Object.entries(overview).filter(([k, v]) => !['subCounts','id'].includes(k) && typeof v !== 'object' && v !== null && v !== '').slice(0, 12).map(([k, v]) => `<div><dt>${esc(k.replace(/([A-Z])/g, ' $1'))}</dt><dd>${esc(String(v))}</dd></div>`).join('')}</dl></div></article><article class="panel"><header><div><p class="eyebrow">KELENGKAPAN</p><h2>Sub-data</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
           return;
         }
+        if (tabId === 'cost-trace') {
+          body.innerHTML = `<div class="panel"><div class="panel-body"><span class="spinner"></span> Menghitung jejak biaya BOM…</div></div>`;
+          try {
+            const trace=await api(`/api/master-governance/products/${params.id}/cost-trace`);
+            body.innerHTML=`<section class="kpi-grid"><article class="kpi"><span>Material cost</span><strong>${fmtIDR(trace.materialCost||0)}</strong><small>Berdasarkan BOM efektif dan Active HPP</small></article><article class="kpi"><span>Komponen</span><strong>${trace.lines.length}</strong><small>${trace.uncostedComponents||0} belum memiliki cost</small></article><article class="kpi"><span>Revisi BOM</span><strong>${esc(trace.bom?.revisionNo||'—')}</strong><small>${esc(trace.bom?.status||trace.message||'Belum efektif')}</small></article></section><div class="panel table-panel"><header><div><p class="eyebrow">TRACEABILITY</p><h2>Rincian sumber biaya</h2></div>${chip(trace.uncostedComponents?'PERLU DILENGKAPI':'TERKENDALI')}</header><div class="table-wrap"><table><thead><tr><th>Komponen</th><th>Qty + scrap</th><th>Sumber</th><th class="right">Unit cost</th><th class="right">Extended cost</th></tr></thead><tbody>${trace.lines.length?trace.lines.map(x=>`<tr><td><b>${esc(x.code)}</b><small>${esc(x.name)}</small></td><td>${esc(x.qty)} ${esc(x.uom)} · scrap ${esc(x.scrapPct)}%</td><td>${chip(x.costSource)}</td><td class="right money">${fmtIDR(x.unitCost)}</td><td class="right money">${fmtIDR(x.extendedCost)}</td></tr>`).join(''):`<tr><td colspan="5"><div class="empty-state"><h3>Belum ada BOM efektif</h3><p>Setujui dan efektifkan BOM untuk menghasilkan cost trace.</p></div></td></tr>`}</tbody></table></div></div>`;
+          } catch(error){body.innerHTML=`<div class="panel"><div class="panel-body error-text">${esc(error.message)}</div></div>`;}
+          return;
+        }
         if (tab.perm && !can(tab.perm)) { body.innerHTML = `<div class="empty-state">${clayOrb('amber','lock')}<h3>Akses dibatasi</h3><p>Tab ini membutuhkan izin khusus.</p></div>`; return; }
         if (tab.groups) {
           body.innerHTML = `<div class="panel"><div class="panel-body"><span class="spinner"></span> Memuat kelompok data…</div></div>`;
@@ -182,6 +193,7 @@
           const fields = typeof tab.form === 'function' ? await tab.form() : tab.form;
           const value = await formDialog({ title: `Tambah ${tab.label}`, description: tab.append ? 'Riwayat bersifat append-only: entri baru menjadi revisi terbaru.' : 'Data tercatat pada audit trail.', fields, submitLabel: 'Simpan' });
           if (!value) return;
+          if(tab.sub==='variants'&&value.attributes){try{value.attributes=JSON.parse(value.attributes);}catch{toast('JSON atribut tidak valid','Gunakan format seperti {"size":"M"}.','coral');return;}}
           try { await api(`${cfg.base}/${params.id}/${tab.sub}`, { method: 'POST', body: value, idempotencyKey: newIdemKey() }); toast(`${tab.label} ditambahkan`); renderTab(tabId); invalidate(`master:${params.id}`); this.render(main, params); }
           catch (error) { toast('Gagal menyimpan', error.message, 'coral'); }
         });
@@ -219,11 +231,29 @@
 
   // ── RFQ: perbandingan supplier + pilih + jadi PO (R017 §13.2) ─────────────
 
+  const governancePage={
+    permission:'settings.view',
+    async render(main,params,signal){
+      main.innerHTML=pageHead({eyebrow:'MASTER DATA GOVERNANCE',title:'Data Quality & FX Center',sub:'Kualitas master, duplikasi, kelengkapan, dan kurs efektif dalam satu control center.'})+`<div class="panel"><div class="panel-body"><span class="spinner"></span> Menjalankan quality scan…</div></div>`;
+      try{
+        const qualityRequest=can('settings.edit')?api('/api/master-governance/quality/scan',{method:'POST'}):api('/api/master-governance/quality',{signal});
+        const [quality,rates]=await Promise.all([qualityRequest,api('/api/master-governance/exchange-rates?limit=50',{signal})]);
+        const labels={customers:'Pelanggan',suppliers:'Supplier',products:'Produk',employees:'Karyawan'};
+        main.innerHTML=pageHead({eyebrow:'MASTER DATA GOVERNANCE',title:'Data Quality & FX Center',sub:'Skor kelengkapan dan kontrol kritikal dihitung langsung dari master aktif.',actions:can('settings.edit')?`<button class="btn primary" id="fxAdd">${ICONS.plus} Tambah kurs</button>`:''})+
+          `<section class="kpi-grid">${quality.summary.map(x=>`<article class="kpi"><span>${esc(labels[x.master]||x.master)}</span><strong>${Number(x.score||0)}%</strong><small>${Number(x.critical||0)} dari ${Number(x.total||0)} di bawah ambang 70</small></article>`).join('')}</section>
+          <section class="dashboard-grid"><div class="panel table-panel"><header><div><p class="eyebrow">OPEN ISSUES</p><h2>Temuan kualitas prioritas</h2></div><span class="chip gray">${quality.issues.length} temuan</span></header><div class="table-wrap"><table><thead><tr><th>Master</th><th>Aturan</th><th>Temuan</th><th>Severity</th></tr></thead><tbody>${quality.issues.length?quality.issues.map(x=>`<tr><td><b>${esc(x.masterName||'—')}</b><small>${esc(labels[x.masterType]||x.masterType)}</small></td><td>${esc(x.ruleCode)}</td><td>${esc(x.detail)}</td><td>${chip(x.severity)}</td></tr>`).join(''):`<tr><td colspan="4"><div class="empty-state"><h3>Data master terkendali</h3><p>Tidak ada issue kualitas terbuka.</p></div></td></tr>`}</tbody></table></div></div>
+          <div class="panel table-panel"><header><div><p class="eyebrow">MULTI-CURRENCY</p><h2>Kurs efektif</h2></div></header><div class="table-wrap"><table><thead><tr><th>Pair</th><th>Tipe</th><th>Kurs</th><th>Efektif</th><th>Sumber</th></tr></thead><tbody>${rates.items.map(x=>`<tr><td><b>${esc(x.fromCurrency)}/${esc(x.toCurrency)}</b></td><td>${chip(x.rateType)}</td><td class="money">${Number(x.rate).toLocaleString('id-ID',{maximumFractionDigits:10})}</td><td>${fmtDate(x.effectiveDate)}</td><td>${esc(x.source)}</td></tr>`).join('')}</tbody></table></div></div></section>`;
+        main.querySelector('#fxAdd')?.addEventListener('click',async()=>{const value=await formDialog({title:'Tambah kurs efektif',description:'Kurs menjadi snapshot permanen pada transaksi sesuai tanggal efektif.',fields:[{name:'rateType',label:'Tipe kurs',type:'select',options:[['CORPORATE','Corporate'],['TAX','Pajak'],['BUY','Beli'],['SELL','Jual'],['CLOSING','Closing']],required:true},{name:'fromCurrency',label:'Dari mata uang',value:'USD',required:true},{name:'toCurrency',label:'Ke mata uang',value:'IDR',required:true},{name:'effectiveDate',label:'Tanggal efektif',type:'date',required:true},{name:'rate',label:'Kurs',type:'number',min:0,required:true},{name:'source',label:'Sumber',required:true},{name:'notes',label:'Catatan',type:'textarea'}],submitLabel:'Simpan kurs'});if(!value)return;try{await api('/api/master-governance/exchange-rates',{method:'POST',body:value});toast('Kurs disimpan','Transaksi baru mengambil kurs sesuai tanggal efektif.');this.render(main,params);}catch(error){toast('Kurs gagal disimpan',error.message,'coral');}});
+      }catch(error){main.innerHTML=`<section class="error-state">${clayOrb('coral','alert')}<h1>Governance scan gagal</h1><p>${esc(error.message)}</p></section>`;}
+    }
+  };
+
   const R = router.register.bind(router);
+  R('/masters/governance',governancePage);
   R('/masters/:type/detail/:id', masterDetail);
   R('/masters/customers', masterPage({
     endpoint: '/api/customers', key: 'customers', permission: 'customer.view', title: 'Pelanggan', eyebrow: 'MASTER DATA', detailType: 'customers',
-    fields:[{name:'code',label:'Kode pelanggan',required:true},{name:'name',label:'Nama pelanggan',required:true},{name:'npwp',label:'NPWP'},{name:'city',label:'Kota'},{name:'address',label:'Alamat',type:'textarea'},{name:'paymentTermDays',label:'Termin pembayaran (hari)',type:'number',min:0,required:true},{name:'creditLimit',label:'Batas kredit',type:'number',min:0},{name:'active',label:'Pelanggan aktif',type:'checkbox'}],
+    fields:[{name:'code',label:'Kode pelanggan',required:true},{name:'name',label:'Nama dagang',required:true},{name:'customerType',label:'Tipe',type:'select',options:[['COMPANY','Perusahaan'],['INDIVIDUAL','Perorangan']],required:true},{name:'legalName',label:'Nama legal',required:true},{name:'npwp',label:'NPWP'},{name:'ppnStatus',label:'Status PPN',type:'select',options:[['PKP','PKP'],['NON_PKP','Non-PKP']],required:true},{name:'businessCategory',label:'Kategori bisnis'},{name:'city',label:'Kota'},{name:'address',label:'Alamat',type:'textarea'},{name:'website',label:'Website'},{name:'paymentTermDays',label:'Termin pembayaran (hari)',type:'number',min:0,required:true},{name:'creditLimit',label:'Batas kredit',type:'number',min:0},{name:'currency',label:'Mata uang',value:'IDR',required:true},{name:'riskRating',label:'Rating risiko',type:'select',options:[['LOW','Rendah'],['MEDIUM','Sedang'],['HIGH','Tinggi']],required:true},{name:'collectionStatus',label:'Status koleksi',type:'select',options:[['NORMAL','Normal'],['WATCH','Watch'],['DUNNING','Dunning'],['LEGAL','Legal']],required:true},{name:'active',label:'Pelanggan aktif',type:'checkbox'}],
     columns: [
       { label: 'Pelanggan', render: (r) => `<b>${esc(r.name)}</b><small>${esc(r.code)}</small>` },
       { label: 'Kota', render: (r) => esc(r.city) },
@@ -234,7 +264,7 @@
   }));
   R('/masters/suppliers', masterPage({
     endpoint: '/api/suppliers', key: 'suppliers', permission: 'supplier.view', title: 'Supplier', eyebrow: 'MASTER DATA', detailType: 'suppliers',
-    fields:[{name:'code',label:'Kode supplier',required:true},{name:'name',label:'Nama supplier',required:true},{name:'npwp',label:'NPWP'},{name:'category',label:'Kategori'},{name:'rating',label:'Rating',type:'number',min:1,max:5},{name:'bankName',label:'Nama bank'},{name:'bankAccount',label:'Nomor rekening'},{name:'bankHolder',label:'Nama pemilik rekening'},{name:'active',label:'Supplier aktif',type:'checkbox'}],
+    fields:[{name:'code',label:'Kode supplier',required:true},{name:'name',label:'Nama dagang',required:true},{name:'supplierType',label:'Tipe',type:'select',options:[['COMPANY','Perusahaan'],['INDIVIDUAL','Perorangan']],required:true},{name:'legalName',label:'Nama legal',required:true},{name:'npwp',label:'NPWP'},{name:'category',label:'Kategori',required:true},{name:'rating',label:'Rating',type:'number',min:1,max:5},{name:'ppnTreatment',label:'Perlakuan PPN',type:'select',options:[['NON_PPN','Non-PPN'],['INCLUDE','Include'],['EXCLUDE','Exclude'],['MIXED','Campuran']],required:true},{name:'pphTreatment',label:'Perlakuan PPh'},{name:'withholdingEligible',label:'Objek withholding',type:'checkbox'},{name:'onboardingStatus',label:'Status onboarding',type:'select',options:[['REGISTERED','Terdaftar'],['UNDER_REVIEW','Ditinjau'],['APPROVED','Disetujui'],['SUSPENDED','Suspended'],['BLOCKED','Diblokir']],required:true},{name:'riskLevel',label:'Level risiko',type:'select',options:[['LOW','Rendah'],['MEDIUM','Sedang'],['HIGH','Tinggi']],required:true},{name:'coiDeclared',label:'COI telah dideklarasikan',type:'checkbox'},{name:'active',label:'Supplier aktif',type:'checkbox'}],
     columns: [
       { label: 'Supplier', render: (r) => `<b>${esc(r.name)}</b><small>${esc(r.code)}</small>` },
       { label: 'Kategori', render: (r) => esc(r.category) },
@@ -244,7 +274,7 @@
   }));
   R('/masters/products', masterPage({
     endpoint: '/api/products', key: 'products', permission: 'product.view', title: 'Produk & jasa', eyebrow: 'MASTER DATA', detailType: 'products',
-    fields:[{name:'code',label:'Kode produk',required:true},{name:'name',label:'Nama produk/jasa',required:true},{name:'uom',label:'Satuan',required:true},{name:'hpp',label:'Harga pokok',type:'number',min:0,required:true},{name:'price',label:'Harga jual',type:'number',min:0,required:true},{name:'active',label:'Produk aktif',type:'checkbox'}],
+    fields:[{name:'code',label:'Kode produk',required:true},{name:'name',label:'Nama produk/jasa',required:true},{name:'productType',label:'Tipe',type:'select',options:[['PRODUCT','Produk'],['SERVICE','Jasa'],['RAW_MATERIAL','Bahan baku'],['CONSUMABLE','Consumable'],['SPARE_PART','Spare part'],['TOOLING','Tooling']],required:true},{name:'category',label:'Kategori',required:true},{name:'materialType',label:'Material'},{name:'grade',label:'Grade'},{name:'specification',label:'Spesifikasi',type:'textarea'},{name:'dimensions',label:'Dimensi'},{name:'weightKg',label:'Berat (kg)',type:'number',min:0},{name:'drawingNumber',label:'Nomor drawing'},{name:'drawingRevision',label:'Revisi drawing'},{name:'uom',label:'Satuan',required:true},{name:'hpp',label:'Harga pokok awal',type:'number',min:0,required:true},{name:'price',label:'Harga jual',type:'number',min:0,required:true},{name:'makeOrBuy',label:'Sourcing',type:'select',options:[['MAKE','Produksi'],['BUY','Beli'],['SUBCONTRACT','Subkontrak']],required:true},{name:'isStock',label:'Item persediaan',type:'checkbox'},{name:'serialRequired',label:'Wajib serial number',type:'checkbox'},{name:'lotRequired',label:'Wajib lot/batch',type:'checkbox'},{name:'inspectionRequired',label:'Wajib inspeksi',type:'checkbox'},{name:'active',label:'Produk aktif',type:'checkbox'}],
     columns: [
       { label: 'Produk', render: (r) => `<b>${esc(r.name)}</b><small>${esc(r.code)}</small>` },
       { label: 'Satuan', render: (r) => esc(r.uom) },

@@ -26,6 +26,8 @@
 | `020_inventory_lots_opname.sql` | stock_lots (lot/serial/heat number + mill certificate, FIFO index, lineage parent), stock_lot_movements append-only, stock_opname_lines (snapshot hitung fisik), akun 4250/6150 + posting profile OPNAME-DEFAULT (selisih GAIN/LOSS) |
 | `021_production_quality_mrp.sql` | routing dan actual time WO, BOM material plan/reservation, QC inspection + NCR/CAPA, serta MRP suggestion yang dapat dikonversi ke PR |
 | `022_production_security_hardening.sql` | least-privilege tabel produksi/QC/MRP: histori tidak dapat dihapus dan hasil QC tidak dapat diubah oleh role runtime |
+| `023_enterprise_master_data_finalization.sql` | currency + FX effective-dated, policy dimensi transaksi, currency/dimension snapshot, normalized product variants, quality score dan issue registry empat master |
+| `024_master_quality_reopen_guard.sql` | partial unique guard: satu issue OPEN per master/rule, tetapi siklus resolved→reopen tetap dapat diaudit berulang |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.
@@ -43,7 +45,9 @@ menyala bila migration terbaru belum aktif.
 - Approval policy diselesaikan saat submit dan disalin ke
   `business_documents.approval_policy_snapshot` sebagai histori immutable.
 - Identitas legal, rekening terverifikasi, serta penandatangan aktif disalin ke
-  `business_documents.organization_identity_snapshot` pada saat dokumen dibuat.
+  `business_documents.organization_identity_snapshot`; kurs dan dimensi
+  akuntansi juga diselesaikan dan disalin saat dokumen dibuat agar histori
+  tidak berubah ketika master diperbarui.
 - Work order menyimpan snapshot BOM, rate work center, biaya komponen, dan
   lokasi stok tervalidasi; completion ditolak sebelum operasi, material issue,
   dan finished-goods receipt selesai.
