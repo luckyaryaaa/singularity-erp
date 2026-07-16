@@ -5,8 +5,9 @@
 - App shell, router, session, permission, workflow, dan rendering engine tetap
   tunggal. Tidak ada SPA kedua dan tidak ada microservice baru.
 - Pemecahan monolith dilakukan melalui bounded module di bawah composition root.
-  Production/QC/MRP menjadi route module pertama; domain lain mengikuti pola
-  `dispatch(client, req, path, context)` secara inkremental.
+  Seluruh domain mengikuti pola `dispatch(client, req, url, context)` dengan
+  shared `NO_MATCH` sentinel; composition root menjaga transaction boundary,
+  session, CSRF, rate limit, metrics, SSE, dan error mapping.
 - Enterprise table menjadi komponen reusable dan tidak menyimpan business rule.
   Semua filter/sort/pagination tetap divalidasi serta dieksekusi server-side.
 
@@ -33,8 +34,19 @@ sidecar `.br`/`.gz`. Runtime memilih Brotli lalu Gzip berdasarkan
 `Accept-Encoding`; asset fingerprint memakai cache immutable satu tahun,
 sedangkan `index.html` tetap `no-cache` agar rilis baru segera ditemukan.
 
+## Modularization completion v0.14.0
+
+| Layer | Sebelum | Sesudah | Domain module |
+|---|---:|---:|---:|
+| `src/pages.js` | 1.652 baris | 70 baris | 11 + My Work |
+| `backend/api-postgres.js` | 372 baris | 66 baris | Auth + 11 domain |
+
+Architecture test memblokir composition root di atas 100 baris, script domain
+yang hilang/duplikat, route domain yang kembali ditulis di API root, serta
+module backend tanpa dispatch contract.
+
 ## Batas status
 
-v0.13.0 berstatus LOCAL BUILD READY. Ini bukan LAN-UAT READY atau PRODUCTION
-READY. Pemecahan penuh domain lain, UAT pengguna, sign-off Owner, provisioning
-VPS, TLS/domain, dan aktivasi produksi tetap mengikuti roadmap resmi.
+v0.14.0 berstatus LOCAL BUILD READY. Ini bukan LAN-UAT READY atau PRODUCTION
+READY. UAT pengguna, sign-off Owner, provisioning VPS, TLS/domain, dan aktivasi
+produksi tetap mengikuti roadmap resmi.

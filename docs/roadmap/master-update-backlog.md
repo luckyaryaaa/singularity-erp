@@ -16,7 +16,7 @@
 > + restore 124 tabel PASS, predeploy LOCAL 9/9. Capacity/WIP/inspection plan/
 > calibration tetap backlog R019 lanjutan; status bukan PRODUCTION READY.
 >
-> **Sprint 8B — Fondasi arsitektur & UI: ◐ FONDASI UI SELESAI 16 Juli 2026 (v0.13.0).**
+> **Sprint 8B — Fondasi arsitektur & UI: ✅ SELESAI 16 Juli 2026 (v0.14.0).**
 > ✅ My Work inbox lintas modul (§10.7): GET /api/my-work + halaman
 > `src/modules/my-work.js` — file modul frontend pertama hasil pemecahan
 > pages.js (router sama, tanpa renderer kedua) · ✅ HTTP hardening §5.1
@@ -34,9 +34,10 @@
 > `src/components/enterprise-table.js` · ✅ aksesibilitas audit 18/18 + focus
 > modal/inert/restore · ✅ visual regression Edge 4 halaman × 2 viewport ·
 > ✅ fingerprint 12 digit + manifest + Brotli/Gzip + immutable cache ·
-> ✅ route production/QC/MRP dipisah ke `backend/routes/production.js`.
-> ⬜ Sisa 8B: pemecahan **penuh** domain lain dari pages.js/api-postgres.js;
-> dilakukan inkremental setelah v0.13.0 agar kontrak transaksi tetap stabil.
+> ✅ route production/QC/MRP dipisah ke `backend/routes/production.js` ·
+> ✅ pemecahan penuh: `pages.js` 1.652→70 baris (11 bounded module) dan
+> `api-postgres.js` 372→66 baris (Auth + 11 route domain) · ✅ architecture
+> regression guard mencegah composition root kembali menjadi monolit.
 >
 > **Sprint 8A — Release Closure v0.11.0: ✅ SELESAI 15 Juli 2026.**
 > Rotasi secret owner+runtime (sesi dicabut, UAT wajib ganti sandi, kunci backup
@@ -47,8 +48,8 @@
 >
 > Status: ✅ selesai · 🔨 sedang dikerjakan · ⬜ belum · ◐ sebagian (ada catatan)
 >
-> **Audit verifikasi terakhir — 16 Juli 2026 (v0.13.0):** migrasi 001–022
-> checksum valid · 76/76 automated tests lulus · aksesibilitas 18/18 · visual
+> **Audit verifikasi terakhir — 16 Juli 2026 (v0.14.0):** migrasi 001–022
+> checksum valid · 79/79 automated tests lulus · aksesibilitas 18/18 · visual
 > regression 8/8 · asset fingerprint/Brotli/immutable PASS · gerbang predeploy
 > LOCAL 11/11 hijau · secret/dependency audit bersih · backup + restore drill
 > valid.

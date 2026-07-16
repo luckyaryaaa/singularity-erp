@@ -3,6 +3,34 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.14.0] — 2026-07-16
+
+### Added
+
+- Sebelas bounded module frontend untuk Workspace, Documents, Sales,
+  Procurement, Inventory, Production, Finance, HR, Master Data, Organization,
+  dan Governance; seluruhnya tetap memakai satu app shell dan router.
+- Dua belas route module PostgreSQL dengan shared `NO_MATCH` dispatch contract:
+  public/private Auth serta sebelas domain bisnis.
+- Architecture regression tests yang membatasi composition root maksimal 100
+  baris, memverifikasi semua script domain dimuat tepat sekali, dan menjaga
+  kontrak dispatcher backend.
+
+### Changed
+
+- `src/pages.js` dipangkas dari 1.652 menjadi 70 baris dan hanya menyediakan
+  factory bersama melalui `window.PageKit`.
+- `backend/api-postgres.js` dipangkas dari 372 menjadi 66 baris; session,
+  transaction, CSRF, rate limit, SSE, metrics, dan error boundary tetap terpusat.
+- API metrics dipindahkan menjadi singleton core agar monitoring domain tetap
+  membaca metrik composition root yang sama.
+
+### Verified
+
+- 79/79 automated tests; accessibility 18/18; visual regression 8/8;
+  PostgreSQL integration, security, migration, load, backup/restore, dan
+  predeploy LOCAL 11/11 lulus.
+
 ## [0.13.0] — 2026-07-16
 
 ### Added

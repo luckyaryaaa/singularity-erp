@@ -15,7 +15,25 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
-## Status v0.13.0 — Enterprise UX & Delivery Foundation (Sprint 8B)
+## Status v0.14.0 — Modular Monolith Foundation (Sprint 8B Selesai)
+
+- Frontend terdiri dari 11 bounded module; `pages.js` hanya menyimpan PageKit
+  reusable dan tidak lagi memuat implementasi halaman domain.
+- Backend PostgreSQL terdiri dari route module Auth, Workspace, Documents,
+  Procurement, Operations, Masters, Organization, Inventory, Production,
+  Finance, HR, dan Governance; `api-postgres.js` hanya menangani cross-cutting
+  HTTP/session/transaction/security concern serta delegasi domain.
+- Architecture guard mencegah composition root melewati 100 baris atau route
+  domain kembali ditulis langsung ke root.
+- Single app shell, single router, single auth/permission/workflow/numbering,
+  dan satu PostgreSQL source of truth tetap dipertahankan—bukan microservices.
+- Regression 79/79, aksesibilitas 18/18, visual 8/8, dan predeploy LOCAL 11/11
+  lulus tanpa perubahan kontrak endpoint maupun workflow.
+
+Rilis ini menutup Sprint 8B pada status **LOCAL BUILD READY**. Tahap berikutnya
+adalah Sprint 8C finalisasi master data, bukan aktivasi VPS atau production.
+
+## Status v0.13.0 — Enterprise UX & Delivery Foundation
 
 - Semua daftar dokumen memakai Enterprise View Console: pencarian, filter,
   sorting, pagination server-side, saved view, pilihan kolom, density, dan URL
