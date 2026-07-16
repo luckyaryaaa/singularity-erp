@@ -28,6 +28,8 @@
 | `022_production_security_hardening.sql` | least-privilege tabel produksi/QC/MRP: histori tidak dapat dihapus dan hasil QC tidak dapat diubah oleh role runtime |
 | `023_enterprise_master_data_finalization.sql` | currency + FX effective-dated, policy dimensi transaksi, currency/dimension snapshot, normalized product variants, quality score dan issue registry empat master |
 | `024_master_quality_reopen_guard.sql` | partial unique guard: satu issue OPEN per master/rule, tetapi siklus resolved→reopen tetap dapat diaudit berulang |
+| `025_customer_link_supplier_performance.sql` | draft Customer Link server-side, supplier document expiry, effective-dated performance policy, evidence scoring, dan supplier risk hold |
+| `026_supplier_document_sod_guard.sql` | constraint database maker-checker: pembuat dokumen supplier tidak boleh menjadi verifier |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.

@@ -15,6 +15,23 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.16.0 — Enterprise Master Governance (Sprint 8C Selesai)
+
+- Customer Link Wizard mengubah Inquiry/Quotation/PO pelanggan/Sales Order/
+  Project menjadi Customer baru atau menautkannya ke Customer yang sudah ada.
+- Draft wizard tersimpan di server, dapat dipulihkan selama 30 hari, dilindungi
+  optimistic locking, dan finalisasi atomik serta idempotent.
+- Supplier Performance Cockpit menghitung delivery, quality, price, dan
+  compliance dari bukti PO/GR/QC/dokumen memakai policy effective-dated.
+- Dokumen supplier memakai maker-checker; dokumen wajib kedaluwarsa dan nilai
+  kinerja di bawah ambang otomatis menghasilkan risk hold yang memblokir PO.
+- Regression 84/84, migration 001–026, rollback 025–026, accessibility 18/18,
+  visual 8/8, dan predeploy LOCAL 11/11 lulus. Seluruh item Sprint 8C kini
+  selesai; aktivasi VPS tetap ditahan sampai LAN-UAT dan gate go-live.
+
+Rilis ini berstatus **LOCAL BUILD READY**. Sprint berikutnya adalah R016 Sales
+& Order-to-Cash; status ini bukan klaim bahwa seluruh ERP siap production.
+
 ## Status v0.15.0 — Enterprise Master Governance (Sprint 8C Wave 1)
 
 - Customer, Supplier, dan Product dapat dipelihara memakai field enterprise;
@@ -27,9 +44,8 @@ runtime PostgreSQL.
 - Regression 82/82, aksesibilitas 18/18, visual 8/8, migration 001–024,
   rollback disposable, serta predeploy LOCAL 11/11 lulus.
 
-Rilis ini berstatus **LOCAL BUILD READY**. Dua pekerjaan Sprint 8C yang masih
-terbuka adalah Customer Link Wizard server-autosave dan supplier performance
-scoring otomatis dari PO/GR/QC; aktivasi VPS tetap belum dilakukan.
+Rilis ini menutup Wave 1. Kedua pekerjaan yang saat itu masih terbuka telah
+diselesaikan pada v0.16.0; aktivasi VPS tetap belum dilakukan.
 
 ## Status v0.14.0 — Modular Monolith Foundation (Sprint 8B Selesai)
 

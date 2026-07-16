@@ -63,6 +63,7 @@ async function outbox(client,eventType,payload={}) {
 
 async function createDocument(client,{type,user,title,amount=0,partyId,partyName,dueDate,payload={},requestId,transactionCurrency,currencyDate,departmentId,costCenterId,profitCenterId,projectWbsId}) {
   if(!(Number(amount)>=0)) throw new AppError('VALIDATION_ERROR','Nilai dokumen tidak boleh negatif.');
+  if(type==='PURCHASE_ORDER'&&partyId){const supplier=(await client.query('SELECT name,performance_hold,performance_hold_reason,onboarding_status FROM suppliers WHERE id=$1',[partyId])).rows[0];if(!supplier)throw new AppError('RESOURCE_NOT_FOUND','Supplier PO tidak ditemukan.');if(supplier.performance_hold||['SUSPENDED','BLOCKED'].includes(supplier.onboarding_status))throw new AppError('SUPPLIER_HOLD',`Supplier ${supplier.name}: ${supplier.performance_hold_reason||supplier.onboarding_status}.`);}
   const id=randomUUID(); const documentNumber=await nextNumber(client,{documentType:type,branchId:user.branchId});
   const org=(await client.query(`SELECT le.id legal_entity_id,le.code,le.legal_name,le.trade_name,le.npwp,le.legal_address,le.operational_address,le.phone,le.whatsapp,le.email,le.website,le.document_footer,
     (SELECT jsonb_build_object('bankName',b.bank_name,'accountNumber',b.account_number,'accountHolder',b.account_holder,'currency',b.currency,'usagePurpose',b.usage_purpose)

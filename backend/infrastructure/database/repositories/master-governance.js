@@ -15,7 +15,9 @@ const MASTER_RULES = {
     fields: ['legal_name','npwp','category'],
     checks: [
       ['BANK_UNVERIFIED','CRITICAL','Rekening supplier belum diverifikasi',`NOT EXISTS(SELECT 1 FROM supplier_bank_accounts x WHERE x.supplier_id=m.id AND x.verification_status='VERIFIED')`],
-      ['CONTACT_MISSING','WARNING','Kontak supplier belum tersedia',`NOT EXISTS(SELECT 1 FROM supplier_contacts x WHERE x.supplier_id=m.id AND x.active)`]
+      ['CONTACT_MISSING','WARNING','Kontak supplier belum tersedia',`NOT EXISTS(SELECT 1 FROM supplier_contacts x WHERE x.supplier_id=m.id AND x.active)`],
+      ['DOCUMENT_EXPIRED','CRITICAL','Dokumen wajib supplier kedaluwarsa atau belum terverifikasi',`EXISTS(SELECT 1 FROM supplier_documents x WHERE x.supplier_id=m.id AND x.required AND (x.verification_status<>'VERIFIED' OR (x.expiry_date IS NOT NULL AND x.expiry_date<current_date)))`],
+      ['PERFORMANCE_HOLD','CRITICAL','Supplier ditahan oleh kontrol kinerja otomatis',`m.performance_hold`]
     ]
   },
   products: {
@@ -176,4 +178,54 @@ async function productCostTrace(client,productId) {
   return {product,bom,lines,materialCost,uncostedComponents,calculatedAt:new Date().toISOString()};
 }
 
-module.exports={validateMaster,refreshQuality,scanQuality,qualityDashboard,listCurrencies,listExchangeRates,createExchangeRate,resolveCurrency,resolveDimensions,productCostTrace};
+async function calculateSupplierPerformance(client,supplierId,period,user) {
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(String(period||'')))throw new AppError('VALIDATION_ERROR','Periode supplier score harus YYYY-MM.');
+  const supplier=(await client.query('SELECT * FROM suppliers WHERE id=$1',[supplierId])).rows[0];
+  if(!supplier)throw new AppError('RESOURCE_NOT_FOUND');
+  const policy=(await client.query(`SELECT * FROM supplier_score_policies WHERE active AND effective_from<=($1||'-01')::date AND (effective_to IS NULL OR effective_to>=($1||'-01')::date) ORDER BY effective_from DESC,version DESC LIMIT 1`,[period])).rows[0];
+  if(!policy)throw new AppError('VALIDATION_ERROR','Policy supplier score belum tersedia untuk periode ini.');
+  const evidence=(await client.query(`WITH bounds AS (SELECT ($2||'-01')::date d1,(($2||'-01')::date+interval '1 month') d2),
+    po AS (SELECT d.* FROM business_documents d,bounds b WHERE d.document_type='PURCHASE_ORDER' AND d.party_id=$1 AND d.created_at>=b.d1 AND d.created_at<b.d2 AND d.status NOT IN('CANCELLED','VOID','REJECTED')),
+    gr AS (SELECT DISTINCT c.*,p.id po_id,p.due_date po_due FROM po p JOIN document_relations r ON r.parent_document_id=p.id JOIN business_documents c ON c.id=r.child_document_id AND c.document_type='GOODS_RECEIPT'),
+    qc AS (SELECT q.* FROM qc_inspections q JOIN gr ON gr.id=q.subject_document_id),
+    quotes AS (SELECT q.rfq_document_id,q.landed_cost,(SELECT min(q2.landed_cost) FROM rfq_quotes q2 WHERE q2.rfq_document_id=q.rfq_document_id) best FROM rfq_quotes q,bounds b WHERE q.supplier_id=$1 AND q.received_at>=b.d1 AND q.received_at<b.d2),
+    docs AS (SELECT count(*) FILTER(WHERE required)::int required_count,count(*) FILTER(WHERE required AND verification_status='VERIFIED' AND (expiry_date IS NULL OR expiry_date>=current_date))::int valid_count,count(*) FILTER(WHERE required AND (verification_status<>'VERIFIED' OR (expiry_date IS NOT NULL AND expiry_date<current_date)))::int invalid_count FROM supplier_documents WHERE supplier_id=$1)
+    SELECT (SELECT count(*)::int FROM po) order_count,(SELECT count(*)::int FROM gr) receipt_count,
+      (SELECT count(*)::int FROM gr WHERE po_due IS NULL OR updated_at::date<=po_due) on_time_count,
+      (SELECT count(*)::int FROM qc) inspection_count,(SELECT COALESCE(sum(passed_qty),0)::float FROM qc) passed_qty,(SELECT COALESCE(sum(sampled_qty),0)::float FROM qc) sampled_qty,
+      (SELECT count(*)::int FROM quotes) price_sample_count,(SELECT COALESCE(avg(LEAST(100,(best/NULLIF(landed_cost,0))*100)),100)::float FROM quotes) price_score,
+      (SELECT required_count FROM docs) required_docs,(SELECT valid_count FROM docs) valid_docs,(SELECT invalid_count FROM docs) invalid_docs`,[supplierId,period])).rows[0];
+  const orders=Number(evidence.order_count),receipts=Number(evidence.receipt_count),inspections=Number(evidence.inspection_count),samples=Number(evidence.sampled_qty);
+  const delivery=orders?Math.round(Number(evidence.on_time_count)/orders*10000)/100:100;
+  const quality=samples?Math.round(Number(evidence.passed_qty)/samples*10000)/100:100;
+  const price=Number(evidence.price_score)||100;
+  const compliance=Number(evidence.required_docs)?Math.round(Number(evidence.valid_docs)/Number(evidence.required_docs)*10000)/100:100;
+  const score=Math.round((delivery*Number(policy.delivery_weight)+quality*Number(policy.quality_weight)+price*Number(policy.price_weight)+compliance*Number(policy.compliance_weight)))/100;
+  const rejected=samples?Math.round((samples-Number(evidence.passed_qty))/samples*10000)/100:0;
+  const hold=(orders>=Number(policy.min_orders_for_hold)&&score<Number(policy.hold_threshold))||Number(evidence.invalid_docs)>0;
+  const risk=score>=85?'LOW':score>=Number(policy.approved_threshold)?'MEDIUM':'HIGH';
+  const breakdown={policyCode:policy.code,policyVersion:policy.version,weights:{delivery:Number(policy.delivery_weight),quality:Number(policy.quality_weight),price:Number(policy.price_weight),compliance:Number(policy.compliance_weight)},scores:{delivery,quality,price,compliance},evidence:{orders,receipts,inspections,priceSamples:Number(evidence.price_sample_count),requiredDocuments:Number(evidence.required_docs),invalidDocuments:Number(evidence.invalid_docs)}};
+  const evaluation=(await client.query(`INSERT INTO supplier_evaluations(supplier_id,period,on_time_delivery_pct,quality_acceptance_pct,rejection_rate_pct,price_competitiveness,document_compliance,overall_score,risk_level,approved_vendor,notes,calculation_source,order_count,receipt_count,inspection_count,price_sample_count,score_breakdown,calculated_at,calculated_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'AUTOMATIC',$12,$13,$14,$15,$16,now(),$17)
+    ON CONFLICT(supplier_id,period) DO UPDATE SET on_time_delivery_pct=excluded.on_time_delivery_pct,quality_acceptance_pct=excluded.quality_acceptance_pct,rejection_rate_pct=excluded.rejection_rate_pct,price_competitiveness=excluded.price_competitiveness,document_compliance=excluded.document_compliance,overall_score=excluded.overall_score,risk_level=excluded.risk_level,approved_vendor=excluded.approved_vendor,notes=excluded.notes,calculation_source='AUTOMATIC',order_count=excluded.order_count,receipt_count=excluded.receipt_count,inspection_count=excluded.inspection_count,price_sample_count=excluded.price_sample_count,score_breakdown=excluded.score_breakdown,calculated_at=now(),calculated_by=excluded.calculated_by RETURNING *`,
+    [supplierId,period,delivery,quality,rejected,Math.max(1,Math.min(5,Math.round(price/20))),Math.max(1,Math.min(5,Math.round(compliance/20))),score,risk,!hold&&score>=Number(policy.approved_threshold),`Automatic score ${period}`,orders,receipts,inspections,Number(evidence.price_sample_count),breakdown,user?.id||null])).rows[0];
+  await client.query(`UPDATE suppliers SET last_performance_score=$2,last_performance_period=$3,performance_hold=$4,performance_hold_reason=$5,risk_level=$6,rating=$7,updated_at=now() WHERE id=$1`,[supplierId,score,period,hold,hold?Number(evidence.invalid_docs)>0?'Dokumen wajib tidak valid atau kedaluwarsa':`Skor ${score} di bawah ambang ${policy.hold_threshold}`:null,risk,Math.max(1,Math.min(5,Math.round(score/20)))]);
+  await refreshQuality(client,'suppliers',supplierId);
+  return evaluation;
+}
+
+async function supplierPerformance(client,supplierId) {
+  const supplier=(await client.query('SELECT id,code,name,performance_hold,performance_hold_reason,last_performance_score,last_performance_period,risk_level,onboarding_status FROM suppliers WHERE id=$1',[supplierId])).rows[0];
+  if(!supplier)throw new AppError('RESOURCE_NOT_FOUND');
+  const evaluations=(await client.query(`SELECT * FROM supplier_evaluations WHERE supplier_id=$1 ORDER BY period DESC LIMIT 24`,[supplierId])).rows;
+  const documents=(await client.query(`SELECT *,CASE WHEN expiry_date<current_date THEN 'EXPIRED' WHEN expiry_date<=current_date+interval '30 days' THEN 'EXPIRING' ELSE verification_status END control_status FROM supplier_documents WHERE supplier_id=$1 ORDER BY required DESC,expiry_date NULLS LAST`,[supplierId])).rows;
+  return {supplier,evaluations,documents};
+}
+
+async function scoreSuppliers(client,period,user) {
+  const ids=(await client.query('SELECT id FROM suppliers WHERE active ORDER BY code')).rows;
+  const items=[];for(const {id} of ids)items.push(await calculateSupplierPerformance(client,id,period,user));
+  return items;
+}
+
+module.exports={validateMaster,refreshQuality,scanQuality,qualityDashboard,listCurrencies,listExchangeRates,createExchangeRate,resolveCurrency,resolveDimensions,productCostTrace,calculateSupplierPerformance,supplierPerformance,scoreSuppliers};

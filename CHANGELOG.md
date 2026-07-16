@@ -3,6 +3,35 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.16.0] — 2026-07-16
+
+### Added
+
+- Migration 025–026: draft Customer Link server-side, supplier document
+  governance, supplier performance policy/evidence, risk hold, dan constraint
+  database maker tidak boleh menjadi verifier.
+- Customer Link Wizard lima tahap dengan source context, duplicate candidate,
+  existing/new customer, autosave, recovery 30 hari, save-and-exit,
+  optimistic locking, dan finalisasi atomik/idempotent.
+- Supplier Performance Cockpit dengan skor delivery, quality, price, dan
+  compliance berbasis bukti PO/GR/QC/dokumen serta histori evaluasi.
+- Supplier Documents & Expiry dengan verifikasi maker-checker dan automatic
+  hold untuk dokumen wajib tidak valid atau skor di bawah policy.
+
+### Changed
+
+- Pembuatan Purchase Order kini menolak supplier yang sedang onboarding atau
+  performance hold dengan error bisnis `SUPPLIER_HOLD`.
+- Tautan source document ke customer dan pembuatan contact/address dilakukan
+  dalam satu transaksi yang diaudit.
+
+### Verified
+
+- 84/84 automated tests, migration 001–026, rollback 025–026 disposable,
+  customer/supplier integration proof, accessibility 18/18, visual 8/8,
+  secret/dependency scan, load smoke, runtime health/control, backup/restore,
+  asset integrity, dan predeploy LOCAL 11/11 lulus.
+
 ## [0.15.0] — 2026-07-16
 
 ### Added

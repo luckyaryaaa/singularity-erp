@@ -69,6 +69,16 @@ Aksi dokumen: `submit`, `approve`, `reject`, `revise`, `start`, `complete`,
 - `GET|POST /api/master-governance/exchange-rates` — kurs effective-dated dan audit
 - `GET /api/master-governance/products/:id/cost-trace` — trace BOM × Active HPP
 - `GET|POST /api/masters/products/:id/variants` — normalized product variant matrix
+- `GET /api/master-wizards/customer-link/sources` — sumber Inquiry/Quotation/PO pelanggan/SO/Project yang dapat ditautkan
+- `GET /api/master-wizards/customer-link/candidates` — kandidat customer existing berdasarkan source/search
+- `GET /api/master-wizards/customer-link/recover` — recovery draft aktif milik pengguna (retensi 30 hari)
+- `POST /api/master-wizards/customer-link` — mulai draft Customer Link server-side
+- `PATCH /api/master-wizards/customer-link/:id` — autosave payload/step dengan optimistic `version`
+- `POST /api/master-wizards/customer-link/:id/abandon` — tinggalkan draft secara eksplisit
+- `POST /api/master-wizards/customer-link/:id/finalize` — finalisasi existing/new customer; wajib `Idempotency-Key`
+- `GET|POST /api/master-governance/suppliers/:id/performance` — lihat atau hitung ulang score/evidence/hold/histori periode
+- `POST /api/master-governance/suppliers/score` — batch scoring supplier
+- `POST /api/masters/suppliers/:id/documents/:documentId/{verify|reject}` — maker-checker dokumen supplier
 
 Masking server-side: nomor rekening & gaji tertutup bila peran tanpa izin
 finance/payroll. Harga supplier append-only (revisi bertambah, tidak menimpa).

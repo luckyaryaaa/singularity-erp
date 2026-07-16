@@ -6,6 +6,18 @@
 > 17 audit final → 18 LAN-UAT → 19 VPS go-live. Setiap item wajib berstatus
 > `SELESAI` atau punya alasan tertulis sebelum R026 (aktivasi VPS).
 >
+> **Sprint 8C Wave 2 — Customer Link & Supplier Performance: ✅ SELESAI
+> 16 Juli 2026 (v0.16.0).** Customer Link Wizard kini memiliki draft
+> server-side, recovery 30 hari, optimistic lock, duplicate candidate,
+> existing/new customer, serta finalisasi atomik dan idempotent dari dokumen
+> sumber. Supplier Performance menghitung delivery/quality/price/compliance
+> dari PO/GR/QC/dokumen memakai policy effective-dated; expiry dan skor rendah
+> menghasilkan risk hold yang memblokir PO. Dokumen supplier memakai
+> maker-checker hingga constraint database. Evidence: migration 001–026 dan
+> rollback 025–026 valid, 84/84 automated tests, a11y 18/18, visual 8/8, serta
+> predeploy LOCAL 11/11 lulus. Sprint 8C dinyatakan selesai; VPS tetap
+> ditahan sampai LAN-UAT dan gate go-live.
+>
 > **Sprint 12 — R019 Production Foundation v0.12.0: ✅ SELESAI 16 Juli 2026.**
 > Routing/work center + snapshot rate · BOM explosion · lokasi stok eksplisit
 > + reservasi · FIFO Material Issue · actual time append-only · job costing ·
@@ -22,8 +34,8 @@
 > quality score/issue registry. Form parent Customer/Supplier/Product membuka
 > field enterprise, duplicate code/NPWP diblokir, Data Quality & FX Center serta
 > BOM Cost Trace aktif. Evidence: 82/82 tes, rollback disposable, a11y 18/18,
-> visual 8/8, predeploy LOCAL 11/11. Dua item Wave 2 masih eksplisit terbuka:
-> Customer Link Wizard server-autosave dan supplier scoring otomatis PO/GR/QC.
+> visual 8/8, predeploy LOCAL 11/11. Dua item Wave 2 tersebut diselesaikan pada
+> v0.16.0.
 >
 > **Sprint 8B — Fondasi arsitektur & UI: ✅ SELESAI 16 Juli 2026 (v0.14.0).**
 > ✅ My Work inbox lintas modul (§10.7): GET /api/my-work + halaman
@@ -57,8 +69,8 @@
 >
 > Status: ✅ selesai · 🔨 sedang dikerjakan · ⬜ belum · ◐ sebagian (ada catatan)
 >
-> **Audit verifikasi terakhir — 16 Juli 2026 (v0.15.0):** migrasi 001–024
-> checksum valid · 82/82 automated tests lulus · aksesibilitas 18/18 · visual
+> **Audit verifikasi terakhir — 16 Juli 2026 (v0.16.0):** migrasi 001–026
+> checksum valid · 84/84 automated tests lulus · aksesibilitas 18/18 · visual
 > regression 8/8 · asset fingerprint/Brotli/immutable PASS · gerbang predeploy
 > LOCAL 11/11 hijau · secret/dependency audit bersih · backup + restore drill
 > valid.
@@ -125,8 +137,8 @@
 
 | Item | Status |
 |---|---|
-| Customer: PIC multipel, alamat multipel, commercial control, credit, dokumen, wizard | ◐ PIC/alamat/harga khusus/commercial field + credit hold/limit/override enforcement ✅; **Customer Link Wizard server-autosave (§9.5) ⬜** |
-| Supplier: onboarding, legal&tax, bank governance maker-checker, approved material, price history revisioned, scoring | ◐ semuanya ✅ kecuali **skor evaluasi otomatis dari data PO/GR ⬜** |
+| Customer: PIC multipel, alamat multipel, commercial control, credit, dokumen, wizard | ✅ PIC/alamat/harga khusus/commercial field + credit hold/limit/override enforcement + Customer Link Wizard server-autosave/recovery/finalisasi atomik (§9.5) |
+| Supplier: onboarding, legal&tax, bank governance maker-checker, approved material, price history revisioned, scoring | ✅ automatic scoring PO/GR/QC/dokumen, policy effective-dated, document expiry, risk hold, dan maker-checker |
 | Product: varian, UoM konversi, BOM revision lifecycle, cost components, HPP versioning + Active HPP lock + snapshot | ✅ Variant Matrix + UoM + BOM lifecycle + cost components + Active HPP + BOM Cost Trace berbasis sumber dan scrap |
 | Duplicate detection master | ✅ normalized code/NIK + NPWP guard sebelum create/update; DB unique tetap lapisan terakhir |
 

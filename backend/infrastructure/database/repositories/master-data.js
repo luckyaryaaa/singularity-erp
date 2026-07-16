@@ -85,7 +85,9 @@ const REGISTRY = {
         cols: ['product_id','material_desc','grade','specification','uom','currency','price','tax_included','freight_included','lead_time_days','moq','supplier_part_number','effective_from','expiry_date','source_quotation'],
         appendOnly: true },
       'evaluations': { table: 'supplier_evaluations', fk: 'supplier_id', order: 'period DESC',
-        cols: ['period','on_time_delivery_pct','quality_acceptance_pct','rejection_rate_pct','price_competitiveness','responsiveness','document_compliance','overall_score','risk_level','approved_vendor','notes'] }
+        cols: ['period','on_time_delivery_pct','quality_acceptance_pct','rejection_rate_pct','price_competitiveness','responsiveness','document_compliance','overall_score','risk_level','approved_vendor','notes'] },
+      'documents': { table: 'supplier_documents', fk: 'supplier_id', order: 'expiry_date NULLS LAST, created_at DESC',
+        cols: ['document_type','document_number','title','file_id','issue_date','expiry_date','required','notes'], makerChecker: true, workflow: 'supplierDocument' }
     }
   },
   products: {
@@ -213,6 +215,7 @@ async function createSub(client, master, id, sub, body, user, requestId) {
   // Bank supplier: maker-checker (§10.3) — masuk sebagai usulan ber-hold.
   if (s.makerChecker && s.workflow === 'employeeBank') { payload.proposed_by = user.id; payload.verification_status = 'PENDING_VERIFICATION'; }
   if (s.makerChecker && s.workflow === 'compensation') { payload.created_by = user.id; payload.approval_status = 'PENDING_APPROVAL'; }
+  if (s.makerChecker && s.workflow === 'supplierDocument') { payload.created_by = user.id; payload.verification_status = 'PENDING'; }
   if (s.makerChecker && !s.workflow) { payload.proposed_by = user.id; payload.payment_hold = true; payload.verification_status = 'PENDING_VERIFICATION'; }
   if (s.cols.includes('created_by') || ['employee_positions','employee_contracts','employee_documents','customer_contacts','product_files'].includes(s.table)) payload.created_by = user.id;
   if (s.table === 'employee_compensation_history') { payload.created_by = user.id; payload.approval_reason = body.change_reason || body.changeReason || payload.approval_reason; }
@@ -248,6 +251,20 @@ async function approveSupplierBank(client, supplierId, bankId, user, requestId) 
     newValue: { verificationStatus: 'VERIFIED', paymentHold: false, account: maskAccount(row.account_number) },
     requestId, branchId: user.branchId
   });
+  return runtime.camel(updated);
+}
+
+async function decideSupplierDocument(client,supplierId,documentId,decision,user,requestId){
+  assertPermission(user,'supplier.approve');
+  if(!['verify','reject'].includes(decision))throw new AppError('VALIDATION_ERROR');
+  const row=(await client.query(`SELECT * FROM supplier_documents WHERE id=$1 AND supplier_id=$2 FOR UPDATE`,[documentId,supplierId])).rows[0];
+  if(!row)throw new AppError('RESOURCE_NOT_FOUND');
+  if(row.created_by===user.id)throw new AppError('SOD_CONFLICT','Pembuat dokumen supplier tidak boleh menjadi verifier.');
+  if(row.verification_status!=='PENDING')throw new AppError('STATUS_INVALID');
+  const status=decision==='verify'?'VERIFIED':'REJECTED';
+  const updated=(await client.query(`UPDATE supplier_documents SET verification_status=$3,verified_by=$4,verified_at=now() WHERE id=$1 AND supplier_id=$2 RETURNING *`,[documentId,supplierId,status,user.id])).rows[0];
+  await runtime.audit(client,{userId:user.id,action:decision==='verify'?'APPROVE':'REJECT',module:'supplier',entityType:'SUPPLIER_DOCUMENT',entityId:documentId,oldValue:{status:row.verification_status},newValue:{status},requestId,branchId:user.branchId});
+  await masterGovernance.refreshQuality(client,'suppliers',supplierId);
   return runtime.camel(updated);
 }
 
@@ -354,4 +371,4 @@ async function lifecycle(client, master, id, action, reason, user, requestId) {
   return runtime.camel(updated);
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideEmployeeSensitive, employeeAudit, activateCostRevision, promoteRevision, lifecycle };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, activateCostRevision, promoteRevision, lifecycle };

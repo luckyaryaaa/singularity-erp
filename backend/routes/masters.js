@@ -5,12 +5,23 @@ const operations = require('../infrastructure/database/repositories/operations')
 const runtime = require('../infrastructure/database/repositories/runtime');
 const masterData = require('../infrastructure/database/repositories/master-data');
 const masterGovernance = require('../infrastructure/database/repositories/master-governance');
+const masterWizards = require('../infrastructure/database/repositories/master-wizards');
 const masterModules={customers:'customer',suppliers:'supplier',products:'product',employees:'employee'};
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
   const p=url.pathname, method=req.method;
   let m;
+  if(method==='GET'&&p==='/api/master-wizards/customer-link/sources')return{items:await masterWizards.listSources(client,ctx.user)};
+  if(method==='GET'&&p==='/api/master-wizards/customer-link/candidates'){assertPermission(ctx.user,'customer.view');return{items:await masterWizards.customerCandidates(client,url.searchParams.get('q')||'')};}
+  if(method==='GET'&&p==='/api/master-wizards/customer-link/recover')return{draft:await masterWizards.recover(client,ctx.user)};
+  if(method==='POST'&&p==='/api/master-wizards/customer-link'){const body=await readBody(req);ctx.status=201;return masterWizards.start(client,ctx.user,body);}
+  m=p.match(/^\/api\/master-wizards\/customer-link\/([0-9a-f-]{36})$/);
+  if(method==='PATCH'&&m){const body=await readBody(req);return masterWizards.save(client,ctx.user,m[1],body);}
+  m=p.match(/^\/api\/master-wizards\/customer-link\/([0-9a-f-]{36})\/abandon$/);
+  if(method==='POST'&&m){const body=await readBody(req);return masterWizards.abandon(client,ctx.user,m[1],body.reason,ctx.requestId);}
+  m=p.match(/^\/api\/master-wizards\/customer-link\/([0-9a-f-]{36})\/finalize$/);
+  if(method==='POST'&&m){const body=await readBody(req);const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`customer-link.finalize:${m[1]}`,key:req.headers['idempotency-key'],body},async()=>({status:201,body:await masterWizards.finalize(client,ctx.user,m[1],body,ctx.requestId)}));ctx.status=result.status;return result.body;}
   if(method==='GET'&&p==='/api/master-governance/currencies'){assertPermission(ctx.user,'dashboard.view');return{items:(await masterGovernance.listCurrencies(client)).map(runtime.camel)};}
   if(method==='GET'&&p==='/api/master-governance/exchange-rates'){assertPermission(ctx.user,'settings.view');return{items:(await masterGovernance.listExchangeRates(client,Object.fromEntries(url.searchParams))).map(runtime.camel)};}
   if(method==='POST'&&p==='/api/master-governance/exchange-rates'){assertPermission(ctx.user,'settings.edit');const body=await readBody(req);const item=runtime.camel(await masterGovernance.createExchangeRate(client,body,ctx.user));await runtime.audit(client,{userId:ctx.user.id,action:'UPSERT',module:'settings',entityType:'EXCHANGE_RATE',entityId:item.id,newValue:{fromCurrency:item.fromCurrency,toCurrency:item.toCurrency,rate:item.rate,effectiveDate:item.effectiveDate,source:item.source},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
@@ -18,6 +29,10 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&p==='/api/master-governance/quality/scan'){assertPermission(ctx.user,'settings.edit');const result=await masterGovernance.scanQuality(client);await runtime.audit(client,{userId:ctx.user.id,action:'SCAN',module:'settings',entityType:'MASTER_DATA_QUALITY',newValue:{issues:result.issues.length},requestId:ctx.requestId,branchId:ctx.user.branchId});return{summary:result.summary.map(runtime.camel),issues:result.issues.map(runtime.camel)};}
   m=p.match(/^\/api\/master-governance\/products\/([0-9a-f-]{36})\/cost-trace$/);
   if(method==='GET'&&m){assertPermission(ctx.user,'product.view');const result=await masterGovernance.productCostTrace(client,m[1]);return{...result,product:runtime.camel(result.product),bom:runtime.camel(result.bom),lines:result.lines.map(runtime.camel)};}
+  m=p.match(/^\/api\/master-governance\/suppliers\/([0-9a-f-]{36})\/performance$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'supplier.view');const result=await masterGovernance.supplierPerformance(client,m[1]);return{supplier:runtime.camel(result.supplier),evaluations:result.evaluations.map(runtime.camel),documents:result.documents.map(runtime.camel)};}
+  if(method==='POST'&&m){assertPermission(ctx.user,'supplier.edit');const body=await readBody(req),period=body.period||new Date().toISOString().slice(0,7);const item=runtime.camel(await masterGovernance.calculateSupplierPerformance(client,m[1],period,ctx.user));await runtime.audit(client,{userId:ctx.user.id,action:'CALCULATE',module:'supplier',entityType:'SUPPLIER_PERFORMANCE',entityId:m[1],newValue:{period,score:item.overallScore,risk:item.riskLevel},requestId:ctx.requestId,branchId:ctx.user.branchId});return item;}
+  if(method==='POST'&&p==='/api/master-governance/suppliers/score'){assertPermission(ctx.user,'supplier.approve');const body=await readBody(req),period=body.period||new Date().toISOString().slice(0,7),items=await masterGovernance.scoreSuppliers(client,period,ctx.user);return{period,items:items.map(runtime.camel)};}
   m=p.match(/^\/api\/(customers|suppliers|products|employees)$/);
   if(method==='GET'&&m){assertPermission(ctx.user,`${masterModules[m[1]]}.view`);return operations.listMaster(client,m[1],Object.fromEntries(url.searchParams));}
   if(method==='POST'&&m){const name=m[1],module=masterModules[name],body=await readBody(req);assertPermission(ctx.user,`${module}.create`);const item=await operations.createMaster(client,name,body,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module,entityType:module.toUpperCase(),entityId:item.id,newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
@@ -31,6 +46,8 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m){const body=await readBody(req);return masterData.lifecycle(client,m[1],m[2],body.action,body.reason,ctx.user,ctx.requestId);}
   m=p.match(/^\/api\/masters\/suppliers\/([0-9a-f-]{36})\/bank-accounts\/([0-9a-f-]{36})\/approve$/);
   if(method==='POST'&&m)return masterData.approveSupplierBank(client,m[1],m[2],ctx.user,ctx.requestId);
+  m=p.match(/^\/api\/masters\/suppliers\/([0-9a-f-]{36})\/documents\/([0-9a-f-]{36})\/(verify|reject)$/);
+  if(method==='POST'&&m)return masterData.decideSupplierDocument(client,m[1],m[2],m[3],ctx.user,ctx.requestId);
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/audit$/);
   if(method==='GET'&&m)return{items:await masterData.employeeAudit(client,m[1],ctx.user)};
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/(bank-accounts|compensation)\/([0-9a-f-]{36})\/(approve|reject)$/);
