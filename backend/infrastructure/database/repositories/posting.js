@@ -18,8 +18,29 @@ async function balance(client,productId,warehouseId,delta,user,doc,movementType)
   await client.query('UPDATE inventory_balances SET qty_on_hand=$3,value_idr=$4,version=version+1,updated_at=now() WHERE product_id=$1 AND warehouse_id=$2',[productId,warehouseId,next,nextValue]);
   await client.query(`INSERT INTO inventory_movements(product_id,warehouse_id,document_id,movement_type,qty,unit_cost,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)`,[productId,warehouseId,doc.id,movementType,Math.abs(delta),cost,user.id]);return{productId,warehouseId,delta,qtyOnHand:next,unitCost:cost};
 }
-async function postInventory(client,doc,user){const types={GOODS_RECEIPT:'RECEIPT',MATERIAL_ISSUE:'ISSUE',STOCK_ADJUSTMENT:'ADJUSTMENT',STOCK_TRANSFER:'TRANSFER_OUT'};if(!types[doc.documentType]||doc.status!=='COMPLETED')return null;if(!await claimPosting(client,doc,user,'INVENTORY'))return{replay:true};const lines=(await client.query('SELECT * FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows;if(!lines.length)throw new AppError('VALIDATION_ERROR','Posting stok membutuhkan baris dokumen.');const result=[];
-  for(const line of lines){const qty=Number(line.qty);if(doc.documentType==='GOODS_RECEIPT')result.push(await balance(client,line.product_id,doc.payload?.warehouseId||doc.branchId,qty,user,doc,'RECEIPT'));else if(doc.documentType==='MATERIAL_ISSUE')result.push(await balance(client,line.product_id,doc.payload?.warehouseId||doc.branchId,-qty,user,doc,'ISSUE'));else if(doc.documentType==='STOCK_ADJUSTMENT'){const delta=doc.payload?.adjustmentDirection==='OUT'?-qty:qty;result.push(await balance(client,line.product_id,doc.payload?.warehouseId||doc.branchId,delta,user,doc,'ADJUSTMENT'));}else{const to=doc.payload?.toWarehouseId;if(!to)throw new AppError('VALIDATION_ERROR','Gudang tujuan wajib untuk transfer.');result.push(await balance(client,line.product_id,doc.payload?.fromWarehouseId||doc.branchId,-qty,user,doc,'TRANSFER_OUT'));result.push(await balance(client,line.product_id,to,qty,user,doc,'TRANSFER_IN'));}}
+async function postInventory(client,doc,user){
+  // Stock opname diposting saat APPROVED (checker ≠ maker sudah lolos SoD).
+  if(doc.documentType==='STOCK_OPNAME'){
+    if(doc.status!=='APPROVED')return null;
+    if(!await claimPosting(client,doc,user,'INVENTORY'))return{replay:true};
+    const lots=require('./inventory');
+    const opname=await lots.postOpname(client,doc,user);
+    await finishPosting(client,doc,'INVENTORY',{opname:{adjusted:opname.adjusted,gain:opname.gain,loss:opname.loss}});
+    return opname;
+  }
+  const types={GOODS_RECEIPT:'RECEIPT',MATERIAL_ISSUE:'ISSUE',STOCK_ADJUSTMENT:'ADJUSTMENT',STOCK_TRANSFER:'TRANSFER_OUT'};if(!types[doc.documentType]||doc.status!=='COMPLETED')return null;if(!await claimPosting(client,doc,user,'INVENTORY'))return{replay:true};const lines=(await client.query('SELECT * FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows;if(!lines.length)throw new AppError('VALIDATION_ERROR','Posting stok membutuhkan baris dokumen.');const result=[];const lots=require('./inventory');
+  for(const line of lines){const qty=Number(line.qty);
+    if(doc.documentType==='GOODS_RECEIPT'){const wh=doc.payload?.warehouseId||doc.branchId;result.push(await balance(client,line.product_id,wh,qty,user,doc,'RECEIPT'));
+      await lots.receiveLotLine(client,doc,line,wh,user); // lot + heat number per baris GR
+    }else if(doc.documentType==='MATERIAL_ISSUE'){const wh=doc.payload?.warehouseId||doc.branchId;result.push(await balance(client,line.product_id,wh,-qty,user,doc,'ISSUE'));
+      await lots.consumeLots(client,{productId:line.product_id,warehouseId:wh,qty,doc,user,type:'ISSUE'}); // konsumsi FIFO
+    }else if(doc.documentType==='STOCK_ADJUSTMENT'){const wh=doc.payload?.warehouseId||doc.branchId;const out=doc.payload?.adjustmentDirection==='OUT';result.push(await balance(client,line.product_id,wh,out?-qty:qty,user,doc,'ADJUSTMENT'));
+      if(out)await lots.consumeLots(client,{productId:line.product_id,warehouseId:wh,qty,doc,user,type:'ADJUST_OUT'});
+      else await lots.receiveLotLine(client,doc,line,wh,user,{movementType:'ADJUST_IN',lotPrefix:'A'});
+    }else{const to=doc.payload?.toWarehouseId;if(!to)throw new AppError('VALIDATION_ERROR','Gudang tujuan wajib untuk transfer.');const from=doc.payload?.fromWarehouseId||doc.branchId;
+      result.push(await balance(client,line.product_id,from,-qty,user,doc,'TRANSFER_OUT'));result.push(await balance(client,line.product_id,to,qty,user,doc,'TRANSFER_IN'));
+      await lots.transferLots(client,{productId:line.product_id,fromWarehouseId:from,toWarehouseId:to,qty,doc,user}); // lot anak mewarisi heat/cert
+    }}
   await finishPosting(client,doc,'INVENTORY',{movements:result});return{movements:result};
 }
 // Status pemicu posting per tipe; AKUN ditentukan posting_profiles (bukan hardcoded).
@@ -45,4 +66,4 @@ async function postPayroll(client,doc,user){if(doc.status!=='APPROVED')return nu
   // Kaki payroll dari posting profile: NET, TAX, BPJS_COMPANY dipetakan ke akun.
   const posted=await postFromProfile(client,doc,user,{transactionType:'PAYROLL_RUN',amounts:{NET:net,TAX:tax,BPJS_COMPANY:bpjs},memoBase:'payroll'});await finishPosting(client,doc,'ACCOUNTING',{period,net,tax,bpjs,...posted});return{period,net,tax,bpjs,...posted};}
 async function postDocument(client,doc,user){return{inventory:await postInventory(client,doc,user),accounting:await postAccounting(client,doc,user)};}
-module.exports={syncDocumentLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument};
+module.exports={syncDocumentLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod};

@@ -4,7 +4,7 @@
 
 const { AppError } = require('./errors');
 
-const MODULES = ['dashboard','approval','notification','organization','customer','supplier','product','inquiry','quotation','customer_po','sales_order','project','work_order','production','quality','purchase_request','rfq','purchase_order','goods_receipt','inventory','material_issue','stock_transfer','stock_adjustment','delivery','invoice','payment','payment_proposal','supplier_invoice','supplier_payment','expense','asset','journal','ledger','closing','credit','payroll','employee','attendance','leave','tax','report','audit','user','iam','sod','access_review','approval_policy','settings','monitoring','job','selftest','backup'];
+const MODULES = ['dashboard','approval','notification','organization','customer','supplier','product','inquiry','quotation','customer_po','sales_order','project','work_order','production','quality','purchase_request','rfq','purchase_order','goods_receipt','inventory','material_issue','stock_transfer','stock_adjustment','stock_opname','delivery','invoice','payment','payment_proposal','supplier_invoice','supplier_payment','expense','asset','journal','ledger','closing','credit','payroll','employee','attendance','leave','tax','report','audit','user','iam','sod','access_review','approval_policy','settings','monitoring','job','selftest','backup'];
 
 const ACTIONS = ['view','create','edit','submit','approve','reject','post','void','cancel','export','import'];
 
@@ -29,7 +29,7 @@ const ROLE_GRANTS = {
     .concat(expand(['product','inventory','delivery','invoice','work_order'], ['view'])),
   procurement: expand(['dashboard','approval','notification','supplier','purchase_request','rfq','purchase_order','report','job'], ACTIONS)
     .concat(expand(['product','inventory','goods_receipt','supplier_invoice','work_order'], ['view'])),
-  warehouse: expand(['dashboard','approval','notification','inventory','goods_receipt','material_issue','stock_transfer','stock_adjustment','delivery','report','job'], ACTIONS)
+  warehouse: expand(['dashboard','approval','notification','inventory','goods_receipt','material_issue','stock_transfer','stock_adjustment','stock_opname','delivery','report','job'], ACTIONS)
     .concat(expand(['product','purchase_order','work_order','quality'], ['view'])),
   production: expand(['dashboard','approval','notification','work_order','production','quality','material_issue','report','job'], ACTIONS)
     .concat(expand(['product','inventory','project','sales_order'], ['view'])),

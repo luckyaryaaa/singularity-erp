@@ -279,6 +279,10 @@ tbody tr.clickable{cursor:pointer;transition:background var(--ease-fast)}
 tbody tr.clickable:hover{background:#f6f9fc}
 .table-loading{text-align:center;color:var(--muted);font-size:12px;height:80px}
 .row-actions{display:flex;gap:6px;justify-content:flex-end}
+.chip-tabs{display:inline-flex;gap:6px;flex-wrap:wrap;margin-right:8px}
+.chip-tabs .btn{padding:7px 12px;font-size:12px}
+.count-input,input[data-note]{border:1px solid var(--line,#dde3ea);border-radius:var(--radius-2,8px);padding:6px 8px;font:inherit;font-size:12.5px;background:var(--bg-panel,#fff)}
+.count-input:focus,input[data-note]:focus{outline:2px solid #8db9ff;outline-offset:1px}
 .progress{display:flex;align-items:center;gap:8px}
 .progress progress{appearance:none;-webkit-appearance:none;width:66px;height:6px;border:0;border-radius:8px;overflow:hidden;background:#edf0f4}.progress progress::-webkit-progress-bar{background:#edf0f4}.progress progress::-webkit-progress-value{border-radius:8px;background:linear-gradient(90deg,#8db9ff,#6d9fea)}.progress progress::-moz-progress-bar{border-radius:8px;background:linear-gradient(90deg,#8db9ff,#6d9fea)}
 .progress span{font-size:10.5px;font-variant-numeric:tabular-nums;color:#66758a}

@@ -20,6 +20,7 @@ const masterData = require('./infrastructure/database/repositories/master-data')
 const governance = require('./infrastructure/database/repositories/governance');
 const organization = require('./infrastructure/database/repositories/organization');
 const procurement = require('./infrastructure/database/repositories/procurement');
+const inventoryLots = require('./infrastructure/database/repositories/inventory');
 const { migrationFiles } = require('./infrastructure/database/migrations');
 const { requestContext } = require('./core/request-context');
 const fs = require('node:fs/promises');
@@ -234,6 +235,18 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m){const body=await readBody(req);ctx.status=201;return masterData.createSub(client,m[1],m[2],m[3],body,ctx.user,ctx.requestId);}
   if(method==='GET'&&p==='/api/branches'){if(!['owner','admin','hrd'].includes(ctx.user.role))assertPermission(ctx.user,'settings.view');return{items:(await client.query('SELECT id,code,name,active FROM branches WHERE active ORDER BY code')).rows.map(runtime.camel)};}
   if(method==='GET'&&p==='/api/inventory'){assertPermission(ctx.user,'inventory.view');return operations.listInventory(client,ctx.user,Object.fromEntries(url.searchParams));}
+  // Sprint 11 (R018) — lot/heat traceability, valuasi, dan stock opname.
+  if(method==='GET'&&p==='/api/inventory/lots'){assertPermission(ctx.user,'inventory.view');return inventoryLots.listLots(client,ctx.user,Object.fromEntries(url.searchParams));}
+  if(method==='GET'&&p==='/api/inventory/valuation'){assertPermission(ctx.user,'inventory.view');return inventoryLots.valuation(client,ctx.user,Object.fromEntries(url.searchParams));}
+  m=p.match(/^\/api\/inventory\/lots\/([0-9a-f-]{36})$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'inventory.view');return inventoryLots.lotDetail(client,m[1]);}
+  m=p.match(/^\/api\/inventory\/lots\/([0-9a-f-]{36})\/(block|quarantine|release)$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'inventory.edit');const body=await readBody(req);return inventoryLots.setLotStatus(client,{lotId:m[1],action:m[2],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
+  if(method==='POST'&&p==='/api/inventory/opname'){assertPermission(ctx.user,'stock_opname.create');const body=await readBody(req);ctx.status=201;return inventoryLots.createOpname(client,{user:ctx.user,warehouseId:body.warehouseId,title:body.title,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/inventory\/opname\/([0-9a-f-]{36})\/lines$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'stock_opname.view');return inventoryLots.opnameLines(client,m[1]);}
+  m=p.match(/^\/api\/inventory\/opname\/([0-9a-f-]{36})\/counts$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'stock_opname.edit');const body=await readBody(req);return inventoryLots.enterOpnameCounts(client,{docId:m[1],counts:body.counts,user:ctx.user,requestId:ctx.requestId});}
   if(method==='GET'&&p==='/api/accounting/summary'){assertPermission(ctx.user,'journal.view');return businessOps.accountingSummary(client,url.searchParams.get('period'));}
   if(method==='GET'&&p==='/api/accounting/accounts'){assertPermission(ctx.user,'journal.view');return{items:(await client.query('SELECT id,code,name,normal_side,category FROM chart_of_accounts WHERE active ORDER BY code')).rows.map(runtime.camel)};}
   // Posting profiles (§18.2) — determinasi akun configuration-driven, tampil read-only.

@@ -67,6 +67,26 @@ Aksi dokumen: `submit`, `approve`, `reject`, `revise`, `start`, `complete`,
 Masking server-side: nomor rekening & gaji tertutup bila peran tanpa izin
 finance/payroll. Harga supplier append-only (revisi bertambah, tidak menimpa).
 - `GET /api/inventory`
+
+### Inventory enterprise — lot/heat & stock opname (R018, Sprint 11)
+
+- `GET /api/inventory/lots` — daftar lot (filter productId/warehouseId/status/search
+  lot/heat/cert; ber-scope cabang)
+- `GET /api/inventory/lots/:id` — detail + mutasi + silsilah dua arah (ancestry/children)
+- `POST /api/inventory/lots/:id/{block|quarantine|release}` — QC hold ber-alasan;
+  lot terblokir dilewati pemilihan FIFO
+- `GET /api/inventory/valuation` — valuasi per produk×gudang (saldo agregat + lapisan lot)
+- `POST /api/inventory/opname` — buat sesi opname (dokumen `STOCK_OPNAME`, nomor OPN,
+  snapshot qty per lot + sisa tanpa lot; satu sesi berjalan per gudang)
+- `GET /api/inventory/opname/:docId/lines` — baris + variance
+- `POST /api/inventory/opname/:docId/counts` — isi hasil hitung (hanya DRAFT/REVISION;
+  amount dokumen = nilai selisih absolut → eskalasi matriks approval otomatis)
+
+Alur opname: hitung → submit → approve (checker ≠ maker via SoD) → penyesuaian
+saldo + lot otomatis dan selisih dijurnal via posting profile `OPNAME-DEFAULT`
+(GAIN → 1300/4250, LOSS → 6150/1300). Lot lahir otomatis dari Goods Receipt
+(heat number/mill cert dari baris GR); Material Issue konsumsi FIFO; Stock
+Transfer melahirkan lot anak yang mewarisi heat/biaya (lineage `parent_lot_id`).
 - `GET /api/accounting/summary`
 - `GET /api/accounting/accounts`
 - `GET /api/accounting/posting-profiles` — determinasi akun configuration-driven (§18.2)

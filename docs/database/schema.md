@@ -23,6 +23,7 @@
 | `017_enterprise_organization_employee.sql` | identitas organisasi versioned, asset/signatory/tax registry, company-bank maker-checker, MFA step-up session, snapshot identitas dokumen, employee compensation/payroll-bank approval, claim history, dan restricted records |
 | `018_procurement_credit_control.sql` | kontrol kredit pelanggan + override, RFQ quotes (landed cost), toleransi & hasil three-way match, payment proposal lines |
 | `019_posting_profiles_payroll_rules.sql` | posting_profiles + legs (determinasi akun configuration-driven §18.2), payroll_rule_versions (BPJS/PTKP/PPh21/lembur/absen effective-dated §19.5), snapshot posting/rule pada dokumen & payroll_items |
+| `020_inventory_lots_opname.sql` | stock_lots (lot/serial/heat number + mill certificate, FIFO index, lineage parent), stock_lot_movements append-only, stock_opname_lines (snapshot hitung fisik), akun 4250/6150 + posting profile OPNAME-DEFAULT (selisih GAIN/LOSS) |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.
