@@ -6,6 +6,16 @@
 > 17 audit final → 18 LAN-UAT → 19 VPS go-live. Setiap item wajib berstatus
 > `SELESAI` atau punya alasan tertulis sebelum R026 (aktivasi VPS).
 >
+> **Sprint 12 — R019 Production Foundation v0.12.0: ✅ SELESAI 16 Juli 2026.**
+> Routing/work center + snapshot rate · BOM explosion · lokasi stok eksplisit
+> + reservasi · FIFO Material Issue · actual time append-only · job costing ·
+> finished-goods lot · completion gate · QC inspection/NCR/CAPA/karantina ·
+> MRP netting→PR · branch scope + idempotency + DB least privilege. Evidence:
+> migration 001–022 valid, rollback 022→021 disposable PASS, 74/74 tes, scan
+> 321 file/0 temuan, dependency audit 0, load 300/300 p95 31 ms, backup offsite
+> + restore 124 tabel PASS, predeploy LOCAL 9/9. Capacity/WIP/inspection plan/
+> calibration tetap backlog R019 lanjutan; status bukan PRODUCTION READY.
+>
 > **Sprint 8B — Fondasi arsitektur & UI: ◐ DIMULAI 15 Juli 2026.**
 > ✅ My Work inbox lintas modul (§10.7): GET /api/my-work + halaman
 > `src/modules/my-work.js` — file modul frontend pertama hasil pemecahan
@@ -33,11 +43,10 @@
 >
 > Status: ✅ selesai · 🔨 sedang dikerjakan · ⬜ belum · ◐ sebagian (ada catatan)
 >
-> **Audit verifikasi terakhir — 15 Juli 2026 (v0.10.0):** migrasi 001–017
-> checksum valid · 54/54 automated tests lulus · self-test runtime 12/12,
-> rilis tidak diblokir · gerbang predeploy 9/9 hijau (environment stage,
-> secret scan 296 file 0 temuan, dependency audit, load smoke, kontrol
-> runtime R012+R013, backup+restore drill) · SSE, dashboard, login owner OK.
+> **Audit verifikasi terakhir — 16 Juli 2026 (v0.12.0):** migrasi 001–022
+> checksum valid · 74/74 automated tests lulus · gerbang predeploy LOCAL 9/9
+> hijau · secret scan 321 file 0 temuan · dependency audit 0 · load smoke
+> 300/300 p95 31 ms · backup offsite + restore drill 124 tabel berhasil.
 
 ## Keputusan arsitektur terkunci (§2)
 
@@ -113,7 +122,7 @@
 | R016 Sales & Order-to-Cash | inquiry→quotation revisi→PO→SO/proyek→credit control→delivery→invoice→collection→warranty | ◐ alur dasar + **credit control (hold/limit + override finance, enforce saat submit SO/Invoice)** ✅ Wave 2; revisi quotation ber-versi, dunning/collection, RMA/warranty ⬜ |
 | R017 Procurement Source-to-Pay | PR→budget→RFQ→comparison→PO→GR→three-way match→payment proposal | ◐ PR/PO/GR/invoice/payment ✅ + **RFQ+perbandingan landed cost+pilih→PO, three-way match ber-toleransi (blokir approve+override), payment proposal batch** ✅ Wave 2; budget check & RFQ multi-line ⬜ |
 | R018 Warehouse & Inventory | hierarchy, bin, lot/serial/heat, reservation, opname, valuation policy | ◐ movement ledger+balance ✅ + **lot/serial/heat-number traceability (mill certificate, FIFO, blokir QC, lineage transfer) + stock opname maker-checker (dokumen OPN, selisih dijurnal via posting profile OPNAME-DEFAULT) + valuasi per lapisan lot** ✅ Sprint 11; bin-level & reservation policy formal ⬜ |
-| R019 Production, BOM, MRP & QC | routing, work center, MRP, capacity, WIP, job costing, inspection plan, NCR/CAPA, kalibrasi | ◐ WO+QC dasar ✅; BOM skema Wave 1b; MRP/capacity/NCR ⬜ |
+| R019 Production, BOM, MRP & QC | routing, work center, MRP, capacity, WIP, job costing, inspection plan, NCR/CAPA, kalibrasi | ◐ **foundation transaksi selesai v0.12.0**: routing+rate snapshot, BOM explosion, reservasi, FIFO issue, actual time, costing, FG lot, QC+NCR/CAPA+karantina, MRP→PR, completion/security gate ✅; capacity planning, WIP accounting formal, inspection plan, kalibrasi ⬜ |
 | R020 Finance, Accounting & Fixed Asset | posting profile, segmented COA, subledger, closing cockpit, fixed asset, budgeting | ◐ posting+closing+rekonsiliasi ✅ + **posting profile configuration-driven (§18.2): akun jurnal dari posting_profiles effective-dated + snapshot per dokumen, hardcode ACCOUNTING_RULES dihapus** ✅ Sprint 13; subledger formal, fixed asset, budgeting ⬜ |
 | R021 HRD, Payroll & Tax | shift/roster, koreksi absensi, leave accrual, rule engine payroll/BPJS/PPh21 versioned | ◐ attendance/leave/payroll/pajak dasar ✅ + **payroll rule engine ber-versi (§19.5): tarif BPJS/PTKP/PPh21/lembur/absen dari payroll_rule_versions effective-dated + snapshot per payroll item, hardcode tarif dihapus** ✅ Sprint 14; shift/roster, koreksi absensi workflow, leave accrual ⬜ |
 | R022 Document, Notification & Integration | template dokumen resmi, SMTP, webhook, API versioning, OpenAPI, event catalog | ◐ PDF/artifact+webhook alert ✅; SMTP, template resmi ber-identitas, OpenAPI ⬜ |

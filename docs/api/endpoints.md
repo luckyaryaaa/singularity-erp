@@ -87,6 +87,28 @@ saldo + lot otomatis dan selisih dijurnal via posting profile `OPNAME-DEFAULT`
 (GAIN → 1300/4250, LOSS → 6150/1300). Lot lahir otomatis dari Goods Receipt
 (heat number/mill cert dari baris GR); Material Issue konsumsi FIFO; Stock
 Transfer melahirkan lot anak yang mewarisi heat/biaya (lineage `parent_lot_id`).
+
+### Production, Quality & MRP (R019, Sprint 12)
+
+- `GET /api/work-orders/:id/production` — cockpit routing, material, issue,
+  finished receipt, dan job costing aktual.
+- `POST /api/work-orders/:id/plan` — ledakan BOM + reservasi; body wajib
+  `warehouseId` dan `operations[]`.
+- `POST /api/work-orders/:id/issue-materials` — membuat draft Material Issue.
+- `POST /api/work-orders/:id/finish` — final costing dan draft Goods Receipt
+  barang jadi setelah seluruh operasi/material selesai.
+- `POST /api/work-orders/:id/release-reservations` — melepas sisa reservasi.
+- `GET /api/production/stock-locations` dan `GET /api/production/work-centers`
+  — pilihan yang sudah dibatasi scope cabang.
+- `POST /api/production/operations/:id/time|complete` — actual time append-only
+  (koreksi negatif wajib alasan) dan penyelesaian operasi.
+- `GET|POST /api/quality/:qcDocId/inspections` — inspeksi, NCR, CAPA, dan
+  karantina lot otomatis.
+- `POST /api/mrp/run`, `GET /api/mrp/suggestions`, dan
+  `POST /api/mrp/suggestions/:id/convert` — netting MRP dan konversi PR.
+
+Seluruh endpoint `POST` di atas wajib memakai `Idempotency-Key`; CSRF, role,
+branch scope, status dokumen, dan prerequisite completion divalidasi server.
 - `GET /api/accounting/summary`
 - `GET /api/accounting/accounts`
 - `GET /api/accounting/posting-profiles` — determinasi akun configuration-driven (§18.2)

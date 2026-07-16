@@ -15,6 +15,25 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.12.0 — Production, Quality & MRP Foundation (R019)
+
+- Work order production cockpit mencakup routing/work center, BOM explosion,
+  reservasi stok eksplisit, material issue FIFO, actual time, job costing, dan
+  penerimaan barang jadi ber-lot.
+- Quality inspection incoming/in-process/final menerbitkan NCR, menyimpan root
+  cause/CAPA, dan otomatis mengkarantina lot gagal.
+- MRP melakukan netting kebutuhan WO dan safety stock terhadap stok serta PO,
+  lalu mengonversi suggestion menjadi Purchase Request secara idempotent.
+- Seluruh mutasi production/QC/MRP membutuhkan idempotency key, menerapkan
+  branch scope, completion gate, dan least-privilege database.
+- Migration 001–022 valid, rollback 022→021 terbukti di database disposable,
+  regression 74/74 lulus, secret/dependency audit bersih, load smoke lulus,
+  serta backup offsite terenkripsi dan restore drill 124 tabel berhasil.
+
+Rilis ini adalah **LOCAL BUILD READY**, bukan production go-live. Capacity
+planning, WIP accounting formal, inspection plan, calibration, LAN-UAT, Owner
+sign-off, dan aktivasi VPS tetap mengikuti backlog resmi.
+
 ## Status v0.9.0 — Sprint 6 / R013 IAM, SoD & Approval Governance
 
 - 13 enterprise roles memisahkan Owner, System Admin, Security Admin,

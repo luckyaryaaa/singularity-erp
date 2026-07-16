@@ -21,6 +21,7 @@ const governance = require('./infrastructure/database/repositories/governance');
 const organization = require('./infrastructure/database/repositories/organization');
 const procurement = require('./infrastructure/database/repositories/procurement');
 const inventoryLots = require('./infrastructure/database/repositories/inventory');
+const production = require('./infrastructure/database/repositories/production');
 const { migrationFiles } = require('./infrastructure/database/migrations');
 const { requestContext } = require('./core/request-context');
 const fs = require('node:fs/promises');
@@ -66,6 +67,10 @@ async function dispatch(client, req, url, ctx) {
   if(method!=='GET'){
     if(!originAllowed(req,ctx)||!await auth.verifyCsrf(client,ctx.session.id,req.headers['x-csrf-token']))throw new AppError('CSRF_REJECTED');
   }
+  const idempotent=async(operation,body,status,execute)=>{
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation,key:req.headers['idempotency-key'],body},async()=>({status,body:await execute()}));
+    ctx.status=result.status;return result.body;
+  };
   if(method==='GET'&&p==='/api/auth/session')return {user:ctx.user,csrfToken:await auth.rotateCsrf(client,ctx.session.id),permissions:[...grantsFor(ctx.user.role)],unreadNotifications:await operations.unreadCount(client,ctx.user)};
   if(method==='GET'&&p==='/api/auth/devices')return {items:await auth.devices(client,ctx.user.id)};
   if(method==='POST'&&p==='/api/auth/change-password'){const body=await readBody(req);await auth.changeOwnPassword(client,ctx.user,body.currentPassword,body.newPassword);ctx.cookie='mat_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';return{ok:true,reauthenticationRequired:true};}
@@ -98,7 +103,10 @@ async function dispatch(client, req, url, ctx) {
     // PO/GR/invoice melampaui toleransi, kecuali override ber-alasan.
     if(body.action==='approve'&&current.documentType==='SUPPLIER_INVOICE'){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertMatchOk(client,raw,{overrideReason:body.matchOverrideReason,user:ctx.user});}
     let allowOwnerOverride=false;if(body.action==='approve'&&current.createdBy===ctx.user.id){if(ctx.user.role!=='owner')throw new AppError('SOD_CONFLICT','Pembuat dokumen tidak boleh menjadi approver.');if(!body.reason)throw new AppError('REASON_REQUIRED');const pinRow=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!pinRow?.owner_pin_hash||!verifyPassword(String(body.pin),pinRow.owner_pin_hash))throw new AppError('PIN_REQUIRED');await governance.createOverride(client,{targetUserId:ctx.user.id,permissionCode:'approval.approve',scopeType:'BRANCH',scopeId:current.branchId,hours:1,reason:`SoD document override ${current.documentNumber}: ${body.reason}`,user:ctx.user});allowOwnerOverride=true;}
-    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`documents.${body.action}:${current.id}`,key:req.headers['idempotency-key'],body},async()=>{const updated=await runtime.transitionDocument(client,{id:current.id,action:body.action,user:ctx.user,reason:body.reason,requestId:ctx.requestId,allowOwnerOverride});await posting.postDocument(client,updated,ctx.user);if(body.action==='approve'&&['INVOICE','SUPPLIER_INVOICE','PAYROLL_RUN'].includes(updated.documentType))await businessOps.syncTaxes(client,updated.documentType==='PAYROLL_RUN'?updated.payload?.period:undefined);return{status:200,body:updated};});
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`documents.${body.action}:${current.id}`,key:req.headers['idempotency-key'],body},async()=>{if(body.action==='complete'&&current.documentType==='WORK_ORDER')await production.assertReadyToComplete(client,current.id);const updated=await runtime.transitionDocument(client,{id:current.id,action:body.action,user:ctx.user,reason:body.reason,requestId:ctx.requestId,allowOwnerOverride});await posting.postDocument(client,updated,ctx.user);if(body.action==='approve'&&['INVOICE','SUPPLIER_INVOICE','PAYROLL_RUN'].includes(updated.documentType))await businessOps.syncTaxes(client,updated.documentType==='PAYROLL_RUN'?updated.payload?.period:undefined);
+      // Sprint 12: WO dibatalkan/void → lepas seluruh sisa reservasi materialnya.
+      if(['cancel','void'].includes(body.action)&&updated.documentType==='WORK_ORDER')await production.releaseReservations(client,updated.id,ctx.user);
+      return{status:200,body:updated};});
     if(['approve','reject','revise'].includes(body.action))await operations.notify(client,{userId:current.createdBy,category:body.action==='approve'?'SUCCESS':'ACTION_REQUIRED',title:`${current.documentNumber} diperbarui`,body:body.reason||`Oleh ${ctx.user.displayName}.`,link:`#/doc/${current.id}`,dedupeKey:`act:${current.id}:${result.body.version}`});return result.body;
   }
   // ── Sprint 8B: My Work — satu inbox lintas modul (§10.7) ──────────────────
@@ -239,7 +247,7 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&p==='/api/inventory/lots'){assertPermission(ctx.user,'inventory.view');return inventoryLots.listLots(client,ctx.user,Object.fromEntries(url.searchParams));}
   if(method==='GET'&&p==='/api/inventory/valuation'){assertPermission(ctx.user,'inventory.view');return inventoryLots.valuation(client,ctx.user,Object.fromEntries(url.searchParams));}
   m=p.match(/^\/api\/inventory\/lots\/([0-9a-f-]{36})$/);
-  if(method==='GET'&&m){assertPermission(ctx.user,'inventory.view');return inventoryLots.lotDetail(client,m[1]);}
+  if(method==='GET'&&m){assertPermission(ctx.user,'inventory.view');return inventoryLots.lotDetail(client,m[1],ctx.user);}
   m=p.match(/^\/api\/inventory\/lots\/([0-9a-f-]{36})\/(block|quarantine|release)$/);
   if(method==='POST'&&m){assertPermission(ctx.user,'inventory.edit');const body=await readBody(req);return inventoryLots.setLotStatus(client,{lotId:m[1],action:m[2],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
   if(method==='POST'&&p==='/api/inventory/opname'){assertPermission(ctx.user,'stock_opname.create');const body=await readBody(req);ctx.status=201;return inventoryLots.createOpname(client,{user:ctx.user,warehouseId:body.warehouseId,title:body.title,requestId:ctx.requestId});}
@@ -247,6 +255,30 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m){assertPermission(ctx.user,'stock_opname.view');return inventoryLots.opnameLines(client,m[1]);}
   m=p.match(/^\/api\/inventory\/opname\/([0-9a-f-]{36})\/counts$/);
   if(method==='POST'&&m){assertPermission(ctx.user,'stock_opname.edit');const body=await readBody(req);return inventoryLots.enterOpnameCounts(client,{docId:m[1],counts:body.counts,user:ctx.user,requestId:ctx.requestId});}
+  // Sprint 12 (R019) — production cockpit, QC formal, MRP.
+  m=p.match(/^\/api\/work-orders\/([0-9a-f-]{36})\/production$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'production.view');return production.productionPanel(client,m[1],ctx.user);}
+  m=p.match(/^\/api\/work-orders\/([0-9a-f-]{36})\/plan$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'production.create');const body=await readBody(req);return idempotent(`production.plan:${m[1]}`,body,201,()=>production.planWorkOrder(client,{docId:m[1],warehouseId:body.warehouseId,operations:body.operations,user:ctx.user,requestId:ctx.requestId}));}
+  m=p.match(/^\/api\/work-orders\/([0-9a-f-]{36})\/issue-materials$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'material_issue.create');const body=await readBody(req);return idempotent(`production.issue:${m[1]}`,body,201,()=>production.createIssueFromPlan(client,{docId:m[1],user:ctx.user,requestId:ctx.requestId}));}
+  m=p.match(/^\/api\/work-orders\/([0-9a-f-]{36})\/finish$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'production.post');const body=await readBody(req);return idempotent(`production.finish:${m[1]}`,body,200,()=>production.finishWorkOrder(client,{docId:m[1],fgWarehouseId:body.fgWarehouseId,user:ctx.user,requestId:ctx.requestId}));}
+  m=p.match(/^\/api\/work-orders\/([0-9a-f-]{36})\/release-reservations$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'production.post');const body=await readBody(req);return idempotent(`production.release:${m[1]}`,body,200,()=>production.releaseReservations(client,m[1],ctx.user));}
+  m=p.match(/^\/api\/production\/operations\/([0-9a-f-]{36})\/time$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'production.edit');const body=await readBody(req);return idempotent(`production.time:${m[1]}`,body,200,()=>production.logTime(client,{operationId:m[1],hours:body.hours,note:body.note,user:ctx.user}));}
+  m=p.match(/^\/api\/production\/operations\/([0-9a-f-]{36})\/complete$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'production.edit');const body=await readBody(req);return idempotent(`production.operation.complete:${m[1]}`,body,200,()=>production.completeOperation(client,{operationId:m[1],user:ctx.user}));}
+  m=p.match(/^\/api\/quality\/([0-9a-f-]{36})\/inspections$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'quality.view');return production.listInspections(client,m[1],ctx.user);}
+  if(method==='POST'&&m){assertPermission(ctx.user,'quality.create');const body=await readBody(req);return idempotent(`quality.inspection:${m[1]}`,body,201,()=>production.recordInspection(client,{qcDocId:m[1],inspection:body,user:ctx.user,requestId:ctx.requestId}));}
+  if(method==='GET'&&p==='/api/production/stock-locations'){assertPermission(ctx.user,'production.view');return production.listStockLocations(client,ctx.user);}
+  if(method==='GET'&&p==='/api/production/work-centers'){assertPermission(ctx.user,'production.view');const scopeAll=['owner','admin','system_admin'].includes(ctx.user.role)||ctx.user.branchScope==='*';return{items:(await client.query(`SELECT wc.id,wc.code,wc.name,wc.work_center_type,wc.capacity_hours_per_day,wc.hourly_rate,p.name plant_name FROM work_centers wc JOIN plants p ON p.id=wc.plant_id WHERE wc.active AND ($1 OR p.branch_id=$2) ORDER BY wc.code`,[scopeAll,ctx.user.branchId])).rows.map(runtime.camel)};}
+  if(method==='POST'&&p==='/api/mrp/run'){assertPermission(ctx.user,'production.post');const body=await readBody(req);return idempotent('mrp.run',body,200,()=>production.runMrp(client,{user:ctx.user,requestId:ctx.requestId}));}
+  if(method==='GET'&&p==='/api/mrp/suggestions'){assertPermission(ctx.user,'production.view');return production.listMrp(client);}
+  m=p.match(/^\/api\/mrp\/suggestions\/([0-9a-f-]{36})\/convert$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'purchase_request.create');const body=await readBody(req);return idempotent(`mrp.convert:${m[1]}`,body,201,()=>production.convertMrp(client,{suggestionId:m[1],user:ctx.user,requestId:ctx.requestId}));}
   if(method==='GET'&&p==='/api/accounting/summary'){assertPermission(ctx.user,'journal.view');return businessOps.accountingSummary(client,url.searchParams.get('period'));}
   if(method==='GET'&&p==='/api/accounting/accounts'){assertPermission(ctx.user,'journal.view');return{items:(await client.query('SELECT id,code,name,normal_side,category FROM chart_of_accounts WHERE active ORDER BY code')).rows.map(runtime.camel)};}
   // Posting profiles (§18.2) — determinasi akun configuration-driven, tampil read-only.

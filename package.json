@@ -1,6 +1,6 @@
 {
   "name": "mat-erp-v2",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "scripts": {
     "dev": "node server.js",
@@ -22,17 +22,18 @@
     "db:status": "node scripts/db.js status",
     "db:migrate": "node scripts/db.js migrate",
     "db:validate": "node scripts/db.js validate",
-    "db:grant-runtime": "node scripts/grant-runtime.js"
-    ,"db:seed:dev": "node scripts/seed-postgres-dev.js"
-    ,"security:rotate-owner": "node scripts/rotate-owner-password.js"
-    ,"security:rotate-runtime": "node scripts/rotate-runtime-secrets.js"
-    ,"db:seed:uat": "node scripts/seed-postgres-uat.js"
-    ,"db:seed:uat:sprint4": "node scripts/seed-postgres-uat-sprint4.js"
-    ,"backup:run": "node scripts/backup-postgres.js run"
-    ,"backup:restore-test": "node scripts/backup-postgres.js restore-test"
-    ,"backup:decrypt": "node scripts/backup-postgres.js decrypt"
-    ,"predeploy": "node scripts/predeploy-gate.js"
-    ,"load:smoke": "node scripts/load-smoke.js"
+    "db:rollback-verify": "node scripts/verify-migration-rollback.js",
+    "db:grant-runtime": "node scripts/grant-runtime.js",
+    "db:seed:dev": "node scripts/seed-postgres-dev.js",
+    "security:rotate-owner": "node scripts/rotate-owner-password.js",
+    "security:rotate-runtime": "node scripts/rotate-runtime-secrets.js",
+    "db:seed:uat": "node scripts/seed-postgres-uat.js",
+    "db:seed:uat:sprint4": "node scripts/seed-postgres-uat-sprint4.js",
+    "backup:run": "node scripts/backup-postgres.js run",
+    "backup:restore-test": "node scripts/backup-postgres.js restore-test",
+    "backup:decrypt": "node scripts/backup-postgres.js decrypt",
+    "predeploy": "node scripts/predeploy-gate.js",
+    "load:smoke": "node scripts/load-smoke.js"
   },
   "engines": {
     "node": ">=20"

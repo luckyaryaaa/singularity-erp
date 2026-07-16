@@ -2,7 +2,7 @@
 const fs=require('node:fs');const path=require('node:path');const crypto=require('node:crypto');const {scan}=require('./secret-scan');
 const ROOT=path.resolve(__dirname,'..'),RELEASE_ROOT=path.resolve(ROOT,'release'),TARGET=path.resolve(RELEASE_ROOT,'MAT-ERP-V2-RELEASE');
 if(!TARGET.startsWith(RELEASE_ROOT+path.sep))throw new Error('Target release keluar dari direktori release.');
-const allow=['backend','data/migrations','deploy','docs','scripts','src','test','index.html','favicon.svg','server.js','package.json','package-lock.json','README.md','.env.example','.gitignore'];
+const allow=['backend','data/migrations','deploy','docs','scripts','src','test','index.html','favicon.svg','server.js','package.json','package-lock.json','README.md','CHANGELOG.md','.env.example','.gitignore'];
 const denyNames=new Set(['.env','.git','node_modules','storage','release','.agents','.claude','.vscode']);
 function copy(relative){if(relative.split(/[\\/]/).some(x=>denyNames.has(x)))throw new Error(`Path terlarang: ${relative}`);const source=path.resolve(ROOT,relative),target=path.resolve(TARGET,relative);if(!source.startsWith(ROOT+path.sep)||!target.startsWith(TARGET+path.sep))throw new Error(`Path release tidak aman: ${relative}`);if(!fs.existsSync(source))return;fs.cpSync(source,target,{recursive:true,filter:src=>!denyNames.has(path.basename(src))&&!/\.(?:log|err|tmp|bak|dump|enc)$/i.test(src)});}
 function allFiles(dir,out=[]){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const full=path.join(dir,entry.name);if(entry.isDirectory())allFiles(full,out);else out.push(full);}return out;}

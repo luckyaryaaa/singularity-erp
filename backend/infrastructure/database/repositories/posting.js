@@ -41,6 +41,8 @@ async function postInventory(client,doc,user){
       result.push(await balance(client,line.product_id,from,-qty,user,doc,'TRANSFER_OUT'));result.push(await balance(client,line.product_id,to,qty,user,doc,'TRANSFER_IN'));
       await lots.transferLots(client,{productId:line.product_id,fromWarehouseId:from,toWarehouseId:to,qty,doc,user}); // lot anak mewarisi heat/cert
     }}
+  // Sprint 12: MATERIAL_ISSUE milik WO → catat issued_qty + lepas reservasi.
+  if(doc.documentType==='MATERIAL_ISSUE'&&doc.payload?.workOrderId){const production=require('./production');await production.onMaterialIssued(client,doc);}
   await finishPosting(client,doc,'INVENTORY',{movements:result});return{movements:result};
 }
 // Status pemicu posting per tipe; AKUN ditentukan posting_profiles (bukan hardcoded).

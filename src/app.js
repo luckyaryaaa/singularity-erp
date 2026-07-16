@@ -26,6 +26,7 @@
     ['OPERASIONAL', [
       ['#/production/work-orders', 'Work order', 'factory', 'work_order.view'],
       ['#/production/quality', 'Quality control', 'shield', 'quality.view'],
+      ['#/production/mrp', 'MRP & kebutuhan', 'chart', 'production.view'],
       ['#/procurement/requests', 'Purchase request', 'doc', 'purchase_request.view'],
       ['#/procurement/rfq', 'RFQ & perbandingan', 'filter', 'rfq.view'],
       ['#/procurement/orders', 'Purchase order', 'cart', 'purchase_order.view'],

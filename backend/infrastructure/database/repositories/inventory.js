@@ -71,6 +71,9 @@ async function transferLots(client, { productId, fromWarehouseId, toWarehouseId,
 async function setLotStatus(client, { lotId, action, reason, user, requestId }) {
   const lot = (await client.query('SELECT * FROM stock_lots WHERE id=$1 FOR UPDATE', [lotId])).rows[0];
   if (!lot) throw new AppError('RESOURCE_NOT_FOUND', 'Lot tidak ditemukan.');
+  if (user && user.branchScope !== '*' && user.branchId && !['owner', 'system_admin', 'security_admin', 'auditor', 'admin'].includes(user.role) && user.branchId !== lot.warehouse_id) {
+    throw new AppError('PERMISSION_DENIED', 'Lot berada di cabang di luar cakupan Anda.');
+  }
   let status;
   if (action === 'block' || action === 'quarantine') {
     if (lot.status !== 'ACTIVE') throw new AppError('STATUS_INVALID', `Lot berstatus ${lot.status} tidak dapat diblokir.`);
@@ -112,12 +115,15 @@ async function listLots(client, user, params = {}) {
 
 // Detail + riwayat mutasi + silsilah (induk sampai akar & anak) — traceability
 // dua arah: heat number → GR asal → supplier, dan ke mana lot terpakai.
-async function lotDetail(client, id) {
+async function lotDetail(client, id, user) {
   const lot = (await client.query(`SELECT l.*,p.code product_code,p.name product_name,b.name warehouse_name,s.name supplier_name,
       d.document_number source_document_number,d.document_type source_document_type
     FROM stock_lots l JOIN products p ON p.id=l.product_id JOIN branches b ON b.id=l.warehouse_id
     LEFT JOIN suppliers s ON s.id=l.supplier_id LEFT JOIN business_documents d ON d.id=l.source_document_id WHERE l.id=$1`, [id])).rows[0];
   if (!lot) throw new AppError('RESOURCE_NOT_FOUND', 'Lot tidak ditemukan.');
+  if (user && user.branchScope !== '*' && user.branchId && !['owner', 'system_admin', 'security_admin', 'auditor', 'admin'].includes(user.role) && user.branchId !== lot.warehouse_id) {
+    throw new AppError('PERMISSION_DENIED', 'Lot berada di cabang di luar cakupan Anda.');
+  }
   const movements = (await client.query(`SELECT m.*,d.document_number,fb.name from_warehouse_name,tb.name to_warehouse_name
     FROM stock_lot_movements m LEFT JOIN business_documents d ON d.id=m.document_id
     LEFT JOIN branches fb ON fb.id=m.from_warehouse_id LEFT JOIN branches tb ON tb.id=m.to_warehouse_id

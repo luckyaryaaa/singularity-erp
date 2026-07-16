@@ -24,6 +24,8 @@
 | `018_procurement_credit_control.sql` | kontrol kredit pelanggan + override, RFQ quotes (landed cost), toleransi & hasil three-way match, payment proposal lines |
 | `019_posting_profiles_payroll_rules.sql` | posting_profiles + legs (determinasi akun configuration-driven §18.2), payroll_rule_versions (BPJS/PTKP/PPh21/lembur/absen effective-dated §19.5), snapshot posting/rule pada dokumen & payroll_items |
 | `020_inventory_lots_opname.sql` | stock_lots (lot/serial/heat number + mill certificate, FIFO index, lineage parent), stock_lot_movements append-only, stock_opname_lines (snapshot hitung fisik), akun 4250/6150 + posting profile OPNAME-DEFAULT (selisih GAIN/LOSS) |
+| `021_production_quality_mrp.sql` | routing dan actual time WO, BOM material plan/reservation, QC inspection + NCR/CAPA, serta MRP suggestion yang dapat dikonversi ke PR |
+| `022_production_security_hardening.sql` | least-privilege tabel produksi/QC/MRP: histori tidak dapat dihapus dan hasil QC tidak dapat diubah oleh role runtime |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.
@@ -42,6 +44,9 @@ menyala bila migration terbaru belum aktif.
   `business_documents.approval_policy_snapshot` sebagai histori immutable.
 - Identitas legal, rekening terverifikasi, serta penandatangan aktif disalin ke
   `business_documents.organization_identity_snapshot` pada saat dokumen dibuat.
+- Work order menyimpan snapshot BOM, rate work center, biaya komponen, dan
+  lokasi stok tervalidasi; completion ditolak sebelum operasi, material issue,
+  dan finished-goods receipt selesai.
 
 ## Runtime
 

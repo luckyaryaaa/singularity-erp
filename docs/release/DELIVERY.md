@@ -1,4 +1,26 @@
-# MAT ERP V2 — Delivery v0.10.0 (Sprint 7 / R014)
+# MAT ERP V2 — Delivery v0.12.0 (Sprint 12 / R019 Foundation)
+
+## Status v0.12.0 — LOCAL BUILD READY
+
+- Production cockpit: routing/work center, snapshot rate, BOM explosion,
+  reservation, FIFO Material Issue, actual time, job costing, finished-goods
+  receipt, dan completion gate.
+- Quality: inspection incoming/in-process/final, NCR, root cause/CAPA, dan
+  auto-quarantine lot gagal. MRP: netting kebutuhan + safety stock dan
+  idempotent conversion ke Purchase Request.
+- Migration 021 menambah domain production/QC/MRP; migration 022 mengunci
+  least privilege. Full-chain 22 migration dan rollback 022→021 lulus pada
+  database disposable.
+- Evidence 16 Juli 2026: 74/74 automated tests; secret scan 321 file/0 temuan;
+  dependency audit 0 vulnerability; load 300/300, p95 31 ms; PostgreSQL health
+  hijau; backup offsite AES-256-GCM valid; restore drill 124 tabel sampai 022;
+  predeploy LOCAL 9/9 hijau.
+
+Scope yang belum ditutup: capacity planning, WIP accounting formal, inspection
+plan, calibration, LAN-UAT lintas divisi, Owner sign-off, dan VPS production.
+Karena itu label ini tidak boleh diinterpretasikan sebagai PRODUCTION READY.
+
+## Riwayat v0.10.0 — Enterprise Organization & Employee Master
 
 ## Status v0.10.0 — Enterprise Organization & Employee Master
 
