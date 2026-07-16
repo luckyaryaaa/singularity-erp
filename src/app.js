@@ -3,7 +3,7 @@
 // Tidak ada render halaman sebelum sesi terverifikasi (tanpa flash).
 (() => {
   const { esc, api, state, router, can, startSse, refreshBadge, invalidate } = window.MAT;
-  const { ICONS, toast, closeLayers } = window.UI;
+  const { ICONS, toast, closeLayers, rememberLayerFocus } = window.UI;
 
   const loginLayer = document.getElementById('loginLayer');
   const appShell = document.getElementById('app');
@@ -85,6 +85,7 @@
   }
 
   function markActiveNav(hash) {
+    hash = String(hash || '').split('?')[0];
     document.querySelectorAll('[data-nav]').forEach((a) => {
       const href = a.getAttribute('href').slice(1);
       a.classList.toggle('active', hash === href || (href !== '/dashboard' && hash.startsWith(href + '/')) || hash === href.replace('#', ''));
@@ -180,8 +181,11 @@
     window.MAT.sessionLost();
   });
   document.getElementById('menuBtn').addEventListener('click', () => {
+    rememberLayerFocus();
     document.querySelector('.sidebar').classList.add('open');
     document.getElementById('scrim').classList.add('open');
+    document.getElementById('menuBtn').setAttribute('aria-expanded', 'true');
+    document.querySelector('.sidebar a, .sidebar button')?.focus({ preventScroll: true });
   });
   document.getElementById('scrim').addEventListener('click', closeLayers);
   document.getElementById('drawerClose').addEventListener('click', closeLayers);

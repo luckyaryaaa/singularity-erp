@@ -165,11 +165,20 @@
 
   const AUDIT_LABEL = { CREATE: 'dibuat', UPDATE: 'diperbarui', SUBMIT: 'diajukan', APPROVE: 'disetujui', REJECT: 'ditolak', REQUEST_REVISION: 'diminta revisi', POST: 'diposting', PAY: 'dibayar', VOID: 'di-void', CANCEL: 'dibatalkan', ARCHIVE: 'diarsipkan', EXPORT: 'diekspor', LOGIN: 'masuk', LOGOUT: 'keluar' };
 
+  let layerReturnFocus = null;
+  function rememberLayerFocus() {
+    const active = document.activeElement;
+    layerReturnFocus = active instanceof HTMLElement ? active : null;
+  }
+
   async function openDrawer(docId, { onChange } = {}) {
     const drawer = document.getElementById('drawer');
     const scrim = document.getElementById('scrim');
+    rememberLayerFocus();
+    document.getElementById('app').inert = true;
     drawer.classList.add('open'); scrim.classList.add('open');
     drawer.setAttribute('aria-hidden', 'false');
+    drawer.querySelector('#drawerClose').focus({ preventScroll: true });
     const content = drawer.querySelector('#drawerContent');
     content.innerHTML = `<div class="drawer-loading"><span class="spinner"></span> Memuat detail…</div>`;
 
@@ -229,97 +238,17 @@
   }
 
   function closeLayers() {
-    document.getElementById('drawer').classList.remove('open');
-    document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+    const drawer = document.getElementById('drawer');
+    const wasOpen = drawer.classList.contains('open') || document.querySelector('.sidebar').classList.contains('open');
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden', 'true');
+    document.getElementById('app').inert = false;
     document.getElementById('scrim').classList.remove('open');
     document.querySelector('.sidebar').classList.remove('open');
-  }
-
-  // ── Tabel enterprise berpaginasi server ───────────────────────────────────
-  // config: { key, endpoint, params, columns:[{label, render, sort}], searchable,
-  //           statusFilter:[...], onRow, staleMs, empty:{icon,title,hint}, toolbar }
-  function dataTable(container, config) {
-    const uidStr = `tbl${Math.random().toString(36).slice(2, 8)}`;
-    let queryState = { page: 1, limit: config.limit || 25, q: '', status: '', sort: config.sort || 'updatedAt:desc' };
-    let abort = null;
-
-    container.innerHTML = `
-      <div class="panel table-panel">
-        <header>
-          <div><p class="eyebrow">${esc(config.eyebrow || 'DAFTAR')}</p><h2>${esc(config.title)}</h2></div>
-          <div class="panel-tools">
-            ${config.searchable !== false ? `<label class="mini-search">${ICONS.search}<span class="sr-only">Cari</span><input id="${uidStr}-q" placeholder="Cari…" autocomplete="off"></label>` : ''}
-            ${config.statusFilter ? `<select id="${uidStr}-status" class="select" aria-label="Filter status"><option value="">Semua status</option>${config.statusFilter.map((s) => `<option value="${s}">${(STATUS_META[s] || [s])[0]}</option>`).join('')}</select>` : ''}
-            ${config.toolbar || ''}
-          </div>
-        </header>
-        <div class="table-wrap"><table>
-          <thead><tr>${config.columns.map((c) => `<th${c.right ? ' class="right"' : ''}>${esc(c.label)}</th>`).join('')}</tr></thead>
-          <tbody id="${uidStr}-body"><tr><td colspan="${config.columns.length}" class="table-loading"><span class="spinner"></span> Memuat data…</td></tr></tbody>
-        </table></div>
-        <footer><span id="${uidStr}-info"></span><div id="${uidStr}-pager" class="pager"></div></footer>
-      </div>`;
-
-    const body = container.querySelector(`#${uidStr}-body`);
-    const info = container.querySelector(`#${uidStr}-info`);
-    const pager = container.querySelector(`#${uidStr}-pager`);
-
-    async function load(force = false) {
-      if (abort) abort.abort(); // batalkan permintaan usang
-      abort = new AbortController();
-      const params = new URLSearchParams({ ...config.params, page: queryState.page, limit: queryState.limit, sort: queryState.sort });
-      if (queryState.q) params.set('q', queryState.q);
-      if (queryState.status) params.set('status', queryState.status);
-      const key = `${config.key}:${params.toString()}`;
-      try {
-        const data = await query(key, () => api(`${config.endpoint}?${params}`, { signal: abort.signal }), { staleMs: config.staleMs || 30_000, force });
-        if (!data) return;
-        render(data);
-      } catch (error) {
-        if (error.name === 'AbortError') return;
-        body.innerHTML = `<tr><td colspan="${config.columns.length}" class="table-loading error-text">${esc(error.message)}</td></tr>`;
-      }
-    }
-
-    function render(data) {
-      if (!data.items.length) {
-        const empty = config.empty || {};
-        body.innerHTML = `<tr><td colspan="${config.columns.length}"><div class="empty-state">
-          <div class="clay-orb blue">${ICONS[empty.icon || 'inbox']}</div>
-          <h3>${esc(empty.title || 'Belum ada data')}</h3><p>${esc(empty.hint || (queryState.q ? 'Tidak ada hasil untuk pencarian ini. Coba kata kunci lain.' : 'Data akan tampil di sini begitu dibuat.'))}</p>
-        </div></td></tr>`;
-      } else {
-        body.innerHTML = data.items.map((row) => `<tr ${config.onRow ? `class="clickable" tabindex="0" role="button" data-row-id="${esc(row.id)}"` : ''}>${config.columns.map((c) => `<td${c.right ? ' class="right"' : ''}>${c.render(row)}</td>`).join('')}</tr>`).join('');
-        if (config.onRow) {
-          body.querySelectorAll('[data-row-id]').forEach((tr) => {
-            const open = () => config.onRow(data.items.find((r) => r.id === tr.dataset.rowId), () => load(true));
-            tr.addEventListener('click', open);
-            tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
-          });
-        }
-      }
-      info.textContent = data.total ? `Menampilkan ${(data.page - 1) * data.limit + 1}–${Math.min(data.page * data.limit, data.total)} dari ${data.total} baris` : 'Tidak ada baris';
-      const buttons = [];
-      buttons.push(`<button ${data.page <= 1 ? 'disabled' : ''} data-page="${data.page - 1}" aria-label="Halaman sebelumnya">‹</button>`);
-      const pages = new Set([1, data.page - 1, data.page, data.page + 1, data.totalPages].filter((p) => p >= 1 && p <= data.totalPages));
-      let prev = 0;
-      for (const p of [...pages].sort((a, b) => a - b)) {
-        if (p - prev > 1) buttons.push('<span class="pager-gap">…</span>');
-        buttons.push(`<button class="${p === data.page ? 'active' : ''}" data-page="${p}">${p}</button>`);
-        prev = p;
-      }
-      buttons.push(`<button ${data.page >= data.totalPages ? 'disabled' : ''} data-page="${data.page + 1}" aria-label="Halaman berikutnya">›</button>`);
-      pager.innerHTML = buttons.join('');
-      pager.querySelectorAll('button[data-page]').forEach((btn) => btn.addEventListener('click', () => { queryState.page = Number(btn.dataset.page); load(); }));
-    }
-
-    const search = container.querySelector(`#${uidStr}-q`);
-    if (search) search.addEventListener('input', debounce(() => { queryState.q = search.value.trim(); queryState.page = 1; load(); }, 400));
-    const statusSel = container.querySelector(`#${uidStr}-status`);
-    if (statusSel) statusSel.addEventListener('change', () => { queryState.status = statusSel.value; queryState.page = 1; load(); });
-
-    load();
-    return { reload: () => load(true) };
+    const menuButton = document.getElementById('menuBtn');
+    menuButton.setAttribute('aria-expanded', 'false');
+    if (wasOpen && layerReturnFocus && layerReturnFocus.isConnected) layerReturnFocus.focus({ preventScroll: true });
+    layerReturnFocus = null;
   }
 
   // ── Empty / clay orb / KPI helpers ───────────────────────────────────────
@@ -336,5 +265,5 @@
       <div class="head-actions">${actions}</div>
     </section>`;
 
-  window.UI = { ICONS, chip, STATUS_META, toast, actionDialog, formDialog, openDrawer, closeLayers, dataTable, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL };
+  window.UI = { ICONS, chip, STATUS_META, toast, actionDialog, formDialog, openDrawer, closeLayers, rememberLayerFocus, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL };
 })();

@@ -44,7 +44,9 @@ function paginate(rows, query = {}) {
   if (query.status) items = items.filter((row) => row.status === query.status);
   if (query.branchId) items = items.filter((row) => row.branchId === query.branchId);
 
-  const [sortKey, sortDir] = (query.sort || 'updatedAt:desc').split(':');
+  const [requestedSort, sortDir] = (query.sort || 'updatedAt:desc').split(':');
+  const sortAliases = { document_number: 'documentNumber', due_date: 'dueDate', created_at: 'createdAt', updated_at: 'updatedAt' };
+  const sortKey = sortAliases[requestedSort] || requestedSort;
   const dir = sortDir === 'asc' ? 1 : -1;
   items.sort((a, b) => {
     const av = a[sortKey]; const bv = b[sortKey];

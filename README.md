@@ -15,6 +15,27 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.13.0 — Enterprise UX & Delivery Foundation (Sprint 8B)
+
+- Semua daftar dokumen memakai Enterprise View Console: pencarian, filter,
+  sorting, pagination server-side, saved view, pilihan kolom, density, dan URL
+  state yang dapat dibagikan/bookmark.
+- Keyboard/focus flow diperkeras untuk app shell, drawer, menu mobile, dialog,
+  tabel, dan reduced-motion; audit otomatis 18/18 lulus.
+- Visual regression menangkap Dashboard, Penawaran, Work Order, dan Approval
+  pada desktop + mobile; 8/8 kontrak visual lulus tanpa page overflow atau
+  tombol visible tanpa accessible name.
+- Paket release memakai 12-digit content hash, precompressed Brotli/Gzip,
+  cache immutable satu tahun, dan manifest SHA-256 yang terverifikasi runtime.
+- Composition root API mulai dipisah per bounded domain; production/QC/MRP kini
+  berada di `backend/routes/production.js`, sedangkan tabel enterprise menjadi
+  komponen mandiri `src/components/enterprise-table.js`.
+
+Rilis ini adalah **LOCAL BUILD READY**, bukan production go-live. Pemecahan
+domain frontend/backend berikutnya tetap dilakukan inkremental agar kontrak
+transaksi tidak rusak; LAN-UAT, Owner sign-off, dan aktivasi VPS masih mengikuti
+backlog resmi.
+
 ## Status v0.12.0 — Production, Quality & MRP Foundation (R019)
 
 - Work order production cockpit mencakup routing/work center, BOM explosion,

@@ -4,7 +4,7 @@
 window.MAT = (() => {
   const state = {
     user: null, permissions: [], csrfToken: null, unread: 0,
-    route: '', routeParams: {}, sse: null
+    route: '', routeParams: {}, routeQuery: new URLSearchParams(), sse: null
   };
 
   // ── Keamanan output: semua data dinamis wajib lewat esc() ────────────────
@@ -141,7 +141,10 @@ window.MAT = (() => {
     abortSignal() { return currentAbort ? currentAbort.signal : undefined; },
     async go(hash) { location.hash = hash; },
     async render() {
-      const hash = (location.hash || '#/dashboard').slice(1);
+      const rawHash = (location.hash || '#/dashboard').slice(1);
+      const queryAt = rawHash.indexOf('?');
+      const hash = queryAt >= 0 ? rawHash.slice(0, queryAt) : rawHash;
+      const routeQuery = new URLSearchParams(queryAt >= 0 ? rawHash.slice(queryAt + 1) : '');
       if (currentAbort) currentAbort.abort(); // batalkan permintaan rute sebelumnya
       currentAbort = new AbortController();
       const match = routes.find((r) => r.regex.test(hash));
@@ -154,7 +157,7 @@ window.MAT = (() => {
       }
       const params = {};
       hash.match(match.regex).slice(1).forEach((v, i) => { params[match.keys[i]] = decodeURIComponent(v); });
-      state.route = hash; state.routeParams = params;
+      state.route = hash; state.routeParams = params; state.routeQuery = routeQuery;
       const page = match.page;
       currentPage = page;
       if (page.permission && !can(page.permission)) {
@@ -162,7 +165,7 @@ window.MAT = (() => {
         return;
       }
       main.scrollTop = 0;
-      try { await page.render(main, params, currentAbort.signal); }
+      try { await page.render(main, params, currentAbort.signal); main.focus({ preventScroll: true }); }
       catch (error) {
         if (error.name === 'AbortError') return;
         main.innerHTML = `<section class="error-state"><div class="clay-orb coral">${window.ICONS.alert}</div><h1>Gagal memuat halaman</h1><p>${esc(error.message)}</p><button class="btn secondary" id="retryPage">Coba lagi</button></section>`;

@@ -50,7 +50,7 @@ const SECURITY_HEADERS = {
   ...(production?{'Strict-Transport-Security':'max-age=31536000; includeSubDomains'}:{})
 };
 
-const PUBLIC_EXACT = new Set(['/index.html']);
+const PUBLIC_EXACT = new Set(['/index.html', '/favicon.svg']);
 const PUBLIC_PREFIXES = ['/src/', '/assets/'];
 function resolvePublicFile(rawUrl) {
   let pathname;
@@ -75,12 +75,25 @@ const server = http.createServer((req, res) => {
   const ext = path.extname(file);
   const headers = {
     'Content-Type': types[ext] || 'application/octet-stream',
-    // Asset tanpa fingerprint: selalu revalidasi (304 murah di LAN) agar rilis baru langsung terpakai.
-    'Cache-Control': 'no-cache',
+    'Cache-Control': /[\\/]assets[\\/]build[\\/]/.test(file)
+      ? 'public, max-age=31536000, immutable'
+      : 'no-cache',
+    'Vary': 'Accept-Encoding',
     ...SECURITY_HEADERS
   };
+  const accepted = req.headers['accept-encoding'] || '';
+  if (/\bbr\b/.test(accepted) && fs.existsSync(`${file}.br`)) {
+    headers['Content-Encoding'] = 'br';
+    res.writeHead(200, headers);
+    return fs.createReadStream(`${file}.br`).pipe(res);
+  }
+  if (/\bgzip\b/.test(accepted) && fs.existsSync(`${file}.gz`)) {
+    headers['Content-Encoding'] = 'gzip';
+    res.writeHead(200, headers);
+    return fs.createReadStream(`${file}.gz`).pipe(res);
+  }
   const raw = fs.readFileSync(file);
-  if (raw.length > 1024 && /\bgzip\b/.test(req.headers['accept-encoding'] || '') && ['.html', '.css', '.js', '.svg', '.json'].includes(ext)) {
+  if (raw.length > 1024 && /\bgzip\b/.test(accepted) && ['.html', '.css', '.js', '.svg', '.json'].includes(ext)) {
     headers['Content-Encoding'] = 'gzip';
     res.writeHead(200, headers);
     return res.end(zlib.gzipSync(raw));

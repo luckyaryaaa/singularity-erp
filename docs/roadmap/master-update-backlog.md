@@ -16,7 +16,7 @@
 > + restore 124 tabel PASS, predeploy LOCAL 9/9. Capacity/WIP/inspection plan/
 > calibration tetap backlog R019 lanjutan; status bukan PRODUCTION READY.
 >
-> **Sprint 8B — Fondasi arsitektur & UI: ◐ DIMULAI 15 Juli 2026.**
+> **Sprint 8B — Fondasi arsitektur & UI: ◐ FONDASI UI SELESAI 16 Juli 2026 (v0.13.0).**
 > ✅ My Work inbox lintas modul (§10.7): GET /api/my-work + halaman
 > `src/modules/my-work.js` — file modul frontend pertama hasil pemecahan
 > pages.js (router sama, tanpa renderer kedua) · ✅ HTTP hardening §5.1
@@ -29,10 +29,14 @@
 > approval per dokumen · ✅ Design System 2.0 (awal): token dipisah ke
 > `src/design-system/tokens.css` (dimuat sebelum styles.css) + lapisan token
 > semantik §10.3 (--bg-canvas/--space-N/--radius-N/--elevation-N).
-> ⬜ Sisa 8B: pemecahan penuh pages.js/api-postgres.js per modul, component
-> library terpisah, enterprise table lanjutan (saved views/column chooser/
-> density), aksesibilitas audit formal, visual regression test, static asset
-> fingerprint + precompress.
+> ✅ Enterprise View Console: saved views, column chooser, density, sorting,
+> server pagination, state URL, semantic row action · ✅ component terpisah
+> `src/components/enterprise-table.js` · ✅ aksesibilitas audit 18/18 + focus
+> modal/inert/restore · ✅ visual regression Edge 4 halaman × 2 viewport ·
+> ✅ fingerprint 12 digit + manifest + Brotli/Gzip + immutable cache ·
+> ✅ route production/QC/MRP dipisah ke `backend/routes/production.js`.
+> ⬜ Sisa 8B: pemecahan **penuh** domain lain dari pages.js/api-postgres.js;
+> dilakukan inkremental setelah v0.13.0 agar kontrak transaksi tetap stabil.
 >
 > **Sprint 8A — Release Closure v0.11.0: ✅ SELESAI 15 Juli 2026.**
 > Rotasi secret owner+runtime (sesi dicabut, UAT wajib ganti sandi, kunci backup
@@ -43,10 +47,11 @@
 >
 > Status: ✅ selesai · 🔨 sedang dikerjakan · ⬜ belum · ◐ sebagian (ada catatan)
 >
-> **Audit verifikasi terakhir — 16 Juli 2026 (v0.12.0):** migrasi 001–022
-> checksum valid · 74/74 automated tests lulus · gerbang predeploy LOCAL 9/9
-> hijau · secret scan 321 file 0 temuan · dependency audit 0 · load smoke
-> 300/300 p95 31 ms · backup offsite + restore drill 124 tabel berhasil.
+> **Audit verifikasi terakhir — 16 Juli 2026 (v0.13.0):** migrasi 001–022
+> checksum valid · 76/76 automated tests lulus · aksesibilitas 18/18 · visual
+> regression 8/8 · asset fingerprint/Brotli/immutable PASS · gerbang predeploy
+> LOCAL 11/11 hijau · secret/dependency audit bersih · backup + restore drill
+> valid.
 
 ## Keputusan arsitektur terkunci (§2)
 

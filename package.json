@@ -1,6 +1,6 @@
 {
   "name": "mat-erp-v2",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "private": true,
   "scripts": {
     "dev": "node server.js",
@@ -14,9 +14,13 @@
     "test:migration": "node --test test/database-infrastructure.test.js",
     "test:performance": "node scripts/load-smoke.js",
     "test:ui": "node --test test/app.test.js",
+    "test:a11y": "node scripts/accessibility-audit.js",
+    "test:visual": "node scripts/ui-smoke-cdp.js",
     "test:all": "npm test",
     "security:scan": "node scripts/secret-scan.js",
+    "assets:build": "node scripts/build-assets.js",
     "release:build": "node scripts/build-release.js",
+    "release:verify-assets": "node scripts/verify-release-assets.js",
     "db:health": "node scripts/db.js health",
     "db:provision": "node scripts/provision-db.js",
     "db:status": "node scripts/db.js status",

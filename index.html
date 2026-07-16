@@ -60,7 +60,7 @@
 
   <!-- Satu app shell, satu router, satu render engine. -->
   <div class="app" id="app" hidden>
-    <aside class="sidebar" aria-label="Navigasi utama">
+    <aside class="sidebar" id="sidebar" aria-label="Navigasi utama">
       <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span><b>MAT</b><small>Enterprise Resource Planning</small></span></div>
       <div class="company-chip"><span class="company-avatar">MA</span><span><b>Mandiri Abadi Teknik</b><small id="branchLabel">Head Office · Bekasi</small></span></div>
       <nav id="nav"></nav>
@@ -76,10 +76,10 @@
     </aside>
     <div class="shell">
       <header class="topbar">
-        <button class="icon-btn menu-btn" id="menuBtn" aria-label="Buka menu navigasi">
+        <button class="icon-btn menu-btn" id="menuBtn" aria-label="Buka menu navigasi" aria-controls="sidebar" aria-expanded="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
-        <button class="command" id="commandBtn">
+        <button class="command" id="commandBtn" aria-haspopup="dialog" aria-controls="commandDialog">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
           <span>Cari modul atau tindakan…</span><kbd>Ctrl K</kbd>
         </button>
@@ -97,7 +97,7 @@
 
   <!-- Lapisan global: satu scrim, satu drawer, satu modal layer, satu toast. -->
   <div class="scrim" id="scrim"></div>
-  <aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="drawerTitle">
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="drawerTitle">
     <header>
       <div><p class="eyebrow" id="drawerEyebrow">DETAIL</p><h2 id="drawerTitle">Dokumen</h2></div>
       <button class="icon-btn close" id="drawerClose" aria-label="Tutup panel detail">
@@ -107,8 +107,9 @@
     <div id="drawerContent"></div>
   </aside>
   <dialog id="actionDialog"></dialog>
-  <dialog id="commandDialog">
+  <dialog id="commandDialog" aria-labelledby="commandTitle">
     <form method="dialog">
+      <h2 class="sr-only" id="commandTitle">Cari modul atau tindakan</h2>
       <label><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
         <span class="sr-only">Cari modul</span><input id="commandInput" placeholder="Ketik nama modul…" autocomplete="off"><kbd>Esc</kbd></label>
       <div class="command-results" id="commandResults"></div>
@@ -122,6 +123,7 @@
   <script src="src/i18n.js" defer></script>
   <script src="src/core.js" defer></script>
   <script src="src/components.js" defer></script>
+  <script src="src/components/enterprise-table.js" defer></script>
   <script src="src/pages.js" defer></script>
   <script src="src/modules/my-work.js" defer></script>
   <script src="src/app.js" defer></script>

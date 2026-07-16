@@ -11,12 +11,12 @@
   // ── Pabrik halaman daftar dokumen ─────────────────────────────────────────
   function docListPage({ type, module, title, eyebrow, statuses, columns, createLabel, createRoute, empty, rowRoute, onCreate }) {
     const cols = columns || [
-      { label: 'Dokumen', render: docCell },
+      { label: 'Dokumen', sort: 'document_number', render: docCell },
       { label: 'Relasi', render: (r) => esc(r.partyName || '—') },
-      { label: 'Nilai', right: true, render: (r) => `<span class="money">${fmtIDR(r.amount)}</span>` },
-      { label: 'Jatuh tempo', render: (r) => fmtDate(r.dueDate) },
-      { label: 'Status', render: (r) => chip(r.status) },
-      { label: 'Diperbarui', render: (r) => `<small>${relTime(r.updatedAt)}</small>` }
+      { label: 'Nilai', sort: 'amount', right: true, render: (r) => `<span class="money">${fmtIDR(r.amount)}</span>` },
+      { label: 'Jatuh tempo', sort: 'due_date', render: (r) => fmtDate(r.dueDate) },
+      { label: 'Status', sort: 'status', render: (r) => chip(r.status) },
+      { label: 'Diperbarui', sort: 'updated_at', render: (r) => `<small>${relTime(r.updatedAt)}</small>` }
     ];
     return {
       permission: `${module}.view`,
@@ -29,7 +29,7 @@
         }) + `<section id="pgTable"></section>`;
         this._table = dataTable(main.querySelector('#pgTable'), {
           key: `documents:${type}`, endpoint: '/api/documents', params: { type },
-          title: `Daftar ${title.toLowerCase()}`, eyebrow, columns: cols,
+          title: `Daftar ${title.toLowerCase()}`, eyebrow, columns: cols, sort: 'updated_at:desc',
           statusFilter: statuses || ['DRAFT','WAITING_APPROVAL','APPROVED','IN_PROCESS','COMPLETED','CLOSED','REJECTED','OVERDUE'],
           onRow: rowRoute ? (row) => router.go(rowRoute(row)) : (row, refresh) => openDrawer(row.id, { onChange: refresh }),
           empty
