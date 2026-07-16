@@ -69,6 +69,8 @@ finance/payroll. Harga supplier append-only (revisi bertambah, tidak menimpa).
 - `GET /api/inventory`
 - `GET /api/accounting/summary`
 - `GET /api/accounting/accounts`
+- `GET /api/accounting/posting-profiles` — determinasi akun configuration-driven (§18.2)
+- `GET /api/accounting/payroll-rules` — tarif payroll effective-dated (§19.5)
 - `GET /api/accounting/ledger`
 - `GET /api/accounting/reconciliation`
 - `POST /api/accounting/period/close`

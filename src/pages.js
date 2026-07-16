@@ -507,10 +507,12 @@
     async render(main, _p, signal) {
       this.period = this.period || new Date().toISOString().slice(0, 7);
       const period = this.period;
-      const [s, ledger, reconciliations] = await Promise.all([
+      const [s, ledger, reconciliations, profiles, payrollRules] = await Promise.all([
         query(`accounting:${period}`, () => api(`/api/accounting/summary?period=${period}`, { signal }), { staleMs: 60_000 }),
         query(`ledger:${period}`, () => api(`/api/accounting/ledger?period=${period}&limit=50`, { signal }), { staleMs: 60_000 }),
-        api(`/api/accounting/reconciliation?period=${period}`, { signal })
+        api(`/api/accounting/reconciliation?period=${period}`, { signal }),
+        query('posting-profiles', () => api('/api/accounting/posting-profiles', { signal }), { staleMs: 300_000 }),
+        can('payroll.view') ? query('payroll-rules', () => api('/api/accounting/payroll-rules', { signal }), { staleMs: 300_000 }) : Promise.resolve({ items: [] })
       ]);
       const pl = s.profitLoss;
       const balanced = Math.abs(s.debitTotal - s.creditTotal) < 0.01;
@@ -554,6 +556,19 @@
         <section class="panel"><header><div><p class="eyebrow">BUKU BESAR</p><h2>50 transaksi jurnal terbaru</h2></div><span class="chip ${balanced ? 'mint' : 'coral'}">${balanced ? 'Debit = kredit' : 'Tidak seimbang'}</span></header>
           <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Dokumen</th><th>Akun</th><th class="right">Debit</th><th class="right">Kredit</th></tr></thead>
           <tbody>${ledger.items.map(r => `<tr><td>${fmtDate(r.postingDate)}</td><td><b>${esc(r.documentNumber)}</b><small>${esc(r.title)}</small></td><td>${esc(r.accountCode)} · ${esc(r.accountName)}</td><td class="right money">${r.debit ? fmtIDRFull(r.debit) : '—'}</td><td class="right money">${r.credit ? fmtIDRFull(r.credit) : '—'}</td></tr>`).join('') || '<tr><td colspan="5" class="table-loading">Belum ada jurnal pada periode ini.</td></tr>'}</tbody></table></div>
+        </section>
+        <section class="dashboard-grid">
+          <article class="panel"><header><div><p class="eyebrow">KONFIGURASI · §18.2</p><h2>Posting profile</h2></div><span class="chip mint">Configuration-driven</span></header>
+            <div class="table-wrap"><table><thead><tr><th>Transaksi</th><th>Jurnal (kaki)</th><th>Ver</th></tr></thead>
+            <tbody>${profiles.items.map(pr => `<tr><td><b>${esc(TYPE_LABEL[pr.transactionType] || pr.transactionType)}</b><small>${esc(pr.code)}</small></td><td>${(pr.legs || []).map(l => `<span class="chip ${l.side === 'D' ? 'blue' : 'amber'}">${l.side} ${esc(l.account)}${l.source !== 'AMOUNT' ? '·' + esc(l.source) : ''}</span>`).join(' ')}</td><td>v${pr.version}</td></tr>`).join('') || '<tr><td colspan="3" class="table-loading">Belum ada profil.</td></tr>'}</tbody></table></div>
+            <div class="panel-body"><p class="muted">Akun jurnal ditentukan profil ini (bukan hardcoded); tiap dokumen menyimpan snapshot versi profil.</p></div>
+          </article>
+          ${can('payroll.view') ? `<article class="panel"><header><div><p class="eyebrow">KONFIGURASI · §19.5</p><h2>Aturan payroll ber-versi</h2></div></header>
+            <div class="panel-body stack">
+              ${payrollRules.items.map(r => `<div class="stat-row"><span><b>${esc(r.ruleType)}</b><small class="muted"> · berlaku ${fmtDate(r.effectiveFrom)}</small></span><b>${esc(JSON.stringify(r.config).replace(/[{}"]/g, '').replace(/,/g, ', '))} <span class="chip gray">v${r.version}</span></b></div>`).join('') || '<p class="muted">Belum ada aturan.</p>'}
+              <p class="muted">Tarif BPJS/PTKP/PPh21 effective-dated; setiap payroll run menyimpan snapshot aturan yang dipakai.</p>
+            </div>
+          </article>` : ''}
         </section>`;
       main.querySelector('#accountingPeriod').addEventListener('change', (e) => { this.period = e.target.value; this.render(main); });
       main.querySelector('#closePeriod')?.addEventListener('click', async () => { const answer = await actionDialog({ title: `Tutup periode ${period}`, description: 'Pastikan posting, trial balance, dan rekonsiliasi sudah selesai. Periode yang ditutup tidak dapat menerima transaksi.', requireReason: true, confirmLabel: 'Tutup periode' }); if (!answer) return; try { await api('/api/accounting/period/close', { method: 'POST', body: { period, ...answer } }); invalidate(`accounting:${period}`); toast('Periode ditutup', `${period} sekarang terkunci.`); this.render(main); } catch (error) { toast('Closing gagal', error.message, 'coral'); } });
