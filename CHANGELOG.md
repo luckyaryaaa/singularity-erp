@@ -3,6 +3,34 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.17.0] — 2026-07-16
+
+### Added
+
+- Migration 027: quotation_revisions immutable, dunning_policies effective-
+  dated + dunning_notices, products.warranty_months, akun 4110 Retur
+  Penjualan + posting profile RMA-DEFAULT.
+- Revisi penawaran ber-versi: keadaan sebelum revisi dibekukan permanen,
+  dokumen kembali DRAFT dengan revisionNo naik dan approval di-reset;
+  penawaran yang sudah dikonversi menjadi SO ditolak revisi. Halaman histori
+  revisi dengan delta nilai antar revisi.
+- Collection & dunning: pemindaian invoice jatuh tempo menerbitkan notice
+  per jenjang kebijakan (7/14/30 hari, configuration-driven), idempoten per
+  invoice per level; level tertinggi otomatis memasang credit hold pelanggan
+  ber-alasan; penyelesaian notice wajib alasan. Halaman Collection dengan
+  KPI outstanding.
+- RMA/warranty: dokumen RMA (nomor RMA-*) dari Delivery/Invoice dengan
+  validasi masa garansi per produk sejak tanggal dokumen sumber; disposisi
+  RESTOCK/SCRAP/REPAIR per baris; saat COMPLETED disposisi RESTOCK
+  menghidupkan stok + lot retur (/R{n}) dan nilai kredit dijurnal via
+  posting profile RMA-DEFAULT (D 4110 / C 1200).
+
+### Verified
+
+- 90/90 automated tests (6 tes O2C baru), migrasi 027 applied, UAT HTTP
+  end-to-end: revisi QUO rev 1→2, dunning DUN-2026-0001 terbit+resolve,
+  RMA lifecycle penuh sampai jurnal D4110/C1200 dan lot retur R1.
+
 ## [0.16.0] — 2026-07-16
 
 ### Added

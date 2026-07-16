@@ -132,12 +132,106 @@
     }
   };
 
-  // ── Detail dokumen penuh ──────────────────────────────────────────────────
+  // ── Revisi penawaran ber-versi (Sprint 9 / R016) ─────────────────────────
+  const quotationRevisions = {
+    permission: 'quotation.view',
+    async render(main, params) {
+      const [doc, revs] = await Promise.all([api(`/api/documents/${params.id}`), api(`/api/quotations/${params.id}/revisions`)]);
+      const canRevise = can('quotation.edit') && ['WAITING_APPROVAL', 'APPROVED', 'REVISION_REQUIRED', 'SUBMITTED'].includes(doc.status);
+      main.innerHTML = pageHead({
+        eyebrow: 'PENJUALAN · REVISI', title: `${doc.documentNumber} — rev ${revs.current.revisionNo}`,
+        sub: `${esc(doc.title)} · nilai aktif ${fmtIDR(doc.amount)} · setiap revisi membekukan keadaan sebelumnya secara permanen`,
+        actions: `${canRevise ? `<button class="btn primary" id="qRevise">${ICONS.refresh} Revisi penawaran</button>` : ''}<button class="btn secondary" id="qDoc">Dokumen ${ICONS.arrow}</button>`
+      }) + `
+        <section class="panel"><header><div><p class="eyebrow">HISTORI</p><h2>${revs.items.length} revisi tersimpan</h2></div>${chip(doc.status)}</header>
+          <div class="table-wrap"><table><thead><tr><th>Rev</th><th class="right">Nilai saat itu</th><th class="right">Δ ke revisi berikutnya</th><th>Status saat direvisi</th><th>Alasan</th><th>Oleh</th><th>Kapan</th></tr></thead>
+          <tbody>
+            <tr><td><b>rev ${revs.current.revisionNo}</b> <span class="chip mint">Aktif</span></td><td class="right money">${fmtIDRFull(revs.current.amount)}</td><td class="right">—</td><td>${chip(doc.status)}</td><td colspan="3" class="muted">Versi berjalan</td></tr>
+            ${revs.items.map((r) => `<tr><td>rev ${r.revisionNo}</td><td class="right money">${fmtIDRFull(r.amount)}</td>
+              <td class="right money">${r.amountDelta > 0 ? '+' : ''}${fmtIDR(r.amountDelta)}</td><td>${chip(r.statusAtRevision)}</td>
+              <td>${esc(r.reason)}</td><td>${esc(r.revisedByName || '—')}</td><td>${relTime(r.revisedAt)}</td></tr>`).join('')}
+          </tbody></table></div>
+          <div class="panel-body"><p class="muted">Nomor dokumen tidak berubah antar revisi. Penawaran yang sudah dikonversi menjadi Sales Order tidak dapat direvisi — buat penawaran baru.</p></div>
+        </section>`;
+      main.querySelector('#qDoc').addEventListener('click', () => openDrawer(doc.id, { onChange: () => this.render(main, params) }));
+      main.querySelector('#qRevise')?.addEventListener('click', async () => {
+        const answer = await actionDialog({ title: `Revisi ${doc.documentNumber}`, description: `Keadaan rev ${revs.current.revisionNo} dibekukan permanen, dokumen kembali DRAFT sebagai rev ${revs.current.revisionNo + 1}, dan approval diulang dari awal.`, requireReason: true, confirmLabel: 'Bekukan & revisi' });
+        if (!answer) return;
+        try {
+          const r = await api(`/api/quotations/${doc.id}/revise`, { method: 'POST', idempotencyKey: newIdemKey(), body: answer });
+          invalidate('documents'); toast('Revisi dibuka', `${r.documentNumber} sekarang rev ${r.revisionNo} (DRAFT).`);
+          this.render(main, params);
+        } catch (error) { toast('Revisi gagal', error.message, 'coral'); }
+      });
+    }
+  };
+
+  // ── RMA / retur & garansi (Sprint 9 / R016) ───────────────────────────────
+  async function createRmaDialog(reload) {
+    try {
+      const sources = await api('/api/documents?type=DELIVERY,INVOICE&limit=100');
+      const usable = sources.items.filter((x) => ['COMPLETED', 'CLOSED', 'APPROVED', 'PARTIALLY_PAID'].includes(x.status));
+      if (!usable.length) throw new Error('Tidak ada Delivery/Invoice selesai yang bisa menjadi sumber retur.');
+      const pick = await formDialog({
+        title: 'Buat RMA — retur / klaim garansi', description: 'Pilih dokumen sumber. Klaim garansi divalidasi terhadap masa garansi produk sejak tanggal dokumen sumber.',
+        fields: [
+          { name: 'sourceDocumentId', label: 'Dokumen sumber', type: 'select', options: usable.map((x) => [x.id, `${x.documentNumber} · ${x.partyName || '—'} · ${fmtIDR(x.amount)}`]), required: true },
+          { name: 'warrantyClaim', label: 'Jenis', type: 'select', options: [['', 'Retur biasa'], ['1', 'Klaim garansi']] },
+          { name: 'reasonCode', label: 'Kode alasan', type: 'select', options: [['RETURN', 'Retur penjualan'], ['DEFECT', 'Cacat produk'], ['WRONG_ITEM', 'Salah kirim'], ['WARRANTY', 'Garansi']] }
+        ], submitLabel: 'Lanjut pilih barang'
+      });
+      if (!pick) return;
+      const source = await api(`/api/documents/${pick.sourceDocumentId}`);
+      const srcLines = Array.isArray(source.payload?.lines) ? source.payload.lines.filter((l) => l.productId) : [];
+      if (!srcLines.length) throw new Error('Dokumen sumber tidak memiliki baris produk (productId).');
+      const value = await formDialog({
+        title: `Barang dari ${source.documentNumber}`, description: 'Satu RMA dapat berisi satu baris via formulir ini; tambahkan RMA lain untuk item berbeda.',
+        fields: [
+          { name: 'productId', label: 'Produk', type: 'select', options: srcLines.map((l) => [l.productId, `${l.name || l.description || 'Produk'} · qty ${l.qty}`]), required: true },
+          { name: 'qty', label: 'Qty retur', type: 'number', min: 0.0001, required: true },
+          { name: 'unitPrice', label: 'Nilai kredit / unit (0 untuk klaim tanpa kredit)', type: 'number', min: 0, required: true },
+          { name: 'disposition', label: 'Disposisi', type: 'select', options: [['RESTOCK', 'Masuk stok kembali'], ['SCRAP', 'Scrap (musnah)'], ['REPAIR', 'Perbaikan']], required: true },
+          { name: 'note', label: 'Catatan kondisi' }
+        ], submitLabel: 'Buat RMA'
+      });
+      if (!value) return;
+      const rma = await api('/api/rma', { method: 'POST', idempotencyKey: newIdemKey(), body: {
+        sourceDocumentId: pick.sourceDocumentId, warrantyClaim: pick.warrantyClaim === '1', reasonCode: pick.reasonCode,
+        lines: [{ productId: value.productId, qty: Number(value.qty), unitPrice: Number(value.unitPrice), disposition: value.disposition, note: value.note }]
+      } });
+      invalidate('documents'); toast(`${rma.documentNumber} dibuat`, 'Proses lewat alur dokumen: ajukan → setujui → selesaikan untuk posting retur.');
+      if (reload) reload();
+      openDrawer(rma.id, { onChange: reload });
+    } catch (error) { toast('Gagal membuat RMA', error.message, 'coral'); }
+  }
 
   const R = router.register.bind(router);
   R('/sales/inquiries', docListPage({ type: 'CUSTOMER_INQUIRY', module: 'inquiry', title: 'Customer inquiry', eyebrow: 'PENJUALAN' }));
-  R('/sales/quotations', docListPage({ type: 'QUOTATION', module: 'quotation', title: 'Penawaran', eyebrow: 'PENJUALAN', createLabel: 'Buat penawaran', createRoute: '#/sales/quotations/new' }));
+  R('/sales/quotations', docListPage({
+    type: 'QUOTATION', module: 'quotation', title: 'Penawaran', eyebrow: 'PENJUALAN', createLabel: 'Buat penawaran', createRoute: '#/sales/quotations/new',
+    columns: [
+      { label: 'Dokumen', render: docCell },
+      { label: 'Rev', render: (r) => `<span class="chip gray">rev ${(r.payload && r.payload.revisionNo) || 1}</span>` },
+      { label: 'Pelanggan', render: (r) => esc(r.partyName || '—') },
+      { label: 'Nilai', right: true, render: (r) => `<span class="money">${fmtIDR(r.amount)}</span>` },
+      { label: 'Status', render: (r) => chip(r.status) },
+      { label: 'Diperbarui', render: (r) => relTime(r.updatedAt) }
+    ],
+    rowRoute: (row) => `#/sales/quotations/${row.id}/revisions`
+  }));
   R('/sales/quotations/new', quotationWizard);
+  R('/sales/quotations/:id/revisions', quotationRevisions);
+  R('/sales/rma', docListPage({
+    type: 'RMA', module: 'rma', title: 'Retur & garansi (RMA)', eyebrow: 'PENJUALAN', createLabel: 'Buat RMA', onCreate: createRmaDialog,
+    columns: [
+      { label: 'Dokumen', render: docCell },
+      { label: 'Sumber', render: (r) => esc((r.payload && r.payload.sourceNumber) || '—') },
+      { label: 'Jenis', render: (r) => r.payload && r.payload.warrantyClaim ? '<span class="chip lavender">Garansi</span>' : '<span class="chip gray">Retur</span>' },
+      { label: 'Nilai kredit', right: true, render: (r) => `<span class="money">${fmtIDR(r.amount)}</span>` },
+      { label: 'Status', render: (r) => chip(r.status) },
+      { label: 'Diperbarui', render: (r) => relTime(r.updatedAt) }
+    ]
+  }));
   R('/sales/customer-pos', docListPage({ type: 'CUSTOMER_PO', module: 'customer_po', title: 'PO pelanggan', eyebrow: 'PENJUALAN' }));
   R('/sales/orders', docListPage({ type: 'SALES_ORDER', module: 'sales_order', title: 'Sales order', eyebrow: 'PENJUALAN' }));
   R('/sales/projects', docListPage({ type: 'PROJECT', module: 'project', title: 'Proyek', eyebrow: 'PENJUALAN' }));

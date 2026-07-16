@@ -129,7 +129,47 @@
 
 
   const R = router.register.bind(router);
+  // ── Collection & dunning (Sprint 9 / R016) ────────────────────────────────
+  const collectionPage = {
+    permission: 'invoice.view',
+    async render(main) {
+      const data = await api('/api/collection/dunning');
+      const LEVEL_CHIP = { 1: 'blue', 2: 'amber', 3: 'coral' };
+      main.innerHTML = pageHead({
+        eyebrow: 'KEUANGAN', title: 'Collection & dunning', sub: 'Jenjang penagihan dari kebijakan (7/14/30 hari — dapat dikonfigurasi); level tertinggi otomatis menahan kredit pelanggan.',
+        actions: can('invoice.post') ? `<button class="btn primary" id="dunRun">${ICONS.refresh} Jalankan dunning</button>` : ''
+      }) + `
+        <section class="metrics">
+          ${kpiCard({ label: 'Notice terbuka', value: String(data.summary.openCount), note: 'Belum diselesaikan', orb: 'bell', orbTone: 'amber' })}
+          ${kpiCard({ label: 'Nilai tertunggak', value: fmtIDR(data.summary.openValue), note: 'Total outstanding pada notice terbuka', orb: 'wallet', orbTone: 'coral' })}
+          ${kpiCard({ label: 'Kritis (level 3)', value: String(data.summary.critical), note: 'Rekomendasi hold kredit aktif', tone: data.summary.critical > 0 ? 'warn' : 'up', orb: 'alert', orbTone: 'lavender' })}
+        </section>
+        <section class="panel"><header><div><p class="eyebrow">DAFTAR PENAGIHAN</p><h2>Notice dunning terbuka</h2></div></header>
+          <div class="table-wrap"><table><thead><tr><th>Notice</th><th>Invoice</th><th>Pelanggan</th><th>Level</th><th class="right">Telat</th><th class="right">Outstanding</th><th>Terbit</th><th></th></tr></thead>
+          <tbody>${data.items.map((r) => `<tr><td><b>${esc(r.noticeNumber)}</b></td>
+            <td>${esc(r.invoiceNumber)}<small>jatuh tempo ${fmtDate(r.dueDate)}</small></td>
+            <td>${esc(r.customerName || '—')}</td>
+            <td><span class="chip ${LEVEL_CHIP[r.level] || 'gray'}">L${r.level} · ${esc(r.policySnapshot?.name || '')}</span></td>
+            <td class="right">${r.daysOverdue} hari</td><td class="right money">${fmtIDRFull(r.outstanding)}</td>
+            <td>${relTime(r.createdAt)}</td>
+            <td>${can('invoice.edit') ? `<button class="btn secondary sm" data-dunres="${r.id}">Selesaikan</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="8" class="table-loading">Tidak ada tunggakan — jalankan dunning untuk memindai ulang.</td></tr>'}</tbody></table></div>
+          <div class="panel-body"><p class="muted">Notice idempoten per invoice per level. Lepas hold kredit pelanggan melalui override kredit finance setelah pembayaran diterima.</p></div>
+        </section>`;
+      main.querySelector('#dunRun')?.addEventListener('click', async () => {
+        try { const r = await api('/api/collection/dunning/run', { method: 'POST', idempotencyKey: newIdemKey(), body: {} }); toast('Dunning selesai', `${r.scanned} invoice dipindai · ${r.issued} notice terbit · ${r.creditHolds} hold kredit.`); this.render(main); }
+        catch (error) { toast('Dunning gagal', error.message, 'coral'); }
+      });
+      main.querySelectorAll('[data-dunres]').forEach((b) => b.addEventListener('click', async () => {
+        const answer = await actionDialog({ title: 'Selesaikan notice', description: 'Catat pembayaran/komitmen pelanggan sebagai alasan penyelesaian.', requireReason: true, confirmLabel: 'Tandai selesai' });
+        if (!answer) return;
+        try { await api(`/api/collection/dunning/${b.dataset.dunres}/resolve`, { method: 'POST', idempotencyKey: newIdemKey(), body: answer }); toast('Notice diselesaikan', ''); this.render(main); }
+        catch (error) { toast('Gagal', error.message, 'coral'); }
+      }));
+    }
+  };
+
   R('/finance/invoices', docListPage({ type: 'INVOICE', module: 'invoice', title: 'Invoice', eyebrow: 'KEUANGAN', statuses: ['DRAFT','WAITING_APPROVAL','APPROVED','PARTIALLY_PAID','OVERDUE','CLOSED','VOID'] }));
+  R('/finance/collection', collectionPage);
   R('/finance/payments', paymentPage);
   R('/finance/supplier-invoices', docListPage({ type: 'SUPPLIER_INVOICE', module: 'supplier_invoice', title: 'Tagihan supplier', eyebrow: 'KEUANGAN' }));
   R('/finance/expenses', docListPage({ type: 'EXPENSE', module: 'expense', title: 'Pengeluaran & reimburse', eyebrow: 'KEUANGAN' }));

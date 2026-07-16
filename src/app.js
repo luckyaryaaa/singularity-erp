@@ -21,7 +21,8 @@
       ['#/sales/quotations', 'Penawaran', 'doc', 'quotation.view'],
       ['#/sales/customer-pos', 'PO pelanggan', 'inbox', 'customer_po.view'],
       ['#/sales/orders', 'Sales order', 'cart', 'sales_order.view'],
-      ['#/sales/projects', 'Proyek', 'project', 'project.view']
+      ['#/sales/projects', 'Proyek', 'project', 'project.view'],
+      ['#/sales/rma', 'Retur & garansi', 'refresh', 'rma.view']
     ]],
     ['OPERASIONAL', [
       ['#/production/work-orders', 'Work order', 'factory', 'work_order.view'],
@@ -38,6 +39,7 @@
     ]],
     ['KEUANGAN', [
       ['#/finance/invoices', 'Invoice', 'wallet', 'invoice.view'],
+      ['#/finance/collection', 'Collection & dunning', 'bell', 'invoice.view'],
       ['#/finance/payments', 'Pembayaran', 'check', 'payment.view'],
       ['#/finance/supplier-invoices', 'Tagihan supplier', 'doc', 'supplier_invoice.view'],
       ['#/finance/expenses', 'Pengeluaran', 'payslip', 'expense.view'],

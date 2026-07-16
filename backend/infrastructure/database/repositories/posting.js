@@ -19,6 +19,16 @@ async function balance(client,productId,warehouseId,delta,user,doc,movementType)
   await client.query(`INSERT INTO inventory_movements(product_id,warehouse_id,document_id,movement_type,qty,unit_cost,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)`,[productId,warehouseId,doc.id,movementType,Math.abs(delta),cost,user.id]);return{productId,warehouseId,delta,qtyOnHand:next,unitCost:cost};
 }
 async function postInventory(client,doc,user){
+  // Sprint 9: RMA diposting saat COMPLETED — RESTOCK menghidupkan stok + lot
+  // retur; nilai retur dijurnal via posting profile RMA-DEFAULT.
+  if(doc.documentType==='RMA'){
+    if(doc.status!=='COMPLETED')return null;
+    if(!await claimPosting(client,doc,user,'INVENTORY'))return{replay:true};
+    const salesO2c=require('./sales-o2c');
+    const rma=await salesO2c.postRma(client,doc,user);
+    await finishPosting(client,doc,'INVENTORY',{rma:{restocked:rma.restocked,scrapOrRepair:rma.scrapOrRepair}});
+    return rma;
+  }
   // Stock opname diposting saat APPROVED (checker ≠ maker sudah lolos SoD).
   if(doc.documentType==='STOCK_OPNAME'){
     if(doc.status!=='APPROVED')return null;

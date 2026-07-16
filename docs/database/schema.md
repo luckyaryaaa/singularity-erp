@@ -30,6 +30,7 @@
 | `024_master_quality_reopen_guard.sql` | partial unique guard: satu issue OPEN per master/rule, tetapi siklus resolved→reopen tetap dapat diaudit berulang |
 | `025_customer_link_supplier_performance.sql` | draft Customer Link server-side, supplier document expiry, effective-dated performance policy, evidence scoring, dan supplier risk hold |
 | `026_supplier_document_sod_guard.sql` | constraint database maker-checker: pembuat dokumen supplier tidak boleh menjadi verifier |
+| `027_o2c_completion.sql` | quotation_revisions immutable (snapshot per revisi), dunning_policies effective-dated + dunning_notices idempoten per invoice per level, products.warranty_months, akun 4110 + posting profile RMA-DEFAULT |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.

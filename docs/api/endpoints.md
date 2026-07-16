@@ -171,6 +171,22 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
 - `POST /api/system/users/:id/reset-password`
 - `GET /api/events` — SSE terautentikasi
 
+## Sprint 9 — Order-to-Cash completion (R016)
+
+- `POST /api/quotations/:id/revise` — bekukan keadaan sekarang ke
+  `quotation_revisions` (immutable), dokumen kembali DRAFT dengan revisionNo
+  naik, approval di-reset; penawaran yang sudah dikonversi ditolak
+- `GET /api/quotations/:id/revisions` — histori revisi + delta nilai
+- `POST /api/collection/dunning/run` — pindai invoice jatuh tempo, terbitkan
+  notice per jenjang `dunning_policies` (idempoten per invoice per level);
+  level CREDIT_HOLD otomatis menahan kredit pelanggan ber-alasan
+- `GET /api/collection/dunning` — notice terbuka + ringkasan outstanding
+- `POST /api/collection/dunning/:id/resolve` — selesaikan ber-alasan
+- `POST /api/rma` — buat RMA/klaim garansi dari Delivery/Invoice; garansi
+  divalidasi `products.warranty_months` sejak tanggal dokumen sumber; saat
+  COMPLETED: disposisi RESTOCK menghidupkan stok + lot retur (`/R{n}`), nilai
+  kredit dijurnal via posting profile `RMA-DEFAULT` (D 4110 / C 1200)
+
 ## Wave 2 — Source-to-Pay & credit control
 
 - `GET /api/credit/:customerId` — status kredit (hold, limit, eksposur, sisa plafon)

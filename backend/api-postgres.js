@@ -13,7 +13,8 @@ const apiMetrics = require('./core/api-metrics');
 const { NO_MATCH } = require('./routes/shared');
 const authRoutes = require('./routes/auth');
 const domainRoutes = [
-  require('./routes/workspace'), require('./routes/documents'), require('./routes/procurement'),
+  require('./routes/workspace'), require('./routes/documents'), require('./routes/sales'),
+  require('./routes/procurement'),
   require('./routes/operations'), require('./routes/masters'), require('./routes/organization'),
   require('./routes/inventory'), require('./routes/production'), require('./routes/finance'),
   require('./routes/hr'), require('./routes/governance')
