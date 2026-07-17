@@ -155,7 +155,48 @@
   const R = router.register.bind(router);
   R('/warehouse/inventory', inventory);
   R('/warehouse/opname/:id', opnameDetail);
-  R('/warehouse/receipts', docListPage({ type: 'GOODS_RECEIPT', module: 'goods_receipt', title: 'Penerimaan barang', eyebrow: 'GUDANG' }));
+  R('/warehouse/receipts', docListPage({
+    type: 'GOODS_RECEIPT', module: 'goods_receipt', title: 'Penerimaan barang & jasa', eyebrow: 'GUDANG',
+    createLabel: 'Terima jasa (service receipt)',
+    columns: [
+      { label: 'Dokumen', render: docCell },
+      { label: 'Jenis', render: (r) => r.payload && r.payload.receiptType === 'SERVICE' ? '<span class="chip lavender">Jasa</span>' : r.payload && r.payload.source === 'PRODUCTION' ? '<span class="chip blue">Produksi</span>' : '<span class="chip gray">Barang</span>' },
+      { label: 'Relasi', render: (r) => esc(r.partyName || '—') },
+      { label: 'Nilai', right: true, render: (r) => `<span class="money">${fmtIDR(r.amount)}</span>` },
+      { label: 'Status', render: (r) => chip(r.status) },
+      { label: 'Diperbarui', render: (r) => relTime(r.updatedAt) }
+    ],
+    onCreate: async (reload) => {
+      // Sprint 10: penerimaan jasa — bukti penerimaan untuk three-way match
+      // tanpa mutasi stok/lot.
+      const pos = await api('/api/documents?type=PURCHASE_ORDER&limit=100');
+      const usable = pos.items.filter((x) => ['APPROVED', 'IN_PROCESS'].includes(x.status));
+      const value = await formDialog({ title: 'Terima jasa (service receipt)', description: 'Penerimaan jasa dicatat sebagai bukti untuk three-way match tanpa mutasi stok.', fields: [
+        { name: 'poId', label: 'PO sumber (opsional)', type: 'select', options: [['', '— Tanpa PO —'], ...usable.map((x) => [x.id, `${x.documentNumber} · ${x.partyName || '—'} · ${fmtIDR(x.amount)}`])] },
+        { name: 'title', label: 'Judul penerimaan jasa', required: true },
+        { name: 'description', label: 'Deskripsi jasa', required: true },
+        { name: 'amount', label: 'Nilai jasa diterima', type: 'number', min: 1, required: true }
+      ], submitLabel: 'Buat service receipt' });
+      if (!value) return;
+      try {
+        const po = value.poId ? usable.find((x) => x.id === value.poId) : null;
+        let doc;
+        const servicePayload = { receiptType: 'SERVICE', purchaseOrderNumber: po?.documentNumber || null, lines: [{ description: value.description, qty: 1, unitPrice: Number(value.amount) }] };
+        if (po) {
+          // Konversi resmi PO→GR: relasi ORDER_TO_RECEIPT tercipta (dipakai
+          // three-way match), lalu draft GR diubah menjadi penerimaan jasa.
+          const conv = await api(`/api/documents/${po.id}/convert`, { method: 'POST', body: {}, idempotencyKey: newIdemKey() });
+          const child = await api(`/api/documents/${conv.child.id}`);
+          doc = await api(`/api/documents/${child.id}`, { method: 'PATCH', body: { version: child.version, title: value.title, amount: Number(value.amount), payload: { ...child.payload, ...servicePayload } } });
+        } else {
+          doc = await api('/api/documents', { method: 'POST', idempotencyKey: newIdemKey(), body: { type: 'GOODS_RECEIPT', title: value.title, amount: Number(value.amount), payload: servicePayload } });
+        }
+        toast(`${doc.documentNumber} dibuat`, 'Proses sampai selesai sebagai bukti penerimaan jasa (tanpa mutasi stok).');
+        if (reload) reload();
+        openDrawer(doc.id, { onChange: reload });
+      } catch (error) { toast('Gagal membuat service receipt', error.message, 'coral'); }
+    }
+  }));
   R('/warehouse/movements', docListPage({ type: 'MATERIAL_ISSUE,STOCK_TRANSFER,STOCK_ADJUSTMENT', module: 'inventory', title: 'Mutasi & penyesuaian', eyebrow: 'GUDANG' }));
   R('/warehouse/deliveries', docListPage({ type: 'DELIVERY', module: 'delivery', title: 'Pengiriman', eyebrow: 'GUDANG' }));
 })();

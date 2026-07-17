@@ -38,7 +38,14 @@ async function postInventory(client,doc,user){
     await finishPosting(client,doc,'INVENTORY',{opname:{adjusted:opname.adjusted,gain:opname.gain,loss:opname.loss}});
     return opname;
   }
-  const types={GOODS_RECEIPT:'RECEIPT',MATERIAL_ISSUE:'ISSUE',STOCK_ADJUSTMENT:'ADJUSTMENT',STOCK_TRANSFER:'TRANSFER_OUT'};if(!types[doc.documentType]||doc.status!=='COMPLETED')return null;if(!await claimPosting(client,doc,user,'INVENTORY'))return{replay:true};const lines=(await client.query('SELECT * FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows;if(!lines.length)throw new AppError('VALIDATION_ERROR','Posting stok membutuhkan baris dokumen.');const result=[];const lots=require('./inventory');
+  const types={GOODS_RECEIPT:'RECEIPT',MATERIAL_ISSUE:'ISSUE',STOCK_ADJUSTMENT:'ADJUSTMENT',STOCK_TRANSFER:'TRANSFER_OUT'};if(!types[doc.documentType]||doc.status!=='COMPLETED')return null;if(!await claimPosting(client,doc,user,'INVENTORY'))return{replay:true};
+  // Sprint 10: service receipt — penerimaan jasa TANPA mutasi stok/lot; claim
+  // tetap dicatat sebagai bukti penerimaan untuk three-way match.
+  if(doc.documentType==='GOODS_RECEIPT'&&doc.payload?.receiptType==='SERVICE'){
+    await finishPosting(client,doc,'INVENTORY',{service:true,amount:Number(doc.amount)});
+    return{service:true,movements:[]};
+  }
+  const lines=(await client.query('SELECT * FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows;if(!lines.length)throw new AppError('VALIDATION_ERROR','Posting stok membutuhkan baris dokumen.');const result=[];const lots=require('./inventory');
   for(const line of lines){const qty=Number(line.qty);
     if(doc.documentType==='GOODS_RECEIPT'){const wh=doc.payload?.warehouseId||doc.branchId;result.push(await balance(client,line.product_id,wh,qty,user,doc,'RECEIPT'));
       await lots.receiveLotLine(client,doc,line,wh,user); // lot + heat number per baris GR

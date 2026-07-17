@@ -31,6 +31,7 @@
 | `025_customer_link_supplier_performance.sql` | draft Customer Link server-side, supplier document expiry, effective-dated performance policy, evidence scoring, dan supplier risk hold |
 | `026_supplier_document_sod_guard.sql` | constraint database maker-checker: pembuat dokumen supplier tidak boleh menjadi verifier |
 | `027_o2c_completion.sql` | quotation_revisions immutable (snapshot per revisi), dunning_policies effective-dated + dunning_notices idempoten per invoice per level, products.warranty_months, akun 4110 + posting profile RMA-DEFAULT |
+| `028_s2p_completion.sql` | procurement_budgets per periode/cabang, rfq_quote_lines (total server-side), po_change_orders maker-checker (CHECK pemohon≠pemutus, satu PENDING per PO), kolom reversal payment_allocations |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.

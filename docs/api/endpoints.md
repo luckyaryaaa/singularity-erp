@@ -187,6 +187,28 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
   COMPLETED: disposisi RESTOCK menghidupkan stok + lot retur (`/R{n}`), nilai
   kredit dijurnal via posting profile `RMA-DEFAULT` (D 4110 / C 1200)
 
+## Sprint 10 — Source-to-Pay completion (R017)
+
+- `GET|POST /api/procurement/budgets` — anggaran per periode (YYYY-MM) per
+  cabang (NULL = global); submit PR/PO yang melampaui anggaran ditolak
+  `409 BUDGET_EXCEEDED` kecuali `budgetOverrideReason` (izin budget.approve,
+  teraudit). Tanpa baris anggaran = tidak ada pemeriksaan.
+- RFQ multi-baris: `POST /api/rfq/:id/quotes` menerima `lines[]`
+  ({description,qty,uom,unitPrice}); total harga dihitung server dari baris,
+  respons `GET` menyertakan `lines` per kuota + `lineComparison` (termurah per
+  item); PO hasil konversi menyalin baris kuota terpilih.
+- `GET|POST /api/purchase-orders/:id/change-orders` — amendemen PO ber-versi
+  (snapshot nilai & baris lama immutable); diblokir setelah ada GR selesai.
+- `POST /api/purchase-orders/change-orders/:id/{approve|reject}` — pemutus ≠
+  pemohon (SoD, juga CHECK di database); approve menerapkan nilai+baris baru.
+- Service receipt: `GOODS_RECEIPT` dengan `payload.receiptType='SERVICE'` —
+  saat COMPLETED dicatat sebagai bukti penerimaan (three-way match) tanpa
+  mutasi stok/lot.
+- `POST /api/payments/:id/reverse` — pembalikan pembayaran: Owner + PIN +
+  alasan; jurnal pembalik (D/C ditukar) diposting ke periode terbuka, alokasi
+  ditandai reversed (histori utuh), status invoice dihitung ulang, dokumen
+  pembayaran menjadi VOID. Idempoten.
+
 ## Wave 2 — Source-to-Pay & credit control
 
 - `GET /api/credit/:customerId` — status kredit (hold, limit, eksposur, sisa plafon)

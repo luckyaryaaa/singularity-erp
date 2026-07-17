@@ -3,6 +3,40 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.18.0] — 2026-07-17
+
+### Added
+
+- Migration 028: procurement_budgets, rfq_quote_lines, po_change_orders
+  (CHECK pemohon ≠ pemutus, satu PENDING per PO), kolom reversal pada
+  payment_allocations.
+- Budget check pengadaan: submit PR/PO melampaui anggaran periode/cabang
+  ditolak 409 BUDGET_EXCEEDED kecuali override finance ber-alasan (teraudit);
+  halaman Anggaran Pengadaan dengan pemakaian per cakupan.
+- RFQ multi-baris: kuota per item dengan total dihitung server, perbandingan
+  termurah per item, dan baris kuota terpilih tersalin ke PO.
+- PO change order maker-checker: amendemen ber-versi dengan snapshot lama
+  immutable, SoD sampai constraint database, terkunci setelah GR selesai;
+  halaman riwayat amendemen per PO.
+- Service receipt: GOODS_RECEIPT jenis SERVICE sebagai bukti penerimaan jasa
+  untuk three-way match tanpa mutasi stok/lot (dari PO memakai konversi resmi
+  ORDER_TO_RECEIPT).
+- Payment reversal: Owner + PIN + alasan; jurnal pembalik ke periode terbuka,
+  alokasi ditandai reversed (histori utuh), invoice pulih otomatis, dokumen
+  pembayaran VOID; idempoten.
+
+### Fixed
+
+- routes/procurement.js tidak mengimpor assertPermission sejak split 8B —
+  endpoint GET /api/credit/:id dan evaluasi three-way match via HTTP
+  sebelumnya gagal ReferenceError; kini diverifikasi 200.
+
+### Verified
+
+- 96/96 automated tests (6 tes S2P baru), migrasi 028 applied, UAT HTTP
+  end-to-end: budget 409→override 200, CO#1 SOD_CONFLICT saat self-decide,
+  service GR COMPLETED tanpa movement/lot, reversal memulihkan invoice.
+
 ## [0.17.0] — 2026-07-16
 
 ### Added

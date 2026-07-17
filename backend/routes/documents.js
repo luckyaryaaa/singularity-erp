@@ -35,6 +35,9 @@ async function dispatch(client, req, url, ctx) {
     // R016 credit control: SO/Invoice tidak boleh diajukan bila pelanggan
     // dalam hold atau melewati batas kredit tanpa override finance.
     if(body.action==='submit'&&['SALES_ORDER','INVOICE'].includes(current.documentType)){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertCreditOk(client,raw);}
+    // Sprint 10 budget check (§13): PR/PO tidak boleh diajukan melampaui
+    // anggaran periode, kecuali override finance ber-alasan (teraudit).
+    if(body.action==='submit'&&['PURCHASE_REQUEST','PURCHASE_ORDER'].includes(current.documentType)){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertBudgetOk(client,raw,{overrideReason:body.budgetOverrideReason,user:ctx.user,requestId:ctx.requestId});}
     // R017 three-way match: tagihan supplier tidak boleh disetujui bila selisih
     // PO/GR/invoice melampaui toleransi, kecuali override ber-alasan.
     if(body.action==='approve'&&current.documentType==='SUPPLIER_INVOICE'){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertMatchOk(client,raw,{overrideReason:body.matchOverrideReason,user:ctx.user});}

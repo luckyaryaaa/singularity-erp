@@ -59,20 +59,90 @@ async function grantCreditOverride(client, { documentId, reason, user, requestId
   return runtime.camel(row);
 }
 
-// ── RFQ & perbandingan supplier (§13.2) ──────────────────────────────────────
+// ── Budget check pengadaan (§13 flow: PR → Budget Check; Sprint 10) ─────────
+// Anggaran per periode (YYYY-MM) per cabang; baris branch NULL = global.
+// Tanpa baris anggaran aktif = tidak ada pemeriksaan (belum dikonfigurasi).
+async function budgetStatus(client, { period, branchId }) {
+  const budget = (await client.query(`SELECT * FROM procurement_budgets WHERE active AND period=$1 AND (branch_id=$2 OR branch_id IS NULL)
+    ORDER BY (branch_id IS NOT NULL) DESC LIMIT 1`, [period, branchId])).rows[0];
+  if (!budget) return null;
+  const scopeBranch = budget.branch_id ? ' AND branch_id=$2' : '';
+  const committed = Number((await client.query(`SELECT COALESCE(SUM(amount),0) n FROM business_documents
+    WHERE document_type='PURCHASE_ORDER' AND to_char(created_at,'YYYY-MM')=$1${scopeBranch}
+    AND status NOT IN ('DRAFT','CANCELLED','VOID','REJECTED')`, budget.branch_id ? [period, budget.branch_id] : [period])).rows[0].n);
+  return { budgetId: budget.id, period, branchId: budget.branch_id, amount: Number(budget.amount), committed, available: Number(budget.amount) - committed };
+}
+
+// Dipanggil saat submit PR/PO. Override finance ber-alasan lolos + teraudit.
+async function assertBudgetOk(client, doc, { overrideReason, user, requestId } = {}) {
+  if (!['PURCHASE_REQUEST', 'PURCHASE_ORDER'].includes(doc.document_type)) return;
+  const period = new Date(doc.created_at).toISOString().slice(0, 7);
+  const status = await budgetStatus(client, { period, branchId: doc.branch_id });
+  if (!status) return; // anggaran belum dikonfigurasi untuk periode ini
+  const projected = status.committed + Number(doc.amount);
+  if (projected <= status.amount + 0.01) return;
+  if (overrideReason && user) {
+    assertPermission(user, 'budget.approve');
+    await runtime.audit(client, { userId: user.id, action: 'APPROVE', module: 'budget', entityType: 'BUDGET_OVERRIDE', entityId: doc.id, documentNumber: doc.document_number, newValue: { period, budget: status.amount, committed: status.committed, requested: Number(doc.amount), projected }, reason: overrideReason, requestId, branchId: doc.branch_id });
+    return;
+  }
+  throw new AppError('BUDGET_EXCEEDED', `Anggaran ${period} ${status.branchId ? 'cabang ini' : '(global)'} ${status.amount.toLocaleString('id-ID')} — terpakai ${status.committed.toLocaleString('id-ID')}, dokumen ini ${Number(doc.amount).toLocaleString('id-ID')} membuat proyeksi ${projected.toLocaleString('id-ID')}.`);
+}
+
+async function listBudgets(client, user, params = {}) {
+  assertPermission(user, 'budget.view');
+  const period = params.period || new Date().toISOString().slice(0, 7);
+  const rows = (await client.query(`SELECT b.*,br.name branch_name,u.display_name created_by_name FROM procurement_budgets b
+    LEFT JOIN branches br ON br.id=b.branch_id LEFT JOIN app_users u ON u.id=b.created_by
+    WHERE b.active AND b.period=$1 ORDER BY br.name NULLS FIRST`, [period])).rows;
+  const items = [];
+  for (const b of rows) {
+    const st = await budgetStatus(client, { period: b.period, branchId: b.branch_id });
+    items.push({ ...runtime.camel(b), committed: st ? st.committed : 0, available: st ? st.available : Number(b.amount) });
+  }
+  return { period, items };
+}
+
+async function upsertBudget(client, { period, branchId, amount, notes, user, requestId }) {
+  assertPermission(user, 'budget.edit');
+  if (!/^\d{4}-\d{2}$/.test(String(period || ''))) throw new AppError('VALIDATION_ERROR', 'Periode anggaran wajib berformat YYYY-MM.');
+  if (!(Number(amount) >= 0)) throw new AppError('VALIDATION_ERROR', 'Nilai anggaran tidak boleh negatif.');
+  const existing = (await client.query(`SELECT id FROM procurement_budgets WHERE active AND period=$1 AND branch_id IS NOT DISTINCT FROM $2`, [period, branchId || null])).rows[0];
+  const row = existing
+    ? (await client.query(`UPDATE procurement_budgets SET amount=$2,notes=$3,updated_at=now() WHERE id=$1 RETURNING *`, [existing.id, Number(amount), notes || null])).rows[0]
+    : (await client.query(`INSERT INTO procurement_budgets(period,branch_id,amount,notes,created_by) VALUES($1,$2,$3,$4,$5) RETURNING *`, [period, branchId || null, Number(amount), notes || null, user.id])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: existing ? 'UPDATE' : 'CREATE', module: 'budget', entityType: 'PROCUREMENT_BUDGET', entityId: row.id, newValue: { period, branchId: branchId || null, amount: Number(amount) }, requestId });
+  return runtime.camel(row);
+}
+
+// ── RFQ & perbandingan supplier (§13.2; multi-baris Sprint 10) ───────────────
 async function addQuote(client, { rfqId, body, user, requestId }) {
   assertPermission(user, 'rfq.edit');
   const rfq = (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type='RFQ'`, [rfqId])).rows[0];
   if (!rfq) throw new AppError('RESOURCE_NOT_FOUND', 'RFQ tidak ditemukan.');
   if (!body.supplierId) throw new AppError('VALIDATION_ERROR', 'Supplier wajib dipilih.');
+  // Multi-baris: bila lines dikirim, total harga dihitung server dari baris.
+  let lines = null, priceTotal = Number(body.priceTotal) || 0;
+  if (Array.isArray(body.lines) && body.lines.length) {
+    lines = body.lines.map((l, i) => {
+      const qty = Number(l.qty), price = Number(l.unitPrice);
+      if (!l.description || !(qty > 0) || !(price >= 0)) throw new AppError('VALIDATION_ERROR', `Baris kuota #${i + 1} tidak valid (deskripsi/qty/harga).`);
+      return { lineNo: i + 1, description: String(l.description).slice(0, 300), qty, uom: l.uom || null, unitPrice: price };
+    });
+    priceTotal = Math.round(lines.reduce((n, l) => n + l.qty * l.unitPrice, 0) * 100) / 100;
+  }
   const row = (await client.query(
     `INSERT INTO rfq_quotes(rfq_document_id,supplier_id,currency,price_total,tax_total,freight_total,lead_time_days,payment_terms,moq_note,quality_score,created_by)
      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      ON CONFLICT(rfq_document_id,supplier_id) DO UPDATE SET price_total=excluded.price_total,tax_total=excluded.tax_total,freight_total=excluded.freight_total,lead_time_days=excluded.lead_time_days,payment_terms=excluded.payment_terms,quality_score=excluded.quality_score,received_at=now()
      RETURNING *`,
-    [rfqId, body.supplierId, body.currency || 'IDR', Number(body.priceTotal) || 0, Number(body.taxTotal) || 0, Number(body.freightTotal) || 0,
+    [rfqId, body.supplierId, body.currency || 'IDR', priceTotal, Number(body.taxTotal) || 0, Number(body.freightTotal) || 0,
      body.leadTimeDays || null, body.paymentTerms || null, body.moqNote || null, body.qualityScore || null, user.id])).rows[0];
-  await runtime.audit(client, { userId: user.id, action: 'CREATE', module: 'rfq', entityType: 'RFQ_QUOTE', entityId: row.id, documentNumber: rfq.document_number, newValue: { supplierId: body.supplierId, landed: Number(row.landed_cost) }, requestId, branchId: rfq.branch_id });
+  if (lines) {
+    await client.query('DELETE FROM rfq_quote_lines WHERE quote_id=$1', [row.id]);
+    for (const l of lines) await client.query(`INSERT INTO rfq_quote_lines(quote_id,line_no,description,qty,uom,unit_price) VALUES($1,$2,$3,$4,$5,$6)`, [row.id, l.lineNo, l.description, l.qty, l.uom, l.unitPrice]);
+  }
+  await runtime.audit(client, { userId: user.id, action: 'CREATE', module: 'rfq', entityType: 'RFQ_QUOTE', entityId: row.id, documentNumber: rfq.document_number, newValue: { supplierId: body.supplierId, landed: Number(row.landed_cost), lines: lines ? lines.length : 0 }, requestId, branchId: rfq.branch_id });
   return runtime.camel(row);
 }
 
@@ -80,12 +150,21 @@ async function listQuotes(client, rfqId, user) {
   assertPermission(user, 'rfq.view');
   const rows = (await client.query(
     `SELECT q.*, s.name supplier_name, s.code supplier_code,
-       (SELECT overall_score FROM supplier_evaluations e WHERE e.supplier_id=q.supplier_id ORDER BY period DESC LIMIT 1) supplier_score
+       (SELECT overall_score FROM supplier_evaluations e WHERE e.supplier_id=q.supplier_id ORDER BY period DESC LIMIT 1) supplier_score,
+       COALESCE((SELECT json_agg(json_build_object('lineNo',l.line_no,'description',l.description,'qty',l.qty,'uom',l.uom,'unitPrice',l.unit_price,'lineTotal',l.line_total) ORDER BY l.line_no)
+         FROM rfq_quote_lines l WHERE l.quote_id=q.id),'[]'::json) lines
      FROM rfq_quotes q JOIN suppliers s ON s.id=q.supplier_id WHERE q.rfq_document_id=$1
      ORDER BY q.landed_cost ASC`, [rfqId])).rows.map(runtime.camel);
   // Tandai rekomendasi: landed cost terendah + skor supplier bila ada.
   if (rows.length) rows[0].recommended = true;
-  return rows;
+  // Perbandingan per baris (Sprint 10): supplier termurah untuk tiap item.
+  const byLine = {};
+  for (const q of rows) for (const l of (q.lines || [])) {
+    const key = l.description;
+    if (!byLine[key] || Number(l.unitPrice) < byLine[key].unitPrice) byLine[key] = { description: key, unitPrice: Number(l.unitPrice), supplierName: q.supplierName, supplierId: q.supplierId };
+  }
+  const lineComparison = Object.values(byLine);
+  return { items: rows, lineComparison };
 }
 
 async function selectQuote(client, { rfqId, quoteId, reason, user, requestId }) {
@@ -111,11 +190,14 @@ async function rfqToPurchaseOrder(client, { rfqId, user, requestId }) {
   if (!selected) throw new AppError('STATUS_INVALID', 'Pilih kuota supplier terlebih dahulu sebelum membuat PO.');
   const existing = (await client.query(`SELECT c.* FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id WHERE r.parent_document_id=$1 AND r.relation_type='RFQ_TO_PO' LIMIT 1`, [rfqId])).rows[0];
   if (existing) return { alreadyConverted: true, child: runtime.camel(existing) };
+  // Sprint 10: baris kuota terpilih ikut tersalin ke PO (document_lines).
+  const quoteLines = (await client.query(`SELECT line_no,description,qty,uom,unit_price FROM rfq_quote_lines WHERE quote_id=$1 ORDER BY line_no`, [selected.id])).rows
+    .map((l) => ({ description: l.description, qty: Number(l.qty), uom: l.uom, unitPrice: Number(l.unit_price) }));
   const po = await runtime.createDocument(client, {
     type: 'PURCHASE_ORDER', user: { ...user, branchId: rfq.branch_id },
     title: `PO dari ${rfq.document_number} — ${selected.supplier_name}`, amount: Number(selected.landed_cost),
     partyId: selected.supplier_id, partyName: selected.supplier_name,
-    payload: { ...(rfq.payload || {}), sourceRfqId: rfq.id, sourceRfqNumber: rfq.document_number, supplierId: selected.supplier_id, leadTimeDays: selected.lead_time_days }, requestId
+    payload: { ...(rfq.payload || {}), sourceRfqId: rfq.id, sourceRfqNumber: rfq.document_number, supplierId: selected.supplier_id, leadTimeDays: selected.lead_time_days, ...(quoteLines.length ? { lines: quoteLines } : {}) }, requestId
   });
   await client.query(`INSERT INTO document_relations(parent_document_id,child_document_id,relation_type,created_by) VALUES($1,$2,'RFQ_TO_PO',$3)`, [rfq.id, po.id, user.id]);
   return { alreadyConverted: false, child: po };
@@ -215,9 +297,65 @@ async function proposalLines(client, proposalId, user) {
      LEFT JOIN suppliers s ON s.id=l.supplier_id WHERE l.proposal_document_id=$1 ORDER BY d.due_date NULLS LAST`, [proposalId])).rows.map(runtime.camel);
 }
 
+// ── PO change order (Sprint 10) — amendemen ber-versi maker-checker ─────────
+// PO APPROVED/IN_PROCESS dapat diamendemen; setelah ada GR COMPLETED,
+// amendemen diblokir demi integritas three-way match. Pemohon ≠ pemutus
+// (ditegakkan juga oleh CHECK constraint database).
+async function createChangeOrder(client, { poId, newAmount, newLines, reason, user, requestId }) {
+  assertPermission(user, 'purchase_order.edit');
+  if (!reason) throw new AppError('REASON_REQUIRED', 'Alasan amendemen PO wajib diisi.');
+  const po = (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type='PURCHASE_ORDER' FOR UPDATE`, [poId])).rows[0];
+  if (!po) throw new AppError('RESOURCE_NOT_FOUND', 'PO tidak ditemukan.');
+  if (!['APPROVED', 'IN_PROCESS'].includes(po.status)) throw new AppError('STATUS_INVALID', `Amendemen membutuhkan PO APPROVED/IN_PROCESS (sekarang ${po.status}).`);
+  const gr = (await client.query(`SELECT count(*)::int n FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id
+    WHERE r.parent_document_id=$1 AND r.relation_type='ORDER_TO_RECEIPT' AND c.status IN ('COMPLETED','CLOSED')`, [poId])).rows[0];
+  if (gr.n > 0) throw new AppError('DOCUMENT_CONFLICT', 'PO sudah memiliki penerimaan selesai — amendemen diblokir demi integritas three-way match.');
+  const amount = Number(newAmount);
+  if (!(amount >= 0)) throw new AppError('VALIDATION_ERROR', 'Nilai baru PO tidak boleh negatif.');
+  const oldLines = (await client.query('SELECT line_no,product_id,description,qty,uom,unit_price FROM document_lines WHERE document_id=$1 ORDER BY line_no', [poId])).rows;
+  const seq = (await client.query('SELECT COALESCE(MAX(change_no),0)+1 n FROM po_change_orders WHERE po_document_id=$1', [poId])).rows[0].n;
+  const row = (await client.query(`INSERT INTO po_change_orders(id,po_document_id,change_no,reason,old_amount,new_amount,old_lines,new_lines,requested_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, [
+    require('node:crypto').randomUUID(), poId, seq, String(reason).slice(0, 1000), Number(po.amount), amount,
+    JSON.stringify(oldLines), JSON.stringify(Array.isArray(newLines) ? newLines : []), user.id])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: 'CREATE', module: 'purchase_order', entityType: 'PO_CHANGE_ORDER', entityId: row.id, documentNumber: `${po.document_number}/CO${seq}`, newValue: { oldAmount: Number(po.amount), newAmount: amount }, reason, requestId, branchId: po.branch_id });
+  return runtime.camel(row);
+}
+
+async function decideChangeOrder(client, { changeOrderId, decision, reason, user, requestId }) {
+  assertPermission(user, 'purchase_order.approve');
+  if (!['APPROVED', 'REJECTED'].includes(decision)) throw new AppError('VALIDATION_ERROR', 'Keputusan harus APPROVED/REJECTED.');
+  if (!reason) throw new AppError('REASON_REQUIRED', 'Alasan keputusan wajib diisi.');
+  const co = (await client.query('SELECT * FROM po_change_orders WHERE id=$1 FOR UPDATE', [changeOrderId])).rows[0];
+  if (!co) throw new AppError('RESOURCE_NOT_FOUND', 'Change order tidak ditemukan.');
+  if (co.status !== 'PENDING') throw new AppError('STATUS_INVALID', `Change order berstatus ${co.status}.`);
+  if (co.requested_by === user.id) throw new AppError('SOD_CONFLICT', 'Pemohon amendemen tidak boleh menjadi pemutus (SoD).');
+  const updated = (await client.query(`UPDATE po_change_orders SET status=$2,decided_by=$3,decided_at=now(),decide_reason=$4 WHERE id=$1 RETURNING *`,
+    [changeOrderId, decision, user.id, String(reason).slice(0, 500)])).rows[0];
+  const po = (await client.query('SELECT * FROM business_documents WHERE id=$1 FOR UPDATE', [co.po_document_id])).rows[0];
+  if (decision === 'APPROVED') {
+    const newLines = Array.isArray(co.new_lines) ? co.new_lines : [];
+    await client.query(`UPDATE business_documents SET amount=$2,payload=payload||$3::jsonb,version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1`,
+      [po.id, Number(co.new_amount), JSON.stringify({ changeOrderNo: co.change_no, ...(newLines.length ? { lines: newLines } : {}) }), user.id]);
+    if (newLines.length) { const posting = require('./posting'); await posting.syncDocumentLines(client, po.id, newLines); }
+  }
+  await runtime.audit(client, { userId: user.id, action: decision === 'APPROVED' ? 'APPROVE' : 'REJECT', module: 'purchase_order', entityType: 'PO_CHANGE_ORDER', entityId: changeOrderId, documentNumber: `${po.document_number}/CO${co.change_no}`, oldValue: { amount: Number(co.old_amount) }, newValue: { amount: Number(co.new_amount), decision }, reason, requestId, branchId: po.branch_id });
+  await runtime.outbox(client, 'purchase_order.updated', { entityId: po.document_number, documentType: 'PURCHASE_ORDER', branchId: po.branch_id });
+  return runtime.camel(updated);
+}
+
+async function listChangeOrders(client, poId, user) {
+  assertPermission(user, 'purchase_order.view');
+  return { items: (await client.query(`SELECT co.*,ru.display_name requested_by_name,du.display_name decided_by_name
+    FROM po_change_orders co LEFT JOIN app_users ru ON ru.id=co.requested_by LEFT JOIN app_users du ON du.id=co.decided_by
+    WHERE co.po_document_id=$1 ORDER BY co.change_no DESC`, [poId])).rows.map(runtime.camel) };
+}
+
 module.exports = {
   creditStatus, assertCreditOk, grantCreditOverride,
+  budgetStatus, assertBudgetOk, listBudgets, upsertBudget,
   addQuote, listQuotes, selectQuote, rfqToPurchaseOrder,
+  createChangeOrder, decideChangeOrder, listChangeOrders,
   evaluateThreeWayMatch, assertMatchOk, getMatch,
   generatePaymentProposal, proposalLines
 };

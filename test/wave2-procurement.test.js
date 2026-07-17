@@ -29,7 +29,7 @@ dbTest('RFQ: perbandingan landed cost, pilih supplier, konversi ke PO', async ()
     const rfq = await runtime.createDocument(client, { type: 'RFQ', user, title: 'RFQ test', amount: 0, requestId: randomUUID() });
     await procurement.addQuote(client, { rfqId: rfq.id, body: { supplierId: suppliers[0].id, priceTotal: 40_000_000, freightTotal: 3_000_000 }, user, requestId: randomUUID() });
     await procurement.addQuote(client, { rfqId: rfq.id, body: { supplierId: suppliers[1].id, priceTotal: 39_000_000, freightTotal: 1_000_000 }, user, requestId: randomUUID() });
-    const quotes = await procurement.listQuotes(client, rfq.id, user);
+    const quotes = (await procurement.listQuotes(client, rfq.id, user)).items;
     assert.equal(quotes.length, 2);
     assert.ok(quotes[0].landedCost <= quotes[1].landedCost, 'diurutkan landed cost naik');
     assert.equal(quotes[0].recommended, true);

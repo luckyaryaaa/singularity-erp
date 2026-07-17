@@ -22,6 +22,18 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&p==='/api/accounting/period/close'){assertPermission(ctx.user,'closing.post');const body=await readBody(req),result=await businessOps.closePeriod(client,{period:body.period,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:'CLOSE_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:result,reason:body.reason||'Tutup periode',requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
   if(method==='POST'&&p==='/api/accounting/period/reopen'){assertPermission(ctx.user,'closing.edit');if(ctx.user.role!=='owner')throw new AppError('PERMISSION_DENIED','Hanya Owner yang dapat membuka kembali periode.');const body=await readBody(req),row=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!row?.owner_pin_hash||!verifyPassword(String(body.pin),row.owner_pin_hash))throw new AppError('PIN_REQUIRED');const result=await businessOps.reopenPeriod(client,{period:body.period,user:ctx.user,reason:body.reason});await runtime.audit(client,{userId:ctx.user.id,action:'REOPEN_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:result,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
   if(method==='POST'&&p==='/api/payments/allocate'){assertPermission(ctx.user,'payment.post');const body=await readBody(req),result=await businessOps.allocatePayment(client,{...body,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:'ALLOCATE_PAYMENT',module:'payment',entityType:'PAYMENT_ALLOCATION',entityId:result.allocation.id,newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  // Sprint 10: payment reversal — kontrol kritis setara void pembayaran:
+  // hanya Owner + PIN + alasan; jurnal pembalik, alokasi ditandai reversed.
+  m=p.match(/^\/api\/payments\/([0-9a-f-]{36})\/reverse$/);
+  if(method==='POST'&&m){
+    assertPermission(ctx.user,'payment.void');
+    const body=await readBody(req);
+    if(ctx.user.role!=='owner')throw new AppError('PIN_REQUIRED','Pembalikan pembayaran hanya oleh Owner dengan PIN.');
+    const pinRow=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];
+    if(!body.pin||!pinRow?.owner_pin_hash||!verifyPassword(String(body.pin),pinRow.owner_pin_hash))throw new AppError('PIN_REQUIRED');
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`payment.reverse:${m[1]}`,key:req.headers['idempotency-key'],body:{reason:body.reason}},async()=>({status:200,body:await businessOps.reversePayment(client,{paymentId:m[1],reason:body.reason,user:ctx.user,requestId:ctx.requestId})}));
+    ctx.status=result.status;return result.body;
+  }
   if(method==='GET'&&p==='/api/accounting/reconciliation'){assertPermission(ctx.user,'ledger.view');const period=businessOps.period(url.searchParams.get('period'));return{items:(await client.query(`SELECT * FROM reconciliation_runs WHERE period=$1 AND ($2::boolean OR branch_id=$3) ORDER BY created_at DESC`,[period,['owner','admin'].includes(ctx.user.role)||ctx.user.branchScope==='*',ctx.user.branchId])).rows.map(runtime.camel)};}
   if(method==='GET'&&p==='/api/tax/summary'){assertPermission(ctx.user,'tax.view');return businessOps.taxSummary(client,url.searchParams.get('period'));}
   if(method==='POST'&&p==='/api/tax/sync'){assertPermission(ctx.user,'tax.edit');const body=await readBody(req);return businessOps.syncTaxes(client,body.period);}

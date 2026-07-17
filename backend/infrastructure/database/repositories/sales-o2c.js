@@ -64,7 +64,7 @@ async function runDunning(client, { user, requestId }) {
   const policies = await activePolicies(client);
   const invoices = (await client.query(`SELECT d.id,d.document_number,d.amount,d.due_date,d.party_id,d.branch_id,
       GREATEST(0,(current_date-d.due_date))::int days_overdue,
-      d.amount-COALESCE((SELECT SUM(a.amount) FROM payment_allocations a WHERE a.invoice_document_id=d.id),0) outstanding
+      d.amount-COALESCE((SELECT SUM(a.amount) FROM payment_allocations a WHERE a.invoice_document_id=d.id AND a.reversed_at IS NULL),0) outstanding
     FROM business_documents d
     WHERE d.document_type='INVOICE' AND d.status IN ('APPROVED','PARTIALLY_PAID','OVERDUE')
       AND d.due_date IS NOT NULL AND d.due_date<current_date`)).rows;

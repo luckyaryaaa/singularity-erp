@@ -4,7 +4,7 @@
 
 const { AppError } = require('./errors');
 
-const MODULES = ['dashboard','approval','notification','organization','customer','supplier','product','inquiry','quotation','customer_po','sales_order','project','work_order','production','quality','purchase_request','rfq','purchase_order','goods_receipt','inventory','material_issue','stock_transfer','stock_adjustment','stock_opname','delivery','rma','invoice','payment','payment_proposal','supplier_invoice','supplier_payment','expense','asset','journal','ledger','closing','credit','payroll','employee','attendance','leave','tax','report','audit','user','iam','sod','access_review','approval_policy','settings','monitoring','job','selftest','backup'];
+const MODULES = ['dashboard','approval','notification','organization','customer','supplier','product','inquiry','quotation','customer_po','sales_order','project','work_order','production','quality','purchase_request','rfq','purchase_order','goods_receipt','inventory','material_issue','stock_transfer','stock_adjustment','stock_opname','delivery','rma','invoice','payment','payment_proposal','supplier_invoice','supplier_payment','expense','asset','budget','journal','ledger','closing','credit','payroll','employee','attendance','leave','tax','report','audit','user','iam','sod','access_review','approval_policy','settings','monitoring','job','selftest','backup'];
 
 const ACTIONS = ['view','create','edit','submit','approve','reject','post','void','cancel','export','import'];
 
@@ -15,7 +15,7 @@ const ROLE_GRANTS = {
     .concat(expand(['organization','audit','iam','sod','access_review','approval_policy'], ['view','export'])),
   security_admin: expand(['dashboard','notification','user','iam','sod','access_review','monitoring','selftest'], ACTIONS)
     .concat(expand(['audit','job','approval_policy'], ['view','export'])),
-  finance_manager: expand(['dashboard','approval','notification','customer','invoice','payment','payment_proposal','supplier_invoice','supplier_payment','expense','asset','report','job','approval_policy','credit'], ACTIONS)
+  finance_manager: expand(['dashboard','approval','notification','customer','invoice','payment','payment_proposal','supplier_invoice','supplier_payment','expense','asset','budget','report','job','approval_policy','credit'], ACTIONS)
     .concat(expand(['organization'], ['view','create','edit','submit','export']))
     .concat(expand(['quotation','sales_order','purchase_order','rfq','journal','ledger','tax','inventory','delivery','rma','audit'], ['view','export'])),
   accounting: expand(['dashboard','approval','notification','journal','ledger','closing','report','asset','job'], ACTIONS)
@@ -28,7 +28,7 @@ const ROLE_GRANTS = {
     .concat(expand(['credit'], ['view']))
     .concat(expand(['product','inventory','delivery','invoice','work_order'], ['view'])),
   procurement: expand(['dashboard','approval','notification','supplier','purchase_request','rfq','purchase_order','report','job'], ACTIONS)
-    .concat(expand(['product','inventory','goods_receipt','supplier_invoice','work_order'], ['view'])),
+    .concat(expand(['product','inventory','goods_receipt','supplier_invoice','work_order','budget'], ['view'])),
   warehouse: expand(['dashboard','approval','notification','inventory','goods_receipt','material_issue','stock_transfer','stock_adjustment','stock_opname','delivery','rma','report','job'], ACTIONS)
     .concat(expand(['product','purchase_order','work_order','quality'], ['view'])),
   production: expand(['dashboard','approval','notification','work_order','production','quality','material_issue','report','job'], ACTIONS)

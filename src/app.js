@@ -32,6 +32,7 @@
       ['#/procurement/rfq', 'RFQ & perbandingan', 'filter', 'rfq.view'],
       ['#/procurement/orders', 'Purchase order', 'cart', 'purchase_order.view'],
       ['#/procurement/payment-proposals', 'Usulan pembayaran', 'wallet', 'payment_proposal.view'],
+      ['#/procurement/budgets', 'Anggaran pengadaan', 'ledger', 'budget.view'],
       ['#/warehouse/inventory', 'Persediaan', 'box', 'inventory.view'],
       ['#/warehouse/receipts', 'Penerimaan barang', 'truck', 'goods_receipt.view'],
       ['#/warehouse/movements', 'Mutasi stok', 'refresh', 'inventory.view'],

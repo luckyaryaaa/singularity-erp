@@ -26,6 +26,7 @@ const CATALOG = {
   MATCH_FAILED:       { status: 409, message: 'Three-way match gagal: selisih PO, penerimaan, dan tagihan melebihi toleransi.' },
   DUPLICATE_MASTER:   { status: 409, message: 'Data master serupa sudah ada. Periksa kemungkinan duplikat.' },
   SUPPLIER_HOLD:      { status: 409, message: 'Supplier sedang ditahan oleh kontrol risiko atau kinerja.' },
+  BUDGET_EXCEEDED:    { status: 409, message: 'Pengadaan melampaui anggaran periode berjalan. Butuh persetujuan finance ber-alasan.' },
   INTERNAL:           { status: 500, message: 'Terjadi kesalahan internal. Detail teknis sudah dicatat.' }
 };
 
