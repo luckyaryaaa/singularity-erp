@@ -178,7 +178,159 @@
     }
   };
 
+  // ── Aset tetap & depresiasi (Sprint 13 / R020) ─────────────────────────────
+  const assetsPage = {
+    permission: 'asset.view',
+    async render(main) {
+      const data = await api('/api/assets');
+      const ST_CHIP = { ACTIVE: 'mint', FULLY_DEPRECIATED: 'gray', DISPOSED: 'coral' };
+      main.innerHTML = pageHead({
+        eyebrow: 'KEUANGAN', title: 'Aset tetap', sub: 'Registry aset dengan penyusutan garis lurus otomatis — umur & akun dari konfigurasi kategori.',
+        actions: `${can('asset.post') ? `<button class="btn secondary" id="faRun">${ICONS.refresh} Jalankan penyusutan</button>` : ''}${can('asset.create') ? `<button class="btn primary" id="faAdd">${ICONS.plus} Daftarkan aset</button>` : ''}`
+      }) + `
+        <section class="metrics">
+          ${kpiCard({ label: 'Nilai perolehan', value: fmtIDR(data.totals.cost), note: `${data.items.length} aset terdaftar`, orb: 'building', orbTone: 'blue' })}
+          ${kpiCard({ label: 'Akumulasi penyusutan', value: fmtIDR(data.totals.accumulated), note: 'Kontra aset (1590)', orb: 'trend', orbTone: 'amber' })}
+          ${kpiCard({ label: 'Nilai buku', value: fmtIDR(data.totals.bookValue), note: 'Perolehan − akumulasi', orb: 'wallet', orbTone: 'mint' })}
+        </section>
+        <section class="panel"><header><div><p class="eyebrow">REGISTRY</p><h2>Daftar aset</h2></div></header>
+          <div class="table-wrap"><table><thead><tr><th>Aset</th><th>Kategori</th><th>Perolehan</th><th class="right">Nilai perolehan</th><th class="right">Akumulasi</th><th class="right">Nilai buku</th><th class="right">/bulan</th><th>Status</th><th></th></tr></thead>
+          <tbody>${data.items.map((r) => `<tr><td><b>${esc(r.assetNumber)}</b><small>${esc(r.name)}${r.custodianName ? ' · ' + esc(r.custodianName) : ''}</small></td>
+            <td>${esc(r.categoryName)}<small>${r.usefulLifeMonths || r.categoryLife} bulan</small></td>
+            <td>${fmtDate(r.acquisitionDate)}${r.sourceNumber ? `<small>${esc(r.sourceNumber)}</small>` : ''}</td>
+            <td class="right money">${fmtIDRFull(r.acquisitionCost)}</td><td class="right money">${fmtIDRFull(r.accumulated)}</td>
+            <td class="right money"><b>${fmtIDRFull(r.bookValue)}</b></td><td class="right money">${fmtIDR(r.monthlyDepreciation)}</td>
+            <td><span class="chip ${ST_CHIP[r.status] || 'gray'}">${esc(r.status)}</span></td>
+            <td>${r.status !== 'DISPOSED' && can('asset.void') ? `<button class="btn danger-outline sm" data-fadispose="${r.id}">Lepas</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="9" class="table-loading">Belum ada aset terdaftar.</td></tr>'}</tbody></table></div>
+          <div class="panel-body"><p class="muted">Penyusutan bulanan diposting sebagai satu jurnal sistem (JRN-*) per periode: D Beban Penyusutan / C Akumulasi. Pelepasan menghitung nilai buku dan menjurnal otomatis.</p></div>
+        </section>`;
+      main.querySelector('#faAdd')?.addEventListener('click', async () => {
+        try {
+          const cats = await api('/api/assets/categories');
+          const value = await formDialog({ title: 'Daftarkan aset tetap', description: 'Umur manfaat & akun jurnal mengikuti kategori (dapat di-override umurnya).', fields: [
+            { name: 'name', label: 'Nama aset', required: true },
+            { name: 'categoryCode', label: 'Kategori', type: 'select', options: cats.items.map((x) => [x.code, `${x.name} (${x.usefulLifeMonths} bln)`]), required: true },
+            { name: 'acquisitionDate', label: 'Tanggal perolehan (YYYY-MM-DD)', required: true },
+            { name: 'acquisitionCost', label: 'Nilai perolehan', type: 'number', min: 1, required: true },
+            { name: 'salvageValue', label: 'Nilai residu', type: 'number', min: 0 },
+            { name: 'usefulLifeMonths', label: 'Override umur (bulan, opsional)', type: 'number', min: 1 },
+            { name: 'location', label: 'Lokasi' }
+          ], submitLabel: 'Daftarkan' });
+          if (!value) return;
+          const asset = await api('/api/assets', { method: 'POST', idempotencyKey: newIdemKey(), body: { ...value, acquisitionCost: Number(value.acquisitionCost), salvageValue: Number(value.salvageValue || 0), usefulLifeMonths: value.usefulLifeMonths ? Number(value.usefulLifeMonths) : null } });
+          toast('Aset terdaftar', asset.assetNumber);
+          this.render(main);
+        } catch (error) { toast('Gagal mendaftarkan aset', error.message, 'coral'); }
+      });
+      main.querySelector('#faRun')?.addEventListener('click', async () => {
+        const value = await formDialog({ title: 'Jalankan penyusutan', description: 'Idempoten per aset per periode — aman dijalankan ulang.', fields: [{ name: 'period', label: 'Periode (YYYY-MM)', required: true }], submitLabel: 'Jalankan' });
+        if (!value) return;
+        try { const r = await api('/api/assets/depreciation/run', { method: 'POST', idempotencyKey: newIdemKey(), body: value }); toast('Penyusutan selesai', r.journal ? `${r.assets} aset · ${fmtIDR(r.total)} · ${r.journal}` : (r.message || 'Tidak ada aset.')); this.render(main); }
+        catch (error) { toast('Penyusutan gagal', error.message, 'coral'); }
+      });
+      main.querySelectorAll('[data-fadispose]').forEach((b) => b.addEventListener('click', async () => {
+        const value = await formDialog({ title: 'Lepas aset (disposal)', description: 'Nilai buku dihitung sistem dan dijurnal otomatis. Wajib alasan.', fields: [
+          { name: 'reason', label: 'Alasan pelepasan', type: 'textarea', required: true },
+          { name: 'proceeds', label: 'Hasil penjualan (bila dijual)', type: 'number', min: 0 }
+        ], submitLabel: 'Lepas aset' });
+        if (!value) return;
+        try { const r = await api(`/api/assets/${b.dataset.fadispose}/dispose`, { method: 'POST', idempotencyKey: newIdemKey(), body: { reason: value.reason, proceeds: Number(value.proceeds || 0) } }); toast('Aset dilepas', `Nilai buku ${fmtIDR(r.bookValue)} · jurnal ${r.journal}`); this.render(main); }
+        catch (error) { toast('Pelepasan gagal', error.message, 'coral'); }
+      }));
+    }
+  };
+
+  // ── Laporan keuangan formal (Sprint 13 / R020) ────────────────────────────
+  const statementsPage = {
+    permission: 'ledger.view',
+    async render(main) {
+      this._period = this._period || new Date().toISOString().slice(0, 7);
+      const st = await api(`/api/accounting/financial-statements?period=${this._period}`);
+      const bs = st.balanceSheet, is = st.incomeStatement;
+      const rowsOf = (list) => list.map((r) => `<tr><td>${esc(r.code)} · ${esc(r.name)}</td><td class="right money">${fmtIDRFull(r.balance)}</td></tr>`).join('');
+      main.innerHTML = pageHead({
+        eyebrow: 'AKUNTANSI', title: 'Laporan keuangan', sub: `Neraca (kumulatif s/d ${st.period}) & laba rugi periode berjalan.`,
+        actions: `<label class="period-picker"><span>Periode</span><input id="fsPeriod" type="month" value="${esc(this._period)}"></label>
+          <span class="chip ${bs.balanced ? 'mint' : 'coral'}">${bs.balanced ? 'Neraca seimbang' : 'Neraca TIDAK seimbang'}</span>`
+      }) + `
+        <section class="dashboard-grid">
+          <article class="panel"><header><div><p class="eyebrow">NERACA</p><h2>Posisi keuangan</h2></div></header>
+            <div class="table-wrap"><table>
+              <thead><tr><th>ASET</th><th class="right"></th></tr></thead><tbody>${rowsOf(bs.assets)}</tbody>
+              <tfoot><tr><th>Total aset</th><th class="right money">${fmtIDRFull(bs.totalAssets)}</th></tr></tfoot>
+            </table></div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>KEWAJIBAN</th><th class="right"></th></tr></thead><tbody>${rowsOf(bs.liabilities)}</tbody>
+              <thead><tr><th>EKUITAS</th><th class="right"></th></tr></thead><tbody>${rowsOf(bs.equity)}</tbody>
+              <tfoot><tr><th>Total kewajiban + ekuitas</th><th class="right money">${fmtIDRFull(bs.totalLiabilitiesAndEquity)}</th></tr></tfoot>
+            </table></div>
+          </article>
+          <article class="panel"><header><div><p class="eyebrow">LABA RUGI</p><h2>Kinerja periode ${esc(st.period)}</h2></div></header>
+            <div class="table-wrap"><table>
+              <thead><tr><th>PENDAPATAN</th><th class="right"></th></tr></thead><tbody>${rowsOf(is.revenue) || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+              <thead><tr><th>BEBAN POKOK</th><th class="right"></th></tr></thead><tbody>${rowsOf(is.cogs) || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+              <thead><tr><th>BEBAN OPERASIONAL</th><th class="right"></th></tr></thead><tbody>${rowsOf(is.expense) || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+              <tfoot>
+                <tr><th>Laba kotor</th><th class="right money">${fmtIDRFull(is.grossMargin)}</th></tr>
+                <tr><th>Laba bersih periode</th><th class="right money">${fmtIDRFull(is.netIncome)}</th></tr>
+              </tfoot>
+            </table></div>
+            <div class="panel-body"><p class="muted">Akun kontra (akumulasi penyusutan, retur penjualan) tampil negatif dan mengurangi kelompoknya — identitas aset = kewajiban + ekuitas terjaga.</p></div>
+          </article>
+        </section>
+        <section class="panel"><header><div><p class="eyebrow">SUBLEDGER</p><h2>AR / AP vs buku besar</h2></div><div class="chip-tabs"><button class="btn ${this._sub !== 'AP' ? 'primary' : 'secondary'}" data-subtype="AR">Piutang (AR)</button><button class="btn ${this._sub === 'AP' ? 'primary' : 'secondary'}" data-subtype="AP">Utang (AP)</button></div></header>
+          <div id="subledgerBox"><div class="table-loading">Memuat…</div></div>
+        </section>`;
+      main.querySelector('#fsPeriod').addEventListener('change', (e) => { this._period = e.target.value; this.render(main); });
+      main.querySelectorAll('[data-subtype]').forEach((b) => b.addEventListener('click', () => { this._sub = b.dataset.subtype; this.render(main); }));
+      const sub = await api(`/api/accounting/subledger?type=${this._sub || 'AR'}&period=${this._period}`);
+      main.querySelector('#subledgerBox').innerHTML = `
+        <div class="table-wrap"><table><thead><tr><th>Relasi</th><th class="right">Tertagih</th><th class="right">Terbayar</th><th class="right">Outstanding</th></tr></thead>
+        <tbody>${sub.items.map((r) => `<tr><td><b>${esc(r.partyCode || '')}</b> ${esc(r.partyName)}<small>${r.invoices} dokumen</small></td><td class="right money">${fmtIDRFull(r.billed)}</td><td class="right money">${fmtIDRFull(r.settled)}</td><td class="right money"><b>${fmtIDRFull(r.outstanding)}</b></td></tr>`).join('') || '<tr><td colspan="4" class="table-loading">Tidak ada data.</td></tr>'}</tbody>
+        <tfoot><tr><th>Total subledger</th><th class="right money">${fmtIDRFull(sub.totals.billed)}</th><th class="right money">${fmtIDRFull(sub.totals.settled)}</th><th class="right money">${fmtIDRFull(sub.totals.outstanding)}</th></tr>
+        <tr><th>Saldo GL ${esc(sub.glAccount)}</th><th colspan="2" class="right muted">selisih ${fmtIDRFull(sub.difference)}</th><th class="right money">${fmtIDRFull(sub.glBalance)}</th></tr></tfoot></table></div>`;
+    }
+  };
+
+  // ── Closing cockpit (Sprint 13 / R020) ────────────────────────────────────
+  const closingCockpitPage = {
+    permission: 'closing.view',
+    async render(main) {
+      this._period = this._period || new Date().toISOString().slice(0, 7);
+      const ck = await api(`/api/accounting/closing-cockpit?period=${this._period}`);
+      const READY_CHIP = { READY: 'mint', REVIEW: 'amber', BLOCKED: 'coral' };
+      const ST_ICON = { PASS: ICONS.check, WARN: ICONS.alert, FAIL: ICONS.close };
+      const ST_CHIP = { PASS: 'mint', WARN: 'amber', FAIL: 'coral' };
+      main.innerHTML = pageHead({
+        eyebrow: 'AKUNTANSI', title: 'Closing cockpit', sub: `Checklist kesiapan tutup buku ${esc(ck.period)} — rekonsiliasi bank, inventori, payroll, pajak, subledger, dan penyusutan.`,
+        actions: `<label class="period-picker"><span>Periode</span><input id="ckPeriod" type="month" value="${esc(this._period)}"></label>
+          <span class="chip ${READY_CHIP[ck.readiness]}">${ck.readiness === 'READY' ? 'Siap ditutup' : ck.readiness === 'REVIEW' ? 'Perlu review' : 'Terblokir'}</span>
+          ${ck.closingStatus !== 'CLOSED' && can('closing.post') && ck.readiness !== 'BLOCKED' ? `<button class="btn primary" id="ckClose">Tutup periode</button>` : ''}`
+      }) + `
+        <section class="metrics">
+          ${kpiCard({ label: 'Lulus', value: String(ck.summary.pass), note: 'Pemeriksaan hijau', orb: 'check', orbTone: 'mint' })}
+          ${kpiCard({ label: 'Perlu perhatian', value: String(ck.summary.warn), note: 'Boleh ditutup dengan catatan', tone: ck.summary.warn ? 'warn' : '', orb: 'alert', orbTone: 'amber' })}
+          ${kpiCard({ label: 'Memblokir', value: String(ck.summary.fail), note: 'Wajib dibereskan sebelum closing', tone: ck.summary.fail ? 'warn' : 'up', orb: 'lock', orbTone: 'coral' })}
+        </section>
+        <section class="panel"><header><div><p class="eyebrow">CHECKLIST</p><h2>${ck.checks.length} pemeriksaan</h2></div>${ck.closingStatus === 'CLOSED' ? '<span class="chip gray">Periode sudah ditutup</span>' : ''}</header>
+          <div class="table-wrap"><table><thead><tr><th></th><th>Pemeriksaan</th><th>Detail</th></tr></thead>
+          <tbody>${ck.checks.map((c2) => `<tr><td><span class="chip ${ST_CHIP[c2.status]}">${ST_ICON[c2.status]} ${c2.status}</span></td><td><b>${esc(c2.name)}</b></td><td>${esc(c2.detail)}</td></tr>`).join('')}</tbody></table></div>
+          <div class="panel-body"><p class="muted">FAIL memblokir closing; WARN adalah selisih yang harus dijelaskan (mis. saldo stok legacy tanpa jurnal). Tutup periode tetap memvalidasi trial balance & dokumen menggantung di server.</p></div>
+        </section>`;
+      main.querySelector('#ckPeriod').addEventListener('change', (e) => { this._period = e.target.value; this.render(main); });
+      main.querySelector('#ckClose')?.addEventListener('click', async () => {
+        const answer = await actionDialog({ title: `Tutup periode ${this._period}`, description: 'Periode tertutup tidak menerima transaksi. Reopen membutuhkan PIN Owner.', requireReason: true, confirmLabel: 'Tutup periode' });
+        if (!answer) return;
+        try { await api('/api/accounting/period/close', { method: 'POST', body: { period: this._period, ...answer } }); invalidate(`accounting:${this._period}`); toast('Periode ditutup', this._period); this.render(main); }
+        catch (error) { toast('Closing gagal', error.message, 'coral'); }
+      });
+    }
+  };
+
   R('/finance/invoices', docListPage({ type: 'INVOICE', module: 'invoice', title: 'Invoice', eyebrow: 'KEUANGAN', statuses: ['DRAFT','WAITING_APPROVAL','APPROVED','PARTIALLY_PAID','OVERDUE','CLOSED','VOID'] }));
+  R('/finance/assets', assetsPage);
+  R('/accounting/statements', statementsPage);
+  R('/accounting/closing', closingCockpitPage);
   R('/finance/collection', collectionPage);
   R('/finance/payments', paymentPage);
   R('/finance/supplier-invoices', docListPage({ type: 'SUPPLIER_INVOICE', module: 'supplier_invoice', title: 'Tagihan supplier', eyebrow: 'KEUANGAN' }));

@@ -187,6 +187,28 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
   COMPLETED: disposisi RESTOCK menghidupkan stok + lot retur (`/R{n}`), nilai
   kredit dijurnal via posting profile `RMA-DEFAULT` (D 4110 / C 1200)
 
+## Sprint 13 — Finance: aset tetap, laporan, cockpit (R020)
+
+- `GET|POST /api/assets` — registry aset tetap (nomor FA-YYYY-####); umur
+  manfaat & akun jurnal dari `asset_categories` (configuration-driven §35)
+- `GET /api/assets/categories`
+- `POST /api/assets/depreciation/run` — penyusutan garis lurus per periode,
+  idempoten per aset per periode; satu jurnal sistem JRN-* per run
+  (D beban penyusutan / C akumulasi per kategori); aset habis umur otomatis
+  FULLY_DEPRECIATED
+- `POST /api/assets/:id/dispose` — pelepasan ber-alasan; nilai buku dihitung
+  sistem dan dijurnal otomatis (hapus perolehan + akumulasi, sisa ke 7100)
+- `GET /api/accounting/financial-statements?period=` — neraca (kumulatif s/d
+  periode; akun kontra bertanda negatif sesuai sifat kategori sehingga
+  identitas aset = kewajiban + ekuitas terjaga) + laba rugi periode
+- `GET /api/accounting/closing-cockpit?period=` — checklist siap-tutup:
+  trial balance, dokumen belum posting, rekonsiliasi bank/inventori/payroll/
+  pajak, penyusutan, subledger AR/AP, tunggakan kritis → readiness
+  READY/REVIEW/BLOCKED
+- `GET /api/accounting/subledger?type=AR|AP&period=` — outstanding per relasi
+  (dokumen terposting, alokasi reversed dikecualikan) vs saldo GL 1200/2100 +
+  selisih terukur
+
 ## Sprint 10 — Source-to-Pay completion (R017)
 
 - `GET|POST /api/procurement/budgets` — anggaran per periode (YYYY-MM) per

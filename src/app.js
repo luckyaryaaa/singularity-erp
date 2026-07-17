@@ -44,7 +44,10 @@
       ['#/finance/payments', 'Pembayaran', 'check', 'payment.view'],
       ['#/finance/supplier-invoices', 'Tagihan supplier', 'doc', 'supplier_invoice.view'],
       ['#/finance/expenses', 'Pengeluaran', 'payslip', 'expense.view'],
+      ['#/finance/assets', 'Aset tetap', 'building', 'asset.view'],
       ['#/accounting', 'Akuntansi', 'ledger', 'journal.view'],
+      ['#/accounting/statements', 'Laporan keuangan', 'chart', 'ledger.view'],
+      ['#/accounting/closing', 'Closing cockpit', 'checkCircle', 'closing.view'],
       ['#/tax', 'Perpajakan', 'tax', 'tax.view']
     ]],
     ['ORGANISASI', [

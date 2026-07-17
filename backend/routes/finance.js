@@ -5,6 +5,8 @@ const { assertPermission } = require('../core/permissions');
 const { verifyPassword } = require('../core/auth');
 const businessOps = require('../infrastructure/database/repositories/business-operations');
 const runtime = require('../infrastructure/database/repositories/runtime');
+const fixedAssets = require('../infrastructure/database/repositories/fixed-assets');
+const financeReports = require('../infrastructure/database/repositories/finance-reports');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -22,6 +24,16 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&p==='/api/accounting/period/close'){assertPermission(ctx.user,'closing.post');const body=await readBody(req),result=await businessOps.closePeriod(client,{period:body.period,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:'CLOSE_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:result,reason:body.reason||'Tutup periode',requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
   if(method==='POST'&&p==='/api/accounting/period/reopen'){assertPermission(ctx.user,'closing.edit');if(ctx.user.role!=='owner')throw new AppError('PERMISSION_DENIED','Hanya Owner yang dapat membuka kembali periode.');const body=await readBody(req),row=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!row?.owner_pin_hash||!verifyPassword(String(body.pin),row.owner_pin_hash))throw new AppError('PIN_REQUIRED');const result=await businessOps.reopenPeriod(client,{period:body.period,user:ctx.user,reason:body.reason});await runtime.audit(client,{userId:ctx.user.id,action:'REOPEN_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:result,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
   if(method==='POST'&&p==='/api/payments/allocate'){assertPermission(ctx.user,'payment.post');const body=await readBody(req),result=await businessOps.allocatePayment(client,{...body,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:'ALLOCATE_PAYMENT',module:'payment',entityType:'PAYMENT_ALLOCATION',entityId:result.allocation.id,newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  // ── Sprint 13: fixed asset, depresiasi, laporan keuangan, cockpit ─────────
+  if(method==='GET'&&p==='/api/assets'){assertPermission(ctx.user,'asset.view');return fixedAssets.listAssets(client,ctx.user,Object.fromEntries(url.searchParams));}
+  if(method==='POST'&&p==='/api/assets'){assertPermission(ctx.user,'asset.create');const body=await readBody(req);const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:'asset.create',key:req.headers['idempotency-key'],body},async()=>({status:201,body:await fixedAssets.createAsset(client,{...body,user:ctx.user,requestId:ctx.requestId})}));ctx.status=result.status;return result.body;}
+  if(method==='GET'&&p==='/api/assets/categories'){assertPermission(ctx.user,'asset.view');return fixedAssets.listCategories(client);}
+  m=p.match(/^\/api\/assets\/([0-9a-f-]{36})\/dispose$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'asset.void');const body=await readBody(req);const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`asset.dispose:${m[1]}`,key:req.headers['idempotency-key'],body},async()=>({status:200,body:await fixedAssets.disposeAsset(client,{assetId:m[1],reason:body.reason,proceeds:body.proceeds,user:ctx.user,requestId:ctx.requestId})}));ctx.status=result.status;return result.body;}
+  if(method==='POST'&&p==='/api/assets/depreciation/run'){assertPermission(ctx.user,'asset.post');const body=await readBody(req);const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`depreciation.run:${body.period}`,key:req.headers['idempotency-key'],body},async()=>({status:200,body:await fixedAssets.runDepreciation(client,{period:body.period,user:ctx.user,requestId:ctx.requestId})}));ctx.status=result.status;return result.body;}
+  if(method==='GET'&&p==='/api/accounting/financial-statements'){assertPermission(ctx.user,'ledger.view');return financeReports.financialStatements(client,url.searchParams.get('period'));}
+  if(method==='GET'&&p==='/api/accounting/closing-cockpit'){assertPermission(ctx.user,'closing.view');return financeReports.closingCockpit(client,url.searchParams.get('period'));}
+  if(method==='GET'&&p==='/api/accounting/subledger'){assertPermission(ctx.user,'ledger.view');return financeReports.subledger(client,{type:url.searchParams.get('type')||'AR',period:url.searchParams.get('period')});}
   // Sprint 10: payment reversal — kontrol kritis setara void pembayaran:
   // hanya Owner + PIN + alasan; jurnal pembalik, alokasi ditandai reversed.
   m=p.match(/^\/api\/payments\/([0-9a-f-]{36})\/reverse$/);

@@ -3,6 +3,40 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.19.0] — 2026-07-17
+
+### Added
+
+- Migration 029: asset_categories (umur manfaat + akun configuration-driven),
+  fixed_assets, asset_depreciation_entries (idempoten per aset per periode,
+  append-only), akun 1500/1590/3100/3900/6300/7100 + kategori EQUITY.
+- Aset tetap: registry FA-YYYY-#### dengan penyusutan garis lurus otomatis —
+  satu jurnal sistem JRN-* per periode (D Beban Penyusutan / C Akumulasi per
+  kategori), aset habis umur otomatis FULLY_DEPRECIATED; pelepasan ber-alasan
+  dengan nilai buku dihitung sistem dan jurnal disposal seimbang.
+- Laporan keuangan formal: neraca kumulatif dengan akun kontra bertanda
+  mengikuti sifat kategori (akumulasi penyusutan & retur penjualan negatif) —
+  identitas aset = kewajiban + ekuitas terjaga; laba rugi periode berjalan;
+  halaman Laporan Keuangan + subledger AR/AP vs GL.
+- Closing cockpit: 10 checklist kesiapan tutup buku (trial balance, dokumen
+  belum posting, rekonsiliasi bank/inventori/payroll/pajak, penyusutan,
+  subledger AR/AP, tunggakan kritis) dengan readiness READY/REVIEW/BLOCKED.
+- Halaman Aset Tetap (KPI nilai buku, daftarkan, run penyusutan, lepas aset).
+
+### Changed
+
+- ensureOpenPeriod kini menghormati payload.period untuk semua tipe dokumen —
+  jurnal manual ber-periode diposting ke periode pilihannya (sebelumnya
+  memakai tanggal pembuatan), selaras dengan ledger/closing.
+
+### Verified
+
+- 101/101 automated tests (5 tes finance baru), migrasi 029 + rollback fix
+  varchar status; UAT HTTP end-to-end: FA-2026-0001 → depresiasi 500rb
+  (48jt/96bln) → neraca balanced dgn 1590 = −500rb → cockpit BLOCKED
+  (mendeteksi 4 dokumen dev belum posting — bekerja sesuai desain) →
+  disposal nilai buku 47,5jt jurnal seimbang.
+
 ## [0.18.0] — 2026-07-17
 
 ### Added

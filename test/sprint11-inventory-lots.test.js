@@ -93,6 +93,9 @@ dbTest('opname: nomor OPN, snapshot baris, selisih → saldo + jurnal profil OPN
   await withRollback(async (c) => {
     const u = await owner(c), { wh, prod } = await fixtures(c);
     await completedDoc(c, u, 'GOODS_RECEIPT', { warehouseId: wh.id, lines: [{ productId: prod.id, description: 'A', qty: 10, unitPrice: 100, heatNumber: 'HT-OPN' }] });
+    // Defensif terhadap data dev: batalkan opname berjalan pada gudang uji
+    // (dalam transaksi rollback — tidak menyentuh data asli).
+    await c.query(`UPDATE business_documents SET status='CANCELLED' WHERE document_type='STOCK_OPNAME' AND payload->>'warehouseId'=$1 AND status IN ('DRAFT','WAITING_APPROVAL','REVISION_REQUIRED')`, [wh.id]);
     const op = await inv.createOpname(c, { user: u, warehouseId: wh.id, requestId: randomUUID() });
     assert.match(op.documentNumber, /^OPN-/);
     const lines = await inv.opnameLines(c, op.id);
@@ -127,6 +130,7 @@ dbTest('opname: hitung hanya boleh saat DRAFT/REVISION; gudang dengan opname ber
   await withRollback(async (c) => {
     const u = await owner(c), { wh, prod } = await fixtures(c);
     await completedDoc(c, u, 'GOODS_RECEIPT', { warehouseId: wh.id, lines: [{ productId: prod.id, description: 'A', qty: 4, unitPrice: 100 }] });
+    await c.query(`UPDATE business_documents SET status='CANCELLED' WHERE document_type='STOCK_OPNAME' AND payload->>'warehouseId'=$1 AND status IN ('DRAFT','WAITING_APPROVAL','REVISION_REQUIRED')`, [wh.id]);
     const op = await inv.createOpname(c, { user: u, warehouseId: wh.id, requestId: randomUUID() });
     await assert.rejects(() => inv.createOpname(c, { user: u, warehouseId: wh.id, requestId: randomUUID() }), (e) => e.code === 'DOCUMENT_CONFLICT');
     await c.query(`UPDATE business_documents SET status='WAITING_APPROVAL' WHERE id=$1`, [op.id]);

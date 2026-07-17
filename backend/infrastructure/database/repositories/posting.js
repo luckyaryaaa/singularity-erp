@@ -64,7 +64,10 @@ async function postInventory(client,doc,user){
 }
 // Status pemicu posting per tipe; AKUN ditentukan posting_profiles (bukan hardcoded).
 const POSTING_TRIGGER={INVOICE:'APPROVED',CUSTOMER_PAYMENT:'CLOSED',SUPPLIER_INVOICE:'APPROVED',SUPPLIER_PAYMENT:'CLOSED',EXPENSE:'CLOSED'};
-async function ensureOpenPeriod(client,doc){const stamp=doc.documentType==='PAYROLL_RUN'&&doc.payload?.period?`${doc.payload.period}-01`:doc.createdAt instanceof Date?doc.createdAt.toISOString():String(doc.createdAt||new Date().toISOString()),period=stamp.slice(0,7);await client.query(`INSERT INTO accounting_periods(id,period,status) VALUES($1,$2,'OPEN') ON CONFLICT(period) DO NOTHING`,[randomUUID(),period]);const p=(await client.query('SELECT status FROM accounting_periods WHERE period=$1 FOR UPDATE',[period])).rows[0];if(p.status!=='OPEN')throw new AppError('STATUS_INVALID',`Periode ${period} sudah ditutup.`);return period;}
+// Periode posting: payload.period bila dokumen menyatakannya (payroll, jurnal
+// manual ber-periode, run penyusutan) — selaras dengan ledger/closing yang
+// memakai COALESCE(payload.period, created_at); selain itu tanggal dokumen.
+async function ensureOpenPeriod(client,doc){const stamp=/^\d{4}-\d{2}$/.test(String(doc.payload?.period||''))?`${doc.payload.period}-01`:doc.createdAt instanceof Date?doc.createdAt.toISOString():String(doc.createdAt||new Date().toISOString()),period=stamp.slice(0,7);await client.query(`INSERT INTO accounting_periods(id,period,status) VALUES($1,$2,'OPEN') ON CONFLICT(period) DO NOTHING`,[randomUUID(),period]);const p=(await client.query('SELECT status FROM accounting_periods WHERE period=$1 FOR UPDATE',[period])).rows[0];if(p.status!=='OPEN')throw new AppError('STATUS_INVALID',`Periode ${period} sudah ditutup.`);return period;}
 async function accountMap(client,codes){return(await client.query('SELECT id,code FROM chart_of_accounts WHERE code=ANY($1) AND active',[codes])).rows.reduce((o,r)=>(o[r.code]=r.id,o),{});}
 // Bangun & simpan jurnal dari posting profile (configuration-driven §18.2).
 // amounts = peta amount_source → nilai (mis. {AMOUNT, NET, TAX, BPJS_COMPANY}).
