@@ -3,11 +3,24 @@ const { readBody } = require('../core/util');
 const { assertPermission } = require('../core/permissions');
 const businessOps = require('../infrastructure/database/repositories/business-operations');
 const runtime = require('../infrastructure/database/repositories/runtime');
+const hrOps = require('../infrastructure/database/repositories/hr-operations');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
   const p=url.pathname, method=req.method;
   let m;
+  const idempotent=async(operation,body,status,execute)=>{const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation,key:req.headers['idempotency-key'],body},async()=>({status,body:await execute()}));ctx.status=result.status;return result.body;};
+  // ── Sprint 14: shift/roster, kalender kerja, koreksi absensi, akrual cuti ──
+  if(method==='GET'&&p==='/api/hr/shifts'){assertPermission(ctx.user,'attendance.view');return hrOps.listShifts(client);}
+  if(method==='GET'&&p==='/api/hr/roster'){assertPermission(ctx.user,'attendance.view');return hrOps.listRoster(client,Object.fromEntries(url.searchParams));}
+  if(method==='POST'&&p==='/api/hr/roster'){assertPermission(ctx.user,'attendance.edit');const body=await readBody(req);return idempotent('hr.roster.assign',body,200,()=>hrOps.assignRoster(client,{assignments:body.assignments,user:ctx.user,requestId:ctx.requestId}));}
+  if(method==='GET'&&p==='/api/hr/calendar'){assertPermission(ctx.user,'attendance.view');return hrOps.listHolidays(client,Object.fromEntries(url.searchParams));}
+  if(method==='POST'&&p==='/api/hr/calendar'){assertPermission(ctx.user,'attendance.edit');const body=await readBody(req);ctx.status=201;return hrOps.upsertHoliday(client,{...body,user:ctx.user,requestId:ctx.requestId});}
+  if(method==='GET'&&p==='/api/hr/corrections'){assertPermission(ctx.user,'attendance.view');return hrOps.listCorrections(client,ctx.user,Object.fromEntries(url.searchParams));}
+  if(method==='POST'&&p==='/api/hr/corrections'){assertPermission(ctx.user,ctx.user.role==='employee'?'attendance.create':'attendance.edit');const body=await readBody(req);if(ctx.user.role==='employee')body.employeeId=ctx.user.employeeId;return idempotent('hr.correction.request',body,201,()=>hrOps.requestCorrection(client,{...body,user:ctx.user,requestId:ctx.requestId}));}
+  m=p.match(/^\/api\/hr\/corrections\/([0-9a-f-]{36})\/(approve|reject)$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'attendance.approve');const body=await readBody(req);return idempotent(`hr.correction.decide:${m[1]}`,body,200,()=>hrOps.decideCorrection(client,{correctionId:m[1],decision:m[2]==='approve'?'APPROVED':'REJECTED',reason:body.reason,user:ctx.user,requestId:ctx.requestId}));}
+  if(method==='POST'&&p==='/api/hr/leave-accrual/run'){assertPermission(ctx.user,'leave.post');const body=await readBody(req);return idempotent(`hr.leave.accrual:${body.period}`,body,200,()=>hrOps.runLeaveAccrual(client,{period:body.period,user:ctx.user,requestId:ctx.requestId}));}
   if(method==='GET'&&p==='/api/hr/attendance'){assertPermission(ctx.user,'attendance.view');return businessOps.attendance(client,{...Object.fromEntries(url.searchParams),user:ctx.user});}
   if(method==='POST'&&p==='/api/hr/attendance'){assertPermission(ctx.user,ctx.user.role==='employee'?'attendance.create':'attendance.edit');const body=await readBody(req);if(ctx.user.role==='employee')body.employeeId=ctx.user.employeeId;const result=await businessOps.upsertAttendance(client,{...body,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:'UPSERT_ATTENDANCE',module:'attendance',entityType:'ATTENDANCE',entityId:result.id,newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return result;}
   if(method==='GET'&&p==='/api/hr/leave-balances'){assertPermission(ctx.user,'leave.view');return{items:await businessOps.leaveBalances(client,{...Object.fromEntries(url.searchParams),user:ctx.user})};}

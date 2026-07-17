@@ -65,7 +65,120 @@
       { label: 'Bergabung', render: (r) => fmtDate(r.joinDate) }
     ]
   }));
+  // ── Workforce: shift/roster, kalender kerja, koreksi absensi (Sprint 14) ──
+  const workforcePage = {
+    permission: 'attendance.view',
+    async render(main) {
+      this._period = this._period || new Date().toISOString().slice(0, 7);
+      const [shifts, roster, calendar, corrections] = await Promise.all([
+        api('/api/hr/shifts'), api(`/api/hr/roster?period=${this._period}`),
+        api(`/api/hr/calendar?year=${this._period.slice(0, 4)}`), api('/api/hr/corrections?status=PENDING')
+      ]);
+      const CO_CHIP = { PENDING: 'amber', APPROVED: 'mint', REJECTED: 'coral' };
+      main.innerHTML = pageHead({
+        eyebrow: 'HRD', title: 'Workforce: shift, kalender & koreksi', sub: 'Jam standar lembur payroll mengikuti shift roster (default NORMAL); durasi cuti mengikuti kalender kerja.',
+        actions: `<label class="period-picker"><span>Periode</span><input id="wfPeriod" type="month" value="${esc(this._period)}"></label>
+          ${can('attendance.edit') ? `<button class="btn secondary" id="wfHoliday">${ICONS.plus} Hari libur</button><button class="btn primary" id="wfRoster">${ICONS.plus} Tetapkan roster</button>` : ''}`
+      }) + `
+        <section class="metrics">
+          ${shifts.items.slice(0, 4).map((s) => kpiCard({ label: `${s.code}${s.isDefault ? ' (default)' : ''}`, value: `${s.effectiveHours} jam`, note: `${String(s.startTime).slice(0, 5)}–${String(s.endTime).slice(0, 5)} · istirahat ${s.breakMinutes}m`, orb: 'clock', orbTone: s.isDefault ? 'mint' : 'blue' })).join('')}
+        </section>
+        <section class="dashboard-grid">
+          <article class="panel"><header><div><p class="eyebrow">ROSTER ${esc(this._period)}</p><h2>${roster.items.length} penetapan shift</h2></div></header>
+            <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Karyawan</th><th>Shift</th><th class="right">Jam efektif</th></tr></thead>
+            <tbody>${roster.items.slice(0, 50).map((r) => `<tr><td>${fmtDate(r.workDate)}</td><td><b>${esc(r.employeeName)}</b><small>${esc(r.nik)}</small></td><td><span class="chip blue">${esc(r.shiftCode)}</span> ${esc(r.shiftName)}</td><td class="right">${r.effectiveHours} j</td></tr>`).join('') || '<tr><td colspan="4" class="table-loading">Tanpa roster — semua memakai shift default.</td></tr>'}</tbody></table></div>
+          </article>
+          <article class="panel"><header><div><p class="eyebrow">KALENDER ${esc(calendar.year)}</p><h2>${calendar.items.length} hari libur</h2></div><span class="chip gray">Akhir pekan: ${calendar.weekendDays.map((d2) => ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][d2]).join(' & ')}</span></header>
+            <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Cakupan</th></tr></thead>
+            <tbody>${calendar.items.map((h) => `<tr><td><b>${fmtDate(h.holidayDate)}</b></td><td>${esc(h.name)}</td><td>${esc(h.branchName || 'Nasional')}</td></tr>`).join('') || '<tr><td colspan="3" class="table-loading">Belum ada hari libur terdaftar.</td></tr>'}</tbody></table></div>
+          </article>
+        </section>
+        <section class="panel"><header><div><p class="eyebrow">KOREKSI ABSENSI</p><h2>${corrections.items.length} menunggu keputusan</h2></div>${can('attendance.create') ? `<button class="btn secondary" id="wfCorrect">${ICONS.plus} Ajukan koreksi</button>` : ''}</header>
+          <div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Lama → Usulan</th><th>Alasan</th><th>Pemohon</th><th>Status</th><th></th></tr></thead>
+          <tbody>${corrections.items.map((r) => `<tr><td><b>${esc(r.employeeName)}</b><small>${esc(r.nik)}</small></td><td>${fmtDate(r.workDate)}</td>
+            <td><span class="chip gray">${esc(r.oldValue?.status || '—')}</span> → <span class="chip blue">${esc(r.proposed?.status || 'jam')}</span></td>
+            <td>${esc(r.reason)}</td><td>${esc(r.requestedByName || '—')}</td>
+            <td><span class="chip ${CO_CHIP[r.status]}">${esc(r.status)}</span></td>
+            <td>${r.status === 'PENDING' && can('attendance.approve') ? `<div class="row-actions"><button class="btn primary sm" data-codec="${r.id}" data-dec="approve">Setujui</button><button class="btn danger-outline sm" data-codec="${r.id}" data-dec="reject">Tolak</button></div>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="table-loading">Tidak ada koreksi menunggu.</td></tr>'}</tbody></table></div>
+          <div class="panel-body"><p class="muted">SoD: pemohon tidak dapat memutus koreksinya sendiri (ditegakkan sampai constraint database). Nilai lama dibekukan permanen; hasil approve tercatat source CORRECTION.</p></div>
+        </section>`;
+      main.querySelector('#wfPeriod').addEventListener('change', (e) => { this._period = e.target.value; this.render(main); });
+      main.querySelector('#wfRoster')?.addEventListener('click', async () => {
+        try {
+          const employees = await api('/api/employees?limit=200');
+          const value = await formDialog({ title: 'Tetapkan roster', description: 'Shift menentukan jam standar lembur payroll pada tanggal tersebut.', fields: [
+            { name: 'employeeId', label: 'Karyawan', type: 'select', options: employees.items.map((e2) => [e2.id, `${e2.nik} · ${e2.name}`]), required: true },
+            { name: 'workDate', label: 'Tanggal (YYYY-MM-DD)', required: true },
+            { name: 'shiftId', label: 'Shift', type: 'select', options: shifts.items.map((s2) => [s2.id, `${s2.code} · ${s2.effectiveHours} jam`]), required: true }
+          ], submitLabel: 'Tetapkan' });
+          if (!value) return;
+          await api('/api/hr/roster', { method: 'POST', idempotencyKey: newIdemKey(), body: { assignments: [value] } });
+          toast('Roster ditetapkan', ''); this.render(main);
+        } catch (error) { toast('Gagal menetapkan roster', error.message, 'coral'); }
+      });
+      main.querySelector('#wfHoliday')?.addEventListener('click', async () => {
+        const value = await formDialog({ title: 'Tambah hari libur', description: 'Hari libur dilewati saat menghitung durasi cuti.', fields: [
+          { name: 'holidayDate', label: 'Tanggal (YYYY-MM-DD)', required: true },
+          { name: 'name', label: 'Keterangan', required: true }
+        ], submitLabel: 'Simpan' });
+        if (!value) return;
+        try { await api('/api/hr/calendar', { method: 'POST', idempotencyKey: newIdemKey(), body: value }); toast('Hari libur tersimpan', ''); this.render(main); }
+        catch (error) { toast('Gagal menyimpan', error.message, 'coral'); }
+      });
+      main.querySelector('#wfCorrect')?.addEventListener('click', async () => {
+        try {
+          const employees = await api('/api/employees?limit=200');
+          const value = await formDialog({ title: 'Ajukan koreksi absensi', description: 'Nilai lama dibekukan; perubahan berlaku setelah disetujui pemutus berbeda.', fields: [
+            { name: 'employeeId', label: 'Karyawan', type: 'select', options: employees.items.map((e2) => [e2.id, `${e2.nik} · ${e2.name}`]), required: true },
+            { name: 'workDate', label: 'Tanggal (YYYY-MM-DD)', required: true },
+            { name: 'status', label: 'Status usulan', type: 'select', options: [['', '— tidak diubah —'], ['PRESENT', 'Hadir'], ['LATE', 'Terlambat'], ['ABSENT', 'Absen'], ['LEAVE', 'Cuti'], ['SICK', 'Sakit'], ['REMOTE', 'Remote']] },
+            { name: 'checkIn', label: 'Jam masuk usulan (opsional, ISO)' },
+            { name: 'checkOut', label: 'Jam pulang usulan (opsional, ISO)' },
+            { name: 'reason', label: 'Alasan koreksi', type: 'textarea', required: true }
+          ], submitLabel: 'Ajukan koreksi' });
+          if (!value) return;
+          await api('/api/hr/corrections', { method: 'POST', idempotencyKey: newIdemKey(), body: { employeeId: value.employeeId, workDate: value.workDate, reason: value.reason, proposed: { status: value.status || null, checkIn: value.checkIn || null, checkOut: value.checkOut || null } } });
+          toast('Koreksi diajukan', 'Menunggu keputusan pemutus berbeda (SoD).'); this.render(main);
+        } catch (error) { toast('Gagal mengajukan', error.message, 'coral'); }
+      });
+      main.querySelectorAll('[data-codec]').forEach((b) => b.addEventListener('click', async () => {
+        const approve = b.dataset.dec === 'approve';
+        const answer = await actionDialog({ title: approve ? 'Setujui koreksi' : 'Tolak koreksi', description: approve ? 'Absensi diperbarui dengan source CORRECTION.' : 'Koreksi ditolak; absensi tidak berubah.', requireReason: true, confirmLabel: approve ? 'Setujui' : 'Tolak', danger: !approve });
+        if (!answer) return;
+        try { await api(`/api/hr/corrections/${b.dataset.codec}/${b.dataset.dec}`, { method: 'POST', idempotencyKey: newIdemKey(), body: answer }); toast(approve ? 'Koreksi disetujui' : 'Koreksi ditolak', ''); this.render(main); }
+        catch (error) { toast('Gagal memutus', error.message, 'coral'); }
+      }));
+    }
+  };
+
   R('/hr/attendance', attendancePage);
-  R('/hr/leave', docListPage({ type: 'LEAVE_REQUEST', module: 'leave', title: 'Pengajuan cuti', eyebrow: 'HRD' }));
+  R('/hr/workforce', workforcePage);
+  R('/hr/leave', docListPage({
+    type: 'LEAVE_REQUEST', module: 'leave', title: 'Pengajuan cuti', eyebrow: 'HRD',
+    createLabel: 'Ajukan cuti',
+    columns: [
+      { label: 'Dokumen', render: docCell },
+      { label: 'Rentang', render: (r) => r.payload && r.payload.startDate ? `${fmtDate(r.payload.startDate)} — ${fmtDate(r.payload.endDate)}` : '—' },
+      { label: 'Hari kerja', render: (r) => r.payload && r.payload.leaveApplied ? `<span class="chip mint">${r.payload.leaveApplied.days} hari terpotong</span>` : '—' },
+      { label: 'Status', render: (r) => chip(r.status) },
+      { label: 'Diperbarui', render: (r) => relTime(r.updatedAt) }
+    ],
+    onCreate: async (reload) => {
+      try {
+        const [employees, balances] = await Promise.all([api('/api/employees?limit=200'), api('/api/hr/leave-balances').catch(() => ({ length: 0 }))]);
+        const value = await formDialog({ title: 'Ajukan cuti', description: 'Durasi dihitung dari HARI KERJA (akhir pekan & libur dilewati); saldo divalidasi saat pengajuan dan terpotong saat disetujui penuh.', fields: [
+          { name: 'employeeId', label: 'Karyawan', type: 'select', options: employees.items.map((e2) => [e2.id, `${e2.nik} · ${e2.name}`]), required: true },
+          { name: 'startDate', label: 'Mulai (YYYY-MM-DD)', required: true },
+          { name: 'endDate', label: 'Selesai (YYYY-MM-DD)', required: true },
+          { name: 'title', label: 'Keterangan', required: true }
+        ], submitLabel: 'Buat & ajukan' });
+        if (!value) return;
+        const doc = await api('/api/documents', { method: 'POST', idempotencyKey: newIdemKey(), body: { type: 'LEAVE_REQUEST', title: value.title, amount: 0, payload: { employeeId: value.employeeId, startDate: value.startDate, endDate: value.endDate } } });
+        await api(`/api/documents/${doc.id}/action`, { method: 'POST', idempotencyKey: newIdemKey(), body: { action: 'submit' } });
+        toast(`${doc.documentNumber} diajukan`, 'Saldo tervalidasi — menunggu persetujuan.');
+        if (reload) reload();
+      } catch (error) { toast('Pengajuan cuti gagal', error.message, 'coral'); }
+    }
+  }));
   R('/payroll', payrollPage);
 })();

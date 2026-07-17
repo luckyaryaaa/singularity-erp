@@ -187,6 +187,24 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
   COMPLETED: disposisi RESTOCK menghidupkan stok + lot retur (`/R{n}`), nilai
   kredit dijurnal via posting profile `RMA-DEFAULT` (D 4110 / C 1200)
 
+## Sprint 14 — HR: shift, kalender, koreksi, akrual cuti (R021)
+
+- `GET /api/hr/shifts` — shift configuration-driven; jam standar lembur
+  payroll mengikuti shift roster per tanggal (default NORMAL 8 jam efektif)
+- `GET|POST /api/hr/roster` — penetapan shift massal per karyawan per hari
+- `GET|POST /api/hr/calendar` — hari libur (global/cabang) + aturan akhir
+  pekan dari hr_calendar_config
+- `GET|POST /api/hr/corrections` — koreksi absensi ber-workflow: nilai lama
+  dibekukan; karyawan hanya boleh mengoreksi absensinya sendiri
+- `POST /api/hr/corrections/:id/{approve|reject}` — pemutus ≠ pemohon (SoD,
+  CHECK database); approve menulis attendance source=CORRECTION
+- `POST /api/hr/leave-accrual/run` — akrual cuti bulanan dari leave_policies
+  (days_per_year/12; masa kerja ≥ min_service_months), idempoten per
+  karyawan per periode, jejak append-only
+- `LEAVE_REQUEST`: submit memvalidasi payload.startDate/endDate + saldo
+  (durasi = HARI KERJA dari kalender); approve penuh memotong saldo
+  (idempoten, tercatat payload.leaveApplied)
+
 ## Sprint 13 — Finance: aset tetap, laporan, cockpit (R020)
 
 - `GET|POST /api/assets` — registry aset tetap (nomor FA-YYYY-####); umur

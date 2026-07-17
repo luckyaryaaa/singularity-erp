@@ -33,6 +33,7 @@
 | `027_o2c_completion.sql` | quotation_revisions immutable (snapshot per revisi), dunning_policies effective-dated + dunning_notices idempoten per invoice per level, products.warranty_months, akun 4110 + posting profile RMA-DEFAULT |
 | `028_s2p_completion.sql` | procurement_budgets per periode/cabang, rfq_quote_lines (total server-side), po_change_orders maker-checker (CHECK pemohon≠pemutus, satu PENDING per PO), kolom reversal payment_allocations |
 | `029_fixed_assets_statements.sql` | asset_categories configuration-driven (umur+akun), fixed_assets (FA-*, disposal ber-jurnal), asset_depreciation_entries idempoten append-only, COA 1500/1590/3100/3900/6300/7100 (fondasi neraca + EQUITY) |
+| `030_hr_shift_calendar_leave.sql` | work_shifts (default NORMAL 8j — jam lembur payroll tidak lagi hardcode) + employee_rosters, work_calendar + hr_calendar_config (akhir pekan), attendance_corrections maker-checker (CHECK pemohon≠pemutus), leave_policies + leave_accrual_entries append-only |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.

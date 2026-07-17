@@ -54,6 +54,7 @@
       ['#/organization', 'Struktur perusahaan', 'building', 'organization.view'],
       ['#/hr/employees', 'Karyawan', 'people', 'employee.view'],
       ['#/hr/attendance', 'Kehadiran', 'clock', 'attendance.view'],
+      ['#/hr/workforce', 'Shift & kalender', 'gear', 'attendance.view'],
       ['#/hr/leave', 'Cuti', 'clock', 'leave.view'],
       ['#/payroll', 'Payroll', 'payslip', 'payroll.view|payroll.view_self'],
       ['#/reports', 'Laporan', 'chart', 'report.view']

@@ -3,6 +3,37 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.20.0] — 2026-07-17
+
+### Added
+
+- Migration 030: work_shifts + employee_rosters, work_calendar +
+  hr_calendar_config, attendance_corrections (CHECK pemohon ≠ pemutus, satu
+  PENDING per karyawan per tanggal), leave_policies + leave_accrual_entries
+  append-only.
+- Shift & roster: jam standar lembur payroll kini mengikuti shift roster per
+  tanggal (fallback shift default NORMAL 8 jam efektif — parity angka lama);
+  mengubah shift mengubah lembur (configuration-driven, hardcode 8 jam
+  dihapus).
+- Kalender kerja: hari libur global/cabang + aturan akhir pekan; durasi cuti
+  dihitung dari hari kerja.
+- Koreksi absensi ber-workflow: nilai lama dibekukan permanen, karyawan hanya
+  boleh mengoreksi miliknya, pemutus berbeda (SoD), hasil approve tercatat
+  source CORRECTION.
+- Leave accrual engine: akrual bulanan days_per_year/12 untuk karyawan dengan
+  masa kerja ≥ minimum, idempoten per periode, kebijakan effective-dated.
+- LEAVE_REQUEST terintegrasi: submit memvalidasi rentang + saldo (hari
+  kerja); approve penuh memotong saldo idempoten (payload.leaveApplied).
+- Halaman Workforce (shift, roster, kalender, koreksi) + dialog Ajukan Cuti
+  bertanggal + kolom rentang/pemotongan di daftar cuti.
+
+### Verified
+
+- 106/106 automated tests (5 tes HR baru); UAT HTTP end-to-end: roster
+  SIANG, HUT RI, koreksi PENDING + self-decide 409 SOD_CONFLICT, akrual 10
+  karyawan × 1 hari, cuti 27–29 Jul tervalidasi → APPROVED → leaveApplied
+  3 hari kerja.
+
 ## [0.19.0] — 2026-07-17
 
 ### Added

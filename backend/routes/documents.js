@@ -11,6 +11,7 @@ const procurement = require('../infrastructure/database/repositories/procurement
 const governance = require('../infrastructure/database/repositories/governance');
 const production = require('../infrastructure/database/repositories/production');
 const operations = require('../infrastructure/database/repositories/operations');
+const hrOps = require('../infrastructure/database/repositories/hr-operations');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -41,10 +42,15 @@ async function dispatch(client, req, url, ctx) {
     // R017 three-way match: tagihan supplier tidak boleh disetujui bila selisih
     // PO/GR/invoice melampaui toleransi, kecuali override ber-alasan.
     if(body.action==='approve'&&current.documentType==='SUPPLIER_INVOICE'){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertMatchOk(client,raw,{overrideReason:body.matchOverrideReason,user:ctx.user});}
+    // Sprint 14: cuti wajib rentang tanggal valid & saldo cukup (durasi = hari
+    // kerja dari kalender; akhir pekan/libur dilewati).
+    if(body.action==='submit'&&current.documentType==='LEAVE_REQUEST'){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await hrOps.assertLeaveOk(client,raw);}
     let allowOwnerOverride=false;if(body.action==='approve'&&current.createdBy===ctx.user.id){if(ctx.user.role!=='owner')throw new AppError('SOD_CONFLICT','Pembuat dokumen tidak boleh menjadi approver.');if(!body.reason)throw new AppError('REASON_REQUIRED');const pinRow=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!pinRow?.owner_pin_hash||!verifyPassword(String(body.pin),pinRow.owner_pin_hash))throw new AppError('PIN_REQUIRED');await governance.createOverride(client,{targetUserId:ctx.user.id,permissionCode:'approval.approve',scopeType:'BRANCH',scopeId:current.branchId,hours:1,reason:`SoD document override ${current.documentNumber}: ${body.reason}`,user:ctx.user});allowOwnerOverride=true;}
     const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`documents.${body.action}:${current.id}`,key:req.headers['idempotency-key'],body},async()=>{if(body.action==='complete'&&current.documentType==='WORK_ORDER')await production.assertReadyToComplete(client,current.id);const updated=await runtime.transitionDocument(client,{id:current.id,action:body.action,user:ctx.user,reason:body.reason,requestId:ctx.requestId,allowOwnerOverride});await posting.postDocument(client,updated,ctx.user);if(body.action==='approve'&&['INVOICE','SUPPLIER_INVOICE','PAYROLL_RUN'].includes(updated.documentType))await businessOps.syncTaxes(client,updated.documentType==='PAYROLL_RUN'?updated.payload?.period:undefined);
       // Sprint 12: WO dibatalkan/void → lepas seluruh sisa reservasi materialnya.
       if(['cancel','void'].includes(body.action)&&updated.documentType==='WORK_ORDER')await production.releaseReservations(client,updated.id,ctx.user);
+      // Sprint 14: cuti disetujui penuh → saldo terpotong sesuai hari kerja (idempoten).
+      if(body.action==='approve'&&updated.documentType==='LEAVE_REQUEST'&&updated.status==='APPROVED')await hrOps.onLeaveApproved(client,updated,ctx.user);
       return{status:200,body:updated};});
     if(['approve','reject','revise'].includes(body.action))await operations.notify(client,{userId:current.createdBy,category:body.action==='approve'?'SUCCESS':'ACTION_REQUIRED',title:`${current.documentNumber} diperbarui`,body:body.reason||`Oleh ${ctx.user.displayName}.`,link:`#/doc/${current.id}`,dedupeKey:`act:${current.id}:${result.body.version}`});return result.body;
   }
