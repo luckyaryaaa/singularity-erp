@@ -187,6 +187,24 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
   COMPLETED: disposisi RESTOCK menghidupkan stok + lot retur (`/R{n}`), nilai
   kredit dijurnal via posting profile `RMA-DEFAULT` (D 4110 / C 1200)
 
+## Sprint 15 — Document engine & integrasi (R022)
+
+- `GET /api/openapi.json` — spesifikasi OpenAPI 3.0.3 (publik); setiap respons
+  API menyertakan header `X-API-Version`
+- `GET /api/system/events-catalog` — katalog event domain outbox (publik)
+- `GET /api/documents/:id/official-pdf` — cetak dokumen resmi ber-identitas:
+  kop dari `organization_identity_snapshot` (immutable — identitas saat
+  terbit), tabel baris, terbilang, blok tanda tangan penandatangan aktif,
+  dan kode verifikasi keaslian (teraudit EXPORT)
+- `GET /api/verify?doc=&code=` — verifikasi keaslian publik (rate-limited):
+  kode HMAC-SHA256 dicocokkan ke nomor dokumen; valid → metadata minimal
+  non-sensitif
+- `POST /api/documents/:id/email` — kirim ringkasan dokumen + kode verifikasi
+  via SMTP (env `MAT_SMTP_*`; tanpa host = SKIPPED aman); setiap percobaan
+  tercatat di `notification_deliveries`
+- Job `NOTIFICATION_SEND` dengan `params.email` kini benar-benar mengirim
+  lewat SMTP (STARTTLS/implicit TLS, AUTH LOGIN, tanpa dependensi)
+
 ## Sprint 14 — HR: shift, kalender, koreksi, akrual cuti (R021)
 
 - `GET /api/hr/shifts` — shift configuration-driven; jam standar lembur

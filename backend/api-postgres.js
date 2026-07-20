@@ -19,7 +19,8 @@ const domainRoutes = [
   require('./routes/inventory'), require('./routes/production'), require('./routes/finance'),
   require('./routes/hr'), require('./routes/governance')
 ];
-const json=(res,status,body,headers={})=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...headers});res.end(JSON.stringify(body));};
+const openapi=require('./core/openapi');
+const json=(res,status,body,headers={})=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-API-Version':openapi.API_VERSION,...headers});res.end(JSON.stringify(body));};
 const originAllowed=(req,ctx)=>!req.headers.origin||req.headers.origin===`${ctx.protocol}://${ctx.host}`;
 async function loginTransaction(work){const client=await getPool().connect();try{await client.query('BEGIN');try{const value=await work(client);await client.query('COMMIT');return value;}catch(error){if(error instanceof AppError&&['AUTH_FAILED','ACCOUNT_LOCKED'].includes(error.code))await client.query('COMMIT');else await client.query('ROLLBACK');throw error;}}finally{client.release();}}
 async function dispatch(client,req,url,ctx){
@@ -40,6 +41,9 @@ async function handle(req,res){const started=Date.now(),requestId=randomUUID(),u
     if(req.method==='GET'&&url.pathname==='/api/live'){
       return json(res,200,{ok:true,uptimeSeconds:Math.round(process.uptime()),at:new Date().toISOString()},{'X-Request-Id':requestId});
     }
+    // Sprint 15: spesifikasi API & katalog event — publik, tanpa DB.
+    if(req.method==='GET'&&url.pathname==='/api/openapi.json'){return json(res,200,openapi.spec(req.headers.host||'localhost'),{'X-Request-Id':requestId});}
+    if(req.method==='GET'&&url.pathname==='/api/system/events-catalog'){return json(res,200,openapi.eventsCatalog(),{'X-Request-Id':requestId});}
     // Readiness/health: termasuk cek database — dipakai uptime monitor & load balancer.
     if(req.method==='GET'&&url.pathname==='/api/health'){
       ratelimit.consume('read',`health:${ctx.ip}`);

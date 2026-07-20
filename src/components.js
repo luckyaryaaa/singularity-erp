@@ -224,6 +224,8 @@
       ${trail ? `<div class="drawer-section"><h3>Jejak audit</h3><div class="timeline">${trail}</div></div>` : ''}
       <div class="drawer-actions">
         <a class="btn secondary" href="#/doc/${esc(doc.id)}">Detail lengkap</a>
+        <a class="btn secondary" id="drawerPdf" href="/api/documents/${esc(doc.id)}/official-pdf" target="_blank" rel="noopener">${ICONS.doc} Cetak resmi</a>
+        <button class="btn secondary" id="drawerEmail">${ICONS.inbox} Email</button>
         ${conversionButtonFor(doc,true)}
         ${actionButtonsFor(doc, moduleCode, true)}
       </div>`;
@@ -235,6 +237,20 @@
       }));
     });
     const convert=content.querySelector('[data-doc-convert]');if(convert)convert.addEventListener('click',()=>runDocConversion(doc,()=>{closeLayers();if(onChange)onChange();}));
+    // Sprint 15: kirim dokumen resmi via email (SMTP; SKIPPED aman bila belum
+    // dikonfigurasi) — kode verifikasi keaslian ikut dalam badan email.
+    content.querySelector('#drawerEmail')?.addEventListener('click', async () => {
+      const value = await formDialog({ title: `Kirim ${doc.documentNumber} via email`, description: 'Isi email berisi ringkasan dokumen + kode verifikasi keaslian. Butuh konfigurasi MAT_SMTP_* di server.', fields: [
+        { name: 'to', label: 'Email tujuan', required: true },
+        { name: 'subject', label: 'Subjek (opsional)' },
+        { name: 'message', label: 'Pesan pembuka (opsional)', type: 'textarea' }
+      ], submitLabel: 'Kirim email' });
+      if (!value) return;
+      try {
+        const r = await api(`/api/documents/${doc.id}/email`, { method: 'POST', body: value });
+        toast(r.status === 'SENT' ? 'Email terkirim' : 'Email dilewati', `${r.message} Kode verifikasi: ${r.verifyCode}`, r.status === 'SENT' ? undefined : 'coral');
+      } catch (error) { toast('Gagal mengirim email', error.message, 'coral'); }
+    });
   }
 
   function closeLayers() {

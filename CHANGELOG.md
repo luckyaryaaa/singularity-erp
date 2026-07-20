@@ -3,6 +3,35 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.21.0] — 2026-07-17
+
+### Added
+
+- Template dokumen resmi ber-identitas (`GET /api/documents/:id/official-pdf`):
+  kop perusahaan dari organization_identity_snapshot (immutable — identitas
+  saat terbit), tabel baris, terbilang Bahasa Indonesia, blok tanda tangan
+  penandatangan aktif, footer, dan kode verifikasi keaslian; tanpa dependensi
+  eksternal; unduhan teraudit EXPORT.
+- Verifikasi keaslian publik (`GET /api/verify?doc=&code=`): kode HMAC-SHA256
+  12 karakter dicetak pada dokumen; endpoint rate-limited memaparkan metadata
+  minimal non-sensitif bila cocok, menolak kode palsu.
+- SMTP zero-dependency (node:net/tls): STARTTLS & implicit TLS, AUTH LOGIN,
+  dot-stuffing; tanpa MAT_SMTP_HOST menjadi no-op SKIPPED aman; kirim dokumen
+  via `POST /api/documents/:id/email` dan job NOTIFICATION_SEND; setiap
+  percobaan tercatat di notification_deliveries.
+- OpenAPI 3.0.3 (`GET /api/openapi.json`, 47 path terkurasi, publik) + header
+  `X-API-Version` pada setiap respons + katalog event domain
+  (`GET /api/system/events-catalog`, 10 event).
+- Tombol "Cetak resmi" + "Email" pada drawer dokumen; template .env.example
+  MAT_SMTP_* dan MAT_DOC_VERIFY_SECRET.
+
+### Verified
+
+- 111/111 automated tests (5 tes document engine baru: terbilang, kode HMAC,
+  render PDF 8 unsur, OpenAPI, SMTP no-op); UAT HTTP end-to-end: openapi 47
+  paths + X-API-Version 1.0, PDF resmi application/pdf dgn kode tercetak,
+  verify kode benar → valid / palsu → ditolak, email SKIPPED aman tercatat.
+
 ## [0.20.0] — 2026-07-17
 
 ### Added

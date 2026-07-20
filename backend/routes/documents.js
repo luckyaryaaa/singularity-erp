@@ -12,6 +12,8 @@ const governance = require('../infrastructure/database/repositories/governance')
 const production = require('../infrastructure/database/repositories/production');
 const operations = require('../infrastructure/database/repositories/operations');
 const hrOps = require('../infrastructure/database/repositories/hr-operations');
+const docRender = require('../infrastructure/files/document-render');
+const smtp = require('../infrastructure/smtp');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -61,7 +63,42 @@ async function dispatch(client, req, url, ctx) {
     assertPermission(ctx.user,`${documentCore.moduleOf(current.documentType)}.view`,{branchId:current.branchId});assertPermission(ctx.user,`${documentCore.moduleOf(spec.target)}.create`,{branchId:current.branchId});
     const body=await readBody(req),result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`documents.convert:${current.id}`,key:req.headers['idempotency-key'],body},async()=>({status:201,body:await runtime.convertDocument(client,{id:current.id,user:ctx.user,requestId:ctx.requestId})}));ctx.status=result.status;return result.body;
   }
+  // ── Sprint 15: dokumen resmi ber-identitas (PDF) + kirim email ────────────
+  m=p.match(/^\/api\/documents\/([^/]+)\/official-pdf$/);
+  if(method==='GET'&&m){
+    const doc=await loadForOfficial(client,m[1],ctx.user);
+    const lines=(await client.query('SELECT line_no,product_id,description,qty,uom,unit_price,discount_pct,tax_pct,line_total FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows.map(runtime.camel);
+    const rendered=docRender.renderDocument({document:doc,lines});
+    ctx.download={item:{originalFilename:`${doc.documentNumber}.pdf`,mimeType:'application/pdf'},buffer:rendered.buffer};
+    await runtime.audit(client,{userId:ctx.user.id,action:'EXPORT',module:documentCore.moduleOf(doc.documentType),entityType:doc.documentType,entityId:doc.id,documentNumber:doc.documentNumber,newValue:{official:true,verifyCode:rendered.code},requestId:ctx.requestId,branchId:doc.branchId});
+    return;
+  }
+  m=p.match(/^\/api\/documents\/([^/]+)\/email$/);
+  if(method==='POST'&&m){
+    const body=await readBody(req);const doc=await loadForOfficial(client,m[1],ctx.user);
+    const to=String(body.to||'').trim();if(!to)throw new AppError('VALIDATION_ERROR','Alamat email tujuan wajib diisi.');
+    const lines=(await client.query('SELECT line_no,description,qty,uom,unit_price,discount_pct,tax_pct,line_total FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows.map(runtime.camel);
+    const rendered=docRender.renderDocument({document:doc,lines});
+    const org=doc.organizationIdentitySnapshot||{};
+    const subject=body.subject||`${doc.documentType.replace(/_/g,' ')} ${doc.documentNumber} — ${org.legalName||'MAT'}`;
+    const text=`${body.message?body.message+'\n\n':''}Terlampir informasi dokumen ${doc.documentNumber}.\nNilai: Rp ${Math.round(Number(doc.amount||0)).toLocaleString('id-ID')}\nTerbilang: ${rendered.terbilang}\n\nVerifikasi keaslian: kode ${rendered.code}\n${org.documentFooter||''}`;
+    const result=await smtp.send({to,subject,text});
+    // Catat percobaan pengiriman pada notification_deliveries (audit kanal).
+    const notif=(await client.query(`INSERT INTO notifications(id,user_id,category,title,body,link,created_at) VALUES(gen_random_uuid(),$1,'INFORMATION',$2,$3,$4,now()) RETURNING id`,[ctx.user.id,`Email ${doc.documentNumber}`,`Ke ${to} — ${result.status}`,`#/doc/${doc.id}`])).rows[0];
+    await client.query(`INSERT INTO notification_deliveries(notification_id,channel,destination,status,attempts,last_error,sent_at) VALUES($1,'EMAIL',$2,$3,1,$4,$5)`,[notif.id,to.slice(0,240),result.status,result.error||null,result.status==='SENT'?new Date():null]);
+    await runtime.audit(client,{userId:ctx.user.id,action:'EXPORT',module:documentCore.moduleOf(doc.documentType),entityType:doc.documentType,entityId:doc.id,documentNumber:doc.documentNumber,newValue:{email:to,status:result.status},requestId:ctx.requestId,branchId:doc.branchId});
+    if(result.status==='FAILED')throw new AppError('VALIDATION_ERROR',`Pengiriman email gagal: ${result.error}`);
+    return{status:result.status,to,configured:smtp.isConfigured(),verifyCode:rendered.code,message:result.status==='SKIPPED'?'SMTP belum dikonfigurasi — dokumen siap namun email tidak terkirim.':'Email terkirim.'};
+  }
   return NO_MATCH;
+}
+
+// Muat dokumen untuk penerbitan resmi: cek izin view + scope cabang.
+async function loadForOfficial(client,id,user){
+  const doc=await runtime.getDocument(client,id);
+  if(!doc)throw new AppError('RESOURCE_NOT_FOUND','Dokumen tidak ditemukan.');
+  assertPermission(user,`${documentCore.moduleOf(doc.documentType)}.view`,{branchId:doc.branchId});
+  return doc;
 }
 
 module.exports={dispatch};

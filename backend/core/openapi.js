@@ -1,0 +1,108 @@
+'use strict';
+// Sprint 15 (R022) — spesifikasi OpenAPI 3.0 + katalог event domain.
+// Dihasilkan dari daftar endpoint terkurasi (bukan refleksi otomatis) agar
+// kontrak API stabil dan terdokumentasi. API_VERSION dikirim pada header
+// X-API-Version setiap respons.
+const API_VERSION = '1.0';
+
+// Ringkas: [method, path, tag, summary, {auth?}]. Path memakai {id} OpenAPI.
+const ENDPOINTS = [
+  ['GET', '/api/live', 'System', 'Liveness — proses hidup tanpa DB', { public: true }],
+  ['GET', '/api/health', 'System', 'Readiness — termasuk cek database', { public: true }],
+  ['GET', '/api/openapi.json', 'System', 'Spesifikasi OpenAPI ini', { public: true }],
+  ['GET', '/api/system/events-catalog', 'System', 'Katalog event domain', { public: true }],
+  ['GET', '/api/verify', 'System', 'Verifikasi keaslian dokumen (kode)', { public: true }],
+  ['POST', '/api/auth/login', 'Auth', 'Login (mengeluarkan cookie sesi)', { public: true }],
+  ['POST', '/api/auth/mfa', 'Auth', 'Selesaikan tantangan MFA TOTP', { public: true }],
+  ['POST', '/api/auth/logout', 'Auth', 'Logout sesi berjalan'],
+  ['GET', '/api/auth/session', 'Auth', 'Sesi + CSRF token + permission'],
+  ['GET', '/api/dashboard', 'Workspace', 'KPI ringkas dashboard'],
+  ['GET', '/api/my-work', 'Workspace', 'Inbox lintas modul'],
+  ['GET', '/api/approvals', 'Workspace', 'Antrean persetujuan (Approval Center)'],
+  ['GET', '/api/documents', 'Documents', 'Daftar dokumen (filter type/status)'],
+  ['POST', '/api/documents', 'Documents', 'Buat dokumen (Idempotency-Key)'],
+  ['GET', '/api/documents/{id}', 'Documents', 'Detail dokumen'],
+  ['PATCH', '/api/documents/{id}', 'Documents', 'Ubah draft (optimistic lock)'],
+  ['POST', '/api/documents/{id}/action', 'Documents', 'Transisi status (submit/approve/…)'],
+  ['POST', '/api/documents/{id}/convert', 'Documents', 'Konversi ke dokumen lanjutan'],
+  ['GET', '/api/documents/{id}/official-pdf', 'Documents', 'Cetak dokumen resmi ber-identitas'],
+  ['POST', '/api/documents/{id}/email', 'Documents', 'Kirim dokumen via email (SMTP)'],
+  ['GET', '/api/quotations/{id}/revisions', 'Sales', 'Histori revisi penawaran'],
+  ['POST', '/api/quotations/{id}/revise', 'Sales', 'Revisi penawaran ber-versi'],
+  ['POST', '/api/rma', 'Sales', 'Buat RMA / klaim garansi'],
+  ['GET', '/api/collection/dunning', 'Sales', 'Notice penagihan terbuka'],
+  ['POST', '/api/collection/dunning/run', 'Sales', 'Jalankan dunning'],
+  ['GET', '/api/procurement/budgets', 'Procurement', 'Anggaran pengadaan periode'],
+  ['GET', '/api/rfq/{id}/quotes', 'Procurement', 'Kuota supplier RFQ + perbandingan'],
+  ['POST', '/api/rfq/{id}/create-po', 'Procurement', 'Konversi RFQ terpilih → PO'],
+  ['POST', '/api/purchase-orders/{id}/change-orders', 'Procurement', 'Ajukan amendemen PO'],
+  ['GET', '/api/inventory', 'Inventory', 'Saldo stok'],
+  ['GET', '/api/inventory/lots', 'Inventory', 'Lot + heat number (traceability)'],
+  ['GET', '/api/inventory/valuation', 'Inventory', 'Valuasi persediaan'],
+  ['POST', '/api/inventory/opname', 'Inventory', 'Mulai stock opname'],
+  ['GET', '/api/work-orders/{id}/production', 'Production', 'Cockpit produksi WO'],
+  ['POST', '/api/work-orders/{id}/plan', 'Production', 'Rencanakan produksi (BOM + reservasi)'],
+  ['POST', '/api/mrp/run', 'Production', 'Jalankan MRP'],
+  ['GET', '/api/accounting/financial-statements', 'Finance', 'Neraca + laba rugi'],
+  ['GET', '/api/accounting/closing-cockpit', 'Finance', 'Checklist tutup buku'],
+  ['GET', '/api/accounting/subledger', 'Finance', 'Subledger AR/AP vs GL'],
+  ['GET', '/api/assets', 'Finance', 'Registry aset tetap'],
+  ['POST', '/api/assets/depreciation/run', 'Finance', 'Jalankan penyusutan'],
+  ['POST', '/api/payments/{id}/reverse', 'Finance', 'Pembalikan pembayaran (Owner+PIN)'],
+  ['GET', '/api/hr/shifts', 'HR', 'Daftar shift kerja'],
+  ['POST', '/api/hr/roster', 'HR', 'Tetapkan roster shift'],
+  ['GET', '/api/hr/corrections', 'HR', 'Koreksi absensi (maker-checker)'],
+  ['POST', '/api/hr/leave-accrual/run', 'HR', 'Akrual cuti bulanan'],
+  ['GET', '/api/audit', 'Governance', 'Audit trail (append-only)'],
+  ['GET', '/api/governance/sod', 'Governance', 'Konflik Segregation of Duties'],
+  ['GET', '/api/events', 'Realtime', 'Server-Sent Events terautentikasi']
+];
+
+// Katalog event domain yang ditulis ke outbox transaksional.
+const EVENTS = [
+  { event: 'document.created', when: 'Dokumen baru dibuat', payload: ['entityId', 'documentType', 'branchId'] },
+  { event: 'document.updated', when: 'Dokumen diperbarui / transisi status', payload: ['entityId', 'documentType', 'version', 'status'] },
+  { event: 'document.converted', when: 'Dokumen dikonversi (mis. QUO→SO)', payload: ['entityId', 'childNumber', 'relation'] },
+  { event: 'quotation.updated', when: 'Penawaran diperbarui / direvisi', payload: ['entityId', 'version', 'branchId'] },
+  { event: 'purchase_order.updated', when: 'PO diperbarui / amendemen disetujui', payload: ['entityId', 'branchId'] },
+  { event: 'invoice.updated', when: 'Invoice diperbarui / dunning terbit', payload: ['entityId', 'branchId'] },
+  { event: 'payment.posted', when: 'Pembayaran diposting / dibalik', payload: ['entityId', 'documentType', 'branchId'] },
+  { event: 'goods_receipt.created', when: 'Penerimaan barang dibuat', payload: ['entityId', 'branchId'] },
+  { event: 'work_order.updated', when: 'Work order diperbarui', payload: ['entityId', 'branchId'] },
+  { event: 'payroll.updated', when: 'Payroll run diperbarui', payload: ['entityId', 'branchId'] }
+];
+
+function spec(host = 'localhost') {
+  const paths = {};
+  for (const [method, path, tag, summary, opt = {}] of ENDPOINTS) {
+    paths[path] = paths[path] || {};
+    paths[path][method.toLowerCase()] = {
+      tags: [tag], summary,
+      security: opt.public ? [] : [{ cookieAuth: [] }],
+      responses: { '200': { description: 'OK' }, '401': { description: 'Sesi tidak valid' }, '403': { description: 'Izin ditolak' } }
+    };
+  }
+  return {
+    openapi: '3.0.3',
+    info: {
+      title: 'MAT ERP V2 API', version: API_VERSION,
+      description: 'API ERP modular monolith PT Mandiri Abadi Teknik. Sesi via cookie HttpOnly `mat_session`; mutasi wajib header `X-CSRF-Token`; operasi kritis wajib `Idempotency-Key`. Header `X-API-Version` dikirim pada setiap respons.'
+    },
+    servers: [{ url: `http://${host}`, description: 'Runtime lokal' }],
+    tags: [...new Set(ENDPOINTS.map((e) => e[2]))].map((name) => ({ name })),
+    components: {
+      securitySchemes: {
+        cookieAuth: { type: 'apiKey', in: 'cookie', name: 'mat_session' },
+        csrf: { type: 'apiKey', in: 'header', name: 'X-CSRF-Token' }
+      },
+      schemas: {
+        Error: { type: 'object', properties: { code: { type: 'string' }, message: { type: 'string' }, detail: { type: 'string' } }, required: ['code', 'message'] }
+      }
+    },
+    paths
+  };
+}
+
+function eventsCatalog() { return { apiVersion: API_VERSION, count: EVENTS.length, events: EVENTS }; }
+
+module.exports = { API_VERSION, spec, eventsCatalog, ENDPOINTS, EVENTS };
