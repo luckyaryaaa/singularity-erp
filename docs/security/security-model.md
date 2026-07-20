@@ -26,6 +26,10 @@
 - Scope organisasi baku: GLOBAL, LEGAL_ENTITY, BUSINESS_UNIT, BRANCH, PLANT,
   WAREHOUSE, DEPARTMENT, PROJECT, dan OWN_RECORD. Snapshot scope ikut disimpan
   pada policy job; report/export/file difilter kembali di worker/repository.
+- Matriks endpoint terversi di `docs/security/endpoint-authorization-matrix.md`
+  memetakan 14 router dan 183 handler ke public/session/permission control.
+  Automated negative test memverifikasi allow/deny dan menjaga endpoint publik
+  tetap menggunakan allowlist eksplisit.
 
 ## Enterprise IAM, SoD, dan access review (v0.9.0)
 
@@ -78,7 +82,9 @@ aplikasi dan VPN/zero-trust, bukan port forwarding database.
   Simpan kunci enkripsi backup di dua lokasi aman terpisah.
 - Alert webhook (`MAT_ALERT_WEBHOOK_URL`) untuk backup/restore/maintenance
   partisi/job backup yang gagal — anti-spam 5 menit per kunci alert.
-- Partisi audit dibuat otomatis (tahun berjalan + 1) oleh fungsi SECURITY
-  DEFINER; partisi DEFAULT menjamin transaksi tidak pernah gagal karena partisi.
+- Partisi audit (tahun berjalan + 1) dan inventory (bulan berjalan + ke depan)
+  dibuat oleh fungsi SECURITY DEFINER terkontrol; partisi DEFAULT menjamin
+  transaksi tidak gagal karena partisi, sedangkan role runtime tidak memiliki
+  hak CREATE schema/table.
 - `npm run predeploy` adalah gerbang wajib: migrasi + tes + boot + health +
   kesegaran backup; deploy diblokir bila ada yang merah.

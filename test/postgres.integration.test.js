@@ -86,6 +86,35 @@ pgTest('PostgreSQL integration: notification persistence dan job claim tidak tum
   }
 });
 
+pgTest('PostgreSQL integration: retry email idempotent mempertahankan delivery attempts', async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  const previousHost = process.env.MAT_SMTP_HOST;
+  try {
+    await client.query('BEGIN');
+    const user = (await client.query(`SELECT id,role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0];
+    process.env.MAT_SMTP_HOST = 'smtp.example.invalid';
+    const job = await operations.enqueue(client, { type: 'NOTIFICATION_SEND', user, params: { title: 'Retry integration', email: 'alamat-tidak-valid', dedupeKey: `retry-${Date.now()}` } });
+    const first = await postgresWorker.execute(client, job);
+    const second = await postgresWorker.execute(client, job);
+    assert.match(first.retryableError, /email gagal/i);
+    assert.match(second.retryableError, /email gagal/i);
+    assert.equal(first.notificationId, second.notificationId);
+    const deliveries = (await client.query(`SELECT channel,status,attempts FROM notification_deliveries WHERE notification_id=$1 ORDER BY channel`, [first.notificationId])).rows;
+    assert.deepEqual(deliveries, [
+      { channel: 'EMAIL', status: 'FAILED', attempts: 2 },
+      { channel: 'IN_APP', status: 'SENT', attempts: 1 }
+    ]);
+    await client.query('ROLLBACK');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    if (previousHost === undefined) delete process.env.MAT_SMTP_HOST; else process.env.MAT_SMTP_HOST = previousHost;
+    await client.end();
+  }
+});
+
 pgTest('PostgreSQL integration: document lines, inventory ledger, dan jurnal double-entry atomic', async()=>{
   const client=new Client({connectionString:process.env.DATABASE_URL}),admin=new Client({connectionString:process.env.MIGRATION_DATABASE_URL});await Promise.all([client.connect(),admin.connect()]);const ids={docs:[]};
   try{const user=(await client.query(`SELECT u.id,u.username,u.display_name "displayName",u.role,u.branch_id "branchId",u.branch_scope "branchScope" FROM app_users u WHERE role='owner' AND active LIMIT 1`)).rows[0],productId=randomUUID();ids.productId=productId;await client.query(`INSERT INTO products(id,code,name,uom,hpp,price) VALUES($1,$2,'Ledger Test Product','PCS',25000,40000)`,[productId,`LED-${Date.now()}`]);
@@ -124,10 +153,10 @@ pgTest('PostgreSQL Sprint 4: accounting, allocation, attendance, payroll, tax, i
 
     const payrollPeriod='2099-11',calculated=await businessOps.createPayroll(client,{period:payrollPeriod,user:owner,title:'Sprint 4 Payroll Integration'});assert.ok(calculated.headcount>0);assert.ok(calculated.total>0);
     let payroll=calculated.document;payroll=await runtime.transitionDocument(client,{id:payroll.id,action:'submit',user:owner,requestId:randomUUID(),allowOwnerOverride:true});while(payroll.status==='WAITING_APPROVAL')payroll=await runtime.transitionDocument(client,{id:payroll.id,action:'approve',user:owner,requestId:randomUUID(),allowOwnerOverride:true});assert.equal(payroll.status,'APPROVED');
-    await posting.postDocument(client,payroll,owner);await businessOps.syncTaxes(client,payrollPeriod);
+    await posting.postDocument(client,payroll,owner);await businessOps.syncTaxes(client,payrollPeriod,owner);
     const journal=(await client.query('SELECT sum(debit)::float debit,sum(credit)::float credit FROM journal_lines WHERE journal_document_id=$1',[payroll.id])).rows[0];assert.equal(journal.debit,journal.credit);assert.ok(journal.debit>0);
-    const summary=await businessOps.accountingSummary(client,payrollPeriod);assert.equal(summary.debitTotal,summary.creditTotal);assert.ok(summary.profitLoss.opex>0);
-    const taxes=await businessOps.taxSummary(client,payrollPeriod);assert.ok(taxes.documents.some(row=>row.taxType==='PPH21'));
+    const summary=await businessOps.accountingSummary(client,payrollPeriod,owner);assert.equal(summary.debitTotal,summary.creditTotal);assert.ok(summary.profitLoss.opex>0);
+    const taxes=await businessOps.taxSummary(client,payrollPeriod,owner);assert.ok(taxes.documents.some(row=>row.taxType==='PPH21'));
     const selfPayroll=await businessOps.payrollSelf(client,employee);assert.ok(selfPayroll.some(row=>row.payrollDocumentId===payroll.id));
     const closed=await businessOps.closePeriod(client,{period:payrollPeriod,user:owner});assert.equal(closed.status,'CLOSED');const reopened=await businessOps.reopenPeriod(client,{period:payrollPeriod,user:owner,reason:'Integration test'});assert.equal(reopened.status,'OPEN');
 

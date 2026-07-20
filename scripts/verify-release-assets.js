@@ -1,4 +1,5 @@
 'use strict';
+require('../backend/core/env').loadEnv();
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 
@@ -7,7 +8,7 @@ async function verify() {
   const port = 4199;
   const child = spawn(process.execPath, ['server.js'], {
     cwd,
-    env: { ...process.env, PORT: String(port), NODE_ENV: 'test', MAT_EPHEMERAL: '1', MAT_DB_MODE: 'memory' },
+    env: { ...process.env, PORT: String(port), NODE_ENV: 'development', MAT_EPHEMERAL: '0', MAT_DB_MODE: 'postgres' },
     windowsHide: true,
     stdio: 'ignore'
   });

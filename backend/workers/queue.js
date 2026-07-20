@@ -14,11 +14,9 @@ const JOB_TYPES = {
   PAYROLL_SLIPS:    { priority: 'medium', label: 'Slip gaji massal', durationMs: 600 },
   EXPORT_EXCEL:     { priority: 'low',    label: 'Ekspor Excel', durationMs: 500, perUserLimit: 2 },
   IMPORT_CSV:       { priority: 'low',    label: 'Impor CSV', durationMs: 500, perUserLimit: 1 },
-  IMAGE_COMPRESS:   { priority: 'low',    label: 'Kompresi gambar', durationMs: 250, perUserLimit: 2 },
   REPORT_GENERATE:  { priority: 'medium', label: 'Pembuatan laporan', durationMs: 700 },
   NOTIFICATION_SEND:{ priority: 'high',   label: 'Pengiriman notifikasi', durationMs: 120 },
   BACKUP_RUN:       { priority: 'low',    label: 'Backup terjadwal', durationMs: 800 },
-  ARCHIVE_RUN:      { priority: 'low',    label: 'Arsip data lama', durationMs: 600 },
   RECONCILIATION:   { priority: 'low',    label: 'Rekonsiliasi besar', durationMs: 900 }
 };
 

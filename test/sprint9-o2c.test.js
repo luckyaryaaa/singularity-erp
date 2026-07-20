@@ -34,7 +34,7 @@ dbTest('revisi penawaran: snapshot immutable, revisionNo naik, approval di-reset
     assert.equal(doc.status, 'DRAFT');
     assert.equal(Number(doc.payload.revisionNo), 2);
     assert.deepEqual(doc.approvals, []);
-    const revs = await o2c.listQuotationRevisions(c, q.id);
+    const revs = await o2c.listQuotationRevisions(c, q.id, u);
     assert.equal(revs.items.length, 1);
     assert.equal(Number(revs.items[0].amount), 100_000_000);
     assert.ok(Array.isArray(revs.items[0].lines) && revs.items[0].lines.length === 1, 'snapshot lines tersimpan');
@@ -81,7 +81,7 @@ dbTest('dunning: jenjang policy, idempoten per level, level 3 memasang credit ho
     const run3 = await o2c.runDunning(c, { user: u, requestId: randomUUID() });
     assert.ok(!run3.notices.some((x) => x.invoice === inv8.documentNumber));
     // Resolve wajib alasan
-    const list = await o2c.listDunning(c, {});
+    const list = await o2c.listDunning(c, u, {});
     await assert.rejects(() => o2c.resolveDunning(c, { noticeId: list.items[0].id, reason: '', user: u, requestId: randomUUID() }), (e) => e.code === 'REASON_REQUIRED');
     const res = await o2c.resolveDunning(c, { noticeId: list.items[0].id, reason: 'Pembayaran diterima', user: u, requestId: randomUUID() });
     assert.equal(res.status, 'RESOLVED');

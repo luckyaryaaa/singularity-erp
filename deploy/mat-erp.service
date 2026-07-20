@@ -11,8 +11,8 @@ Requires=postgresql.service
 Type=simple
 User=materp
 Group=materp
-WorkingDirectory=/opt/mat-erp
-# Seluruh secret hanya di file env root-only (chmod 600, chown materp).
+WorkingDirectory=/opt/mat-erp/current
+# Seluruh secret hanya di file env (root:materp, chmod 640).
 EnvironmentFile=/etc/mat-erp/mat-erp.env
 ExecStart=/usr/bin/node server.js
 Restart=always
@@ -37,8 +37,8 @@ MemoryDenyWriteExecute=true
 CapabilityBoundingSet=
 AmbientCapabilities=
 SystemCallFilter=@system-service
-# Folder yang boleh ditulis aplikasi: storage (file privat, artifact, backup).
-ReadWritePaths=/opt/mat-erp/storage
+# Folder state persisten dibagi antarrilis melalui symlink current/storage.
+ReadWritePaths=/var/lib/mat-erp
 
 # Batas sumber daya wajar untuk VPS kecil
 MemoryMax=1G

@@ -1,0 +1,20 @@
+[
+  {"id":"SOP-01","file":"01-daily-operations-monitoring.md","owner":"System Administrator","frequency":"Harian","critical":true},
+  {"id":"SOP-02","file":"02-weekly-performance-security.md","owner":"System Administrator + Security Administrator","frequency":"Mingguan","critical":false},
+  {"id":"SOP-03","file":"03-monthly-maintenance.md","owner":"System Administrator","frequency":"Bulanan","critical":false},
+  {"id":"SOP-04","file":"04-backup-restore.md","owner":"System Administrator","frequency":"Harian + drill bulanan","critical":true},
+  {"id":"SOP-05","file":"05-disaster-recovery.md","owner":"Owner + System Administrator","frequency":"Tabletop triwulanan","critical":true},
+  {"id":"SOP-06","file":"06-incident-response.md","owner":"Security Administrator","frequency":"Saat insiden","critical":true},
+  {"id":"SOP-07","file":"07-release-deployment-rollback.md","owner":"Release Manager","frequency":"Setiap release","critical":true},
+  {"id":"SOP-08","file":"08-database-migration.md","owner":"Database Administrator","frequency":"Setiap perubahan schema","critical":true},
+  {"id":"SOP-09","file":"09-user-access-iam.md","owner":"Security Administrator + Owner","frequency":"Joiner/mover/leaver + bulanan","critical":true},
+  {"id":"SOP-10","file":"10-financial-close-reconciliation.md","owner":"Finance Manager","frequency":"Bulanan","critical":true},
+  {"id":"SOP-11","file":"11-inventory-opname-reconciliation.md","owner":"Warehouse Supervisor + Accounting","frequency":"Bulanan/kuartalan","critical":true},
+  {"id":"SOP-12","file":"12-sales-o2c-collection-rma.md","owner":"Sales Manager + Finance","frequency":"Per transaksi + mingguan","critical":false},
+  {"id":"SOP-13","file":"13-procurement-s2p-payment.md","owner":"Procurement + Finance","frequency":"Per transaksi","critical":true},
+  {"id":"SOP-14","file":"14-production-quality-mrp.md","owner":"Production Manager + Quality","frequency":"Per work order","critical":true},
+  {"id":"SOP-15","file":"15-hr-payroll.md","owner":"HR Manager + Finance","frequency":"Per periode payroll","critical":true},
+  {"id":"SOP-16","file":"16-document-notification-integration.md","owner":"Document Controller + System Administrator","frequency":"Per penerbitan/integrasi","critical":false},
+  {"id":"SOP-17","file":"17-data-import-export-retention.md","owner":"Data Steward","frequency":"Per batch + bulanan","critical":false},
+  {"id":"SOP-18","file":"18-lan-uat-training-signoff.md","owner":"UAT Coordinator + Owner","frequency":"Sebelum go-live","critical":true}
+]

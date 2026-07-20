@@ -13,6 +13,7 @@
     { "name": "dashboard", "hash": "#/dashboard", "selector": ".dashboard-grid" },
     { "name": "quotations", "hash": "#/sales/quotations", "selector": ".table-panel" },
     { "name": "work-orders", "hash": "#/production/work-orders", "selector": ".table-panel" },
-    { "name": "approvals", "hash": "#/approvals", "selector": ".table-panel" }
+    { "name": "approvals", "hash": "#/approvals", "selector": ".table-panel" },
+    { "name": "executive-cockpit", "hash": "#/reports", "selector": ".exec-pulse" }
   ]
 }

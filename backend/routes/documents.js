@@ -2,8 +2,8 @@
 const { readBody } = require('../core/util');
 const { AppError } = require('../core/errors');
 const { assertPermission } = require('../core/permissions');
-const documentCore = require('../core/documents');
-const { verifyPassword } = require('../core/auth');
+const documentCore = require('../core/document-types');
+const { verifyPassword } = require('../core/password');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const posting = require('../infrastructure/database/repositories/posting');
 const businessOps = require('../infrastructure/database/repositories/business-operations');
@@ -13,6 +13,7 @@ const production = require('../infrastructure/database/repositories/production')
 const operations = require('../infrastructure/database/repositories/operations');
 const hrOps = require('../infrastructure/database/repositories/hr-operations');
 const docRender = require('../infrastructure/files/document-render');
+const docVerify = require('../core/doc-verification');
 const smtp = require('../infrastructure/smtp');
 const { NO_MATCH } = require('./shared');
 
@@ -48,7 +49,7 @@ async function dispatch(client, req, url, ctx) {
     // kerja dari kalender; akhir pekan/libur dilewati).
     if(body.action==='submit'&&current.documentType==='LEAVE_REQUEST'){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await hrOps.assertLeaveOk(client,raw);}
     let allowOwnerOverride=false;if(body.action==='approve'&&current.createdBy===ctx.user.id){if(ctx.user.role!=='owner')throw new AppError('SOD_CONFLICT','Pembuat dokumen tidak boleh menjadi approver.');if(!body.reason)throw new AppError('REASON_REQUIRED');const pinRow=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!pinRow?.owner_pin_hash||!verifyPassword(String(body.pin),pinRow.owner_pin_hash))throw new AppError('PIN_REQUIRED');await governance.createOverride(client,{targetUserId:ctx.user.id,permissionCode:'approval.approve',scopeType:'BRANCH',scopeId:current.branchId,hours:1,reason:`SoD document override ${current.documentNumber}: ${body.reason}`,user:ctx.user});allowOwnerOverride=true;}
-    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`documents.${body.action}:${current.id}`,key:req.headers['idempotency-key'],body},async()=>{if(body.action==='complete'&&current.documentType==='WORK_ORDER')await production.assertReadyToComplete(client,current.id);const updated=await runtime.transitionDocument(client,{id:current.id,action:body.action,user:ctx.user,reason:body.reason,requestId:ctx.requestId,allowOwnerOverride});await posting.postDocument(client,updated,ctx.user);if(body.action==='approve'&&['INVOICE','SUPPLIER_INVOICE','PAYROLL_RUN'].includes(updated.documentType))await businessOps.syncTaxes(client,updated.documentType==='PAYROLL_RUN'?updated.payload?.period:undefined);
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`documents.${body.action}:${current.id}`,key:req.headers['idempotency-key'],body},async()=>{if(body.action==='complete'&&current.documentType==='WORK_ORDER')await production.assertReadyToComplete(client,current.id);const updated=await runtime.transitionDocument(client,{id:current.id,action:body.action,user:ctx.user,reason:body.reason,requestId:ctx.requestId,allowOwnerOverride});await posting.postDocument(client,updated,ctx.user);if(body.action==='approve'&&['INVOICE','SUPPLIER_INVOICE','PAYROLL_RUN'].includes(updated.documentType))await businessOps.syncTaxes(client,updated.documentType==='PAYROLL_RUN'?updated.payload?.period:undefined,ctx.user);
       // Sprint 12: WO dibatalkan/void → lepas seluruh sisa reservasi materialnya.
       if(['cancel','void'].includes(body.action)&&updated.documentType==='WORK_ORDER')await production.releaseReservations(client,updated.id,ctx.user);
       // Sprint 14: cuti disetujui penuh → saldo terpotong sesuai hari kerja (idempoten).
@@ -68,9 +69,10 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m){
     const doc=await loadForOfficial(client,m[1],ctx.user);
     const lines=(await client.query('SELECT line_no,product_id,description,qty,uom,unit_price,discount_pct,tax_pct,line_total FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows.map(runtime.camel);
-    const rendered=docRender.renderDocument({document:doc,lines});
+    const issued=await issueOfficial(client,doc,lines,ctx.user,ctx.requestId);
+    const rendered=docRender.renderDocument({document:issued.document,lines:issued.lines,copy:issued.copy});
     ctx.download={item:{originalFilename:`${doc.documentNumber}.pdf`,mimeType:'application/pdf'},buffer:rendered.buffer};
-    await runtime.audit(client,{userId:ctx.user.id,action:'EXPORT',module:documentCore.moduleOf(doc.documentType),entityType:doc.documentType,entityId:doc.id,documentNumber:doc.documentNumber,newValue:{official:true,verifyCode:rendered.code},requestId:ctx.requestId,branchId:doc.branchId});
+    await runtime.audit(client,{userId:ctx.user.id,action:'EXPORT',module:documentCore.moduleOf(doc.documentType),entityType:doc.documentType,entityId:doc.id,documentNumber:doc.documentNumber,newValue:{official:true,copy:issued.copy,verifyCode:rendered.code,templateVersion:rendered.templateVersion,pages:rendered.pageCount},requestId:ctx.requestId,branchId:doc.branchId});
     return;
   }
   m=p.match(/^\/api\/documents\/([^/]+)\/email$/);
@@ -78,11 +80,12 @@ async function dispatch(client, req, url, ctx) {
     const body=await readBody(req);const doc=await loadForOfficial(client,m[1],ctx.user);
     const to=String(body.to||'').trim();if(!to)throw new AppError('VALIDATION_ERROR','Alamat email tujuan wajib diisi.');
     const lines=(await client.query('SELECT line_no,description,qty,uom,unit_price,discount_pct,tax_pct,line_total FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows.map(runtime.camel);
-    const rendered=docRender.renderDocument({document:doc,lines});
+    const issued=await issueOfficial(client,doc,lines,ctx.user,ctx.requestId);
+    const rendered=docRender.renderDocument({document:issued.document,lines:issued.lines,copy:true});
     const org=doc.organizationIdentitySnapshot||{};
     const subject=body.subject||`${doc.documentType.replace(/_/g,' ')} ${doc.documentNumber} — ${org.legalName||'MAT'}`;
     const text=`${body.message?body.message+'\n\n':''}Terlampir informasi dokumen ${doc.documentNumber}.\nNilai: Rp ${Math.round(Number(doc.amount||0)).toLocaleString('id-ID')}\nTerbilang: ${rendered.terbilang}\n\nVerifikasi keaslian: kode ${rendered.code}\n${org.documentFooter||''}`;
-    const result=await smtp.send({to,subject,text});
+    const result=await smtp.send({to,subject,text,attachments:[{filename:`${doc.documentNumber}.pdf`,contentType:'application/pdf',content:rendered.buffer}]});
     // Catat percobaan pengiriman pada notification_deliveries (audit kanal).
     const notif=(await client.query(`INSERT INTO notifications(id,user_id,category,title,body,link,created_at) VALUES(gen_random_uuid(),$1,'INFORMATION',$2,$3,$4,now()) RETURNING id`,[ctx.user.id,`Email ${doc.documentNumber}`,`Ke ${to} — ${result.status}`,`#/doc/${doc.id}`])).rows[0];
     await client.query(`INSERT INTO notification_deliveries(notification_id,channel,destination,status,attempts,last_error,sent_at) VALUES($1,'EMAIL',$2,$3,1,$4,$5)`,[notif.id,to.slice(0,240),result.status,result.error||null,result.status==='SENT'?new Date():null]);
@@ -101,4 +104,31 @@ async function loadForOfficial(client,id,user){
   return doc;
 }
 
-module.exports={dispatch};
+const OFFICIAL_STATUSES=new Set(['APPROVED','IN_PROCESS','COMPLETED','CLOSED','PARTIALLY_COMPLETED','PARTIALLY_PAID','OVERDUE']);
+function issuancePayload(doc,lines){
+  return{
+    templateVersion:docRender.TEMPLATE_VERSION,
+    document:{
+      id:doc.id,documentNumber:doc.documentNumber,documentType:doc.documentType,status:doc.status,
+      version:doc.version,title:doc.title,amount:Number(doc.amount||0),partyName:doc.partyName||null,
+      createdAt:doc.createdAt,dueDate:doc.dueDate||null,branchId:doc.branchId,
+      organizationIdentitySnapshot:doc.organizationIdentitySnapshot||{}
+    },
+    lines:lines.map((line)=>({lineNo:line.lineNo,productId:line.productId||null,description:line.description,qty:Number(line.qty||0),uom:line.uom||null,unitPrice:Number(line.unitPrice||0),discountPct:Number(line.discountPct||0),taxPct:Number(line.taxPct||0),lineTotal:Number(line.lineTotal||0)}))
+  };
+}
+async function issueOfficial(client,doc,lines,user,requestId){
+  if(!OFFICIAL_STATUSES.has(doc.status))throw new AppError('STATUS_INVALID',`Dokumen berstatus ${doc.status} tidak boleh diterbitkan sebagai dokumen resmi.`);
+  const locked=runtime.camel((await client.query('SELECT * FROM business_documents WHERE id=$1 FOR UPDATE',[doc.id])).rows[0]);
+  if(!locked)throw new AppError('RESOURCE_NOT_FOUND','Dokumen tidak ditemukan.');
+  if(locked.officialSignature){
+    if(!locked.officialPayload||!docVerify.verifyPayload(locked.officialPayload,locked.officialSignature,process.env,locked.officialKeyId))throw new AppError('DOCUMENT_CONFLICT','Snapshot dokumen resmi gagal verifikasi integritas.');
+    return{document:{...locked.officialPayload.document,officialSignature:locked.officialSignature,officialIssuedAt:locked.officialIssuedAt},lines:locked.officialPayload.lines||[],copy:true};
+  }
+  const payload=issuancePayload(locked,lines),signature=docVerify.signPayload(payload),keyId=docVerify.keyId();
+  const issued=runtime.camel((await client.query(`UPDATE business_documents SET official_issued_at=now(),official_issued_by=$2,official_signature=$3,official_key_id=$4,official_template_version=$5,official_payload=$6 WHERE id=$1 AND official_signature IS NULL RETURNING official_issued_at`,[doc.id,user.id,signature,keyId,docRender.TEMPLATE_VERSION,JSON.stringify(payload)])).rows[0]);
+  await runtime.audit(client,{userId:user.id,action:'DOCUMENT_ISSUED',module:documentCore.moduleOf(doc.documentType),entityType:doc.documentType,entityId:doc.id,documentNumber:doc.documentNumber,newValue:{signature,keyId,templateVersion:docRender.TEMPLATE_VERSION,status:doc.status},requestId,branchId:doc.branchId});
+  return{document:{...payload.document,officialSignature:signature,officialIssuedAt:issued.officialIssuedAt},lines:payload.lines,copy:false};
+}
+
+module.exports={dispatch,loadForOfficial,issueOfficial,issuancePayload,OFFICIAL_STATUSES};

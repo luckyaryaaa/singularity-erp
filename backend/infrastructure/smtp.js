@@ -5,6 +5,7 @@
 // perilaku development lama tetap. Aktif hanya bila kredensial diisi.
 const net = require('node:net');
 const tls = require('node:tls');
+const { randomBytes } = require('node:crypto');
 
 function config() {
   const host = process.env.MAT_SMTP_HOST;
@@ -81,27 +82,38 @@ function talk(initialSocket, cfg) {
   })();
 }
 
-function buildMessage(cfg, { to, subject, text }) {
+function safeHeader(value, fallback = '') { return String(value || fallback).replace(/[\r\n]/g, ' ').slice(0, 200); }
+function wrapBase64(value) { return Buffer.from(value).toString('base64').match(/.{1,76}/g)?.join('\r\n') || ''; }
+function buildMessage(cfg, { to, subject, text, attachments = [] }) {
   const date = new Date().toUTCString();
-  const lines = [
+  const headers = [
     `From: ${cfg.from}`,
     `To: ${to}`,
-    `Subject: ${String(subject || '').replace(/[\r\n]/g, ' ').slice(0, 200)}`,
+    `Subject: ${safeHeader(subject)}`,
     `Date: ${date}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: text/plain; charset=UTF-8`,
-    ``,
-    String(text || '').replace(/\r?\n\.\r?\n/g, '\n..\n')     // dot-stuffing minimal
+    `MIME-Version: 1.0`
   ];
-  return lines.join('\r\n');
+  if (!attachments.length) return [...headers, 'Content-Type: text/plain; charset=UTF-8', '', String(text || '')].join('\r\n').replace(/^\./gm, '..');
+  const boundary = `MAT-${randomBytes(12).toString('hex')}`;
+  const parts = [
+    ...headers,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`, '',
+    `--${boundary}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: 8bit', '', String(text || '')
+  ];
+  for (const attachment of attachments.slice(0, 5)) {
+    const filename = safeHeader(attachment.filename, 'attachment.bin').replace(/["\\]/g, '_');
+    parts.push(`--${boundary}`, `Content-Type: ${safeHeader(attachment.contentType, 'application/octet-stream')}; name="${filename}"`, 'Content-Transfer-Encoding: base64', `Content-Disposition: attachment; filename="${filename}"`, '', wrapBase64(attachment.content));
+  }
+  parts.push(`--${boundary}--`, '');
+  return parts.join('\r\n').replace(/^\./gm, '..');
 }
 
 // Kirim satu email. Mengembalikan {status:'SENT'|'SKIPPED'|'FAILED', error?}.
-async function send({ to, subject, text }) {
+async function send({ to, subject, text, attachments = [] }) {
   const cfg = config();
   if (!cfg) return { status: 'SKIPPED', error: 'SMTP belum dikonfigurasi (MAT_SMTP_HOST kosong).' };
   if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(to))) return { status: 'FAILED', error: 'Alamat email tujuan tidak valid.' };
-  cfg.__to = to; cfg.__message = buildMessage(cfg, { to, subject, text });
+  cfg.__to = to; cfg.__message = buildMessage(cfg, { to, subject, text, attachments });
   try {
     const socket = cfg.secure
       ? tls.connect({ host: cfg.host, port: cfg.port, servername: cfg.host, rejectUnauthorized: cfg.tlsRejectUnauthorized })
@@ -114,4 +126,4 @@ async function send({ to, subject, text }) {
   }
 }
 
-module.exports = { isConfigured, send, config };
+module.exports = { isConfigured, send, config, buildMessage };

@@ -4,35 +4,64 @@
 // Dicetak pada dokumen (kode + QR) dan diverifikasi ulang oleh endpoint publik
 // dengan membandingkan HMAC — sehingga dokumen palsu tidak dapat memalsukan
 // kode tanpa mengetahui secret runtime.
-const { createHmac } = require('node:crypto');
+const { createHmac, timingSafeEqual } = require('node:crypto');
 
-// Secret khusus verifikasi; jatuh ke secret runtime lain agar tidak pernah
-// kosong (kode tetap konsisten selama secret sama).
-function secret() {
-  return process.env.MAT_DOC_VERIFY_SECRET
-    || process.env.MAT_MFA_ENCRYPTION_KEY
-    || process.env.MAT_BACKUP_ENCRYPTION_KEY
-    || 'mat-erp-doc-verify-fallback-secret';
+// Production wajib memakai key terpisah. Development boleh memakai secret
+// runtime lokal agar setup ringan, tetapi tidak ada fallback statis di source.
+function secret(env = process.env, requestedKeyId = keyId(env)) {
+  if (requestedKeyId !== keyId(env)) {
+    if (requestedKeyId === String(env.MAT_DOC_VERIFY_PREVIOUS_KEY_ID || '') && env.MAT_DOC_VERIFY_PREVIOUS_SECRET) return env.MAT_DOC_VERIFY_PREVIOUS_SECRET;
+    throw new Error(`Key verifikasi dokumen '${requestedKeyId}' tidak tersedia.`);
+  }
+  if (env.MAT_DOC_VERIFY_SECRET) return env.MAT_DOC_VERIFY_SECRET;
+  if ((env.MAT_ENVIRONMENT || '').toUpperCase() === 'PRODUCTION' || env.NODE_ENV === 'production') {
+    throw new Error('MAT_DOC_VERIFY_SECRET wajib dikonfigurasi di production.');
+  }
+  const local = env.MAT_MFA_ENCRYPTION_KEY || env.MAT_BACKUP_ENCRYPTION_KEY;
+  if (!local) throw new Error('Secret verifikasi dokumen belum dikonfigurasi.');
+  return local;
 }
 
-// Kode ringkas huruf-besar+angka (tanpa karakter ambigu) panjang 12.
-function codeFor(documentNumber) {
-  const digest = createHmac('sha256', secret()).update(String(documentNumber || '')).digest('hex');
-  const alphabet = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ'; // tanpa I/O
+function keyId(env = process.env) { return String(env.MAT_DOC_VERIFY_KEY_ID || 'v1').slice(0, 40); }
+
+function canonical(value) {
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === 'object') return Object.keys(value).sort().reduce((out, key) => { out[key] = canonical(value[key]); return out; }, {});
+  return value ?? null;
+}
+
+function compact(digest) {
+  const alphabet = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ';
   let out = '';
   for (let i = 0; i < 12; i++) out += alphabet[parseInt(digest.slice(i * 2, i * 2 + 2), 16) % alphabet.length];
   return out;
 }
 
-function verify(documentNumber, code) {
-  if (!documentNumber || !code) return false;
-  const expected = codeFor(documentNumber);
-  const given = String(code).toUpperCase().replace(/[^0-9A-Z]/g, '');
-  // Perbandingan konstan-waktu sederhana.
-  if (given.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i);
-  return diff === 0;
+function signPayload(payload, env = process.env, requestedKeyId = keyId(env)) {
+  const body = JSON.stringify({ keyId: requestedKeyId, payload: canonical(payload) });
+  return compact(createHmac('sha256', secret(env, requestedKeyId)).update(body).digest('hex'));
 }
 
-module.exports = { codeFor, verify };
+// Kode ringkas huruf-besar+angka (tanpa karakter ambigu) panjang 12.
+function codeFor(documentNumber) {
+  return signPayload({ documentNumber: String(documentNumber || '') });
+}
+
+function constantEqual(expected, code) {
+  const given = String(code).toUpperCase().replace(/[^0-9A-Z]/g, '');
+  if (given.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(given));
+}
+
+function verify(documentNumber, code) {
+  if (!documentNumber || !code) return false;
+  return constantEqual(codeFor(documentNumber), code);
+}
+
+function verifyPayload(payload, code, env = process.env, requestedKeyId = keyId(env)) {
+  if (!payload || !code) return false;
+  return constantEqual(signPayload(payload, env, requestedKeyId), code);
+}
+
+module.exports = { codeFor, verify, signPayload, verifyPayload, keyId, canonical };

@@ -5,6 +5,7 @@
 
 const { AppError } = require('../../../core/errors');
 const { assertPermission } = require('../../../core/permissions');
+const { assertBranchAccess, hasGlobalScope, queryScope, resolveBranch } = require('../../../core/data-scope');
 const runtime = require('./runtime');
 
 // ── Kontrol kredit pelanggan (§12.5) ─────────────────────────────────────────
@@ -50,6 +51,7 @@ async function grantCreditOverride(client, { documentId, reason, user, requestId
   if (!reason) throw new AppError('REASON_REQUIRED');
   const doc = (await client.query(`SELECT * FROM business_documents WHERE id=$1`, [documentId])).rows[0];
   if (!doc || !doc.party_id) throw new AppError('RESOURCE_NOT_FOUND', 'Dokumen atau pelanggan tidak ditemukan.');
+  assertBranchAccess(user, doc.branch_id, 'Dokumen kredit berada di cabang di luar cakupan Anda.');
   const status = await creditStatus(client, doc.party_id);
   const row = (await client.query(
     `INSERT INTO credit_overrides(customer_id,document_id,requested_amount,exposure_before,credit_limit,reason,approved_by)
@@ -92,9 +94,10 @@ async function assertBudgetOk(client, doc, { overrideReason, user, requestId } =
 async function listBudgets(client, user, params = {}) {
   assertPermission(user, 'budget.view');
   const period = params.period || new Date().toISOString().slice(0, 7);
+  const scope = queryScope(user);
   const rows = (await client.query(`SELECT b.*,br.name branch_name,u.display_name created_by_name FROM procurement_budgets b
     LEFT JOIN branches br ON br.id=b.branch_id LEFT JOIN app_users u ON u.id=b.created_by
-    WHERE b.active AND b.period=$1 ORDER BY br.name NULLS FIRST`, [period])).rows;
+    WHERE b.active AND b.period=$1 AND ($2::boolean OR b.branch_id IS NULL OR b.branch_id=$3) ORDER BY br.name NULLS FIRST`, [period, scope.global, scope.branchId])).rows;
   const items = [];
   for (const b of rows) {
     const st = await budgetStatus(client, { period: b.period, branchId: b.branch_id });
@@ -107,11 +110,12 @@ async function upsertBudget(client, { period, branchId, amount, notes, user, req
   assertPermission(user, 'budget.edit');
   if (!/^\d{4}-\d{2}$/.test(String(period || ''))) throw new AppError('VALIDATION_ERROR', 'Periode anggaran wajib berformat YYYY-MM.');
   if (!(Number(amount) >= 0)) throw new AppError('VALIDATION_ERROR', 'Nilai anggaran tidak boleh negatif.');
-  const existing = (await client.query(`SELECT id FROM procurement_budgets WHERE active AND period=$1 AND branch_id IS NOT DISTINCT FROM $2`, [period, branchId || null])).rows[0];
+  const targetBranchId = hasGlobalScope(user) && !branchId ? null : resolveBranch(user, branchId);
+  const existing = (await client.query(`SELECT id FROM procurement_budgets WHERE active AND period=$1 AND branch_id IS NOT DISTINCT FROM $2`, [period, targetBranchId])).rows[0];
   const row = existing
     ? (await client.query(`UPDATE procurement_budgets SET amount=$2,notes=$3,updated_at=now() WHERE id=$1 RETURNING *`, [existing.id, Number(amount), notes || null])).rows[0]
-    : (await client.query(`INSERT INTO procurement_budgets(period,branch_id,amount,notes,created_by) VALUES($1,$2,$3,$4,$5) RETURNING *`, [period, branchId || null, Number(amount), notes || null, user.id])).rows[0];
-  await runtime.audit(client, { userId: user.id, action: existing ? 'UPDATE' : 'CREATE', module: 'budget', entityType: 'PROCUREMENT_BUDGET', entityId: row.id, newValue: { period, branchId: branchId || null, amount: Number(amount) }, requestId });
+    : (await client.query(`INSERT INTO procurement_budgets(period,branch_id,amount,notes,created_by) VALUES($1,$2,$3,$4,$5) RETURNING *`, [period, targetBranchId, Number(amount), notes || null, user.id])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: existing ? 'UPDATE' : 'CREATE', module: 'budget', entityType: 'PROCUREMENT_BUDGET', entityId: row.id, newValue: { period, branchId: targetBranchId, amount: Number(amount) }, requestId, branchId: targetBranchId });
   return runtime.camel(row);
 }
 
@@ -120,6 +124,7 @@ async function addQuote(client, { rfqId, body, user, requestId }) {
   assertPermission(user, 'rfq.edit');
   const rfq = (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type='RFQ'`, [rfqId])).rows[0];
   if (!rfq) throw new AppError('RESOURCE_NOT_FOUND', 'RFQ tidak ditemukan.');
+  assertBranchAccess(user, rfq.branch_id, 'RFQ berada di cabang di luar cakupan Anda.');
   if (!body.supplierId) throw new AppError('VALIDATION_ERROR', 'Supplier wajib dipilih.');
   // Multi-baris: bila lines dikirim, total harga dihitung server dari baris.
   let lines = null, priceTotal = Number(body.priceTotal) || 0;
@@ -148,6 +153,9 @@ async function addQuote(client, { rfqId, body, user, requestId }) {
 
 async function listQuotes(client, rfqId, user) {
   assertPermission(user, 'rfq.view');
+  const rfq = (await client.query(`SELECT branch_id FROM business_documents WHERE id=$1 AND document_type='RFQ'`, [rfqId])).rows[0];
+  if (!rfq) throw new AppError('RESOURCE_NOT_FOUND', 'RFQ tidak ditemukan.');
+  assertBranchAccess(user, rfq.branch_id, 'RFQ berada di cabang di luar cakupan Anda.');
   const rows = (await client.query(
     `SELECT q.*, s.name supplier_name, s.code supplier_code,
        (SELECT overall_score FROM supplier_evaluations e WHERE e.supplier_id=q.supplier_id ORDER BY period DESC LIMIT 1) supplier_score,
@@ -172,6 +180,7 @@ async function selectQuote(client, { rfqId, quoteId, reason, user, requestId }) 
   if (!reason) throw new AppError('REASON_REQUIRED');
   const rfq = (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type='RFQ' FOR UPDATE`, [rfqId])).rows[0];
   if (!rfq) throw new AppError('RESOURCE_NOT_FOUND', 'RFQ tidak ditemukan.');
+  assertBranchAccess(user, rfq.branch_id, 'RFQ berada di cabang di luar cakupan Anda.');
   const quote = (await client.query(`SELECT * FROM rfq_quotes WHERE id=$1 AND rfq_document_id=$2`, [quoteId, rfqId])).rows[0];
   if (!quote) throw new AppError('RESOURCE_NOT_FOUND', 'Kuota supplier tidak ditemukan.');
   await client.query(`UPDATE rfq_quotes SET is_selected=false, selection_reason=NULL WHERE rfq_document_id=$1`, [rfqId]);
@@ -186,6 +195,7 @@ async function rfqToPurchaseOrder(client, { rfqId, user, requestId }) {
   assertPermission(user, 'purchase_order.create');
   const rfq = (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type='RFQ' FOR UPDATE`, [rfqId])).rows[0];
   if (!rfq) throw new AppError('RESOURCE_NOT_FOUND', 'RFQ tidak ditemukan.');
+  assertBranchAccess(user, rfq.branch_id, 'RFQ berada di cabang di luar cakupan Anda.');
   const selected = (await client.query(`SELECT q.*, s.name supplier_name FROM rfq_quotes q JOIN suppliers s ON s.id=q.supplier_id WHERE q.rfq_document_id=$1 AND q.is_selected LIMIT 1`, [rfqId])).rows[0];
   if (!selected) throw new AppError('STATUS_INVALID', 'Pilih kuota supplier terlebih dahulu sebelum membuat PO.');
   const existing = (await client.query(`SELECT c.* FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id WHERE r.parent_document_id=$1 AND r.relation_type='RFQ_TO_PO' LIMIT 1`, [rfqId])).rows[0];
@@ -208,9 +218,10 @@ async function rfqToPurchaseOrder(client, { rfqId, user, requestId }) {
 async function evaluateThreeWayMatch(client, { supplierInvoiceId, user, requestId }) {
   const inv = (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type='SUPPLIER_INVOICE'`, [supplierInvoiceId])).rows[0];
   if (!inv) throw new AppError('RESOURCE_NOT_FOUND', 'Tagihan supplier tidak ditemukan.');
+  assertBranchAccess(user, inv.branch_id, 'Tagihan supplier berada di cabang di luar cakupan Anda.');
   // Telusuri PO & GR melalui payload/relasi dokumen.
   const poNumber = inv.payload?.purchaseOrderNumber || inv.payload?.sourceDocumentNumber;
-  const po = poNumber ? (await client.query(`SELECT * FROM business_documents WHERE document_number=$1 AND document_type='PURCHASE_ORDER'`, [poNumber])).rows[0] : null;
+  const po = poNumber ? (await client.query(`SELECT * FROM business_documents WHERE document_number=$1 AND document_type='PURCHASE_ORDER' AND branch_id=$2`, [poNumber, inv.branch_id])).rows[0] : null;
   const gr = po ? (await client.query(`SELECT c.* FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id WHERE r.parent_document_id=$1 AND c.document_type='GOODS_RECEIPT' LIMIT 1`, [po.id])).rows[0] : null;
   const tol = (await client.query(`SELECT * FROM match_tolerance_config WHERE active ORDER BY effective_from DESC LIMIT 1`)).rows[0] || { price_tolerance_pct: 2, amount_tolerance_abs: 50000, qty_tolerance_pct: 5 };
 
@@ -252,6 +263,9 @@ async function assertMatchOk(client, doc, { overrideReason, user } = {}) {
 
 async function getMatch(client, supplierInvoiceId, user) {
   assertPermission(user, 'supplier_invoice.view');
+  const invoice = (await client.query(`SELECT branch_id FROM business_documents WHERE id=$1 AND document_type='SUPPLIER_INVOICE'`, [supplierInvoiceId])).rows[0];
+  if (!invoice) throw new AppError('RESOURCE_NOT_FOUND', 'Tagihan supplier tidak ditemukan.');
+  assertBranchAccess(user, invoice.branch_id, 'Tagihan supplier berada di cabang di luar cakupan Anda.');
   const row = (await client.query(`SELECT * FROM three_way_matches WHERE supplier_invoice_id=$1`, [supplierInvoiceId])).rows[0];
   return row ? runtime.camel(row) : null;
 }
@@ -260,7 +274,7 @@ async function getMatch(client, supplierInvoiceId, user) {
 // Kumpulkan tagihan supplier APPROVED jatuh tempo → proposal untuk approval finance.
 async function generatePaymentProposal(client, { user, requestId, branchId, dueBefore }) {
   assertPermission(user, 'payment_proposal.create');
-  const scope = branchId || user.branchId;
+  const scope = resolveBranch(user, branchId);
   const invoices = (await client.query(
     `SELECT d.*, s.id supplier_id, s.name supplier_name,
        (SELECT b.id FROM supplier_bank_accounts b WHERE b.supplier_id=s.id AND b.is_primary AND NOT b.payment_hold AND b.verification_status='VERIFIED' LIMIT 1) bank_id,
@@ -275,7 +289,7 @@ async function generatePaymentProposal(client, { user, requestId, branchId, dueB
   if (!invoices.length) throw new AppError('VALIDATION_ERROR', 'Tidak ada tagihan supplier disetujui yang perlu diproposalkan.');
   const total = invoices.reduce((s, r) => s + Number(r.amount), 0);
   const proposal = await runtime.createDocument(client, {
-    type: 'PAYMENT_PROPOSAL', user, title: `Usulan pembayaran ${invoices.length} tagihan`, amount: total,
+    type: 'PAYMENT_PROPOSAL', user: { ...user, branchId: scope }, title: `Usulan pembayaran ${invoices.length} tagihan`, amount: total,
     payload: { count: invoices.length, generatedAt: new Date().toISOString() }, requestId
   });
   for (const inv of invoices) {
@@ -291,6 +305,9 @@ async function generatePaymentProposal(client, { user, requestId, branchId, dueB
 
 async function proposalLines(client, proposalId, user) {
   assertPermission(user, 'payment_proposal.view');
+  const proposal = (await client.query(`SELECT branch_id FROM business_documents WHERE id=$1 AND document_type='PAYMENT_PROPOSAL'`, [proposalId])).rows[0];
+  if (!proposal) throw new AppError('RESOURCE_NOT_FOUND', 'Usulan pembayaran tidak ditemukan.');
+  assertBranchAccess(user, proposal.branch_id, 'Usulan pembayaran berada di cabang di luar cakupan Anda.');
   return (await client.query(
     `SELECT l.*, d.document_number invoice_number, d.due_date, s.name supplier_name
      FROM payment_proposal_lines l JOIN business_documents d ON d.id=l.supplier_invoice_id
@@ -306,6 +323,7 @@ async function createChangeOrder(client, { poId, newAmount, newLines, reason, us
   if (!reason) throw new AppError('REASON_REQUIRED', 'Alasan amendemen PO wajib diisi.');
   const po = (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type='PURCHASE_ORDER' FOR UPDATE`, [poId])).rows[0];
   if (!po) throw new AppError('RESOURCE_NOT_FOUND', 'PO tidak ditemukan.');
+  assertBranchAccess(user, po.branch_id, 'PO berada di cabang di luar cakupan Anda.');
   if (!['APPROVED', 'IN_PROCESS'].includes(po.status)) throw new AppError('STATUS_INVALID', `Amendemen membutuhkan PO APPROVED/IN_PROCESS (sekarang ${po.status}).`);
   const gr = (await client.query(`SELECT count(*)::int n FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id
     WHERE r.parent_document_id=$1 AND r.relation_type='ORDER_TO_RECEIPT' AND c.status IN ('COMPLETED','CLOSED')`, [poId])).rows[0];
@@ -326,8 +344,9 @@ async function decideChangeOrder(client, { changeOrderId, decision, reason, user
   assertPermission(user, 'purchase_order.approve');
   if (!['APPROVED', 'REJECTED'].includes(decision)) throw new AppError('VALIDATION_ERROR', 'Keputusan harus APPROVED/REJECTED.');
   if (!reason) throw new AppError('REASON_REQUIRED', 'Alasan keputusan wajib diisi.');
-  const co = (await client.query('SELECT * FROM po_change_orders WHERE id=$1 FOR UPDATE', [changeOrderId])).rows[0];
+  const co = (await client.query(`SELECT co.*,d.branch_id FROM po_change_orders co JOIN business_documents d ON d.id=co.po_document_id WHERE co.id=$1 FOR UPDATE OF co`, [changeOrderId])).rows[0];
   if (!co) throw new AppError('RESOURCE_NOT_FOUND', 'Change order tidak ditemukan.');
+  assertBranchAccess(user, co.branch_id, 'Change order PO berada di cabang di luar cakupan Anda.');
   if (co.status !== 'PENDING') throw new AppError('STATUS_INVALID', `Change order berstatus ${co.status}.`);
   if (co.requested_by === user.id) throw new AppError('SOD_CONFLICT', 'Pemohon amendemen tidak boleh menjadi pemutus (SoD).');
   const updated = (await client.query(`UPDATE po_change_orders SET status=$2,decided_by=$3,decided_at=now(),decide_reason=$4 WHERE id=$1 RETURNING *`,
@@ -346,6 +365,9 @@ async function decideChangeOrder(client, { changeOrderId, decision, reason, user
 
 async function listChangeOrders(client, poId, user) {
   assertPermission(user, 'purchase_order.view');
+  const po = (await client.query(`SELECT branch_id FROM business_documents WHERE id=$1 AND document_type='PURCHASE_ORDER'`, [poId])).rows[0];
+  if (!po) throw new AppError('RESOURCE_NOT_FOUND', 'PO tidak ditemukan.');
+  assertBranchAccess(user, po.branch_id, 'PO berada di cabang di luar cakupan Anda.');
   return { items: (await client.query(`SELECT co.*,ru.display_name requested_by_name,du.display_name decided_by_name
     FROM po_change_orders co LEFT JOIN app_users ru ON ru.id=co.requested_by LEFT JOIN app_users du ON du.id=co.decided_by
     WHERE co.po_document_id=$1 ORDER BY co.change_no DESC`, [poId])).rows.map(runtime.camel) };

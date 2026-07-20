@@ -177,21 +177,21 @@
       main.innerHTML = pageHead({ eyebrow: 'SISTEM', title: 'Self test', sub: 'Menjalankan pemeriksaan integritas…' }) + `<section class="panel"><div class="panel-body"><span class="spinner"></span> Menjalankan seluruh pemeriksaan…</div></section>`;
       const s = await api('/api/system/self-test', { signal });
       main.innerHTML = pageHead({
-        eyebrow: 'SISTEM', title: 'Self test', sub: `${s.passed} lulus · ${s.failed} gagal · dijalankan ${fmtDateTime(s.ranAt)}`,
+        eyebrow: 'SISTEM', title: 'Self test', sub: `${s.passed} lulus · ${s.warnings || 0} peringatan · ${s.failed} gagal · ${s.blocked || 0} diblokir · dijalankan ${fmtDateTime(s.ranAt)}`,
         actions: `<button class="btn secondary" id="stRerun">${ICONS.refresh} Jalankan ulang</button>`
       }) + `
         <section class="release-gate ${s.releaseBlocked ? 'blocked' : 'clear'}">
           ${clayOrb(s.releaseBlocked ? 'coral' : 'mint', s.releaseBlocked ? 'alert' : 'shield')}
           <div><h2>${s.releaseBlocked ? 'Rilis diblokir' : 'Gerbang rilis terbuka'}</h2>
-          <p>${s.releaseBlocked ? `${s.criticalFailed} pemeriksaan kritis gagal — perbaiki sebelum rilis.` : 'Seluruh pemeriksaan kritis lulus. Sistem layak rilis.'}</p></div>
+          <p>${s.releaseBlocked ? `${s.criticalFailed} pemeriksaan kritis gagal/diblokir — perbaiki sebelum rilis.` : (s.warnings ? `Pemeriksaan kritis lulus dengan ${s.warnings} peringatan yang wajib ditindaklanjuti.` : 'Seluruh pemeriksaan kritis lulus. Sistem layak rilis.')}</p></div>
         </section>
         <section class="panel"><header><div><p class="eyebrow">HASIL</p><h2>${s.total} pemeriksaan</h2></div></header>
           <div class="selftest-list">
             ${s.results.map((r) => `
               <div class="selftest-row ${r.status}">
-                <span class="st-icon">${r.status === 'pass' ? ICONS.check : ICONS.close}</span>
+                <span class="st-icon">${r.status === 'pass' ? ICONS.check : r.status === 'warning' ? ICONS.warning : ICONS.close}</span>
                 <span><b>${esc(r.name)}</b>${r.critical ? ' <span class="chip gray">kritis</span>' : ''}<small>${esc(r.detail)}</small></span>
-                <span class="chip ${r.status === 'pass' ? 'mint' : 'coral'}">${r.status === 'pass' ? 'Lulus' : 'Gagal'}</span>
+                <span class="chip ${r.status === 'pass' ? 'mint' : r.status === 'warning' ? 'amber' : 'coral'}">${r.status === 'pass' ? 'Lulus' : r.status === 'warning' ? 'Peringatan' : r.status === 'blocked' ? 'Diblokir' : 'Gagal'}</span>
               </div>`).join('')}
           </div>
         </section>`;
@@ -201,7 +201,6 @@
 
 
   const R = router.register.bind(router);
-  R('/reports', reports);
   R('/system/users', systemUsers);
   R('/system/iam', iamGovernance);
   R('/system/sod', sodCenter);

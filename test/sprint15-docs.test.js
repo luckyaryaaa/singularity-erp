@@ -9,6 +9,8 @@ const docVerify = require('../backend/core/doc-verification');
 const render = require('../backend/infrastructure/files/document-render');
 const openapi = require('../backend/core/openapi');
 const smtp = require('../backend/infrastructure/smtp');
+const artifacts = require('../backend/infrastructure/files/artifact-storage');
+const { unzipSync, strFromU8 } = require('fflate');
 
 test('terbilang: nol, ribuan, jutaan, campuran, miliar', () => {
   assert.equal(render.terbilangRupiah(0), 'Nol rupiah');
@@ -51,6 +53,57 @@ test('render dokumen resmi: PDF valid dengan kop, terbilang, ttd, dan kode verif
   // Identitas dari SNAPSHOT — dokumen tanpa snapshot tetap ter-render aman.
   const bare = render.renderDocument({ document: { documentNumber: 'X-1', documentType: 'DELIVERY', amount: 0 }, lines: [] });
   assert.equal(bare.buffer.subarray(0, 5).toString(), '%PDF-');
+});
+
+test('render dokumen resmi: seluruh baris dipaginasi, QR valid, watermark, dan template version', () => {
+  const lines = Array.from({ length: 70 }, (_, i) => ({ description: `Baris enterprise ${i + 1}`, qty: 1, uom: 'PCS', unitPrice: 1000, lineTotal: 1000 }));
+  const result = render.renderDocument({ document: { documentNumber: 'Q-PAGE-1', documentType: 'QUOTATION', status: 'DRAFT', amount: 70_000 }, lines });
+  const content = result.buffer.toString('latin1');
+  assert.equal(result.pageCount, 3);
+  assert.equal(result.templateVersion, render.TEMPLATE_VERSION);
+  assert.match(result.verificationUrl, /doc=Q-PAGE-1/);
+  assert.ok(content.includes('/Count 3'), 'PDF benar-benar memiliki 3 halaman');
+  assert.ok(content.includes('Baris enterprise 70'), 'baris terakhir tidak terpotong');
+  assert.ok(content.includes('DRAFT'), 'watermark/status draft tertera');
+});
+
+test('signing key dokumen mendukung rotasi current + previous tanpa fallback statis', () => {
+  const payload = { document: { number: 'ROT-1' }, lines: [{ qty: 1 }] };
+  const oldEnv = { MAT_DOC_VERIFY_KEY_ID: 'v1', MAT_DOC_VERIFY_SECRET: 'old-secret-that-is-long-enough-123456' };
+  const signature = docVerify.signPayload(payload, oldEnv, 'v1');
+  const rotated = { MAT_DOC_VERIFY_KEY_ID: 'v2', MAT_DOC_VERIFY_SECRET: 'new-secret-that-is-long-enough-123456', MAT_DOC_VERIFY_PREVIOUS_KEY_ID: 'v1', MAT_DOC_VERIFY_PREVIOUS_SECRET: oldEnv.MAT_DOC_VERIFY_SECRET };
+  assert.equal(docVerify.verifyPayload(payload, signature, rotated, 'v1'), true);
+  assert.throws(() => docVerify.signPayload(payload, { MAT_DOC_VERIFY_KEY_ID: 'v2', MAT_DOC_VERIFY_SECRET: rotated.MAT_DOC_VERIFY_SECRET }, 'v1'), /tidak tersedia/);
+});
+
+test('smtp multipart menyertakan PDF sebagai attachment base64', () => {
+  const message = smtp.buildMessage({ from: 'erp@example.com' }, { to: 'user@example.com', subject: 'Dokumen', text: 'Terlampir.', attachments: [{ filename: 'INV-1.pdf', contentType: 'application/pdf', content: Buffer.from('%PDF-test') }] });
+  assert.match(message, /multipart\/mixed/);
+  assert.match(message, /filename="INV-1\.pdf"/);
+  assert.ok(message.includes(Buffer.from('%PDF-test').toString('base64')));
+});
+
+test('export spreadsheet menghasilkan XLSX Office Open XML valid, bukan XML .xls', () => {
+  const buffer = artifacts.excelBuffer('Enterprise report', [{ customer: 'PT Contoh', amount: 125000, active: true }]);
+  assert.equal(buffer.subarray(0, 2).toString(), 'PK');
+  const files = unzipSync(buffer);
+  assert.ok(files['xl/workbook.xml']);
+  assert.ok(files['xl/worksheets/sheet1.xml']);
+  const sheet = strFromU8(files['xl/worksheets/sheet1.xml']);
+  assert.match(sheet, /Enterprise report/);
+  assert.match(sheet, /PT Contoh/);
+  assert.match(sheet, /<v>125000<\/v>/);
+  assert.match(sheet, /state="frozen"/);
+});
+
+test('export PDF laporan memaginasi seluruh baris tanpa truncation', () => {
+  const rows = Array.from({ length: 100 }, (_, index) => ({ number: index + 1, description: `Enterprise row ${index + 1}` }));
+  const buffer = artifacts.pdfBuffer('Enterprise PDF report', rows);
+  const content = buffer.toString('latin1');
+  assert.equal(buffer.subarray(0, 5).toString(), '%PDF-');
+  assert.ok(content.includes('/Count 3'));
+  assert.ok(content.includes('Enterprise row 100'));
+  assert.ok(content.includes('Page 3 of 3'));
 });
 
 test('openapi: spec 3.0.3 lengkap + event catalog', () => {

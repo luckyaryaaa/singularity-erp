@@ -15,6 +15,31 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.24.0 — Final Assurance & LAN-UAT Readiness
+
+- Sprint 17/R024 selesai: matriks otorisasi 14 router dan 183 handler,
+  negative allow/deny test, serta public-endpoint allowlist menjadi bukti
+  eksplisit dan terversi.
+- Self-Test final memakai taksonomi `PASS/WARNING/FAIL/BLOCKED` dan mengaudit
+  rekonsiliasi jurnal, persediaan, payroll, current/next partition, orphan
+  kritis, backup/restore, IAM, dokumen resmi, serta reporting freshness.
+- Migration 035 menyediakan maintenance partisi inventory yang terkontrol
+  melalui fungsi `SECURITY DEFINER`; runtime role tetap tidak mempunyai hak
+  membuat schema/table.
+- Load LAN terotomasi menguji 10 lalu 25 sesi pengguna independen dengan
+  kombinasi read dan write, CSRF, cleanup, serta ambang p95 terpisah.
+- Katalog 18 SOP operasional tersedia dan divalidasi oleh automated test.
+- Evidence closure: regression 136/136, authorization 14/14, security 5/5,
+  a11y 18/18, visual 10/10, migration 001–035 dan rollback drill penuh lulus.
+  Secret scan 434 file/0 temuan, dependency audit cache 0 vulnerability, dan
+  paket production 281 file tervalidasi. Predeploy LOCAL 13/13 lulus; Self-Test
+  berakhir 19 PASS, 1 WARNING data pembukaan persediaan, 0 blocking.
+
+Status saat ini **LOCAL BUILD / LAN-UAT CANDIDATE**, bukan klaim seluruh ERP
+production-ready. Sprint 18 LAN-UAT lintas divisi, koreksi opening balance yang
+disetujui Finance/Owner, Owner sign-off, dan Sprint 19 aktivasi VPS tetap
+mengikuti backlog resmi.
+
 ## Status v0.16.0 — Enterprise Master Governance (Sprint 8C Selesai)
 
 - Customer Link Wizard mengubah Inquiry/Quotation/PO pelanggan/Sales Order/
@@ -214,6 +239,7 @@ npm.cmd run backup:restore-test
 npm.cmd run backup:decrypt -- <file.dump.enc> [keluaran.dump]
 npm.cmd run predeploy      # gerbang wajib hijau sebelum deploy
 npm.cmd run load:smoke     # uji beban ringan (target p95 < 500 ms)
+npm.cmd run load:lan       # simulasi LAN 10/25 user dengan read + write
 ```
 
 Go-live VPS: ikuti `docs/release/vps-runbook.md` — VPS diaktifkan pada fase
@@ -229,4 +255,9 @@ PostgreSQL, mencabut semua sesi Owner, dan tidak mencetak secret.
 - `docs/database/schema.md`
 - `docs/security/security-model.md`
 - `docs/self-test/checklist.md`
+- `docs/security/endpoint-authorization-matrix.md`
+- `docs/sop/README.md`
+- `docs/operations/sprint17-final-audit-evidence.md`
+- `docs/operations/sprint16-reporting-evidence.md`
+- `docs/operations/deployment-runbook.md`
 - `docs/release/DELIVERY.md`

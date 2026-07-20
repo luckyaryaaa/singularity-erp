@@ -167,9 +167,27 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
 - `GET|POST /api/files`
 - `GET|DELETE /api/files/:id`
 - `GET /api/system/users|settings|monitoring|self-test`
+- `GET /api/system/self-test` — 20 pemeriksaan runtime dengan status
+  `pass|warning|fail|blocked`, ringkasan `criticalFailed`/`releaseBlocked`, dan
+  detail assurance rekonsiliasi, partisi, serta orphan tanpa nilai secret
 - `PATCH /api/system/settings/company` — compatibility facade ke Organization Master; rekening wajib melalui maker-checker
 - `POST /api/system/users/:id/reset-password`
 - `GET /api/events` — SSE terautentikasi
+
+## Sprint 16 — Reporting & Executive Cockpit (R023)
+
+- `GET /api/reports/catalog` — katalog laporan, format, dan parameter yang didukung
+- `GET /api/reports/cockpit?period=YYYY-MM&branchId=<uuid>` — KPI eksekutif,
+  tren 12 bulan, AR aging, funnel dokumen, margin proyek aktual, action queue,
+  data freshness, dan definisi sumber data
+- `POST /api/reports/refresh` — refresh materialized semantic KPI; dibatasi
+  permission reporting dan tercatat pada audit trail
+- `GET|POST /api/reports/schedules` dan `PATCH /api/reports/schedules/:id` —
+  jadwal harian/mingguan/bulanan dengan optimistic locking serta scope cabang
+- `GET|POST /api/reports/saved-filters` dan `DELETE /api/reports/saved-filters/:id`
+  — saved view privat per pengguna
+- `GET /api/artifacts/:id` — unduhan artefak hasil scheduler mencatat nama file,
+  checksum, pemohon, dan waktu unduh pada audit trail
 
 ## Sprint 9 — Order-to-Cash completion (R016)
 
@@ -195,15 +213,20 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
 - `GET /api/documents/:id/official-pdf` — cetak dokumen resmi ber-identitas:
   kop dari `organization_identity_snapshot` (immutable — identitas saat
   terbit), tabel baris, terbilang, blok tanda tangan penandatangan aktif,
-  dan kode verifikasi keaslian (teraudit EXPORT)
+  QR + kode verifikasi keaslian, watermark status/copy, dan pagination penuh.
+  Penerbitan pertama membekukan payload/line/signature; reprint selalu memakai
+  snapshot issued tersebut dan seluruh aksi teraudit
 - `GET /api/verify?doc=&code=` — verifikasi keaslian publik (rate-limited):
-  kode HMAC-SHA256 dicocokkan ke nomor dokumen; valid → metadata minimal
-  non-sensitif
+  signature HMAC-SHA256 diverifikasi dengan key ID current/previous; valid →
+  metadata minimal non-sensitif. Dokumen VOID/CANCELLED/REJECTED dilaporkan
+  revoked dan tidak dapat dicetak resmi
 - `POST /api/documents/:id/email` — kirim ringkasan dokumen + kode verifikasi
-  via SMTP (env `MAT_SMTP_*`; tanpa host = SKIPPED aman); setiap percobaan
-  tercatat di `notification_deliveries`
+  beserta PDF resmi sebagai attachment via SMTP (env `MAT_SMTP_*`; tanpa host
+  = SKIPPED aman); setiap percobaan tercatat di `notification_deliveries`
 - Job `NOTIFICATION_SEND` dengan `params.email` kini benar-benar mengirim
-  lewat SMTP (STARTTLS/implicit TLS, AUTH LOGIN, tanpa dependensi)
+  lewat SMTP (STARTTLS/implicit TLS, AUTH LOGIN). Retry memakai delivery record
+  yang sama dan tidak mengirim ulang kanal yang sudah SENT. Webhook outbound
+  belum diaktifkan dan ditolak saat enqueue (fail closed)
 
 ## Sprint 14 — HR: shift, kalender, koreksi, akrual cuti (R021)
 

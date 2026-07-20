@@ -5,6 +5,9 @@
    Token existing dipertahankan (parity) + lapisan token semantik §10.3.
    ========================================================================== */
 
+@font-face{font-family:"Manrope";src:url("../../assets/fonts/manrope-latin-variable.woff2") format("woff2-variations");font-style:normal;font-weight:500 800;font-display:swap}
+@font-face{font-family:"Plus Jakarta Sans";src:url("../../assets/fonts/plus-jakarta-sans-latin-variable.woff2") format("woff2-variations");font-style:normal;font-weight:400 700;font-display:swap}
+
 :root{
   /* ── Base — §29.1 (existing, parity) ─────────────────────────────────── */
   --cloud:#f8fafc; --ivory:#fffdf8; --soft-gray:#eef2f6;

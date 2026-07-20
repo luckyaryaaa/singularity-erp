@@ -4,6 +4,7 @@
 // hari libur, dan kebijakan cuti seluruhnya configuration-driven.
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
+const { assertBranchAccess, hasGlobalScope, queryScope, resolveBranch } = require('../../../core/data-scope');
 
 const d2 = (v) => Math.round(Number(v || 0) * 100) / 100;
 
@@ -31,6 +32,9 @@ async function assignRoster(client, { assignments, user, requestId }) {
     if (!a.employeeId || !a.shiftId || !/^\d{4}-\d{2}-\d{2}$/.test(String(a.workDate || ''))) throw new AppError('VALIDATION_ERROR', `Baris roster #${i + 1} tidak lengkap (employeeId, workDate, shiftId).`);
     const shift = (await client.query('SELECT id FROM work_shifts WHERE id=$1 AND active', [a.shiftId])).rows[0];
     if (!shift) throw new AppError('RESOURCE_NOT_FOUND', `Shift baris #${i + 1} tidak ditemukan.`);
+    const employee = (await client.query('SELECT id,branch_id FROM employees WHERE id=$1 AND active', [a.employeeId])).rows[0];
+    if (!employee) throw new AppError('RESOURCE_NOT_FOUND', `Karyawan baris #${i + 1} tidak ditemukan.`);
+    assertBranchAccess(user, employee.branch_id, `Karyawan baris #${i + 1} berada di cabang di luar cakupan Anda.`);
     await client.query(`INSERT INTO employee_rosters(id,employee_id,work_date,shift_id,assigned_by) VALUES($1,$2,$3,$4,$5)
       ON CONFLICT(employee_id,work_date) DO UPDATE SET shift_id=excluded.shift_id,assigned_by=excluded.assigned_by,created_at=now()`,
       [randomUUID(), a.employeeId, a.workDate, a.shiftId, user.id]);
@@ -41,11 +45,14 @@ async function assignRoster(client, { assignments, user, requestId }) {
   return { applied };
 }
 
-async function listRoster(client, { period, employeeId }) {
+async function listRoster(client, user, { period, employeeId }) {
   const p = period || new Date().toISOString().slice(0, 7);
   const runtime = require('./runtime');
-  const args = [p]; let filter = '';
-  if (employeeId) { args.push(employeeId); filter = ' AND r.employee_id=$2'; }
+  const scope = queryScope(user);
+  if (user.role === 'employee') employeeId = user.employeeId;
+  if (user.role === 'employee' && !employeeId) return { period: p, items: [] };
+  const args = [p, scope.global, scope.branchId]; let filter = ' AND ($2::boolean OR e.branch_id=$3)';
+  if (employeeId) { args.push(employeeId); filter += ` AND r.employee_id=$${args.length}`; }
   const rows = (await client.query(`SELECT r.*,e.nik,e.name employee_name,s.code shift_code,s.name shift_name,s.start_time,s.end_time,s.break_minutes
     FROM employee_rosters r JOIN employees e ON e.id=r.employee_id JOIN work_shifts s ON s.id=r.shift_id
     WHERE to_char(r.work_date,'YYYY-MM')=$1${filter} ORDER BY r.work_date,e.name LIMIT 1000`, args)).rows;
@@ -58,19 +65,21 @@ async function weekendDays(client) {
   return row ? row.weekend_days.map(Number) : [0, 6];
 }
 
-async function listHolidays(client, { year }) {
+async function listHolidays(client, user, { year }) {
   const runtime = require('./runtime');
   const y = Number(year) || new Date().getFullYear();
+  const scope = queryScope(user);
   const rows = (await client.query(`SELECT c.*,b.name branch_name FROM work_calendar c LEFT JOIN branches b ON b.id=c.branch_id
-    WHERE c.active AND EXTRACT(YEAR FROM c.holiday_date)=$1 ORDER BY c.holiday_date`, [y])).rows;
+    WHERE c.active AND EXTRACT(YEAR FROM c.holiday_date)=$1 AND ($2::boolean OR c.branch_id IS NULL OR c.branch_id=$3) ORDER BY c.holiday_date`, [y, scope.global, scope.branchId])).rows;
   return { year: y, weekendDays: await weekendDays(client), items: rows.map(runtime.camel) };
 }
 
 async function upsertHoliday(client, { holidayDate, name, branchId, user, requestId }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(holidayDate || ''))) throw new AppError('VALIDATION_ERROR', 'Tanggal libur wajib berformat YYYY-MM-DD.');
   if (!name) throw new AppError('VALIDATION_ERROR', 'Nama hari libur wajib diisi.');
+  const targetBranchId = hasGlobalScope(user) && !branchId ? null : resolveBranch(user, branchId);
   const row = (await client.query(`INSERT INTO work_calendar(id,holiday_date,name,branch_id,created_by) VALUES($1,$2,$3,$4,$5) RETURNING *`,
-    [randomUUID(), holidayDate, String(name).slice(0, 160), branchId || null, user.id])).rows[0];
+    [randomUUID(), holidayDate, String(name).slice(0, 160), targetBranchId, user.id])).rows[0];
   const runtime = require('./runtime');
   await runtime.audit(client, { userId: user.id, action: 'CREATE', module: 'attendance', entityType: 'WORK_CALENDAR', entityId: row.id, newValue: { holidayDate, name }, requestId });
   return runtime.camel(row);
@@ -100,6 +109,7 @@ async function requestCorrection(client, { employeeId, workDate, proposed, reaso
   }
   const employee = (await client.query('SELECT id,branch_id FROM employees WHERE id=$1 AND active', [employeeId])).rows[0];
   if (!employee) throw new AppError('RESOURCE_NOT_FOUND', 'Karyawan tidak ditemukan.');
+  assertBranchAccess(user, employee.branch_id, 'Karyawan berada di cabang di luar cakupan Anda.');
   const existing = (await client.query('SELECT * FROM attendance_records WHERE employee_id=$1 AND work_date=$2', [employeeId, workDate])).rows[0];
   const runtime = require('./runtime');
   const row = (await client.query(`INSERT INTO attendance_corrections(id,employee_id,work_date,old_value,proposed,reason,requested_by)
@@ -115,8 +125,9 @@ async function requestCorrection(client, { employeeId, workDate, proposed, reaso
 async function decideCorrection(client, { correctionId, decision, reason, user, requestId }) {
   if (!['APPROVED', 'REJECTED'].includes(decision)) throw new AppError('VALIDATION_ERROR', 'Keputusan harus APPROVED/REJECTED.');
   if (!reason) throw new AppError('REASON_REQUIRED', 'Alasan keputusan wajib diisi.');
-  const co = (await client.query('SELECT * FROM attendance_corrections WHERE id=$1 FOR UPDATE', [correctionId])).rows[0];
+  const co = (await client.query(`SELECT c.*,e.branch_id FROM attendance_corrections c JOIN employees e ON e.id=c.employee_id WHERE c.id=$1 FOR UPDATE OF c`, [correctionId])).rows[0];
   if (!co) throw new AppError('RESOURCE_NOT_FOUND', 'Koreksi tidak ditemukan.');
+  assertBranchAccess(user, co.branch_id, 'Koreksi absensi berada di cabang di luar cakupan Anda.');
   if (co.status !== 'PENDING') throw new AppError('STATUS_INVALID', `Koreksi berstatus ${co.status}.`);
   if (co.requested_by === user.id) throw new AppError('SOD_CONFLICT', 'Pemohon koreksi tidak boleh menjadi pemutus (SoD).');
   const updated = (await client.query(`UPDATE attendance_corrections SET status=$2,decided_by=$3,decided_at=now(),decide_reason=$4 WHERE id=$1 RETURNING *`,
@@ -142,6 +153,7 @@ async function listCorrections(client, user, params = {}) {
   const args = []; const where = [];
   where.push(params.status ? `c.status=$${args.push(params.status)}` : `c.status='PENDING'`);
   if (user.role === 'employee') { if (!user.employeeId) return { items: [] }; where.push(`c.employee_id=$${args.push(user.employeeId)}`); }
+  else if (!hasGlobalScope(user)) where.push(`e.branch_id=$${args.push(user.branchId)}`);
   const rows = (await client.query(`SELECT c.*,e.nik,e.name employee_name,ru.display_name requested_by_name,du.display_name decided_by_name
     FROM attendance_corrections c JOIN employees e ON e.id=c.employee_id
     LEFT JOIN app_users ru ON ru.id=c.requested_by LEFT JOIN app_users du ON du.id=c.decided_by
@@ -160,18 +172,19 @@ async function activeLeavePolicy(client, onDate) {
 
 // Akrual bulanan: karyawan aktif dengan masa kerja >= min_service_months
 // mendapat days_per_year/12; idempoten per karyawan per periode.
-async function runLeaveAccrual(client, { period, user, requestId }) {
+async function runLeaveAccrual(client, { period, branchId, user, requestId }) {
   if (!/^\d{4}-\d{2}$/.test(String(period || ''))) throw new AppError('VALIDATION_ERROR', 'Periode wajib berformat YYYY-MM.');
-  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`leave-accrual:${period}`]);
+  const targetBranchId = resolveBranch(user, branchId);
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`leave-accrual:${targetBranchId}:${period}`]);
   const policy = await activeLeavePolicy(client, `${period}-01`);
   if (!policy.accrue_monthly) return { period, accrued: 0, message: 'Kebijakan tidak memakai akrual bulanan.' };
   const monthly = d2(Number(policy.days_per_year) / 12);
   const year = Number(period.slice(0, 4));
   const employees = (await client.query(`SELECT e.id,e.join_date FROM employees e
-    WHERE e.active AND e.join_date IS NOT NULL
+    WHERE e.active AND e.branch_id=$3 AND e.join_date IS NOT NULL
       AND e.join_date + ($2||' months')::interval <= ($1||'-01')::date + interval '1 month' - interval '1 day'
       AND NOT EXISTS (SELECT 1 FROM leave_accrual_entries a WHERE a.employee_id=e.id AND a.period=$1)`,
-    [period, Number(policy.min_service_months)])).rows;
+    [period, Number(policy.min_service_months), targetBranchId])).rows;
   const snapshot = { code: policy.code, daysPerYear: Number(policy.days_per_year), minServiceMonths: Number(policy.min_service_months), monthly };
   let accrued = 0;
   for (const emp of employees) {
@@ -182,7 +195,7 @@ async function runLeaveAccrual(client, { period, user, requestId }) {
     accrued++;
   }
   const runtime = require('./runtime');
-  await runtime.audit(client, { userId: user.id, action: 'POST', module: 'leave', entityType: 'LEAVE_ACCRUAL_RUN', entityId: null, newValue: { period, accrued, monthly }, requestId });
+  await runtime.audit(client, { userId: user.id, action: 'POST', module: 'leave', entityType: 'LEAVE_ACCRUAL_RUN', entityId: null, newValue: { period, accrued, monthly }, requestId, branchId: targetBranchId });
   return { period, accrued, monthlyDays: monthly };
 }
 

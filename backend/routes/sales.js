@@ -17,7 +17,7 @@ async function dispatch(client, req, url, ctx) {
     return result.body;
   };
   let match = pathname.match(/^\/api\/quotations\/([0-9a-f-]{36})\/revisions$/);
-  if (method === 'GET' && match) { assertPermission(ctx.user, 'quotation.view'); return salesO2c.listQuotationRevisions(client, match[1]); }
+  if (method === 'GET' && match) { assertPermission(ctx.user, 'quotation.view'); return salesO2c.listQuotationRevisions(client, match[1], ctx.user); }
   match = pathname.match(/^\/api\/quotations\/([0-9a-f-]{36})\/revise$/);
   if (method === 'POST' && match) {
     assertPermission(ctx.user, 'quotation.edit');
@@ -29,7 +29,7 @@ async function dispatch(client, req, url, ctx) {
     const body = await readBody(req);
     return idempotent('dunning.run', body, 200, () => salesO2c.runDunning(client, { user: ctx.user, requestId: ctx.requestId }));
   }
-  if (method === 'GET' && pathname === '/api/collection/dunning') { assertPermission(ctx.user, 'invoice.view'); return salesO2c.listDunning(client, Object.fromEntries(url.searchParams)); }
+  if (method === 'GET' && pathname === '/api/collection/dunning') { assertPermission(ctx.user, 'invoice.view'); return salesO2c.listDunning(client, ctx.user, Object.fromEntries(url.searchParams)); }
   match = pathname.match(/^\/api\/collection\/dunning\/([0-9a-f-]{36})\/resolve$/);
   if (method === 'POST' && match) {
     assertPermission(ctx.user, 'invoice.edit');

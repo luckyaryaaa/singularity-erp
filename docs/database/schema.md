@@ -34,6 +34,11 @@
 | `028_s2p_completion.sql` | procurement_budgets per periode/cabang, rfq_quote_lines (total server-side), po_change_orders maker-checker (CHECK pemohon≠pemutus, satu PENDING per PO), kolom reversal payment_allocations |
 | `029_fixed_assets_statements.sql` | asset_categories configuration-driven (umur+akun), fixed_assets (FA-*, disposal ber-jurnal), asset_depreciation_entries idempoten append-only, COA 1500/1590/3100/3900/6300/7100 (fondasi neraca + EQUITY) |
 | `030_hr_shift_calendar_leave.sql` | work_shifts (default NORMAL 8j — jam lembur payroll tidak lagi hardcode) + employee_rosters, work_calendar + hr_calendar_config (akhir pekan), attendance_corrections maker-checker (CHECK pemohon≠pemutus), leave_policies + leave_accrual_entries append-only |
+| `031_official_document_governance.sql` | immutable official issued-at/by, signing key ID, template version, canonical signed payload, dan constraint kelengkapan issuance |
+| `032_runtime_history_privileges.sql` | revoke DELETE runtime pada koreksi absensi, dunning, fixed asset, dan PO change order agar histori memakai status/reversal |
+| `033_notification_delivery_idempotency.sql` | unique delivery target per notifikasi/kanal/tujuan, retry attempts pada baris yang sama, dan revoke DELETE runtime |
+| `034_reporting_executive_cockpit.sql` | materialized KPI GL/operasional/QC, SECURITY DEFINER refresh log, saved filter pribadi, serta scheduled report ber-scope dan optimistic version |
+| `035_final_assurance_partition_maintenance.sql` | fungsi SECURITY DEFINER terkontrol untuk memastikan partisi inventory bulan berjalan dan beberapa bulan ke depan tanpa memberi runtime hak CREATE schema/table |
 
 Semua migration memiliki checksum yang diverifikasi saat startup. Runtime gagal
 menyala bila migration terbaru belum aktif.
@@ -57,6 +62,13 @@ menyala bila migration terbaru belum aktif.
 - Work order menyimpan snapshot BOM, rate work center, biaya komponen, dan
   lokasi stok tervalidasi; completion ditolak sebelum operasi, material issue,
   dan finished-goods receipt selesai.
+- Dokumen yang sudah diterbitkan resmi menyimpan canonical payload dan HMAC
+  signature immutable; reprint menggunakan snapshot tersebut, bukan master
+  atau line transaksi yang mungkin berubah setelah penerbitan.
+- Executive Cockpit membaca `mv_executive_monthly_kpis`; revenue, COGS,
+  margin, expense, dan cash movement berasal dari jurnal double-entry. Worker
+  menyegarkan summary secara periodik dan menyimpan freshness evidence pada
+  `reporting_refresh_runs`; aksi/AR/AP/order book tetap dihitung live.
 
 ## Runtime
 

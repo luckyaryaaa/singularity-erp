@@ -2,7 +2,7 @@
 const { readBody } = require('../core/util');
 const { AppError } = require('../core/errors');
 const { assertPermission } = require('../core/permissions');
-const { verifyPassword } = require('../core/auth');
+const { verifyPassword } = require('../core/password');
 const organization = require('../infrastructure/database/repositories/organization');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const { NO_MATCH } = require('./shared');

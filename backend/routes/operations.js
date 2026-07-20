@@ -2,12 +2,13 @@
 const { readBody, readRawBody } = require('../core/util');
 const { AppError } = require('../core/errors');
 const { assertPermission, MODULES } = require('../core/permissions');
-const { verifyPassword } = require('../core/auth');
-const documentCore = require('../core/documents');
+const { verifyPassword } = require('../core/password');
+const documentCore = require('../core/document-types');
 const operations = require('../infrastructure/database/repositories/operations');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const privateStorage = require('../infrastructure/files/private-storage');
 const artifactStorage = require('../infrastructure/files/artifact-storage');
+const reporting = require('../infrastructure/database/repositories/reporting');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -17,10 +18,10 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&p==='/api/notifications/read-all'){await operations.markAllRead(client,ctx.user);return {ok:true};}
   m=p.match(/^\/api\/notifications\/([^/]+)\/read$/);if(method==='POST'&&m){if(!await operations.markRead(client,ctx.user,m[1]))throw new AppError('RESOURCE_NOT_FOUND');return {ok:true};}
   if(method==='GET'&&p==='/api/jobs'){assertPermission(ctx.user,'job.view');return operations.listJobs(client,ctx.user,Object.fromEntries(url.searchParams));}
-  if(method==='POST'&&p==='/api/jobs'){assertPermission(ctx.user,'job.create');const body=await readBody(req),spec=operations.policyFor(body.type);let pinVerified=false;if(spec.requiresPin){if(ctx.user.role!=='owner')throw new AppError('PIN_REQUIRED');const row=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];pinVerified=!!body.pin&&!!row?.owner_pin_hash&&verifyPassword(String(body.pin),row.owner_pin_hash);if(!pinVerified)throw new AppError('PIN_REQUIRED');}ctx.status=201;return operations.enqueue(client,{type:body.type,user:ctx.user,params:body.params||{},executionKey:req.headers['idempotency-key']||body.executionKey,pinVerified});}
+  if(method==='POST'&&p==='/api/jobs'){assertPermission(ctx.user,'job.create');const body=await readBody(req),spec=operations.policyFor(body.type),params=body.params||{};if(params.report){assertPermission(ctx.user,'report.export');reporting.report(params.report);reporting.scopeFor(ctx.user,params.branchId||null);}let pinVerified=false;if(spec.requiresPin){if(ctx.user.role!=='owner')throw new AppError('PIN_REQUIRED');const row=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];pinVerified=!!body.pin&&!!row?.owner_pin_hash&&verifyPassword(String(body.pin),row.owner_pin_hash);if(!pinVerified)throw new AppError('PIN_REQUIRED');}ctx.status=201;return operations.enqueue(client,{type:body.type,user:ctx.user,params,executionKey:req.headers['idempotency-key']||body.executionKey,pinVerified});}
   m=p.match(/^\/api\/jobs\/([^/]+)\/(cancel|retry)$/);if(method==='POST'&&m){const body=await readBody(req);if(m[2]==='cancel'){assertPermission(ctx.user,'job.cancel');const result=await operations.requestCancel(client,m[1],ctx.user,body.reason);await runtime.audit(client,{userId:ctx.user.id,action:'CANCEL_JOB',module:'job',entityType:'JOB',entityId:m[1],reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}assertPermission(ctx.user,'job.create');const result=await operations.retry(client,m[1],ctx.user,body.reason);await runtime.audit(client,{userId:ctx.user.id,action:'RETRY_JOB',module:'job',entityType:'JOB',entityId:m[1],reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
   if(method==='GET'&&p==='/api/artifacts'){assertPermission(ctx.user,'job.view');return{items:await artifactStorage.list(client,ctx.user)};}
-  m=p.match(/^\/api\/artifacts\/([^/]+)$/);if(method==='GET'&&m){assertPermission(ctx.user,'job.view');ctx.download=await artifactStorage.download(client,m[1],ctx.user);return null;}
+  m=p.match(/^\/api\/artifacts\/([^/]+)$/);if(method==='GET'&&m){assertPermission(ctx.user,'job.view');ctx.download=await artifactStorage.download(client,m[1],ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'DOWNLOAD',module:'report',entityType:'GENERATED_ARTIFACT',entityId:m[1],newValue:{fileName:ctx.download.item.fileName,checksum:ctx.download.item.checksumSha256},requestId:ctx.requestId,branchId:ctx.user.branchId});return null;}
   if(method==='GET'&&p==='/api/files'){
     const documentId=url.searchParams.get('documentId')||undefined,module=url.searchParams.get('module')||undefined;if(!documentId&&!module)throw new AppError('VALIDATION_ERROR','documentId atau module wajib diisi.');
     if(module){if(!MODULES.includes(module))throw new AppError('VALIDATION_ERROR','Modul file tidak dikenal.');assertPermission(ctx.user,`${module}.view`);}

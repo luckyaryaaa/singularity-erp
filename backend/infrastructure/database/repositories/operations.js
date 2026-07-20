@@ -7,11 +7,9 @@ const JOBS={
   PAYROLL_SLIPS:{priority:'medium',label:'Slip gaji massal',permission:'payroll.export',roles:['owner','hrd'],limit:1,timeoutSeconds:600,maxAttempts:2,maxRows:2000,retentionDays:14},
   EXPORT_EXCEL:{priority:'low',label:'Ekspor Excel',permission:'job.create',roles:['*'],limit:2,timeoutSeconds:300,maxAttempts:3,maxRows:5000,retentionDays:30},
   IMPORT_CSV:{priority:'low',label:'Impor CSV',permission:'job.create',roles:['owner','system_admin','finance_manager','accounting','hrd','sales','procurement','warehouse'],limit:1,timeoutSeconds:900,maxAttempts:3,maxRows:10000,retentionDays:30},
-  IMAGE_COMPRESS:{priority:'low',label:'Kompresi gambar',permission:'job.create',roles:['*'],limit:2,timeoutSeconds:180,maxAttempts:2,maxRows:1,retentionDays:7},
   REPORT_GENERATE:{priority:'medium',label:'Pembuatan laporan',permission:'report.export',roles:['owner','finance_manager','accounting','tax','hrd','sales','procurement','warehouse','production','auditor'],limit:2,timeoutSeconds:600,maxAttempts:3,maxRows:5000,retentionDays:30},
   NOTIFICATION_SEND:{priority:'high',label:'Pengiriman notifikasi',permission:'notification.create',roles:['owner','system_admin'],limit:5,timeoutSeconds:120,maxAttempts:5,maxRows:1000,retentionDays:7},
   BACKUP_RUN:{priority:'low',label:'Backup terjadwal',permission:'backup.create',roles:['owner'],limit:1,timeoutSeconds:3600,maxAttempts:2,maxRows:1,retentionDays:90,requiresMfa:true,requiresPin:true},
-  ARCHIVE_RUN:{priority:'low',label:'Arsip data lama',permission:'audit.edit',roles:['owner','system_admin'],limit:1,timeoutSeconds:3600,maxAttempts:2,maxRows:10000,retentionDays:90,requiresMfa:true},
   RECONCILIATION:{priority:'low',label:'Rekonsiliasi besar',permission:'ledger.edit',roles:['owner','finance_manager','accounting'],limit:1,timeoutSeconds:900,maxAttempts:3,maxRows:10000,retentionDays:90}
 };
 const activeStatuses=['QUEUED','CLAIMED','RUNNING'];
@@ -30,6 +28,7 @@ async function markAllRead(client,user){return (await client.query(`UPDATE notif
 
 async function enqueue(client,{type,user,params={},executionKey,system=false,pinVerified=false}){
   const spec=authorizeJob(type,user,{system});if(spec.requiresPin&&!system&&!pinVerified)throw new AppError('PIN_REQUIRED');
+  if(type==='NOTIFICATION_SEND'&&params.webhook)throw new AppError('VALIDATION_ERROR','Kanal webhook outbound belum diaktifkan. Gunakan kanal in-app atau email.');
   const rows=Array.isArray(params.rows)?params.rows.length:Number(params.rowCount||0);if(rows>spec.maxRows)throw new AppError('VALIDATION_ERROR',`Maksimum ${spec.maxRows} baris untuk ${type}.`);
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`job:${user.id}:${type}`]);
   if(spec.limit){const active=Number((await client.query(`SELECT count(*) n FROM background_jobs WHERE requested_by=$1 AND job_type=$2 AND status=ANY($3::varchar[])`,[user.id,type,activeStatuses])).rows[0].n);if(active>=spec.limit)throw new AppError('JOB_LIMIT',`Maksimal ${spec.limit} job '${spec.label}' aktif.`);}

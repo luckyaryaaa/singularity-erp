@@ -3,6 +3,133 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.24.0] — 2026-07-20
+
+### Added
+
+- Final assurance repository dan Self-Test bertaksonomi
+  `PASS/WARNING/FAIL/BLOCKED` untuk rekonsiliasi jurnal, inventory, payroll,
+  health partisi, serta orphan kritis.
+- Matriks otorisasi terversi untuk 14 router/183 handler, public endpoint
+  allowlist, dan negative allow/deny regression test.
+- Load harness LAN dua tahap: 10 dan 25 sesi independen, read/write ber-CSRF,
+  cleanup, serta ambang p95 terpisah.
+- Katalog 18 SOP enterprise untuk operasi, keamanan, DR, transaksi lintas
+  modul, data lifecycle, release, dan LAN-UAT/sign-off.
+
+### Security
+
+- Migration 035 menambah maintenance partisi inventory lewat fungsi
+  `SECURITY DEFINER` terkontrol tanpa memberi role aplikasi hak CREATE.
+- Self-Test, OpenAPI ordering, permission mapping, least privilege, dan public
+  allowlist menjadi bagian release gate yang dapat diulang.
+
+### Changed
+
+- Predeploy LOCAL kini juga menjalankan load 10/25 user dan final assurance.
+- Self-Test tidak menyamarkan selisih pembukaan inventory: selisih terhadap GL
+  dilaporkan sebagai warning non-kritis yang wajib diselesaikan saat LAN-UAT.
+
+### Verified
+
+- Regression 136/136, authorization 14/14, security 5/5, accessibility 18/18,
+  dan visual desktop/mobile 10/10 lulus.
+- Migration 001–035 checksum-valid; rollback drill membuktikan 35 up, 34 down,
+  lalu 34 re-up.
+- LAN load lulus: 10 user/220 request (read p95 28 ms, write p95 18 ms) dan
+  25 user/550 request (read p95 43 ms, write p95 14 ms), tanpa kegagalan.
+- Final assurance: 19 PASS, 1 WARNING opening inventory, 0 FAIL/BLOCKED;
+  warning membutuhkan jurnal opening balance yang disetujui Finance/Owner.
+- Secret scan 434 file/0 temuan, npm dependency audit cache 0 vulnerability,
+  dan paket production allowlist 281 file tervalidasi dengan SHA-256 manifest.
+- Predeploy LOCAL 13/13 lulus termasuk boot PostgreSQL, load LAN, runtime
+  controls, final assurance, backup berumur 3,9 jam, dan 11 restore drill.
+
+## [0.23.0] — 2026-07-20
+
+### Added
+
+- Executive Cockpit responsif dengan KPI pendapatan GL, margin kotor, kas,
+  modal kerja, order book, AR aging, tren 12 bulan, funnel dokumen, margin
+  proyek aktual, action queue, serta definisi sumber data yang dapat diaudit.
+- Semantic reporting layer PostgreSQL melalui materialized monthly KPI,
+  freshness run history, refresh function ber-privilege minimum, filter periode
+  dan cabang, saved view privat, serta katalog delapan laporan PDF/XLSX.
+- Report scheduler harian/mingguan/bulanan yang persisten dan idempoten,
+  optimistic locking, scope cabang, dan audit unduhan artefak beserta checksum.
+
+### Security
+
+- Filter branch divalidasi kembali saat job dibuat dan dieksekusi; pengguna
+  cabang tidak dapat menaikkan scope ke cabang lain atau seluruh perusahaan.
+- Runtime role hanya mendapat hak objek reporting yang diperlukan; refresh
+  materialized view dilakukan lewat fungsi `SECURITY DEFINER` terkontrol.
+
+### Changed
+
+- Report worker memakai actual production costing untuk margin proyek dan
+  mendukung laporan keuangan, quality analytics, filter periode, serta cabang.
+- Halaman laporan lama diganti satu bounded module Executive Reporting tanpa
+  menambah router atau application shell kedua.
+
+### Verified
+
+- Regression 128/128, authorization 11/11, security 5/5, accessibility 18/18,
+  dan visual desktop/mobile 10/10 lulus tanpa overflow atau console error.
+- Migration 001–034 checksum-valid; disposable rollback drill membuktikan
+  34 up, 33 down, lalu 33 re-up; runtime PostgreSQL health PASS.
+- Secret scan 402 file/0 temuan, dependency audit 0 vulnerability, dan
+  predeploy LOCAL 11/11 lulus termasuk reporting freshness, load smoke,
+  boot runtime, serta backup/restore evidence.
+- Paket production 254 file tervalidasi dengan fingerprint, Brotli, immutable
+  cache, SHA-256 release, dan migration latest 034.
+
+## [0.22.0] — 2026-07-20
+
+### Added
+
+- Governance penerbitan dokumen resmi: snapshot payload/line immutable,
+  signature HMAC ber-versioned key, rotasi current/previous key, QR verifikasi,
+  watermark status/copy, pagination penuh, dan audit issuance/reprint.
+- XLSX Office Open XML asli dengan header, freeze pane, filter, dan batas
+  50.000 baris; PDF laporan kini memaginasi semua baris tanpa truncation.
+- Font Manrope dan Plus Jakarta Sans disajikan lokal; tidak ada dependency
+  font/CDN eksternal pada runtime.
+- Deploy atomik berbasis release symlink, pre-migration backup, health-check,
+  code rollback otomatis, serta rollback runbook tanpa destructive DB down.
+- Migration 031–033 untuk issuance dokumen resmi, least-privilege histori,
+  dan delivery notification idempotent.
+
+### Security
+
+- Isolasi cabang diperluas ke fixed asset, finance/reporting/tax, HR roster,
+  kalender/koreksi/akrual, procurement, quotation, dunning, dan RMA; negative
+  IDOR tests memastikan data cabang lain tidak dapat dibaca atau dimutasi.
+- Runtime role tidak memiliki DELETE pada tabel histori kritis; rollback penuh
+  seluruh migration reversible diverifikasi pada database disposable.
+- Secret dokumen tidak lagi memiliki fallback statis. Production mewajibkan
+  public HTTPS URL, current signing key ID, dan signing secret kuat.
+- Job tanpa executor dihapus dari registry. Retry email menyimpan attempts
+  secara idempotent; kanal webhook yang belum diaktifkan ditolak saat enqueue.
+
+### Changed
+
+- Paket production hanya menyertakan adapter PostgreSQL dan dependency
+  runtime; adapter memory, seed, test, serta tooling development dikeluarkan.
+- Caddy domain diparameterkan, firewall tidak lagi me-reset rule yang sudah
+  ada, dan SSH port dapat dikonfigurasi.
+
+### Verified
+
+- 123/123 regression, authorization 11/11, security 5/5, accessibility 18/18,
+  dan visual desktop/mobile 8/8 lulus.
+- Migration 001–033 checksum-valid; disposable rollback drill membuktikan
+  33 up, 32 down, lalu 32 re-up; runtime PostgreSQL health PASS.
+- Secret scan 394 file/0 temuan, dependency audit 0 vulnerability, dan
+  predeploy LOCAL 11/11 lulus termasuk load smoke serta backup/restore drill.
+- Paket production 245 file tervalidasi dengan fingerprint, Brotli, immutable
+  cache, font lokal, dan SHA-256 pada `release-manifest.json`.
+
 ## [0.21.0] — 2026-07-17
 
 ### Added

@@ -1,6 +1,6 @@
 'use strict';
 const { randomUUID, randomBytes, createHash } = require('node:crypto');
-const { hashPassword, verifyPassword } = require('../../../core/auth');
+const { hashPassword, verifyPassword } = require('../../../core/password');
 const { AppError } = require('../../../core/errors');
 const { grantsFor } = require('../../../core/permissions');
 const totp = require('../../../core/totp');

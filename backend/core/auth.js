@@ -4,29 +4,16 @@
 
 const crypto = require('node:crypto');
 const { store } = require('../infrastructure/database/store');
+const { hashPassword, verifyPassword } = require('./password');
 const { uid, token, sha256, nowIso } = require('./util');
 const { AppError } = require('./errors');
 const audit = require('./audit');
 const totp = require('./totp');
 
-const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
 const SESSION_IDLE_MS = 60 * 60 * 1000;        // 60 menit idle
 const SESSION_ABSOLUTE_MS = 8 * 60 * 60 * 1000; // 8 jam absolut
 const LOCK_THRESHOLD = 5;                       // 5 kegagalan → kunci
 const LOCK_WINDOW_MS = 15 * 60 * 1000;          // per 15 menit
-
-function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
-  const derived = crypto.scryptSync(password, salt, SCRYPT.keylen, SCRYPT);
-  return `scrypt:${salt}:${derived.toString('hex')}`;
-}
-
-function verifyPassword(password, stored) {
-  const [, salt, hex] = String(stored).split(':');
-  if (!salt || !hex) return false;
-  const derived = crypto.scryptSync(password, salt, SCRYPT.keylen, SCRYPT);
-  const expected = Buffer.from(hex, 'hex');
-  return expected.length === derived.length && crypto.timingSafeEqual(derived, expected);
-}
 
 function publicUser(user) {
   const { passwordHash, ownerPinHash, failedLoginCount, lockedUntil, totpSecret, totpSecretPending, ...safe } = user;

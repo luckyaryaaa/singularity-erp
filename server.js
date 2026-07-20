@@ -7,9 +7,6 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
-const { seed, hasDefaultCredentials } = require('./backend/modules/seed');
-const { store } = require('./backend/infrastructure/database/store');
-const persistence = require('./backend/infrastructure/database/persistence');
 
 // Mode uji: ephemeral (seed segar, tanpa tulis disk). Mode normal: durable —
 // muat snapshot bila ada, seed hanya saat pertama kali, lalu pantau perubahan.
@@ -26,27 +23,29 @@ if (!ephemeral && !postgresMode && process.env.MAT_ALLOW_MEMORY_RUNTIME !== '1')
 const api = postgresMode ? require('./backend/api-postgres') : require('./backend/api');
 if (postgresMode) {
   // PostgreSQL adalah sumber kebenaran; snapshot JSON tidak boleh ikut dimuat.
-} else if (ephemeral) {
-  seed();
 } else {
-  const loaded = persistence.init(store, path.join(__dirname, 'data', 'runtime', 'state.json'));
-  if (!loaded && demoMode) { seed(); persistence.flush(); }
-  if (!loaded && production) {
-    throw new Error('PRODUCTION_BOOT_BLOCKED: database production belum diprovisioning; fallback seed demo dilarang.');
+  // Adapter memory hanya diload pada development/test sehingga artifact
+  // production dapat mengecualikan seed, store, dan persistence seluruhnya.
+  const { seed, hasDefaultCredentials } = require('./backend/modules/seed');
+  const { store } = require('./backend/infrastructure/database/store');
+  if (ephemeral) seed();
+  else {
+    const persistence = require('./backend/infrastructure/database/persistence');
+    const loaded = persistence.init(store, path.join(__dirname, 'data', 'runtime', 'state.json'));
+    if (!loaded && demoMode) { seed(); persistence.flush(); }
+    if (!loaded && production) throw new Error('PRODUCTION_BOOT_BLOCKED: database production belum diprovisioning; fallback seed demo dilarang.');
   }
-}
-if (!postgresMode && production && hasDefaultCredentials(store)) {
-  throw new Error('PRODUCTION_BOOT_BLOCKED: kredensial demo/default terdeteksi. Ganti seluruh kredensial sebelum startup production.');
+  if (production && hasDefaultCredentials(store)) throw new Error('PRODUCTION_BOOT_BLOCKED: kredensial demo/default terdeteksi. Ganti seluruh kredensial sebelum startup production.');
 }
 
 const root = __dirname;
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.json': 'application/json' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.woff2': 'font/woff2', '.json': 'application/json' };
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy': "default-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; img-src 'self' data:; connect-src 'self'",
+  'Content-Security-Policy': "default-src 'self'; style-src 'self'; font-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'",
   ...(production?{'Strict-Transport-Security':'max-age=31536000; includeSubDomains'}:{})
 };
 

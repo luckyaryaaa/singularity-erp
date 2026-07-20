@@ -1,8 +1,9 @@
 # Caddyfile — reverse proxy produksi MAT ERP V2
-# Ganti erp.contoh-domain.id dengan domain/subdomain milik perusahaan.
+# Set MAT_ERP_DOMAIN pada environment service Caddy, contoh:
+# MAT_ERP_DOMAIN=erp.mandiriabaditeknik.com
 # Caddy mengurus sertifikat HTTPS (Let's Encrypt) + pembaruan otomatis.
 
-erp.contoh-domain.id {
+{$MAT_ERP_DOMAIN} {
 	# Aplikasi hanya bind 127.0.0.1:4173 — tidak pernah terekspos langsung.
 	reverse_proxy 127.0.0.1:4173
 

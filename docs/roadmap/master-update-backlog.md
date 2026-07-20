@@ -6,6 +6,34 @@
 > 17 audit final → 18 LAN-UAT → 19 VPS go-live. Setiap item wajib berstatus
 > `SELESAI` atau punya alasan tertulis sebelum R026 (aktivasi VPS).
 >
+> **Sprint 17 — Final Audit & Assurance: ✅ SELESAI 20 Juli 2026
+> (v0.24.0).** Matriks otorisasi 14 router/183 handler, negative allow/deny,
+> public allowlist, load LAN 10/25 user dengan read+write, Self-Test 20 kontrol,
+> maintenance partisi inventory least-privilege, orphan detection, serta katalog
+> 18 SOP selesai. Evidence: 136/136 regression, 14/14 authorization, 5/5
+> security, 18/18 a11y, 10/10 visual, migration/rollback 001–035, dan final
+> assurance 19 PASS + 1 WARNING opening inventory + 0 blocking. Warning wajib
+> diselesaikan bersama Finance/Owner pada Sprint 18; VPS tetap belum diaktifkan.
+>
+> **Sprint 16 — Reporting & Executive Cockpit: ✅ SELESAI 20 Juli 2026
+> (v0.23.0).** Semantic KPI PostgreSQL, materialized monthly summary, freshness
+> worker, filter periode/cabang, saved view privat, executive mobile cockpit,
+> AR aging, order funnel, actual project margin, action queue, delapan laporan
+> PDF/XLSX, scheduler idempoten, export scope validation, dan audit download.
+> Evidence: regression 128/128, authorization 11/11, security 5/5, a11y 18/18,
+> visual 10/10, migration/rollback 001–034, secret/dependency scan bersih,
+> paket 254 file, dan predeploy LOCAL 11/11. Aktivasi VPS tetap ditahan sampai
+> audit final, LAN-UAT, dan Owner sign-off.
+>
+> **Enterprise Security & Release Closure — ✅ SELESAI 20 Juli 2026
+> (v0.22.0).** Isolasi cabang/IDOR diperluas pada finance/tax/asset, HR,
+> procurement, sales/dunning/RMA; dokumen resmi memakai immutable issued
+> snapshot, QR, signature ber-key ID, watermark, pagination, dan audit reprint;
+> XLSX asli, PDF multi-page, font lokal, SMTP attachment+retry idempotent,
+> migration 031–033, full reversible migration drill, serta paket production
+> PostgreSQL-only dan deploy/rollback atomik. Closure ini tidak mengubah status
+> Sprint modul yang masih sebagian dan bukan izin aktivasi VPS.
+>
 > **Sprint 8C Wave 2 — Customer Link & Supplier Performance: ✅ SELESAI
 > 16 Juli 2026 (v0.16.0).** Customer Link Wizard kini memiliki draft
 > server-side, recovery 30 hari, optimistic lock, duplicate candidate,
@@ -69,11 +97,13 @@
 >
 > Status: ✅ selesai · 🔨 sedang dikerjakan · ⬜ belum · ◐ sebagian (ada catatan)
 >
-> **Audit verifikasi terakhir — 16 Juli 2026 (v0.16.0):** migrasi 001–026
-> checksum valid · 84/84 automated tests lulus · aksesibilitas 18/18 · visual
-> regression 8/8 · asset fingerprint/Brotli/immutable PASS · gerbang predeploy
-> LOCAL 11/11 hijau · secret/dependency audit bersih · backup + restore drill
-> valid.
+> **Audit verifikasi terakhir — 20 Juli 2026 (v0.24.0):** migration 001–035
+> checksum valid · rollback disposable 35 up/34 down/34 re-up PASS · regression
+> 136/136 · authorization 14/14 · security 5/5 · a11y 18/18 · visual 10/10 ·
+> load LAN 10 user/220 request dan 25 user/550 request tanpa gagal · final
+> assurance 19 PASS + 1 WARNING data pembukaan + 0 blocking. Detail artefak,
+> secret scan 434/0, dependency audit cache 0 vulnerability, paket 281 file,
+> dan predeploy LOCAL 13/13 ada di evidence Sprint 17.
 
 ## Keputusan arsitektur terkunci (§2)
 
@@ -152,18 +182,18 @@
 | R019 Production, BOM, MRP & QC | routing, work center, MRP, capacity, WIP, job costing, inspection plan, NCR/CAPA, kalibrasi | ◐ **foundation transaksi selesai v0.12.0**: routing+rate snapshot, BOM explosion, reservasi, FIFO issue, actual time, costing, FG lot, QC+NCR/CAPA+karantina, MRP→PR, completion/security gate ✅; capacity planning, WIP accounting formal, inspection plan, kalibrasi ⬜ |
 | R020 Finance, Accounting & Fixed Asset | posting profile, segmented COA, subledger, closing cockpit, fixed asset, budgeting | ◐ posting profile config-driven + budget pengadaan ✅ + **fixed asset registry (FA-*, kategori configuration-driven umur+akun), depresiasi garis lurus otomatis (idempoten per periode, jurnal sistem JRN-*), disposal ber-jurnal nilai buku, laporan keuangan formal (neraca balance dgn akun kontra bertanda benar + laba rugi), closing cockpit 10 checklist rekonsiliasi (bank/inventori/payroll/pajak/subledger/penyusutan) → readiness, subledger AR/AP vs GL ber-selisih terukur** ✅ Sprint 13; failed posting queue, project profitability, segmented COA formal ⬜ |
 | R021 HRD, Payroll & Tax | shift/roster, koreksi absensi, leave accrual, rule engine payroll/BPJS/PPh21 versioned | ◐ payroll rule engine ber-versi ✅ + **shift/roster (jam lembur payroll dari shift roster — hardcode 8 jam dihapus, default NORMAL parity), work calendar + aturan akhir pekan, koreksi absensi maker-checker (snapshot lama immutable, SoD DB, source CORRECTION), leave accrual engine (kebijakan effective-dated, akrual bulanan idempoten, masa kerja minimum), LEAVE_REQUEST tervalidasi saldo & durasi hari kerja + pemotongan otomatis saat approve** ✅ Sprint 14; payslip PDF per karyawan, multi-shift per hari ⬜ |
-| R022 Document, Notification & Integration | template dokumen resmi, SMTP, webhook, API versioning, OpenAPI, event catalog | ◐ PDF/artifact+webhook alert ✅ + **template dokumen resmi ber-identitas (kop/terbilang/ttd/kode verifikasi HMAC dari identity snapshot immutable), endpoint verifikasi keaslian publik, SMTP zero-dependency (STARTTLS/TLS, no-op aman tanpa config, delivery tercatat), OpenAPI 3.0.3 + X-API-Version, event catalog** ✅ Sprint 15; template ber-logo/QR grafis, webhook outbound konfigurable ⬜ |
-| R023 Reporting & Executive Cockpit | SQL KPI layer, materialized view, laporan terjadwal | ◐ laporan dasar ✅; materialized/terjadwal ⬜ |
+| R022 Document, Notification & Integration | template dokumen resmi, SMTP, webhook, API versioning, OpenAPI, event catalog | ◐ **template resmi immutable + QR grafis + HMAC key rotation + watermark/pagination/audit reprint, PDF attachment SMTP dan retry idempotent, OpenAPI 3.0.3 + X-API-Version, event catalog** ✅ v0.22.0; logo binary terkelola dan webhook outbound allowlisted masih ⬜ |
+| R023 Reporting & Executive Cockpit | SQL KPI layer, materialized view, laporan terjadwal | **✅ Sprint 16 / v0.23.0**: semantic KPI berbasis GL/subledger/produksi/QC, materialized 12-month summary + freshness worker, filter periode/cabang + saved view, executive mobile cockpit, AR aging/order funnel/project actual margin/action queue, 8 laporan XLSX/PDF, scheduler harian/mingguan/bulanan anti-duplikasi, export scope validation, dan audit download |
 
 ## R024–R026 — Audit final, UAT LAN, Go-live (§29–34)
 
 | Item | Status |
 |---|---|
 | Pemisahan skrip test (unit/integration/e2e/security/authorization/migration/performance/ui) | ✅ script terpisah dan tervalidasi |
-| Negative authorization tests lengkap (§29.4) | ◐ sebagian di suite |
-| Load test 10/25 user LAN | ◐ smoke 12 konkuren ✅; skenario tulis ⬜ |
-| Self-Test final PASS/WARNING/FAIL/BLOCKED (§30) | ◐ 12 cek ✅ (verifikasi 15 Jul); rekonsiliasi financial/inventory/payroll + partition health + orphan check ⬜ |
-| Dokumentasi & SOP (§31, 18 dokumen) | ◐ 8 dokumen ada |
+| Negative authorization tests lengkap (§29.4) | ✅ matriks 14 router/183 handler, permission allow/deny, branch/IDOR, dan public allowlist terversi; authorization 14/14 |
+| Load test 10/25 user LAN | ✅ read+write ber-CSRF: 10 user/220 request dan 25 user/550 request, 0 gagal, p95 di bawah ambang |
+| Self-Test final PASS/WARNING/FAIL/BLOCKED (§30) | ✅ 20 kontrol: 19 PASS, 1 WARNING opening inventory, 0 FAIL/BLOCKED; warning menjadi tindakan UAT Finance/Owner |
+| Dokumentasi & SOP (§31, 18 dokumen) | ✅ katalog 18 SOP terversi dan tervalidasi automated test |
 | LAN multi-user pilot & UAT per divisi + Owner sign-off (R025) | ⬜ (butuh boss & staf) |
 | R026 VPS activation (runbook siap) | ⬜ ditahan sampai gate §34 penuh |
 

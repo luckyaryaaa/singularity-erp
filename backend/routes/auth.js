@@ -17,10 +17,14 @@ async function dispatchPublic(client,req,url,ctx){const p=url.pathname,method=re
   if(method==='GET'&&p==='/api/verify'){
     ratelimit.consume('login',`verify:${ctx.ip}`);
     const docNumber=url.searchParams.get('doc')||'',code=url.searchParams.get('code')||'';
-    if(!docVerify.verify(docNumber,code))return{valid:false,message:'Kode verifikasi tidak cocok dengan nomor dokumen.'};
-    const row=(await client.query(`SELECT document_number,document_type,status,created_at,amount,party_name FROM business_documents WHERE document_number=$1`,[docNumber])).rows[0];
-    if(!row)return{valid:false,message:'Nomor dokumen tidak ditemukan.'};
-    return{valid:true,document:{documentNumber:row.document_number,type:row.document_type,status:row.status,issuedAt:row.created_at,amount:Number(row.amount),party:row.party_name||null}};
+    const row=(await client.query(`SELECT document_number,document_type,status,party_name,official_issued_at,official_signature,official_key_id,official_template_version,official_payload FROM business_documents WHERE document_number=$1`,[docNumber])).rows[0];
+    if(!row?.official_signature||!row.official_payload)return{valid:false,message:'Dokumen resmi tidak ditemukan atau belum pernah diterbitkan.'};
+    let signatureValid=false;
+    try{signatureValid=docVerify.verifyPayload(row.official_payload,code,process.env,row.official_key_id);}catch{return{valid:false,message:'Key verifikasi untuk versi dokumen ini tidak tersedia.'};}
+    if(!signatureValid)return{valid:false,message:'Kode verifikasi tidak cocok dengan snapshot dokumen resmi.'};
+    if(['VOID','CANCELLED','REJECTED'].includes(row.status))return{valid:false,revoked:true,message:`Dokumen telah dicabut dengan status ${row.status}.`,document:{documentNumber:row.document_number,type:row.document_type,status:row.status}};
+    const party=row.party_name?`${String(row.party_name).slice(0,3)}${'*'.repeat(Math.min(Math.max(String(row.party_name).length-3,3),12))}`:null;
+    return{valid:true,document:{documentNumber:row.document_number,type:row.document_type,status:row.status,issuedAt:row.official_issued_at,templateVersion:row.official_template_version,partyMasked:party}};
   }
   if(method==='POST'&&p==='/api/auth/login'){
     const body=await readBody(req);ratelimit.consume('login',`${body.username||'anon'}:${ctx.ip}`);if(!body.username||!body.password)throw new AppError('VALIDATION_ERROR','Nama pengguna dan kata sandi wajib diisi.');

@@ -1,6 +1,6 @@
 {
   "name": "mat-erp-v2",
-  "version": "0.21.0",
+  "version": "0.24.0",
   "private": true,
   "scripts": {
     "dev": "node server.js",
@@ -10,7 +10,7 @@
     "test:integration": "node --test --test-concurrency=1 test/postgres-auth.integration.test.js test/postgres-concurrency.integration.test.js test/postgres.integration.test.js",
     "test:e2e": "node --test --test-concurrency=1 test/postgres.http.test.js",
     "test:security": "node --test --test-concurrency=1 --test-name-pattern=\"auth|CSRF|session|permission|lockout|security\" test/api.test.js test/postgres.http.test.js",
-    "test:authorization": "node --test --test-concurrency=1 --test-name-pattern=\"role|ditolak|approval|scope|permission\" test/api.test.js test/postgres.http.test.js",
+    "test:authorization": "node --test --test-concurrency=1 --test-name-pattern=\"authorization|role|ditolak|approval|scope|permission|isolation|IDOR|public allowlist\" test/api.test.js test/postgres.http.test.js test/branch-isolation.test.js test/authorization-matrix.test.js",
     "test:migration": "node --test test/database-infrastructure.test.js",
     "test:performance": "node scripts/load-smoke.js",
     "test:ui": "node --test test/app.test.js",
@@ -37,12 +37,19 @@
     "backup:restore-test": "node scripts/backup-postgres.js restore-test",
     "backup:decrypt": "node scripts/backup-postgres.js decrypt",
     "predeploy": "node scripts/predeploy-gate.js",
-    "load:smoke": "node scripts/load-smoke.js"
+    "load:smoke": "node scripts/load-smoke.js",
+    "load:lan": "node scripts/load-lan.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "pg": "^8.16.3"
+    "fflate": "^0.8.2",
+    "pg": "^8.16.3",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@fontsource-variable/manrope": "^5.2.8",
+    "@fontsource-variable/plus-jakarta-sans": "^5.2.8"
   }
 }

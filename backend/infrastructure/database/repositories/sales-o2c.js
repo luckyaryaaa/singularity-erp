@@ -11,6 +11,7 @@
 //      nilai retur dijurnal via posting profile RMA-DEFAULT (kontra pendapatan).
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
+const { assertBranchAccess, queryScope } = require('../../../core/data-scope');
 
 const idr = (v) => Math.round(Number(v || 0) * 100) / 100;
 
@@ -18,6 +19,7 @@ const idr = (v) => Math.round(Number(v || 0) * 100) / 100;
 async function reviseQuotation(client, { docId, reason, user, requestId }) {
   const doc = (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type='QUOTATION' FOR UPDATE`, [docId])).rows[0];
   if (!doc) throw new AppError('RESOURCE_NOT_FOUND', 'Penawaran tidak ditemukan.');
+  assertBranchAccess(user, doc.branch_id, 'Penawaran berada di cabang di luar cakupan Anda.');
   if (!['WAITING_APPROVAL', 'APPROVED', 'REVISION_REQUIRED', 'SUBMITTED'].includes(doc.status)) {
     throw new AppError('STATUS_INVALID', `Revisi hanya untuk penawaran terkirim/disetujui (sekarang ${doc.status}). Draft cukup diedit langsung.`);
   }
@@ -37,10 +39,11 @@ async function reviseQuotation(client, { docId, reason, user, requestId }) {
   return { documentNumber: doc.document_number, revisionNo: revisionNo + 1, previousRevisionSaved: revisionNo, status: 'DRAFT' };
 }
 
-async function listQuotationRevisions(client, docId) {
+async function listQuotationRevisions(client, docId, user) {
   const runtime = require('./runtime');
-  const doc = (await client.query(`SELECT id,document_number,amount,payload->>'revisionNo' revision_no FROM business_documents WHERE id=$1 AND document_type='QUOTATION'`, [docId])).rows[0];
+  const doc = (await client.query(`SELECT id,document_number,amount,branch_id,payload->>'revisionNo' revision_no FROM business_documents WHERE id=$1 AND document_type='QUOTATION'`, [docId])).rows[0];
   if (!doc) throw new AppError('RESOURCE_NOT_FOUND', 'Penawaran tidak ditemukan.');
+  assertBranchAccess(user, doc.branch_id, 'Penawaran berada di cabang di luar cakupan Anda.');
   const rows = (await client.query(`SELECT r.*,u.display_name revised_by_name FROM quotation_revisions r
     LEFT JOIN app_users u ON u.id=r.revised_by WHERE r.quotation_id=$1 ORDER BY r.revision_no DESC`, [docId])).rows;
   // Delta nilai antar revisi agar pembaca langsung melihat pergerakan harga.
@@ -62,12 +65,14 @@ async function activePolicies(client, onDate) {
 // kredit pelanggan otomatis dengan alasan tercatat.
 async function runDunning(client, { user, requestId }) {
   const policies = await activePolicies(client);
+  const scope = queryScope(user);
   const invoices = (await client.query(`SELECT d.id,d.document_number,d.amount,d.due_date,d.party_id,d.branch_id,
       GREATEST(0,(current_date-d.due_date))::int days_overdue,
       d.amount-COALESCE((SELECT SUM(a.amount) FROM payment_allocations a WHERE a.invoice_document_id=d.id AND a.reversed_at IS NULL),0) outstanding
     FROM business_documents d
     WHERE d.document_type='INVOICE' AND d.status IN ('APPROVED','PARTIALLY_PAID','OVERDUE')
-      AND d.due_date IS NOT NULL AND d.due_date<current_date`)).rows;
+      AND d.due_date IS NOT NULL AND d.due_date<current_date
+      AND ($1::boolean OR d.branch_id=$2)`, [scope.global, scope.branchId])).rows;
   const runtime = require('./runtime');
   let issued = 0, held = 0;
   const results = [];
@@ -100,25 +105,28 @@ async function runDunning(client, { user, requestId }) {
   return { scanned: invoices.length, issued, creditHolds: held, notices: results };
 }
 
-async function listDunning(client, params = {}) {
+async function listDunning(client, user, params = {}) {
   const runtime = require('./runtime');
-  const where = params.status ? 'n.status=$1' : `n.status='ISSUED'`;
-  const args = params.status ? [params.status] : [];
+  const scope = queryScope(user);
+  const args = [scope.global, scope.branchId];
+  const where = [params.status ? `n.status=$${args.push(params.status)}` : `n.status='ISSUED'`, '($1::boolean OR d.branch_id=$2)'];
   const rows = (await client.query(`SELECT n.*,d.document_number invoice_number,d.due_date,d.amount invoice_amount,c.name customer_name,u.display_name created_by_name
     FROM dunning_notices n JOIN business_documents d ON d.id=n.invoice_document_id
     LEFT JOIN customers c ON c.id=n.customer_id LEFT JOIN app_users u ON u.id=n.created_by
-    WHERE ${where} ORDER BY n.level DESC,n.days_overdue DESC LIMIT 200`, args)).rows;
+    WHERE ${where.join(' AND ')} ORDER BY n.level DESC,n.days_overdue DESC LIMIT 200`, args)).rows;
   const aging = (await client.query(`SELECT
       COUNT(*)::int open_count,COALESCE(SUM(outstanding),0)::float open_value,
       COUNT(*) FILTER (WHERE level>=3)::int critical
-    FROM dunning_notices WHERE status='ISSUED'`)).rows[0];
+    FROM dunning_notices n JOIN business_documents d ON d.id=n.invoice_document_id
+    WHERE n.status='ISSUED' AND ($1::boolean OR d.branch_id=$2)`, [scope.global, scope.branchId])).rows[0];
   return { items: rows.map(runtime.camel), summary: runtime.camel(aging) };
 }
 
 async function resolveDunning(client, { noticeId, reason, user, requestId }) {
   if (!reason) throw new AppError('REASON_REQUIRED', 'Alasan penyelesaian (pembayaran/komitmen) wajib diisi.');
-  const notice = (await client.query('SELECT * FROM dunning_notices WHERE id=$1 FOR UPDATE', [noticeId])).rows[0];
+  const notice = (await client.query(`SELECT n.*,d.branch_id FROM dunning_notices n JOIN business_documents d ON d.id=n.invoice_document_id WHERE n.id=$1 FOR UPDATE OF n`, [noticeId])).rows[0];
   if (!notice) throw new AppError('RESOURCE_NOT_FOUND', 'Notice dunning tidak ditemukan.');
+  assertBranchAccess(user, notice.branch_id, 'Notice dunning berada di cabang di luar cakupan Anda.');
   if (notice.status !== 'ISSUED') throw new AppError('STATUS_INVALID', `Notice berstatus ${notice.status}.`);
   const updated = (await client.query(`UPDATE dunning_notices SET status='RESOLVED',resolved_reason=$2,resolved_by=$3,resolved_at=now() WHERE id=$1 RETURNING *`,
     [noticeId, String(reason).slice(0, 500), user.id])).rows[0];
@@ -134,6 +142,7 @@ async function createRma(client, { user, sourceDocumentId, warrantyClaim, reason
   if (!Array.isArray(lines) || !lines.length) throw new AppError('VALIDATION_ERROR', 'Minimal satu baris retur wajib diisi.');
   const source = sourceDocumentId ? (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type IN ('DELIVERY','INVOICE')`, [sourceDocumentId])).rows[0] : null;
   if (sourceDocumentId && !source) throw new AppError('RESOURCE_NOT_FOUND', 'Dokumen sumber retur (Delivery/Invoice) tidak ditemukan.');
+  if (source) assertBranchAccess(user, source.branch_id, 'Dokumen sumber retur berada di cabang di luar cakupan Anda.');
   if (warrantyClaim && !source) throw new AppError('VALIDATION_ERROR', 'Klaim garansi wajib menunjuk dokumen sumber.');
   const runtime = require('./runtime');
   const checked = [];
@@ -159,9 +168,9 @@ async function createRma(client, { user, sourceDocumentId, warrantyClaim, reason
     checked.push({ productId: product.id, description: `${product.code} · ${product.name}`, qty, uom: product.uom, unitPrice: price, disposition, warrantyUntil, note: line.note ? String(line.note).slice(0, 300) : null });
   }
   const doc = await runtime.createDocument(client, {
-    type: 'RMA', user, title: warrantyClaim ? `Klaim garansi ${source.document_number}` : `Retur penjualan${source ? ' ' + source.document_number : ''}`,
+    type: 'RMA', user: source ? { ...user, branchId: source.branch_id } : user, title: warrantyClaim ? `Klaim garansi ${source.document_number}` : `Retur penjualan${source ? ' ' + source.document_number : ''}`,
     amount: idr(amount), partyId: source?.party_id || null, partyName: source?.party_name || null, requestId,
-    payload: { sourceDocumentId: source?.id || null, sourceNumber: source?.document_number || null, warrantyClaim: !!warrantyClaim, reasonCode: reasonCode || 'RETURN', warehouseId: user.branchId, lines: checked }
+    payload: { sourceDocumentId: source?.id || null, sourceNumber: source?.document_number || null, warrantyClaim: !!warrantyClaim, reasonCode: reasonCode || 'RETURN', warehouseId: source?.branch_id || user.branchId, lines: checked }
   });
   if (source) await client.query(`INSERT INTO document_relations(parent_document_id,child_document_id,relation_type,created_by) VALUES($1,$2,'SOURCE_TO_RMA',$3)`, [source.id, doc.id, user.id]);
   return doc;

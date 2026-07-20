@@ -5,10 +5,11 @@ const path = require('node:path');
 const { readBody } = require('../core/util');
 const { AppError } = require('../core/errors');
 const { assertPermission } = require('../core/permissions');
-const { verifyPassword } = require('../core/auth');
+const { verifyPassword } = require('../core/password');
 const auth = require('../infrastructure/database/repositories/auth');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const governance = require('../infrastructure/database/repositories/governance');
+const assurance = require('../infrastructure/database/repositories/assurance');
 const { healthCheck, stats } = require('../infrastructure/database/pool');
 const { migrationFiles } = require('../infrastructure/database/migrations');
 const events = require('../core/events');
@@ -60,9 +61,24 @@ async function dispatch(client, req, url, ctx) {
       to_regclass('public.organization_tax_identities') IS NOT NULL organization_tax,
       to_regclass('public.employee_restricted_records') IS NOT NULL employee_restricted,
       EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='business_documents' AND column_name='organization_identity_snapshot') organization_snapshot,
+      (SELECT count(*)=7 FROM information_schema.columns WHERE table_schema='public' AND table_name='business_documents' AND column_name=ANY(ARRAY['official_issued_at','official_issued_by','official_signature','official_key_id','official_template_version','official_payload','organization_identity_snapshot'])) official_governance,
+      EXISTS(SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='ux_notification_delivery_target') delivery_idempotency,
+      to_regclass('public.mv_executive_monthly_kpis') IS NOT NULL reporting_summary,
+      to_regclass('public.report_schedules') IS NOT NULL report_schedules,
+      to_regclass('public.report_saved_filters') IS NOT NULL report_filters,
+      EXISTS(SELECT 1 FROM reporting_refresh_runs WHERE status='SUCCEEDED') reporting_fresh,
+      NOT has_table_privilege(current_user,'attendance_corrections','DELETE')
+        AND NOT has_table_privilege(current_user,'dunning_notices','DELETE')
+        AND NOT has_table_privilege(current_user,'fixed_assets','DELETE')
+        AND NOT has_table_privilege(current_user,'po_change_orders','DELETE')
+        AND NOT has_table_privilege(current_user,'notification_deliveries','DELETE') history_least_privilege,
       EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name='user_sessions' AND column_name='mfa_verified_at') mfa_step_up,
       (SELECT count(*)::int FROM approval_policy_versions WHERE status='ACTIVE' AND effective_from<=now() AND (effective_until IS NULL OR effective_until>now())) active_policies`)).rows[0];
-    const backup=(await client.query(`SELECT status,restore_tested,restore_tested_at FROM backup_runs WHERE status='COMPLETED' ORDER BY finished_at DESC LIMIT 1`)).rows[0];
+    const backup=(await client.query(`SELECT b.status,b.started_at,
+      EXISTS(SELECT 1 FROM backup_runs r WHERE r.restore_tested=true) restore_tested,
+      (SELECT max(r.restore_tested_at) FROM backup_runs r WHERE r.restore_tested=true) restore_tested_at
+      FROM backup_runs b WHERE b.status='COMPLETED' ORDER BY b.finished_at DESC LIMIT 1`)).rows[0];
+    const finalAssurance=await assurance.evaluate(client);
     const checks=[
       {name:'Koneksi PostgreSQL',status:'pass',critical:true,detail:'Runtime user terhubung.'},
       {name:'Migration database',status:migration?.filename===migrationFiles().at(-1)?'pass':'fail',critical:true,detail:migration?.filename||'Tidak ada migration'},
@@ -75,10 +91,16 @@ async function dispatch(client, req, url, ctx) {
       {name:'Enterprise IAM & SoD',status:enterprise.iam&&enterprise.sod&&enterprise.access_reviews?'pass':'fail',critical:true,detail:'Role assignment maker-checker, SoD event, emergency override, dan access review siap.'},
       {name:'Versioned approval policy',status:enterprise.policies&&Number(enterprise.active_policies)>0?'pass':'fail',critical:true,detail:`${Number(enterprise.active_policies)||0} approval policy aktif dan dapat disnapshot ke dokumen.`},
       {name:'Organization & Employee Master',status:enterprise.company_banks&&enterprise.organization_assets&&enterprise.organization_tax&&enterprise.employee_restricted&&enterprise.organization_snapshot&&enterprise.mfa_step_up?'pass':'fail',critical:true,detail:'Legal identity, company bank maker-checker, employee restricted data, MFA step-up, dan snapshot dokumen siap.'},
-      {name:'Backup restore drill',status:backup?.status==='COMPLETED'&&backup?.restore_tested?'pass':'fail',critical:true,detail:backup?.restore_tested_at?`Restore teruji ${new Date(backup.restore_tested_at).toISOString()}`:'Belum ada restore drill berhasil.'}
+      {name:'Official document governance',status:enterprise.official_governance&&enterprise.delivery_idempotency?'pass':'fail',critical:true,detail:'Issued snapshot, versioned signature, dan delivery retry idempotent siap.'},
+      {name:'Executive reporting semantic layer',status:enterprise.reporting_summary&&enterprise.report_schedules&&enterprise.report_filters&&enterprise.reporting_fresh?'pass':'fail',critical:true,detail:'Materialized KPI, saved filter, scheduled report, dan freshness evidence siap.'},
+      {name:'Runtime history least privilege',status:enterprise.history_least_privilege?'pass':'fail',critical:true,detail:'Runtime tidak dapat menghapus tabel workflow/history kritis.'},
+      {name:'Backup restore drill',status:backup?.status==='COMPLETED'&&backup?.restore_tested&&Date.now()-new Date(backup.started_at).getTime()<=48*3600000?'pass':'blocked',critical:true,detail:backup?.restore_tested_at?`Backup terbaru ${new Date(backup.started_at).toISOString()}; restore teruji ${new Date(backup.restore_tested_at).toISOString()}.`:'Belum ada restore drill berhasil.'},
+      ...finalAssurance.checks
     ];
-    const failed=checks.filter(x=>x.status==='fail').length,criticalFailed=checks.filter(x=>x.critical&&x.status==='fail').length;
-    return{passed:checks.length-failed,failed,total:checks.length,criticalFailed,releaseBlocked:criticalFailed>0,ranAt:new Date().toISOString(),results:checks};
+    const passed=checks.filter(x=>x.status==='pass').length,warnings=checks.filter(x=>x.status==='warning').length,
+      failed=checks.filter(x=>x.status==='fail').length,blocked=checks.filter(x=>x.status==='blocked').length,
+      criticalFailed=checks.filter(x=>x.critical&&['fail','blocked'].includes(x.status)).length;
+    return{passed,warnings,failed,blocked,total:checks.length,criticalFailed,releaseBlocked:criticalFailed>0,ranAt:new Date().toISOString(),assurance:finalAssurance.metrics,results:checks};
   }
   return NO_MATCH;
 }

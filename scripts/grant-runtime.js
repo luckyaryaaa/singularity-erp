@@ -21,6 +21,12 @@ const q = `"${appUser}"`;
     await client.query(`REVOKE UPDATE,DELETE ON work_order_time_logs FROM ${q}`);
     await client.query(`REVOKE DELETE ON work_order_operations,work_order_materials,mrp_suggestions FROM ${q}`);
     await client.query(`REVOKE UPDATE,DELETE ON qc_inspections FROM ${q}`);
+    await client.query(`REVOKE DELETE ON attendance_corrections,dunning_notices,fixed_assets,po_change_orders,notification_deliveries FROM ${q}`);
+    await client.query(`REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON reporting_refresh_runs FROM ${q}`);
+    await client.query(`REVOKE DELETE,TRUNCATE ON report_schedules FROM ${q}`);
+    await client.query(`GRANT SELECT ON mv_executive_monthly_kpis TO ${q}`);
+    await client.query(`GRANT EXECUTE ON FUNCTION refresh_executive_reporting() TO ${q}`);
+    await client.query(`GRANT EXECUTE ON FUNCTION inventory_partition_maintenance(integer) TO ${q}`);
   } finally { await client.end(); }
   console.log(JSON.stringify({ granted: true, role: appUser, createSchema: false }));
 })().catch((error) => { console.error(error.message); process.exitCode = 1; });

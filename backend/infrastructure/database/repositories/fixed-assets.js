@@ -6,6 +6,7 @@
 // JOURNAL sistem sehingga muncul di buku besar dengan jejak lengkap.
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
+const { assertBranchAccess, queryScope, resolveBranch } = require('../../../core/data-scope');
 
 const idr = (v) => Math.round(Number(v || 0) * 100) / 100;
 
@@ -26,31 +27,41 @@ function monthlyDepreciation(asset, category) {
   return idr((Number(asset.acquisition_cost) - Number(asset.salvage_value)) / usefulLife(asset, category));
 }
 
-async function createAsset(client, { name, categoryCode, acquisitionDate, acquisitionCost, salvageValue, usefulLifeMonths, custodianEmployeeId, location, sourceDocumentId, notes, user, requestId }) {
+async function createAsset(client, { name, categoryCode, acquisitionDate, acquisitionCost, salvageValue, usefulLifeMonths, custodianEmployeeId, location, sourceDocumentId, branchId, notes, user, requestId }) {
   if (!name || !String(name).trim()) throw new AppError('VALIDATION_ERROR', 'Nama aset wajib diisi.');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(acquisitionDate || ''))) throw new AppError('VALIDATION_ERROR', 'Tanggal perolehan wajib berformat YYYY-MM-DD.');
   const cost = Number(acquisitionCost), salvage = Number(salvageValue || 0);
   if (!(cost > 0)) throw new AppError('VALIDATION_ERROR', 'Nilai perolehan harus lebih dari nol.');
   if (salvage < 0 || salvage >= cost) throw new AppError('VALIDATION_ERROR', 'Nilai residu harus 0 sampai di bawah nilai perolehan.');
   const category = await getCategory(client, categoryCode);
+  const targetBranchId = resolveBranch(user, branchId);
   if (usefulLifeMonths !== undefined && usefulLifeMonths !== null && !(Number(usefulLifeMonths) > 0)) throw new AppError('VALIDATION_ERROR', 'Umur manfaat override harus lebih dari nol bulan.');
   if (sourceDocumentId) {
-    const src = (await client.query('SELECT id FROM business_documents WHERE id=$1', [sourceDocumentId])).rows[0];
+    const src = (await client.query('SELECT id,branch_id FROM business_documents WHERE id=$1', [sourceDocumentId])).rows[0];
     if (!src) throw new AppError('RESOURCE_NOT_FOUND', 'Dokumen sumber perolehan tidak ditemukan.');
+    assertBranchAccess(user, src.branch_id, 'Dokumen sumber aset berada di cabang di luar cakupan Anda.');
+    if (src.branch_id !== targetBranchId) throw new AppError('VALIDATION_ERROR', 'Dokumen sumber aset harus berada pada cabang aset yang sama.');
+  }
+  if (custodianEmployeeId) {
+    const employee = (await client.query('SELECT id,branch_id FROM employees WHERE id=$1 AND active', [custodianEmployeeId])).rows[0];
+    if (!employee) throw new AppError('RESOURCE_NOT_FOUND', 'Kustodian aset tidak ditemukan.');
+    assertBranchAccess(user, employee.branch_id, 'Kustodian berada di cabang di luar cakupan Anda.');
+    if (employee.branch_id !== targetBranchId) throw new AppError('VALIDATION_ERROR', 'Kustodian dan aset harus berada pada cabang yang sama.');
   }
   const row = (await client.query(`INSERT INTO fixed_assets(id,asset_number,name,category_id,branch_id,custodian_employee_id,location,source_document_id,acquisition_date,acquisition_cost,salvage_value,useful_life_months,notes,created_by)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`, [
-    randomUUID(), await nextAssetNumber(client), String(name).slice(0, 200), category.id, user.branchId || null,
+    randomUUID(), await nextAssetNumber(client), String(name).slice(0, 200), category.id, targetBranchId,
     custodianEmployeeId || null, location ? String(location).slice(0, 160) : null, sourceDocumentId || null,
     acquisitionDate, cost, salvage, usefulLifeMonths || null, notes ? String(notes).slice(0, 1000) : null, user.id])).rows[0];
   const runtime = require('./runtime');
-  await runtime.audit(client, { userId: user.id, action: 'CREATE', module: 'asset', entityType: 'FIXED_ASSET', entityId: row.id, documentNumber: row.asset_number, newValue: { name: row.name, category: categoryCode, cost, monthly: monthlyDepreciation(row, category) }, requestId, branchId: user.branchId });
+  await runtime.audit(client, { userId: user.id, action: 'CREATE', module: 'asset', entityType: 'FIXED_ASSET', entityId: row.id, documentNumber: row.asset_number, newValue: { name: row.name, category: categoryCode, cost, monthly: monthlyDepreciation(row, category) }, requestId, branchId: targetBranchId });
   return runtime.camel(row);
 }
 
 async function listAssets(client, user, params = {}) {
   const runtime = require('./runtime');
-  const where = ['1=1']; const args = [];
+  const scope = queryScope(user);
+  const where = ['($1::boolean OR a.branch_id=$2)']; const args = [scope.global, scope.branchId];
   if (params.status) { args.push(params.status); where.push(`a.status=$${args.length}`); }
   if (params.search) { args.push(`%${params.search}%`); where.push(`(a.asset_number ILIKE $${args.length} OR a.name ILIKE $${args.length})`); }
   const rows = (await client.query(`SELECT a.*,c.code category_code,c.name category_name,c.useful_life_months category_life,
@@ -74,9 +85,10 @@ async function listAssets(client, user, params = {}) {
 // ── Depresiasi berjalan (bulan penuh, garis lurus) ───────────────────────────
 // Idempoten: UNIQUE(asset_id,period) + advisory lock per periode. Satu run =
 // satu dokumen JOURNAL berisi agregat per kategori (D beban / C akumulasi).
-async function runDepreciation(client, { period, user, requestId }) {
+async function runDepreciation(client, { period, branchId, user, requestId }) {
   if (!/^\d{4}-\d{2}$/.test(String(period || ''))) throw new AppError('VALIDATION_ERROR', 'Periode wajib berformat YYYY-MM.');
-  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`depreciation:${period}`]);
+  const targetBranchId = resolveBranch(user, branchId);
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`depreciation:${targetBranchId}:${period}`]);
   const posting = require('./posting');
   const runtime = require('./runtime');
   const periodEnd = `${period}-01`;
@@ -84,9 +96,9 @@ async function runDepreciation(client, { period, user, requestId }) {
       c.expense_account_code,c.accumulated_account_code,
       COALESCE((SELECT SUM(amount) FROM asset_depreciation_entries e WHERE e.asset_id=a.id),0) accumulated
     FROM fixed_assets a JOIN asset_categories c ON c.id=a.category_id
-    WHERE a.status='ACTIVE' AND a.acquisition_date<=($1::date + interval '1 month' - interval '1 day')::date
+    WHERE a.status='ACTIVE' AND a.branch_id=$3 AND a.acquisition_date<=($1::date + interval '1 month' - interval '1 day')::date
       AND NOT EXISTS (SELECT 1 FROM asset_depreciation_entries e WHERE e.asset_id=a.id AND e.period=$2)
-    ORDER BY a.asset_number FOR UPDATE OF a`, [periodEnd, period])).rows;
+    ORDER BY a.asset_number FOR UPDATE OF a`, [periodEnd, period, targetBranchId])).rows;
   if (!assets.length) return { period, assets: 0, total: 0, journal: null, message: 'Tidak ada aset yang perlu disusutkan pada periode ini.' };
 
   // Hitung per aset (clamp ke sisa nilai yang dapat disusutkan).
@@ -111,7 +123,7 @@ async function runDepreciation(client, { period, user, requestId }) {
 
   // Dokumen jurnal sistem — muncul di buku besar dengan nomor JRN resmi.
   const doc = await runtime.createDocument(client, {
-    type: 'JOURNAL', user, title: `Penyusutan aset ${period}`, amount: total, requestId,
+    type: 'JOURNAL', user: { ...user, branchId: targetBranchId }, title: `Penyusutan aset ${period}`, amount: total, requestId,
     payload: { period, source: 'DEPRECIATION_RUN', assetCount: entries.length }
   });
   await client.query(`UPDATE business_documents SET status='APPROVED',approved_at=now(),approved_by=$2,version=version+1 WHERE id=$1`, [doc.id, user.id]);
@@ -133,7 +145,7 @@ async function runDepreciation(client, { period, user, requestId }) {
     const depreciable = idr(Number(e.asset.acquisition_cost) - Number(e.asset.salvage_value));
     if (e.accumulatedAfter >= depreciable) await client.query(`UPDATE fixed_assets SET status='FULLY_DEPRECIATED',updated_at=now() WHERE id=$1`, [e.asset.id]);
   }
-  await runtime.audit(client, { userId: user.id, action: 'POST', module: 'asset', entityType: 'DEPRECIATION_RUN', entityId: doc.id, documentNumber: doc.documentNumber, newValue: { period, assets: entries.length, total }, requestId });
+  await runtime.audit(client, { userId: user.id, action: 'POST', module: 'asset', entityType: 'DEPRECIATION_RUN', entityId: doc.id, documentNumber: doc.documentNumber, newValue: { period, assets: entries.length, total }, requestId, branchId: targetBranchId });
   return { period, assets: entries.length, total, journal: doc.documentNumber };
 }
 
@@ -145,6 +157,7 @@ async function disposeAsset(client, { assetId, reason, proceeds, user, requestId
   if (!reason) throw new AppError('REASON_REQUIRED', 'Alasan pelepasan aset wajib diisi.');
   const asset = (await client.query(`SELECT a.*,c.asset_account_code,c.accumulated_account_code FROM fixed_assets a JOIN asset_categories c ON c.id=a.category_id WHERE a.id=$1 FOR UPDATE OF a`, [assetId])).rows[0];
   if (!asset) throw new AppError('RESOURCE_NOT_FOUND', 'Aset tidak ditemukan.');
+  assertBranchAccess(user, asset.branch_id, 'Aset berada di cabang di luar cakupan Anda.');
   if (asset.status === 'DISPOSED') return { replay: true, disposedAt: asset.disposed_at };
   const accumulated = Number((await client.query('SELECT COALESCE(SUM(amount),0) n FROM asset_depreciation_entries WHERE asset_id=$1', [assetId])).rows[0].n);
   const bookValue = idr(Number(asset.acquisition_cost) - accumulated);
@@ -152,7 +165,7 @@ async function disposeAsset(client, { assetId, reason, proceeds, user, requestId
   const runtime = require('./runtime');
   const posting = require('./posting');
   const doc = await runtime.createDocument(client, {
-    type: 'JOURNAL', user, title: `Pelepasan aset ${asset.asset_number} — ${asset.name}`, amount: Number(asset.acquisition_cost), requestId,
+    type: 'JOURNAL', user: { ...user, branchId: asset.branch_id }, title: `Pelepasan aset ${asset.asset_number} — ${asset.name}`, amount: Number(asset.acquisition_cost), requestId,
     payload: { source: 'ASSET_DISPOSAL', assetNumber: asset.asset_number, bookValue, proceeds: Number(proceeds || 0), gainLoss }
   });
   await client.query(`UPDATE business_documents SET status='APPROVED',approved_at=now(),approved_by=$2,version=version+1 WHERE id=$1`, [doc.id, user.id]);
@@ -168,7 +181,7 @@ async function disposeAsset(client, { assetId, reason, proceeds, user, requestId
   await posting.finishPosting(client, { id: doc.id }, 'ACCOUNTING', { source: 'ASSET_DISPOSAL', bookValue, accumulated });
   const updated = (await client.query(`UPDATE fixed_assets SET status='DISPOSED',disposed_at=now(),disposed_by=$2,disposal_reason=$3,disposal_proceeds=$4,disposal_journal_id=$5,updated_at=now() WHERE id=$1 RETURNING *`,
     [assetId, user.id, String(reason).slice(0, 500), Number(proceeds || 0), doc.id])).rows[0];
-  await runtime.audit(client, { userId: user.id, action: 'VOID', module: 'asset', entityType: 'FIXED_ASSET', entityId: assetId, documentNumber: asset.asset_number, oldValue: { status: asset.status }, newValue: { status: 'DISPOSED', bookValue, proceeds: Number(proceeds || 0), gainLoss, journal: doc.documentNumber }, reason, requestId });
+  await runtime.audit(client, { userId: user.id, action: 'VOID', module: 'asset', entityType: 'FIXED_ASSET', entityId: assetId, documentNumber: asset.asset_number, oldValue: { status: asset.status }, newValue: { status: 'DISPOSED', bookValue, proceeds: Number(proceeds || 0), gainLoss, journal: doc.documentNumber }, reason, requestId, branchId: asset.branch_id });
   return { ...require('./runtime').camel(updated), bookValue, accumulated, gainLoss, journal: doc.documentNumber };
 }
 

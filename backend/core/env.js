@@ -2,7 +2,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-function loadEnv(file = path.join(__dirname, '..', '..', '.env')) {
+function loadEnv(file = process.env.MAT_ENV_FILE || path.join(__dirname, '..', '..', '.env')) {
+  file = path.resolve(file);
   if (!fs.existsSync(file)) return false;
   for (const raw of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
     const line = raw.trim();
@@ -32,6 +33,9 @@ function validateEnvironment(env=process.env,{forBoot=false}={}) {
     if(/(?:_dev|_uat)(?:$|[?&])/i.test(env.PGDATABASE||'')||/(?:_dev|_uat)(?:\?|$)/i.test(env.DATABASE_URL||''))errors.push('Database development/UAT dilarang untuk PRODUCTION.');
     if(weak(env.MAT_MFA_ENCRYPTION_KEY))errors.push('MAT_MFA_ENCRYPTION_KEY production belum kuat.');
     if(weak(env.MAT_BACKUP_ENCRYPTION_KEY))errors.push('MAT_BACKUP_ENCRYPTION_KEY production belum kuat.');
+    if(weak(env.MAT_DOC_VERIFY_SECRET))errors.push('MAT_DOC_VERIFY_SECRET production wajib kuat dan terpisah.');
+    if(!/^v[0-9A-Za-z._-]+$/.test(env.MAT_DOC_VERIFY_KEY_ID||''))errors.push('MAT_DOC_VERIFY_KEY_ID production wajib diisi (contoh v1).');
+    if(!/^https:\/\//i.test(env.MAT_PUBLIC_BASE_URL||''))errors.push('MAT_PUBLIC_BASE_URL production wajib URL HTTPS.');
     if(env.MAT_COOKIE_SECURE!=='1')errors.push('MAT_COOKIE_SECURE=1 wajib di production.');
     if(env.MAT_FILE_SCAN_MODE!=='defender'&&env.MAT_FILE_SCAN_MODE!=='clamav')errors.push('Malware scanner production wajib defender atau clamav.');
     if(forBoot&&env.MAT_PRODUCTION_ACTIVATION_ALLOWED!=='1')errors.push('MAT_PRODUCTION_ACTIVATION_ALLOWED belum 1.');

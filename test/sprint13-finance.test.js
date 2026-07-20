@@ -65,7 +65,7 @@ dbTest('laporan keuangan: neraca balance dengan akun kontra (1590/4110) bertanda
     // Tambah depresiasi supaya kontra-aset 1590 ikut teruji dalam neraca.
     await fa.createAsset(c, { name: 'Aset neraca', categoryCode: 'MESIN', acquisitionDate: '2026-01-01', acquisitionCost: 96_000_000, user: u, requestId: randomUUID() });
     await fa.runDepreciation(c, { period, user: u, requestId: randomUUID() });
-    const st = await reports.financialStatements(c, period);
+    const st = await reports.financialStatements(c, period, u);
     assert.equal(st.balanceSheet.balanced, true, 'aset = kewajiban + ekuitas');
     const acc = st.balanceSheet.assets.find((x) => x.code === '1590');
     assert.ok(acc && acc.balance < 0, 'akumulasi penyusutan tampil NEGATIF (kontra aset)');
@@ -75,19 +75,21 @@ dbTest('laporan keuangan: neraca balance dengan akun kontra (1590/4110) bertanda
 
 dbTest('subledger AP selaras GL; AR menampilkan selisih terukur bila ada', async () => {
   await withRollback(async (c) => {
-    const ap = await reports.subledger(c, { type: 'AP', period });
+    const u = await owner(c);
+    const ap = await reports.subledger(c, { type: 'AP', period, user: u });
     assert.ok(Number.isFinite(ap.difference));
     assert.equal(ap.glAccount, '2100');
-    const ar = await reports.subledger(c, { type: 'AR', period });
+    const ar = await reports.subledger(c, { type: 'AR', period, user: u });
     assert.equal(ar.glAccount, '1200');
     assert.ok(Array.isArray(ar.items));
-    await assert.rejects(() => reports.subledger(c, { type: 'XX', period }), (e) => e.code === 'VALIDATION_ERROR');
+    await assert.rejects(() => reports.subledger(c, { type: 'XX', period, user: u }), (e) => e.code === 'VALIDATION_ERROR');
   });
 });
 
 dbTest('closing cockpit: checklist lengkap dengan status PASS/WARN/FAIL dan readiness', async () => {
   await withRollback(async (c) => {
-    const cockpit = await reports.closingCockpit(c, period);
+    const u = await owner(c);
+    const cockpit = await reports.closingCockpit(c, period, u);
     assert.ok(cockpit.checks.length >= 9);
     for (const chk of cockpit.checks) assert.ok(['PASS', 'WARN', 'FAIL'].includes(chk.status), `status valid: ${chk.id}`);
     assert.ok(['READY', 'REVIEW', 'BLOCKED'].includes(cockpit.readiness));

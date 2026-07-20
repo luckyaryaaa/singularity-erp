@@ -17,7 +17,7 @@ const domainRoutes = [
   require('./routes/procurement'),
   require('./routes/operations'), require('./routes/masters'), require('./routes/organization'),
   require('./routes/inventory'), require('./routes/production'), require('./routes/finance'),
-  require('./routes/hr'), require('./routes/governance')
+  require('./routes/hr'), require('./routes/reporting'), require('./routes/governance')
 ];
 const openapi=require('./core/openapi');
 const json=(res,status,body,headers={})=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-API-Version':openapi.API_VERSION,...headers});res.end(JSON.stringify(body));};
