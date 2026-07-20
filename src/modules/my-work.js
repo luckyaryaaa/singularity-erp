@@ -2,7 +2,7 @@
 // My Work (§10.7) — file modul frontend PERTAMA hasil pemecahan pages.js:
 // mendaftar ke router yang sama (tanpa renderer kedua), pola §4.1/§35.3.
 (() => {
-  const { esc, fmtIDR, fmtDate, relTime, api, query, invalidate, router } = window.MAT;
+  const { esc, fmtIDR, fmtDate, relTime, api, query, invalidate, router , asList } = window.MAT;
   const { ICONS, chip, pageHead, clayOrb, openDrawer, TYPE_LABEL } = window.UI;
   const t = (k, f) => (window.MAT_I18N ? window.MAT_I18N.t(k, f) : f);
 

@@ -189,5 +189,13 @@ window.MAT = (() => {
     document.dispatchEvent(new CustomEvent('mat:logout'));
   }
 
-  return { state, esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, debounce, newIdemKey, api, uploadFile, query, invalidate, startSse, refreshBadge, router, can, sessionLost };
+  // Normalisasi respons daftar: API boleh mengembalikan array telanjang atau
+  // pembungkus {items:[…]}. Satu helper ini mencegah "x.map is not a function"
+  // saat kontrak endpoint berubah — halaman tetap tampil, bukan blank error.
+  const asList = (value) => Array.isArray(value) ? value
+    : value && Array.isArray(value.items) ? value.items
+    : value && Array.isArray(value.rows) ? value.rows
+    : [];
+
+  return { state, esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, debounce, newIdemKey, api, uploadFile, query, invalidate, startSse, refreshBadge, router, can, sessionLost, asList };
 })();

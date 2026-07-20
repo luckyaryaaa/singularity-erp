@@ -1,6 +1,6 @@
 {
   "name": "mat-erp-v2",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "private": true,
   "scripts": {
     "dev": "node server.js",
@@ -40,7 +40,9 @@
     "load:smoke": "node scripts/load-smoke.js",
     "load:lan": "node scripts/load-lan.js",
     "cutover:opening-inventory": "node scripts/cutover-opening-inventory.js",
-    "uat:lan": "node scripts/start-lan-uat.js"
+    "uat:lan": "node scripts/start-lan-uat.js",
+    "data:purge": "node scripts/purge-business-data.js",
+    "data:restore-config": "node scripts/restore-config-seed.js"
   },
   "engines": {
     "node": ">=20"

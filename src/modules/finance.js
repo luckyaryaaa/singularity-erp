@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const { esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, api, uploadFile, query, invalidate, router, can, state, newIdemKey } = window.MAT;
+  const { esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, api, uploadFile, query, invalidate, router, can, state, newIdemKey , asList } = window.MAT;
   const { ICONS, chip, toast, formDialog, actionDialog, openDrawer, dataTable, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL, STATUS_META } = window.UI;
   const { progressBar, docCell, docListPage, masterPage } = window.PageKit;
 
@@ -247,7 +247,7 @@
       this._period = this._period || new Date().toISOString().slice(0, 7);
       const st = await api(`/api/accounting/financial-statements?period=${this._period}`);
       const bs = st.balanceSheet, is = st.incomeStatement;
-      const rowsOf = (list) => list.map((r) => `<tr><td>${esc(r.code)} · ${esc(r.name)}</td><td class="right money">${fmtIDRFull(r.balance)}</td></tr>`).join('');
+      const rowsOf = (list) => asList(list).map((r) => `<tr><td>${esc(r.code)} · ${esc(r.name)}</td><td class="right money">${fmtIDRFull(r.balance)}</td></tr>`).join('');
       main.innerHTML = pageHead({
         eyebrow: 'AKUNTANSI', title: 'Laporan keuangan', sub: `Neraca (kumulatif s/d ${st.period}) & laba rugi periode berjalan.`,
         actions: `<label class="period-picker"><span>Periode</span><input id="fsPeriod" type="month" value="${esc(this._period)}"></label>
@@ -267,9 +267,9 @@
           </article>
           <article class="panel"><header><div><p class="eyebrow">LABA RUGI</p><h2>Kinerja periode ${esc(st.period)}</h2></div></header>
             <div class="table-wrap"><table>
-              <thead><tr><th>PENDAPATAN</th><th class="right"></th></tr></thead><tbody>${rowsOf(is.revenue) || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
-              <thead><tr><th>BEBAN POKOK</th><th class="right"></th></tr></thead><tbody>${rowsOf(is.cogs) || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
-              <thead><tr><th>BEBAN OPERASIONAL</th><th class="right"></th></tr></thead><tbody>${rowsOf(is.expense) || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+              <thead><tr><th>PENDAPATAN</th><th class="right"></th></tr></thead><tbody>${rowsOf(is.revenueLines) || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+              <thead><tr><th>BEBAN POKOK</th><th class="right"></th></tr></thead><tbody>${rowsOf(is.cogsLines) || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
+              <thead><tr><th>BEBAN OPERASIONAL</th><th class="right"></th></tr></thead><tbody>${rowsOf(is.expenseLines) || '<tr><td colspan="2" class="muted">—</td></tr>'}</tbody>
               <tfoot>
                 <tr><th>Laba kotor</th><th class="right money">${fmtIDRFull(is.grossMargin)}</th></tr>
                 <tr><th>Laba bersih periode</th><th class="right money">${fmtIDRFull(is.netIncome)}</th></tr>

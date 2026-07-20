@@ -11,7 +11,7 @@ const ROUTE_MATRIX = Object.freeze([
   { file:'procurement.js', handlers:15, directGuards:2, strategy:'REPOSITORY_PERMISSION_BRANCH_AND_SOD', evidence:['test/sprint10-s2p.test.js','test/branch-isolation.test.js'] },
   { file:'operations.js', handlers:12, directGuards:12, strategy:'PERMISSION_OWNERSHIP_AND_BRANCH', evidence:['test/postgres.http.test.js','test/r012-hardening.test.js'] },
   { file:'masters.js', handlers:30, directGuards:14, strategy:'DYNAMIC_MASTER_PERMISSION_AND_REPOSITORY_SCOPE', evidence:['test/sprint8c-master-governance.test.js','test/sprint8c-wave2.test.js'] },
-  { file:'organization.js', handlers:8, directGuards:2, strategy:'REPOSITORY_SCOPE_OWNER_PIN_AND_MFA', evidence:['test/sprint7-organization-employee.test.js'] },
+  { file:'organization.js', handlers:10, directGuards:4, strategy:'REPOSITORY_SCOPE_OWNER_PIN_AND_MFA', evidence:['test/sprint7-organization-employee.test.js','test/sprint15-docs.test.js'] },
   { file:'inventory.js', handlers:8, directGuards:8, strategy:'PERMISSION_AND_WAREHOUSE_BRANCH', evidence:['test/sprint11-inventory-lots.test.js'] },
   { file:'production.js', handlers:14, directGuards:14, strategy:'PERMISSION_AND_WORK_ORDER_BRANCH', evidence:['test/sprint12-production.test.js'] },
   { file:'finance.js', handlers:21, directGuards:21, strategy:'PERMISSION_BRANCH_PIN_AND_SOD', evidence:['test/sprint13-finance.test.js','test/branch-isolation.test.js'] },

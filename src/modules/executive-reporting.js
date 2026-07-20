@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const { esc, fmtIDR, fmtDate, fmtDateTime, api, query, invalidate, router, can, state } = window.MAT;
+  const { esc, fmtIDR, fmtDate, fmtDateTime, api, query, invalidate, router, can, state , asList } = window.MAT;
   const { ICONS, toast, formDialog, clayOrb, pageHead } = window.UI;
   const reportIcons={sales_customer:'chart',ar_ap_aging:'wallet',project_profitability:'project',production_performance:'factory',inventory_movement:'box',payroll_bpjs:'payslip',financial_statement:'ledger',quality_analytics:'shield'};
   const reportTones={sales_customer:'blue',ar_ap_aging:'amber',project_profitability:'mint',production_performance:'lavender',inventory_movement:'blue',payroll_bpjs:'coral',financial_statement:'mint',quality_analytics:'amber'};

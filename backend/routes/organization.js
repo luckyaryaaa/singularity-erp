@@ -5,6 +5,7 @@ const { assertPermission } = require('../core/permissions');
 const { verifyPassword } = require('../core/password');
 const organization = require('../infrastructure/database/repositories/organization');
 const runtime = require('../infrastructure/database/repositories/runtime');
+const docTemplates = require('../infrastructure/database/repositories/document-templates');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -23,6 +24,13 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m){const body=await readBody(req);if(ctx.user.role!=='owner')throw new AppError('PERMISSION_DENIED');const pinRow=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!pinRow?.owner_pin_hash||!verifyPassword(String(body.pin),pinRow.owner_pin_hash))throw new AppError('PIN_REQUIRED');if(!ctx.session.mfaVerifiedAt||Date.now()-new Date(ctx.session.mfaVerifiedAt).getTime()>10*60*1000)throw new AppError('MFA_REQUIRED','Persetujuan rekening perusahaan membutuhkan login MFA yang masih baru.');return organization.decideBank(client,ctx.user,m[1],m[2],m[3],body.reason,ctx.requestId);}
 
   // Compatibility settings view: organization master tetap menjadi single source of truth.
+  // ── Template dokumen resmi (configuration-driven, ber-versi) ──────────────
+  if(method==='GET'&&p==='/api/document-templates'){assertPermission(ctx.user,'settings.view');return docTemplates.listTemplates(client);}
+  if(method==='POST'&&p==='/api/document-templates'){
+    assertPermission(ctx.user,'settings.edit');
+    const body=await readBody(req);
+    return docTemplates.saveTemplate(client,{documentType:body.documentType,name:body.name,config:body.config,user:ctx.user,requestId:ctx.requestId});
+  }
   if(method==='GET'&&p==='/api/system/settings'){
     assertPermission(ctx.user,'settings.view');const profile=await organization.overview(client,ctx.user),banks=await organization.listResource(client,ctx.user,profile.id,'bank-accounts');
     const saved=(await client.query(`SELECT value FROM system_settings WHERE setting_key='company'`)).rows[0]?.value||{},bank=banks.find(x=>x.verificationStatus==='VERIFIED'&&x.isPrimary)||banks.find(x=>x.verificationStatus==='VERIFIED');

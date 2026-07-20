@@ -147,7 +147,14 @@ pgTest('PostgreSQL Sprint 4: accounting, allocation, attendance, payroll, tax, i
     const owner=(await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope",employee_id "employeeId" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0];
     const employee=(await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope",employee_id "employeeId" FROM app_users WHERE role='employee' AND active AND employee_id IS NOT NULL LIMIT 1`)).rows[0];
     assert.ok(owner);assert.ok(employee?.employeeId);
-    const current=new Date().toISOString().slice(0,7),ownAttendance=await businessOps.attendance(client,{period:current,user:employee,limit:250});
+    const current=new Date().toISOString().slice(0,7);
+    // Fixture mandiri (rollback-terisolasi): tes tidak lagi bergantung pada
+    // data absensi hasil seed — cukup satu catatan miliknya sendiri + satu
+    // milik karyawan lain untuk membuktikan isolasi self-service.
+    await businessOps.upsertAttendance(client,{employeeId:employee.employeeId,workDate:`${current}-05`,status:'PRESENT',user:owner});
+    const otherEmployee=(await client.query('SELECT id FROM employees WHERE active AND id<>$1 LIMIT 1',[employee.employeeId])).rows[0];
+    if(otherEmployee)await businessOps.upsertAttendance(client,{employeeId:otherEmployee.id,workDate:`${current}-05`,status:'PRESENT',user:owner});
+    const ownAttendance=await businessOps.attendance(client,{period:current,user:employee,limit:250});
     assert.ok(ownAttendance.items.length>0);assert.ok(ownAttendance.items.every(row=>row.employeeId===employee.employeeId));
     const ownLeave=await businessOps.leaveBalances(client,{year:Number(current.slice(0,4)),user:employee});assert.equal(ownLeave.length,1);assert.equal(ownLeave[0].employeeId,employee.employeeId);
 

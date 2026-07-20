@@ -15,6 +15,7 @@ const hrOps = require('../infrastructure/database/repositories/hr-operations');
 const docRender = require('../infrastructure/files/document-render');
 const docVerify = require('../core/doc-verification');
 const smtp = require('../infrastructure/smtp');
+const docTemplates = require('../infrastructure/database/repositories/document-templates');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -70,7 +71,14 @@ async function dispatch(client, req, url, ctx) {
     const doc=await loadForOfficial(client,m[1],ctx.user);
     const lines=(await client.query('SELECT line_no,product_id,description,qty,uom,unit_price,discount_pct,tax_pct,line_total FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows.map(runtime.camel);
     const issued=await issueOfficial(client,doc,lines,ctx.user,ctx.requestId);
-    const rendered=docRender.renderDocument({document:issued.document,lines:issued.lines,copy:issued.copy});
+    // Template configuration-driven: pakai snapshot bila dokumen sudah pernah
+    // dicetak (cetak ulang identik), selain itu ambil template aktif & simpan.
+    let template=issued.document.documentTemplateSnapshot;
+    if(!template){
+      template=await docTemplates.resolveTemplate(client,doc.documentType,(doc.createdAt instanceof Date?doc.createdAt.toISOString():String(doc.createdAt||'')).slice(0,10)||undefined);
+      await client.query('UPDATE business_documents SET document_template_snapshot=$2 WHERE id=$1',[doc.id,template]);
+    }
+    const rendered=docRender.renderDocument({document:issued.document,lines:issued.lines,copy:issued.copy,template});
     ctx.download={item:{originalFilename:`${doc.documentNumber}.pdf`,mimeType:'application/pdf'},buffer:rendered.buffer};
     await runtime.audit(client,{userId:ctx.user.id,action:'EXPORT',module:documentCore.moduleOf(doc.documentType),entityType:doc.documentType,entityId:doc.id,documentNumber:doc.documentNumber,newValue:{official:true,copy:issued.copy,verifyCode:rendered.code,templateVersion:rendered.templateVersion,pages:rendered.pageCount},requestId:ctx.requestId,branchId:doc.branchId});
     return;

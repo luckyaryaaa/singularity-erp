@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const { esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, api, uploadFile, query, invalidate, router, can, state, newIdemKey } = window.MAT;
+  const { esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, api, uploadFile, query, invalidate, router, can, state, newIdemKey , asList } = window.MAT;
   const { ICONS, chip, toast, formDialog, actionDialog, openDrawer, dataTable, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL, STATUS_META } = window.UI;
   const { progressBar, docCell, docListPage, masterPage } = window.PageKit;
 
@@ -23,13 +23,31 @@
       const today = new Date();
       const monthName = today.toLocaleDateString('id-ID', { month: 'long' });
 
+      // Hero eksekutif: satu angka utama + konteks, gaya cockpit enterprise.
+      const netFlow = Number(h.arTotal || 0) - Number(h.apTotal || 0);
       main.innerHTML = `
-        ${pageHead({
-          eyebrow: today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase(),
-          title: `${greet}, ${esc(firstName)}.`,
-          sub: 'Berikut kondisi bisnis yang perlu Anda ketahui hari ini.',
-          actions: `<button class="btn secondary" id="dashRefresh">${ICONS.refresh} Segarkan</button>${can('quotation.create') ? `<a class="btn primary" href="#/sales/quotations/new">${ICONS.plus} Buat penawaran</a>` : ''}`
-        })}
+        <section class="hero-exec">
+          <div class="hero-glow" aria-hidden="true"></div>
+          <div class="hero-main">
+            <p class="hero-date">${today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}</p>
+            <h1>${greet}, ${esc(firstName)}.</h1>
+            <p class="hero-sub">Berikut kondisi bisnis yang perlu Anda ketahui hari ini.</p>
+            <div class="hero-actions">
+              <button class="btn ghost-light" id="dashRefresh">${ICONS.refresh} Segarkan</button>
+              ${can('quotation.create') ? `<a class="btn light" href="#/sales/quotations/new">${ICONS.plus} Buat penawaran</a>` : ''}
+            </div>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Pendapatan ${monthName}</span>
+            <strong class="hero-stat-value">${fmtIDR(k.revenueMonth)}</strong>
+            <span class="hero-trend ${Number(k.revenueGrowthPct) >= 0 ? 'up' : 'down'}">${ICONS.trend} ${k.revenueGrowthPct}% dari bulan lalu</span>
+            <div class="hero-divider"></div>
+            <div class="hero-mini">
+              <span><small>Posisi kas bersih</small><b class="${netFlow >= 0 ? 'pos' : 'neg'}">${fmtIDR(netFlow)}</b></span>
+              <span><small>Pesanan aktif</small><b>${k.activeOrders}</b></span>
+            </div>
+          </div>
+        </section>
         ${data.attention.pendingApprovals ? `
         <section class="attention">
           <div class="attention-orb">${ICONS.bell}</div>

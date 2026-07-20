@@ -63,7 +63,12 @@ async function financialStatements(client, value, user) {
       totalLiabilitiesAndEquity: idr(totalLiabilities + totalEquity),
       balanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01
     },
-    incomeStatement: { ...income, revenue, cogs, grossMargin: idr(revenue - cogs), expense, netIncome }
+    // Detail baris memakai kunci *Lines agar TIDAK tertimpa nilai total
+    // bernama sama (bug: `...income` lalu `revenue` scalar menghapus array).
+    incomeStatement: {
+      revenueLines: income.revenue, cogsLines: income.cogs, expenseLines: income.expense,
+      revenue, cogs, grossMargin: idr(revenue - cogs), expense, netIncome
+    }
   };
 }
 

@@ -9,10 +9,12 @@
     async render(main, _p, signal) {
       const org = await api('/api/organization', { signal });
       const base = `/api/organization/${org.id}`;
-      const [hierarchy, assets, signatories, tax, banks] = await Promise.all([
+      // asList: endpoint sub-resource organisasi mengembalikan {items:[…]}
+      // (dulu array telanjang) — dinormalisasi agar halaman tidak blank.
+      const [hierarchy, assets, signatories, tax, banks] = (await Promise.all([
         api(`${base}/hierarchy`, { signal }), api(`${base}/assets`, { signal }), api(`${base}/signatories`, { signal }),
         api(`${base}/tax-identities`, { signal }), api(`${base}/bank-accounts`, { signal })
-      ]);
+      ])).map(asList);
       const count = (items) => (items || []).length;
       main.innerHTML = pageHead({
         eyebrow: 'ENTERPRISE ORGANIZATION', title: org.tradeName || org.legalName,

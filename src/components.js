@@ -123,7 +123,7 @@
     void:    { label: 'Void', perm: 'void', from: ['APPROVED','IN_PROCESS','COMPLETED','CLOSED','PARTIALLY_PAID'], reason: true, danger: true, pin: true }
   };
   const PIN_TYPES = new Set(['INVOICE','CUSTOMER_PAYMENT','SUPPLIER_PAYMENT','PAYROLL_RUN']);
-  const DOC_CONVERSIONS = { QUOTATION: ['SALES_ORDER','Sales Order'], SALES_ORDER: ['PROJECT','Proyek'], PROJECT: ['WORK_ORDER','Work Order'], PURCHASE_REQUEST: ['PURCHASE_ORDER','Purchase Order'], PURCHASE_ORDER: ['GOODS_RECEIPT','Penerimaan Barang'], DELIVERY: ['INVOICE','Invoice'] };
+  const DOC_CONVERSIONS = { QUOTATION: ['SALES_ORDER','Sales Order'], CUSTOMER_PO: ['SALES_ORDER','Sales Order'], SALES_ORDER: ['PROJECT','Proyek'], PROJECT: ['WORK_ORDER','Work Order'], PURCHASE_REQUEST: ['PURCHASE_ORDER','Purchase Order'], PURCHASE_ORDER: ['GOODS_RECEIPT','Penerimaan Barang'], DELIVERY: ['INVOICE','Invoice'] };
 
   async function runDocAction(doc, action, moduleCode, onDone) {
     const spec = DOC_ACTIONS[action];

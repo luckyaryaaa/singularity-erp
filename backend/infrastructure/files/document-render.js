@@ -102,7 +102,11 @@ function renderDocument(data) {
   const org = doc.organizationIdentitySnapshot || data.org || {};
   const lines = Array.isArray(data.lines) ? data.lines : [];
   const p = new Page();
-  const title = TITLES[doc.documentType] || (doc.documentType || 'DOKUMEN').replace(/_/g, ' ');
+  // Template configuration-driven (§35): judul, warna aksen, syarat & ketentuan,
+  // dan tampil/sembunyi blok berasal dari document_templates. TITLES hanya
+  // cadangan bila template belum dikonfigurasi.
+  const tpl = data.template || {};
+  const title = tpl.title || TITLES[doc.documentType] || (doc.documentType || 'DOKUMEN').replace(/_/g, ' ');
   const code = doc.officialSignature || codeFor(doc.documentNumber);
   const url = verificationUrl(doc.documentNumber, code);
   const watermark = data.copy ? 'COPY' : ['DRAFT','VOID','CANCELLED','REJECTED'].includes(doc.status) ? doc.status : null;
@@ -184,16 +188,28 @@ function renderDocument(data) {
   p.line(signX, y + 64, signX + 130, y + 64, 0.4);
   p.text(signX, y + 76, sig.positionTitle || 'Pejabat Berwenang', { size: 8, color: '0.4 0.4 0.4' });
 
-  // Footer + kotak verifikasi keaslian.
+  // Syarat & ketentuan dari template (didesain pengguna, bukan hardcode).
+  const terms = Array.isArray(tpl.terms) ? tpl.terms.filter(Boolean).slice(0, 8) : [];
+  if (terms.length) {
+    let ty = y + 58;
+    p.text(ML, ty, String(tpl.termsTitle || 'Syarat & Ketentuan').toUpperCase(), { size: 8, bold: true, color: '0.25 0.3 0.4' });
+    ty += 12;
+    terms.forEach((t, i) => { p.text(ML, ty, `${i + 1}. ${String(t).slice(0, 96)}`, { size: 7.5, color: '0.35 0.38 0.45' }); ty += 10; });
+  }
+
+  // Footer + kotak verifikasi keaslian (QR dapat dimatikan lewat template).
   const fy = PH - 70;
   p.line(ML, fy - 8, MR, fy - 8, 0.5);
-  if (org.documentFooter) p.text(ML, fy + 4, String(org.documentFooter).slice(0, 110), { size: 7, color: '0.4 0.4 0.4' });
-  p.rect(ML, fy + 12, 300, 40);
-  p.text(ML + 6, fy + 24, 'VERIFIKASI KEASLIAN DOKUMEN', { size: 7, bold: true, color: '0.16 0.22 0.34' });
-  p.text(ML + 6, fy + 35, `Kode: ${code}`, { size: 9, bold: true });
-  p.text(ML + 6, fy + 46, `Verifikasi: ${url}`.slice(0, 88), { size: 6.5, color: '0.4 0.4 0.4' });
-  drawQr(p, ML + 306, fy + 8, 48, url);
-  p.text(MR - 4 - 190, fy + 46, 'Dokumen sah tanpa tanda tangan basah bila kode terverifikasi.', { size: 6.5, color: '0.5 0.5 0.5' });
+  const footerNote = tpl.footerNote || org.documentFooter;
+  if (footerNote) p.text(ML, fy + 4, String(footerNote).slice(0, 110), { size: 7, color: '0.4 0.4 0.4' });
+  if (tpl.showQr !== false) {
+    p.rect(ML, fy + 12, 300, 40);
+    p.text(ML + 6, fy + 24, 'VERIFIKASI KEASLIAN DOKUMEN', { size: 7, bold: true, color: '0.16 0.22 0.34' });
+    p.text(ML + 6, fy + 35, `Kode: ${code}`, { size: 9, bold: true });
+    p.text(ML + 6, fy + 46, `Verifikasi: ${url}`.slice(0, 88), { size: 6.5, color: '0.4 0.4 0.4' });
+    drawQr(p, ML + 306, fy + 8, 48, url);
+    p.text(MR - 4 - 190, fy + 46, 'Dokumen sah tanpa tanda tangan basah bila kode terverifikasi.', { size: 6.5, color: '0.5 0.5 0.5' });
+  }
 
   const pages = [p];
   const remaining = normalized.slice(shown.length);

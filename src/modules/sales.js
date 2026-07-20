@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const { esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, api, uploadFile, query, invalidate, router, can, state, newIdemKey } = window.MAT;
+  const { esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, api, uploadFile, query, invalidate, router, can, state, newIdemKey , asList } = window.MAT;
   const { ICONS, chip, toast, formDialog, actionDialog, openDrawer, dataTable, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL, STATUS_META } = window.UI;
   const { progressBar, docCell, docListPage, masterPage } = window.PageKit;
 
@@ -232,7 +232,92 @@
       { label: 'Diperbarui', render: (r) => relTime(r.updatedAt) }
     ]
   }));
-  R('/sales/customer-pos', docListPage({ type: 'CUSTOMER_PO', module: 'customer_po', title: 'PO pelanggan', eyebrow: 'PENJUALAN' }));
+  // ── PO Pelanggan: rekam PO yang DITERIMA dari customer ────────────────────
+  // Alur: customer kirim PO → direkam di sini (nomor PO mereka + nilai) →
+  // dicocokkan dengan penawaran kita (discrepancy check) → disetujui →
+  // dikonversi menjadi Sales Order. Nomor internal CPO-* tetap terbit.
+  async function createCustomerPoDialog(reload) {
+    try {
+      const [customers, quotations] = await Promise.all([
+        api('/api/customers?limit=200'),
+        api('/api/documents?type=QUOTATION&limit=100')
+      ]);
+      const custList = asList(customers), quoList = asList(quotations)
+        .filter((q) => ['APPROVED', 'WAITING_APPROVAL', 'COMPLETED', 'CLOSED'].includes(q.status));
+      if (!custList.length) throw new Error('Belum ada pelanggan. Tambahkan master pelanggan lebih dulu di Master Data › Pelanggan.');
+      const value = await formDialog({
+        title: 'Rekam PO dari pelanggan',
+        description: 'Masukkan PO yang Anda TERIMA dari customer. Bila merujuk penawaran kita, selisih nilai otomatis diperiksa sebelum dikonversi menjadi Sales Order.',
+        fields: [
+          { name: 'customerId', label: 'Pelanggan', type: 'select', options: custList.map((c) => [c.id, `${c.code} · ${c.name}`]), required: true },
+          { name: 'customerPoNumber', label: 'Nomor PO pelanggan (dokumen mereka)', required: true, hint: 'Contoh: PO/2026/VII/0123 — dipakai sebagai referensi resmi di invoice.' },
+          { name: 'poDate', label: 'Tanggal PO pelanggan', type: 'date', required: true },
+          { name: 'amount', label: 'Nilai PO (Rp)', type: 'number', min: 0, required: true },
+          { name: 'quotationId', label: 'Merujuk penawaran kita (opsional)', type: 'select', options: [['', '— Tanpa penawaran —'], ...quoList.map((q) => [q.id, `${q.documentNumber} · ${fmtIDR(q.amount)}`])] },
+          { name: 'dueDate', label: 'Target kirim / jatuh tempo', type: 'date' },
+          { name: 'description', label: 'Uraian pekerjaan / barang', type: 'textarea', required: true }
+        ],
+        submitLabel: 'Rekam PO pelanggan'
+      });
+      if (!value) return;
+      const customer = custList.find((c) => c.id === value.customerId);
+      const quotation = value.quotationId ? quoList.find((q) => q.id === value.quotationId) : null;
+      const amount = Number(value.amount);
+
+      // Discrepancy check (§12 flow "Customer PO Validation"): selisih nilai PO
+      // pelanggan vs penawaran kita ditampilkan sebelum direkam.
+      if (quotation) {
+        const diff = amount - Number(quotation.amount);
+        if (Math.abs(diff) > 0.5) {
+          const ok = await actionDialog({
+            title: 'Selisih nilai terdeteksi',
+            description: `PO pelanggan ${fmtIDR(amount)} vs penawaran ${quotation.documentNumber} ${fmtIDR(quotation.amount)} — selisih ${diff > 0 ? 'lebih' : 'kurang'} ${fmtIDR(Math.abs(diff))}. Rekam tetap dengan alasan tertulis?`,
+            requireReason: true, confirmLabel: 'Rekam dengan catatan selisih'
+          });
+          if (!ok) return;
+          value.discrepancyReason = ok.reason;
+        }
+      }
+
+      const doc = await api('/api/documents', { method: 'POST', idempotencyKey: newIdemKey(), body: {
+        type: 'CUSTOMER_PO',
+        title: `PO ${value.customerPoNumber} — ${customer.name}`,
+        amount, partyId: customer.id, partyName: customer.name, dueDate: value.dueDate || null,
+        payload: {
+          customerPoNumber: value.customerPoNumber, poDate: value.poDate,
+          quotationId: quotation?.id || null, quotationNumber: quotation?.documentNumber || null,
+          quotationAmount: quotation ? Number(quotation.amount) : null,
+          discrepancy: quotation ? Number((amount - Number(quotation.amount)).toFixed(2)) : null,
+          discrepancyReason: value.discrepancyReason || null,
+          lines: [{ description: value.description, qty: 1, unitPrice: amount }]
+        }
+      } });
+      // Rujukan penawaran tersimpan pada payload (quotationId/Number/Amount)
+      // sehingga rantai QUO → CPO → SO tetap terlacak pada dokumen.
+      toast(`${doc.documentNumber} direkam`, 'Ajukan → setujui → "Buat Sales Order" untuk melanjutkan ke produksi.');
+      if (reload) reload();
+      openDrawer(doc.id, { onChange: reload });
+    } catch (error) { toast('Gagal merekam PO pelanggan', error.message, 'coral'); }
+  }
+
+  R('/sales/customer-pos', docListPage({
+    type: 'CUSTOMER_PO', module: 'customer_po', title: 'PO pelanggan', eyebrow: 'PENJUALAN',
+    createLabel: 'Rekam PO pelanggan', onCreate: createCustomerPoDialog,
+    columns: [
+      { label: 'Dokumen', render: docCell },
+      { label: 'No. PO pelanggan', render: (r) => r.payload?.customerPoNumber ? `<b>${esc(r.payload.customerPoNumber)}</b><small>${r.payload.poDate ? fmtDate(r.payload.poDate) : ''}</small>` : '—' },
+      { label: 'Pelanggan', render: (r) => esc(r.partyName || '—') },
+      { label: 'Nilai', right: true, render: (r) => `<span class="money">${fmtIDR(r.amount)}</span>` },
+      { label: 'Vs penawaran', render: (r) => {
+        const d = r.payload?.discrepancy;
+        if (r.payload?.quotationNumber == null) return '<span class="muted">—</span>';
+        if (!d) return `<span class="chip mint">Sesuai</span><small>${esc(r.payload.quotationNumber)}</small>`;
+        return `<span class="chip ${d > 0 ? 'blue' : 'amber'}">${d > 0 ? '+' : ''}${fmtIDR(d)}</span><small>${esc(r.payload.quotationNumber)}</small>`;
+      } },
+      { label: 'Status', render: (r) => chip(r.status) }
+    ],
+    empty: { icon: 'inbox', title: 'Belum ada PO pelanggan', note: 'Klik "Rekam PO pelanggan" saat customer mengirimkan PO mereka.' }
+  }));
   R('/sales/orders', docListPage({ type: 'SALES_ORDER', module: 'sales_order', title: 'Sales order', eyebrow: 'PENJUALAN' }));
   R('/sales/projects', docListPage({ type: 'PROJECT', module: 'project', title: 'Proyek', eyebrow: 'PENJUALAN' }));
 })();
