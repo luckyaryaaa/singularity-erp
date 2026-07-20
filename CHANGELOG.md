@@ -3,6 +3,25 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.25.0] — 2026-07-20
+
+### Added
+
+- Persiapan Sprint 18 (R025 LAN-UAT):
+  - `npm run cutover:opening-inventory` — jurnal saldo awal persediaan
+    SEKALI saat cut-over (selisih GL 1300 vs subledger stok dibukukan lawan
+    3900 ekuitas saldo awal; idempoten, advisory-lock, teraudit). Dijalankan
+    pada database dev: JRN-HO-0726-003 Rp 300.555.000 → GL selaras subledger.
+  - `npm run uat:lan` — boot LAN-UAT: memaksa MAT_ENVIRONMENT=LAN-UAT +
+    MAT_BIND_HOST=0.0.0.0, validasi environment, banner alamat akses staf +
+    checklist SOP-18, server sebagai child process.
+
+### Verified
+
+- 137/137 automated tests (1 tes cut-over baru); final assurance kini
+  **5 PASS / 0 WARNING** (Inventory reconciliation selisih Rp 0);
+  boot LAN-UAT terbukti melayani loopback 200 dan IP LAN 192.168.1.2 → 200.
+
 ## [0.24.0] — 2026-07-20
 
 ### Added

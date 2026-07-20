@@ -1,6 +1,6 @@
 {
   "name": "mat-erp-v2",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "private": true,
   "scripts": {
     "dev": "node server.js",
@@ -38,7 +38,9 @@
     "backup:decrypt": "node scripts/backup-postgres.js decrypt",
     "predeploy": "node scripts/predeploy-gate.js",
     "load:smoke": "node scripts/load-smoke.js",
-    "load:lan": "node scripts/load-lan.js"
+    "load:lan": "node scripts/load-lan.js",
+    "cutover:opening-inventory": "node scripts/cutover-opening-inventory.js",
+    "uat:lan": "node scripts/start-lan-uat.js"
   },
   "engines": {
     "node": ">=20"

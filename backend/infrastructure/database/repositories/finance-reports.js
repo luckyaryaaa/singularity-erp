@@ -170,4 +170,45 @@ async function closingCockpit(client, value, user) {
   };
 }
 
-module.exports = { financialStatements, subledger, closingCockpit };
+// ── Cut-over: jurnal saldo awal persediaan (Sprint 18 prep) ─────────────────
+// Menyelaraskan GL 1300 dengan subledger stok SEKALI saat cut-over:
+// selisih dibukukan D/C 1300 lawan 3900 (ekuitas saldo awal). Idempoten —
+// dokumen opening kedua ditolak replay; dijalankan Owner via script cut-over
+// atau tombol closing cockpit. Menutup WARNING inventory pada final assurance.
+async function postInventoryOpeningBalance(client, { user, requestId }) {
+  const posting = require('./posting');
+  const runtime = require('./runtime');
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', ['cutover:opening-inventory']);
+  const existing = (await client.query(`SELECT document_number,created_at FROM business_documents
+    WHERE document_type='JOURNAL' AND payload->>'source'='INVENTORY_OPENING_BALANCE' AND status NOT IN ('CANCELLED','VOID') LIMIT 1`)).rows[0];
+  if (existing) return { replay: true, documentNumber: existing.document_number, postedAt: existing.created_at };
+  const sub = Number((await client.query('SELECT COALESCE(SUM(value_idr),0)::float n FROM inventory_balances')).rows[0].n);
+  const gl = Number((await client.query(`SELECT COALESCE(SUM(j.debit-j.credit),0)::float n FROM journal_lines j
+    JOIN chart_of_accounts a ON a.id=j.account_id WHERE a.code='1300'`)).rows[0].n);
+  const difference = idr(sub - gl);
+  if (Math.abs(difference) < 1) return { documentNumber: null, difference: 0, message: 'GL 1300 sudah selaras dengan subledger stok — tidak ada jurnal dibuat.' };
+  const accounts = (await client.query(`SELECT id,code FROM chart_of_accounts WHERE code IN ('1300','3900') AND active`)).rows.reduce((o, r) => (o[r.code] = r.id, o), {});
+  if (!accounts['1300'] || !accounts['3900']) throw new AppError('RESOURCE_NOT_FOUND', 'Akun 1300/3900 tidak ditemukan di COA.');
+  const doc = await runtime.createDocument(client, {
+    type: 'JOURNAL', user, title: 'Saldo awal persediaan (cut-over)', amount: Math.abs(difference), requestId,
+    payload: { source: 'INVENTORY_OPENING_BALANCE', subledger: sub, glBefore: gl, difference, period: new Date().toISOString().slice(0, 7) }
+  });
+  await client.query(`UPDATE business_documents SET status='APPROVED',approved_at=now(),approved_by=$2,version=version+1 WHERE id=$1`, [doc.id, user.id]);
+  await posting.claimPosting(client, { id: doc.id }, user, 'ACCOUNTING');
+  await posting.ensureOpenPeriod(client, { payload: { period: new Date().toISOString().slice(0, 7) }, createdAt: new Date() });
+  const { randomUUID } = require('node:crypto');
+  const memo = `${doc.documentNumber} · saldo awal persediaan cut-over`;
+  if (difference > 0) {
+    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,$4,0,$5)`, [randomUUID(), doc.id, accounts['1300'], difference, memo]);
+    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,0,$4,$5)`, [randomUUID(), doc.id, accounts['3900'], difference, memo]);
+  } else {
+    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,$4,0,$5)`, [randomUUID(), doc.id, accounts['3900'], -difference, memo]);
+    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,0,$4,$5)`, [randomUUID(), doc.id, accounts['1300'], -difference, memo]);
+  }
+  await posting.finishPosting(client, { id: doc.id }, 'ACCOUNTING', { source: 'INVENTORY_OPENING_BALANCE', difference });
+  const runtime2 = require('./runtime');
+  await runtime2.audit(client, { userId: user.id, action: 'POST', module: 'closing', entityType: 'INVENTORY_OPENING_BALANCE', entityId: doc.id, documentNumber: doc.documentNumber, newValue: { subledger: sub, glBefore: gl, difference }, requestId });
+  return { documentNumber: doc.documentNumber, subledger: sub, glBefore: gl, difference, glAfter: idr(gl + difference) };
+}
+
+module.exports = { financialStatements, subledger, closingCockpit, postInventoryOpeningBalance };
