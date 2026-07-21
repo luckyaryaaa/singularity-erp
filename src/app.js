@@ -14,6 +14,10 @@
       ['#/dashboard', 'Dashboard', 'grid', 'dashboard.view', false, 'nav.dashboard'],
       ['#/my-work', 'My Work', 'inbox', 'dashboard.view', false, 'nav.mywork'],
       ['#/approvals', 'Persetujuan saya', 'checkCircle', 'approval.view', false, 'nav.approvals'],
+      // Report Factory lintas-modul (penjualan, keuangan, produksi, HR) —
+      // ditempatkan di Ruang Kerja berdampingan dengan Dashboard, bukan di
+      // Organisasi yang berisi struktur & SDM.
+      ['#/reports', 'Laporan', 'chart', 'report.view'],
       ['#/notifications', 'Notifikasi', 'bell', 'notification.view', true, 'nav.notifications']
     ]],
     ['PENJUALAN', [

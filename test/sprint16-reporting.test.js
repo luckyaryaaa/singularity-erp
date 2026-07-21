@@ -17,7 +17,11 @@ test('R023 contract: migration, cockpit UI, provenance, dan endpoint terpasang',
   assert.match(migration,/CREATE TABLE report_schedules/);
   assert.match(migration,/CREATE TABLE report_saved_filters/);
   const ui=fs.readFileSync(path.join(__dirname,'../src/modules/executive-reporting.js'),'utf8');
-  assert.match(ui,/Executive Cockpit/);assert.match(ui,/Sumber & definisi KPI/);assert.match(ui,/data-schedule/);
+  // Analitik eksekutif kini menyatu di Dashboard (satu layar, tanpa tab) dan
+  // Report Factory berdiri sebagai halaman sendiri — keduanya wajib ada.
+  assert.match(ui,/OPERATING PULSE/);assert.match(ui,/Sumber & definisi KPI/);
+  assert.match(ui,/MAT_PAGES\.cockpit/,'blok analitik wajib dibagikan ke Dashboard');
+  assert.match(ui,/Laporan terkontrol/);assert.match(ui,/data-schedule/);assert.match(ui,/data-export/);
   const css=fs.readFileSync(path.join(__dirname,'../src/styles.css'),'utf8');
   assert.match(css,/\.exec-pulse/);assert.match(css,/@media\(max-width:700px\)/);
   assert.equal(reporting.REPORTS.length,8);

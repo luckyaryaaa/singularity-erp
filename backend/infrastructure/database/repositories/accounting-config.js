@@ -58,6 +58,27 @@ const asDate = (v) => {
   return /^\d{4}-\d{2}$/.test(s) ? `${s}-01` : s.slice(0, 10);
 };
 
+// Cache resolusi konfigurasi. Nilai effective-dated praktis tidak berubah dalam
+// satu periode, sedangkan resolver dipanggil berkali-kali per laporan. TTL
+// pendek + invalidasi eksplisit saat konfigurasi ditulis: nilai basi paling
+// lama 60 detik, dan langsung hilang begitu ada perubahan lewat API.
+// HANYA hasil sukses yang di-cache — kegagalan "belum dipetakan" tidak
+// di-cache agar perbaikan konfigurasi langsung berlaku.
+const CACHE_TTL_MS = 60_000, CACHE_MAX = 500;
+const configCache = new Map();
+function cacheGet(key) {
+  const hit = configCache.get(key);
+  if (!hit) return undefined;
+  if (hit.expires <= Date.now()) { configCache.delete(key); return undefined; }
+  return hit.value;
+}
+function cacheSet(key, value) {
+  if (configCache.size >= CACHE_MAX) configCache.clear();
+  configCache.set(key, { value, expires: Date.now() + CACHE_TTL_MS });
+  return value;
+}
+function invalidateConfigCache() { configCache.clear(); }
+
 async function accountCode(client, roleKey, onDate) {
   return (await accountCodes(client, [roleKey], onDate))[roleKey];
 }
@@ -65,22 +86,28 @@ async function accountCode(client, roleKey, onDate) {
 // Beberapa peran sekaligus → { ROLE: 'kode' } (satu query untuk laporan).
 async function accountCodes(client, roleKeys, onDate) {
   const date = asDate(onDate);
+  const key = `role|${date}|${[...roleKeys].sort().join(',')}`;
+  const cached = cacheGet(key);
+  if (cached) return { ...cached };                          // salinan: pemanggil tidak dapat mengubah isi cache
   const rows = (await client.query(`SELECT DISTINCT ON (role_key) role_key, account_code FROM account_roles
     WHERE active AND role_key=ANY($1) AND effective_from<=$2 AND (effective_until IS NULL OR effective_until>=$2)
     ORDER BY role_key, effective_from DESC`, [roleKeys, date])).rows;
   const map = Object.fromEntries(rows.map((r) => [r.role_key, r.account_code]));
   const missing = roleKeys.filter((k) => !map[k]);
   if (missing.length) throw new AppError('RESOURCE_NOT_FOUND', `Peran akun belum dipetakan ke bagan akun: ${missing.join(', ')}. Lengkapi konfigurasi account_roles.`);
-  return map;
+  return { ...cacheSet(key, map) };
 }
 
 async function taxRate(client, taxKey, onDate) {
   const date = asDate(onDate);
+  const key = `tax|${date}|${taxKey}`;
+  const cached = cacheGet(key);
+  if (cached !== undefined) return cached;
   const row = (await client.query(`SELECT rate_pct FROM tax_rates
     WHERE active AND tax_key=$1 AND effective_from<=$2 AND (effective_until IS NULL OR effective_until>=$2)
     ORDER BY effective_from DESC LIMIT 1`, [taxKey, date])).rows[0];
   if (!row) throw new AppError('RESOURCE_NOT_FOUND', `Tarif pajak '${taxKey}' belum dikonfigurasi untuk periode ${date}.`);
-  return Number(row.rate_pct);
+  return cacheSet(key, Number(row.rate_pct));
 }
 
 async function listAccountRoles(client) {
@@ -92,4 +119,4 @@ async function listTaxRates(client) {
   return { items: (await client.query('SELECT * FROM tax_rates WHERE active ORDER BY tax_key, effective_from DESC')).rows };
 }
 
-module.exports = { resolvePostingProfile, resolvePayrollRules, accountCode, accountCodes, taxRate, listAccountRoles, listTaxRates };
+module.exports = { resolvePostingProfile, resolvePayrollRules, accountCode, accountCodes, taxRate, listAccountRoles, listTaxRates, invalidateConfigCache };

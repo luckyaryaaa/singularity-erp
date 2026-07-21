@@ -71,7 +71,7 @@ async function dispatch(client, req, url, ctx) {
       WHERE active AND role_key=$1 AND effective_until IS NULL AND effective_from<$2::date`,[body.roleKey,from]);
     const row=(await client.query(`INSERT INTO account_roles(role_key,account_code,description,effective_from,created_by)
       VALUES($1,$2,$3,$4::date,$5) RETURNING *`,[body.roleKey,body.accountCode,body.description||null,from,ctx.user.id])).rows[0];
-    await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'settings',entityType:'ACCOUNT_ROLE',entityId:row.id,documentNumber:body.roleKey,newValue:{accountCode:body.accountCode,effectiveFrom:from},requestId:ctx.requestId});
+    accountingConfig.invalidateConfigCache();await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'settings',entityType:'ACCOUNT_ROLE',entityId:row.id,documentNumber:body.roleKey,newValue:{accountCode:body.accountCode,effectiveFrom:from},requestId:ctx.requestId});
     ctx.status=201;return runtime.camel(row);
   }
   if(method==='POST'&&p==='/api/finance-config/tax-rates'){
@@ -83,7 +83,7 @@ async function dispatch(client, req, url, ctx) {
       WHERE active AND tax_key=$1 AND effective_until IS NULL AND effective_from<$2::date`,[body.taxKey,body.effectiveFrom]);
     const row=(await client.query(`INSERT INTO tax_rates(tax_key,rate_pct,description,effective_from,created_by)
       VALUES($1,$2,$3,$4::date,$5) RETURNING *`,[body.taxKey,rate,body.description||null,body.effectiveFrom,ctx.user.id])).rows[0];
-    await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'settings',entityType:'TAX_RATE',entityId:row.id,documentNumber:body.taxKey,newValue:{ratePct:rate,effectiveFrom:body.effectiveFrom},requestId:ctx.requestId});
+    accountingConfig.invalidateConfigCache();await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'settings',entityType:'TAX_RATE',entityId:row.id,documentNumber:body.taxKey,newValue:{ratePct:rate,effectiveFrom:body.effectiveFrom},requestId:ctx.requestId});
     ctx.status=201;return runtime.camel(row);
   }
 

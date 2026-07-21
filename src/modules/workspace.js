@@ -6,21 +6,17 @@
 
   const dashboard = {
     permission: 'dashboard.view',
-    view: 'overview',
     onEvent() { this.render(document.getElementById('main')); },
-    // Shell dashboard: Executive Cockpit tergabung sebagai tab (§ tidak berdiri
-    // sendiri) — pengguna tanpa izin report.view hanya melihat Ringkasan.
+    // SATU dashboard — tanpa tab. Analitik eksekutif menyatu langsung di sini
+    // agar pengguna tidak perlu memilih "ringkasan" vs "cockpit". Pengguna
+    // tanpa izin report.view tetap mendapat ringkasan operasional sebagai
+    // pengganti blok analitik.
+    // Tanda tangan wajib (main, params, signal) — router memanggil dengan 3 argumen.
     async render(main, _params, signal) {
-      const showCockpit = can('report.view') && window.MAT_PAGES && window.MAT_PAGES.cockpit;
-      if (!showCockpit) this.view = 'overview';
-      const tab = (id, label, icon) => `<button class="dash-tab ${this.view === id ? 'active' : ''}" role="tab" aria-selected="${this.view === id}" data-view="${id}">${icon} ${label}</button>`;
-      main.innerHTML = (showCockpit ? `<nav class="dash-tabs" role="tablist" aria-label="Tampilan dashboard">${tab('overview', 'Ringkasan', ICONS.grid)}${tab('cockpit', 'Executive Cockpit', ICONS.chart)}</nav>` : '') + `<div id="dashBody"></div>`;
-      const body = main.querySelector('#dashBody');
-      main.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { if (this.view === b.dataset.view) return; this.view = b.dataset.view; this.render(main); }));
-      if (this.view === 'cockpit' && showCockpit) return window.MAT_PAGES.cockpit.render(body, signal);
-      return this.renderOverview(body, signal);
+      return this.renderOverview(main, signal);
     },
     async renderOverview(main, signal) {
+      const rich = can('report.view') && window.MAT_PAGES && window.MAT_PAGES.cockpit;
       const data = await query('dashboard', () => api('/api/dashboard', { signal }), { staleMs: 30_000 });
       const hour = new Date().getHours();
       const greet = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 19 ? 'Selamat sore' : 'Selamat malam';
@@ -69,12 +65,15 @@
             <p>Nilai total ${fmtIDR(data.attention.pendingAmount)} · ${data.attention.slaRisk} dokumen bernilai besar menunggu keputusan.</p></div>
           <a class="btn ink" href="#/approvals">Buka pusat persetujuan ${ICONS.arrow}</a>
         </section>` : ''}
+        <div id="dashAnalytics"></div>
+        ${rich ? '' : `
         <section class="metrics">
           ${kpiCard({ label: `Pendapatan ${monthName}`, value: fmtIDR(k.revenueMonth), note: `↑ ${k.revenueGrowthPct}% dari bulan lalu`, tone: 'up', orb: 'chart', orbTone: 'blue' })}
           ${kpiCard({ label: 'Piutang jatuh tempo', value: fmtIDR(k.arOverdue), note: `${k.arOverdueCount} invoice perlu ditagih`, tone: 'warn', orb: 'doc', orbTone: 'amber' })}
           ${kpiCard({ label: 'Pesanan aktif', value: String(k.activeOrders), note: `${k.inProduction} dalam proses produksi`, orb: 'cart', orbTone: 'mint' })}
           ${kpiCard({ label: 'Progres produksi', value: `${k.utilizationPct}%`, note: `Target operasional ${k.utilizationTarget}%`, orb: 'factory', orbTone: 'lavender' })}
-        </section>
+        </section>`}
+        ${rich ? '' : `
         <section class="dashboard-grid">
           <article class="panel revenue-panel">
             <header><div><p class="eyebrow">KINERJA KEUANGAN</p><h2>Arus pendapatan</h2></div>
@@ -103,7 +102,7 @@
             </div>
             <div class="cash-card"><span>Posisi kas & bank<small>Per ${fmtDateTime(data.asOf)}</small></span><strong>${fmtIDR(h.cashPosition)}</strong></div>
           </article>
-        </section>
+        </section>`}
         <section class="panel work-panel">
           <header><div><p class="eyebrow">OPERASIONAL</p><h2>Pekerjaan aktif</h2></div>
             ${can('work_order.view') ? `<a class="text-btn" href="#/production/work-orders">Lihat semua ${ICONS.arrow}</a>` : ''}</header>
@@ -122,7 +121,6 @@
           </table></div>
         </section>`;
 
-      // Re-render lewat shell (top-level <main>) agar tab tetap ada.
       const shell = () => dashboard.render(document.getElementById('main'));
       main.querySelector('#dashRefresh').addEventListener('click', async (e) => {
         const btn = e.currentTarget; btn.disabled = true;
@@ -135,6 +133,16 @@
         tr.addEventListener('click', open);
         tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
       });
+      // Blok analitik eksekutif dirender in-place — satu layar, bukan tab
+      // terpisah. Kegagalan analitik tidak boleh mematikan seluruh dashboard.
+      const slot = main.querySelector('#dashAnalytics');
+      if (rich && slot) {
+        try { await window.MAT_PAGES.cockpit.render(slot, signal); }
+        catch (error) {
+          if (error?.name === 'AbortError') return;
+          slot.innerHTML = `<section class="panel"><div class="panel-body error-text">Analitik eksekutif gagal dimuat: ${esc(error.message)}</div></section>`;
+        }
+      }
     }
   };
 
