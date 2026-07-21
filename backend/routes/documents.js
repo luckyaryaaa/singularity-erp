@@ -82,7 +82,7 @@ async function dispatch(client, req, url, ctx) {
     const assets=await organization.documentAssets(client,null,(doc.createdAt instanceof Date?doc.createdAt.toISOString():String(doc.createdAt||'')));
     const rendered=docRender.renderDocument({document:issued.document,lines:issued.lines,copy:issued.copy,template,assets});
     ctx.download={item:{originalFilename:`${doc.documentNumber}.pdf`,mimeType:'application/pdf'},buffer:rendered.buffer};
-    await runtime.audit(client,{userId:ctx.user.id,action:'EXPORT',module:documentCore.moduleOf(doc.documentType),entityType:doc.documentType,entityId:doc.id,documentNumber:doc.documentNumber,newValue:{official:true,copy:issued.copy,verifyCode:rendered.code,templateVersion:rendered.templateVersion,pages:rendered.pageCount},requestId:ctx.requestId,branchId:doc.branchId});
+    await runtime.audit(client,{userId:ctx.user.id,action:'EXPORT',module:documentCore.moduleOf(doc.documentType),entityType:doc.documentType,entityId:doc.id,documentNumber:doc.documentNumber,newValue:{official:true,copy:issued.copy,verifyCode:rendered.code,templateVersion:rendered.templateVersion,pages:rendered.pageCount,digitallySigned:rendered.digitallySigned,signer:rendered.signerSubject},requestId:ctx.requestId,branchId:doc.branchId});
     return;
   }
   m=p.match(/^\/api\/documents\/([^/]+)\/email$/);

@@ -134,3 +134,77 @@ test('smtp: tanpa MAT_SMTP_HOST menjadi no-op SKIPPED; alamat tak valid FAILED',
     if (saved === undefined) delete process.env.MAT_SMTP_HOST; else process.env.MAT_SMTP_HOST = saved;
   }
 });
+
+// ── Prioritas 1-2: gambar asli + integritas struktur PDF ───────────────────
+const { decodeImage } = require('../backend/infrastructure/files/pdf-image');
+const pdfSign = require('../backend/core/pdf-sign');
+const zlib = require('node:zlib');
+
+// PNG RGBA 2x2 minimal (dibangun runtime agar test tidak bergantung berkas luar).
+function tinyPng() {
+  const crc = (buf) => { let c = ~0; for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1)); } return ~c >>> 0; };
+  const chunk = (type, data) => { const td = Buffer.concat([Buffer.from(type, 'latin1'), data]); const out = Buffer.alloc(8 + data.length + 4); out.writeUInt32BE(data.length, 0); td.copy(out, 4); out.writeUInt32BE(crc(td), 8 + data.length); return out; };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(2, 0); ihdr.writeUInt32BE(2, 4); ihdr[8] = 8; ihdr[9] = 6;
+  const raw = Buffer.concat([Buffer.from([0, 255, 0, 0, 255, 0, 255, 0, 128]), Buffer.from([0, 0, 0, 255, 255, 255, 255, 0, 64])]);
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+// Offset xref wajib menunjuk tepat ke "N 0 obj" — pelindung perakit berbasis Buffer.
+function assertXrefValid(buffer, label) {
+  const s = buffer.toString('latin1');
+  const start = /startxref\s+(\d+)/.exec(s);
+  assert.ok(start, `${label}: startxref hilang`);
+  const offsets = [...s.slice(Number(start[1])).matchAll(/^(\d{10}) 00000 n/gm)].map((m) => Number(m[1]));
+  assert.ok(offsets.length >= 6, `${label}: entri xref terlalu sedikit`);
+  offsets.forEach((off, i) => assert.equal(s.slice(off, off + `${i + 1} 0 obj`.length), `${i + 1} 0 obj`, `${label}: offset objek ${i + 1} salah`));
+  assert.ok(s.startsWith('%PDF-') && s.trimEnd().endsWith('%%EOF'), `${label}: bingkai PDF rusak`);
+}
+
+const baseDoc = (lines) => ({
+  document: { documentType: 'INVOICE', documentNumber: 'INV-T-1', status: 'APPROVED', amount: 1000, createdAt: '2026-07-21', organizationIdentitySnapshot: { legalName: 'PT MAT', bank: {} } },
+  lines, template: { title: 'INVOICE' }
+});
+const oneLine = [{ lineNo: 1, description: 'X', qty: 1, unitPrice: 1000, lineTotal: 1000 }];
+
+test('dekoder PNG menghasilkan XObject RGB + SMask untuk gambar beralpha', () => {
+  const img = decodeImage(tinyPng(), 'image/png');
+  assert.ok(img, 'PNG 8-bit RGBA harus terbaca');
+  assert.equal(img.width, 2); assert.equal(img.height, 2);
+  assert.equal(img.colorSpace, '/DeviceRGB');
+  assert.ok(img.smask, 'kanal alpha wajib menjadi SMask');
+  assert.equal(decodeImage(Buffer.from('bukan gambar sama sekali'), 'image/png'), null);
+});
+
+test('PDF tetap sahih untuk kasus polos, bergambar, dan multi-halaman', () => {
+  assertXrefValid(render.renderDocument(baseDoc(oneLine)).buffer, 'polos');
+
+  const withImage = render.renderDocument({ ...baseDoc(oneLine), assets: { logo: { buffer: tinyPng(), mimeType: 'image/png' } } });
+  assertXrefValid(withImage.buffer, 'bergambar');
+  assert.match(withImage.buffer.toString('latin1'), /\/Subtype \/Image/);
+  assert.match(withImage.buffer.toString('latin1'), /\/Im0 Do/);
+
+  const many = Array.from({ length: 20 }, (_, i) => ({ lineNo: i + 1, description: `Item ${i + 1}`, qty: 1, unitPrice: 1e6, lineTotal: 1e6 }));
+  const multi = render.renderDocument(baseDoc(many));
+  assert.equal(multi.pageCount, 2, 'lebih dari 14 baris wajib berlanjut ke halaman kedua');
+  assertXrefValid(multi.buffer, 'multi-halaman');
+});
+
+test('aset rusak tidak menggagalkan pencetakan dokumen resmi', () => {
+  const out = render.renderDocument({ ...baseDoc(oneLine), assets: { logo: { buffer: Buffer.from('rusak'), mimeType: 'image/png' } } });
+  assertXrefValid(out.buffer, 'aset rusak');
+  assert.doesNotMatch(out.buffer.toString('latin1'), /\/Subtype \/Image/, 'aset rusak tidak boleh menghasilkan XObject');
+});
+
+test('tanda tangan digital nonaktif bila sertifikat belum dikonfigurasi', () => {
+  const out = render.renderDocument(baseDoc(oneLine));
+  assert.equal(pdfSign.isConfigured({}), false);
+  assert.equal(out.digitallySigned, false);
+  assert.doesNotMatch(out.buffer.toString('latin1'), /adbe\.pkcs7\.detached/);
+});
+
+test('SET OF DER terurut sesuai X.690 (syarat verifikasi CMS)', () => {
+  const a = pdfSign.octet(Buffer.from([0x05])), b = pdfSign.octet(Buffer.from([0x01]));
+  const encoded = pdfSign.setOf(a, b);
+  assert.equal(encoded[0], 0x31, 'tag SET OF');
+  assert.ok(encoded.indexOf(b) < encoded.indexOf(a), 'elemen wajib terurut menurut enkoding');
+});

@@ -79,24 +79,36 @@ class Page {
 
 // Perakit PDF berbasis Buffer (bukan string) agar stream gambar biner tidak
 // rusak oleh enkode UTF-8. `images` = deskriptor dari pdf-image.decodeImage().
-function buildPdf(input, images = []) {
+// `sign` = { certPem, keyPem, reason, location, name } → menambah field tanda
+// tangan digital (PAdES/PKCS#7 detached) yang membuat dokumen tamper-evident.
+const SIG_HEX_LEN = 16384;                                   // ruang CMS (8 KB) — cukup untuk rantai sertifikat
+function pdfDate(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  const off = -d.getTimezoneOffset(), sign = off >= 0 ? '+' : '-', abs = Math.abs(off);
+  return `D:${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}${sign}${p(Math.floor(abs / 60))}'${p(abs % 60)}'`;
+}
+function buildPdf(input, images = [], sign = null, meta = {}) {
   const pages = Array.isArray(input) ? input : [input];
   const pageStart = 3, contentStart = pageStart + pages.length;
   const fontRegular = contentStart + pages.length, fontBold = fontRegular + 1;
   let next = fontBold + 1;
+  const infoNum = next++;
   const imgObjs = images.map((img) => ({ img, num: next++, smaskNum: img.smask ? next++ : null }));
   const xobj = imgObjs.length ? ` /XObject << ${imgObjs.map((o, i) => `/Im${i} ${o.num} 0 R`).join(' ')} >>` : '';
+  const sigNum = sign ? next++ : null, annotNum = sign ? next++ : null;
 
   const objects = [];                                        // { dict, stream?: Buffer }
-  objects.push({ dict: '<< /Type /Catalog /Pages 2 0 R >>' });
+  objects.push({ dict: `<< /Type /Catalog /Pages 2 0 R${sign ? ` /AcroForm << /Fields [${annotNum} 0 R] /SigFlags 3 >>` : ''} >>` });
   objects.push({ dict: `<< /Type /Pages /Kids [${pages.map((_, i) => `${pageStart + i} 0 R`).join(' ')}] /Count ${pages.length} >>` });
-  for (let i = 0; i < pages.length; i++) objects.push({ dict: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /Font << /F1 ${fontRegular} 0 R /FB ${fontBold} 0 R >>${xobj} >> /Contents ${contentStart + i} 0 R >>` });
+  for (let i = 0; i < pages.length; i++) objects.push({ dict: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /Font << /F1 ${fontRegular} 0 R /FB ${fontBold} 0 R >>${xobj} >> /Contents ${contentStart + i} 0 R${sign && i === 0 ? ` /Annots [${annotNum} 0 R]` : ''} >>` });
   for (const page of pages) {
     const stream = Buffer.from(page.stream(), 'latin1');
     objects.push({ dict: `<< /Length ${stream.length} >>`, stream });
   }
   objects.push({ dict: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>' });
   objects.push({ dict: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>' });
+  // Identitas dokumen: /Info untuk arsip & audit (urutan push harus = infoNum).
+  objects.push({ dict: `<< /Producer (MAT ERP V2 ${esc(TEMPLATE_VERSION)}) /Creator (MAT ERP V2) /CreationDate (${pdfDate(new Date())}) /Title (${esc(meta.title || 'Dokumen resmi')}) /Subject (${esc(meta.subject || '')}) >>` });
   for (const { img, smaskNum } of imgObjs) {
     objects.push({
       dict: `<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace ${img.colorSpace} /BitsPerComponent ${img.bpc} /Filter ${img.filter}${smaskNum ? ` /SMask ${smaskNum} 0 R` : ''} /Length ${img.data.length} >>`,
@@ -106,6 +118,13 @@ function buildPdf(input, images = []) {
       dict: `<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${img.smask.length} >>`,
       stream: img.smask
     });
+  }
+
+  if (sign) {
+    // Placeholder lebar-tetap: di-patch setelah offset final diketahui sehingga
+    // panjang byte tidak berubah (offset xref tetap sahih).
+    objects.push({ dict: `<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /ByteRange [0 0000000000 0000000000 0000000000] /Contents <${'0'.repeat(SIG_HEX_LEN)}> /M (${pdfDate(new Date())}) /Name (${esc(sign.name || 'MAT ERP')}) /Reason (${esc(sign.reason || '')}) /Location (${esc(sign.location || '')}) >>` });
+    objects.push({ dict: `<< /Type /Annot /Subtype /Widget /FT /Sig /Rect [0 0 0 0] /T (Signature1) /V ${sigNum} 0 R /F 132 /P ${pageStart} 0 R >>` });
   }
 
   const chunks = [Buffer.from('%PDF-1.4\n', 'latin1')];
@@ -118,9 +137,39 @@ function buildPdf(input, images = []) {
     chunks.push(head, body, tail);
     cursor += head.length + body.length + tail.length;
   });
-  const trailer = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((n) => String(n).padStart(10, '0') + ' 00000 n ').join('\n')}\ntrailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${cursor}\n%%EOF`;
+  // /ID: identitas berkas (wajib pada PDF bertanda tangan) dari isi dokumen.
+  const fileId = require('node:crypto').createHash('md5').update(`${meta.title || ''}|${meta.subject || ''}|${cursor}|${Date.now()}`).digest('hex').toUpperCase();
+  const trailer = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((n) => String(n).padStart(10, '0') + ' 00000 n ').join('\n')}\ntrailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info ${infoNum} 0 R /ID [<${fileId}> <${fileId}>] >>\nstartxref\n${cursor}\n%%EOF`;
   chunks.push(Buffer.from(trailer, 'latin1'));
-  return Buffer.concat(chunks);
+  const pdf = Buffer.concat(chunks);
+  return sign ? applySignature(pdf, sign) : pdf;
+}
+
+// Isi /ByteRange + /Contents dengan tanda tangan CMS atas seluruh byte dokumen
+// di luar placeholder. Kegagalan penandatanganan mengembalikan PDF apa adanya
+// (tanpa tanda tangan) — pencetakan dokumen tidak boleh gagal karenanya.
+function applySignature(pdf, sign) {
+  try {
+    const pdfSign = require('../../core/pdf-sign');
+    const open = pdf.indexOf(`/Contents <`);
+    if (open < 0) return pdf;
+    const hexStart = pdf.indexOf('<', open), hexEnd = pdf.indexOf('>', hexStart);
+    if (hexStart < 0 || hexEnd < 0) return pdf;
+    const range = [0, hexStart, hexEnd + 1, pdf.length - (hexEnd + 1)];
+    const brToken = '/ByteRange [0 0000000000 0000000000 0000000000]';
+    const brAt = pdf.indexOf(brToken);
+    if (brAt < 0) return pdf;
+    const brNew = `/ByteRange [0 ${String(range[1]).padStart(10, '0')} ${String(range[2]).padStart(10, '0')} ${String(range[3]).padStart(10, '0')}]`;
+    if (brNew.length !== brToken.length) return pdf;         // panjang wajib identik
+    pdf.write(brNew, brAt, 'latin1');
+
+    const signed = Buffer.concat([pdf.subarray(0, range[1]), pdf.subarray(range[2], range[2] + range[3])]);
+    const cms = pdfSign.buildCms(pdfSign.sha256(signed), sign);
+    const hex = cms.toString('hex');
+    if (hex.length > SIG_HEX_LEN) return pdf;                // CMS terlalu besar untuk placeholder
+    pdf.write(hex.padEnd(SIG_HEX_LEN, '0'), hexStart + 1, 'latin1');
+    return pdf;
+  } catch { return pdf; }
 }
 
 function verificationUrl(documentNumber, code) {
@@ -362,7 +411,13 @@ function renderDocument(data) {
     pages.push(page);
   }
   pages.forEach((page, index) => page.right(MR, PH - 16, `Halaman ${index + 1}/${pages.length}`, { size: 7, color: '0.4 0.4 0.4' }));
-  return { buffer: buildPdf(pages, images), code, terbilang: terbilangRupiah(grand), pageCount: pages.length, templateVersion: TEMPLATE_VERSION, verificationUrl: url };
+  // Tanda tangan digital (PAdES) bila sertifikat penanda tangan dikonfigurasi.
+  const pdfSign = require('../../core/pdf-sign');
+  const signCfg = data.sign === false ? null : pdfSign.config();
+  const signOpt = signCfg ? { ...signCfg, name: (org.legalName || 'PT MANDIRI ABADI TEKNIK') } : null;
+  const buffer = buildPdf(pages, images, signOpt, { title: `${title} ${doc.documentNumber || ''}`.trim(), subject: `${org.legalName || ''} — verifikasi ${code}` });
+  const digitallySigned = Boolean(signOpt) && buffer.includes('/adbe.pkcs7.detached');
+  return { buffer, code, terbilang: terbilangRupiah(grand), pageCount: pages.length, templateVersion: TEMPLATE_VERSION, verificationUrl: url, digitallySigned, signerSubject: signCfg ? pdfSign.subjectOf(signCfg.certPem) : null };
 }
 
 function statusFill(status) {
