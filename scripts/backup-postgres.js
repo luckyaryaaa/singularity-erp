@@ -14,4 +14,9 @@ const backup=require('../backend/infrastructure/database/backup');
     const encrypted=fs.readFileSync(input),keys=[process.env.MAT_BACKUP_ENCRYPTION_KEY,process.env.MAT_BACKUP_PREVIOUS_ENCRYPTION_KEY].filter(Boolean);let plain,lastError;for(const key of keys){try{plain=crypto.decrypt(encrypted,key);break;}catch(error){lastError=error;}}if(!plain)throw lastError||new Error('Kunci dekripsi backup tidak tersedia.');fs.writeFileSync(output,plain);
     console.log(JSON.stringify({ok:true,output},null,2));
   }
-  else throw new Error('Gunakan: run | restore-test | decrypt');}catch(error){console.error(error.message);process.exitCode=1;}finally{await pool.close();}})();
+  else if(command==='encrypt-local'){
+    // P0: enkripsi in-place seluruh dump plaintext lama di storage/backups.
+    const result=await backup.encryptExistingLocal(pool.getPool());
+    console.log(JSON.stringify({ok:true,encrypted:result.length,files:result.map(x=>x.encrypted)},null,2));
+  }
+  else throw new Error('Gunakan: run | restore-test | decrypt | encrypt-local');}catch(error){console.error(error.message);process.exitCode=1;}finally{await pool.close();}})();

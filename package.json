@@ -19,7 +19,7 @@
     "test:all": "npm test",
     "security:scan": "node scripts/secret-scan.js",
     "assets:build": "node scripts/build-assets.js",
-    "release:build": "node scripts/build-release.js",
+    "release:build": "node scripts/build-release.js && node scripts/verify-release-artifact.js",
     "release:verify-assets": "node scripts/verify-release-assets.js",
     "db:health": "node scripts/db.js health",
     "db:provision": "node scripts/provision-db.js",
@@ -42,7 +42,10 @@
     "cutover:opening-inventory": "node scripts/cutover-opening-inventory.js",
     "uat:lan": "node scripts/start-lan-uat.js",
     "data:purge": "node scripts/purge-business-data.js",
-    "data:restore-config": "node scripts/restore-config-seed.js"
+    "data:restore-config": "node scripts/restore-config-seed.js",
+    "release:verify": "node scripts/verify-release-artifact.js",
+    "release:sbom": "node scripts/generate-sbom.js",
+    "backup:encrypt-local": "node scripts/backup-postgres.js encrypt-local"
   },
   "engines": {
     "node": ">=20"

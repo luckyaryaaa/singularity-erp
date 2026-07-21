@@ -12,4 +12,4 @@ function ignored(relative){const normalized=relative.replace(/\\/g,'/');return n
 function files(dir=ROOT,out=[]){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const full=path.join(dir,entry.name),relative=path.relative(ROOT,full);if(ignored(relative))continue;if(entry.isDirectory())files(full,out);else if(entry.isFile())out.push({full,relative});}return out;}
 function scan(){const findings=[];for(const item of files()){const text=fs.readFileSync(item.full,'utf8');for(const [kind,pattern] of patterns)if(pattern.test(text))findings.push({file:item.relative.replace(/\\/g,'/'),kind});}return findings;}
 if(require.main===module){const findings=scan();if(findings.length){console.error(JSON.stringify({ok:false,findings},null,2));process.exit(1);}console.log(JSON.stringify({ok:true,filesScanned:files().length,findings:0}));}
-module.exports={scan,files,ignored};
+module.exports={scan,files,ignored,patterns};
