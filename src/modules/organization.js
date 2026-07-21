@@ -109,7 +109,7 @@
         const c = t.config || {}, accent = c.accentColor || '#1a2b4d';
         const flags = [['QR', c.showQr !== false], ['Tanda tangan', c.showSignature !== false], ['Terbilang', c.showTerbilang !== false]];
         return `<article class="tpl-card">
-          <div class="tpl-preview" style="--accent:${esc(accent)}">
+          <div class="tpl-preview" data-accent="${esc(accent)}">
             <span class="tpl-kop"></span><span class="tpl-title">${esc(c.title || t.documentType)}</span>
             <span class="tpl-line"></span><span class="tpl-line short"></span>
             <span class="tpl-rows"></span><span class="tpl-total"></span>
@@ -126,6 +126,13 @@
       };
       main.innerHTML = pageHead({ eyebrow: 'SISTEM · DOKUMEN', title: 'Template dokumen resmi', sub: 'Desain kop, warna, syarat & ketentuan, tanda tangan, dan QR tiap dokumen. Setiap perubahan tersimpan sebagai versi baru; dokumen lama tetap identik dengan snapshot-nya.' })
         + `<section class="tpl-grid">${data.length ? data.map(card).join('') : '<div class="empty-state"><h3>Belum ada template</h3><p>Jalankan migrasi basis data untuk memuat template awal.</p></div>'}</section>`;
+
+      // Warna aksen di-set via CSSOM (bukan atribut style inline) agar patuh CSP
+      // style-src 'self' — hanya nilai heksadesimal yang diterima.
+      main.querySelectorAll('.tpl-preview[data-accent]').forEach((el) => {
+        const c = /^#[0-9a-fA-F]{3,8}$/.test(el.dataset.accent || '') ? el.dataset.accent : '#1a2b4d';
+        el.style.setProperty('--accent', c);
+      });
 
       main.querySelectorAll('[data-tpl-edit]').forEach((btn) => btn.addEventListener('click', async () => {
         const t = data.find((x) => x.documentType === btn.dataset.tplEdit); if (!t) return;
