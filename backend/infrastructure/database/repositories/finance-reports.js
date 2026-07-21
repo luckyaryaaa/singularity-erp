@@ -38,11 +38,13 @@ async function financialStatements(client, value, user) {
   };
   const pick = (cats, mode) => rows.filter((r) => cats.includes(r.category)).map((r) => ({ code: r.code, name: r.name, category: r.category, balance: balance(r, mode) })).filter((r) => Math.abs(r.balance) >= 0.01);
   const sum = (list) => idr(list.reduce((n, r) => n + r.balance, 0));
-  // Kategori di luar 6 standar (bila ada) masuk sisi ekuitas agar identitas
-  // tidak diam-diam pincang — tampil eksplisit untuk ditertibkan.
+  // P0-F: kategori di luar 6 standar TIDAK boleh diam-diam ditambahkan ke
+  // ekuitas — itu menyembunyikan salah klasifikasi. Baris tak terpetakan
+  // tampil sebagai seksi UNMAPPED eksplisit dan MEMBLOKIR publikasi laporan
+  // resmi sampai bagan akun dibereskan.
   const KNOWN = ['ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'COGS', 'EXPENSE'];
   const otherCats = [...new Set(rows.filter((r) => !KNOWN.includes(r.category)).map((r) => r.category))];
-  const otherEquity = otherCats.length ? pick(otherCats, 'cumulative') : [];
+  const unmappedLines = otherCats.length ? pick(otherCats, 'cumulative') : [];
 
   // Laba rugi periode berjalan + kumulatif (untuk laba ditahan berjalan).
   const income = { revenue: pick(['REVENUE'], 'period'), cogs: pick(['COGS'], 'period'), expense: pick(['EXPENSE'], 'period') };
@@ -54,7 +56,7 @@ async function financialStatements(client, value, user) {
   // Neraca kumulatif; laba berjalan kumulatif masuk sisi ekuitas.
   const assets = pick(['ASSET'], 'cumulative');
   const liabilities = pick(['LIABILITY'], 'cumulative');
-  const equity = [...pick(['EQUITY'], 'cumulative'), ...otherEquity];
+  const equity = pick(['EQUITY'], 'cumulative');
   const totalAssets = sum(assets), totalLiabilities = sum(liabilities), totalEquity = idr(sum(equity) + cumulativeEarnings);
   return {
     period, scope: scope.global ? 'GLOBAL' : 'BRANCH', branchId: scope.global ? null : scope.branchId,
@@ -62,7 +64,9 @@ async function financialStatements(client, value, user) {
       assets, liabilities, equity: [...equity, { code: '—', name: 'Laba berjalan (kumulatif)', category: 'EQUITY', balance: cumulativeEarnings }],
       totalAssets, totalLiabilities, totalEquity,
       totalLiabilitiesAndEquity: idr(totalLiabilities + totalEquity),
-      balanced: Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01
+      unmappedLines, unmappedTotal: sum(unmappedLines),
+      publishBlocked: unmappedLines.length > 0,
+      balanced: unmappedLines.length === 0 && Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 0.01
     },
     // Detail baris memakai kunci *Lines agar TIDAK tertimpa nilai total
     // bernama sama (bug: `...income` lalu `revenue` scalar menghapus array).

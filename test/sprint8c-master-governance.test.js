@@ -16,7 +16,14 @@ const code=(prefix)=>`${prefix}${Date.now().toString(36)}${Math.random().toStrin
 
 dbTest('Sprint 8C: transaksi multi-currency menyimpan FX dan cost-center snapshot',async()=>rollback(async(client)=>{
   const user=await owner(client),today=new Date().toISOString().slice(0,10);
-  await governance.createExchangeRate(client,{fromCurrency:'USD',toCurrency:'IDR',effectiveDate:today,rate:16000,source:'SPRINT-8C-TEST'},user);
+  // P0-G: kurs melewati maker-checker — usulan oleh maker, disetujui checker
+  // yang BERBEDA. Kurs baru aktif setelah persetujuan.
+  const maker=(await client.query(`INSERT INTO app_users(id,username,password_hash,display_name,branch_id,role,branch_scope,must_change_password) VALUES($1,$2,'x','FX Maker',$3,'accounting','*',false) RETURNING id`,[randomUUID(),`fxmaker-${Date.now()}`,user.branchId])).rows[0];
+  const proposal=await governance.createExchangeRate(client,{fromCurrency:'USD',toCurrency:'IDR',effectiveDate:today,rate:16000,source:'SPRINT-8C-TEST'},{id:maker.id,role:'accounting',branchId:user.branchId,branchScope:'*'});
+  assert.equal(proposal.status,'PENDING','kurs tidak boleh langsung ACTIVE');
+  await assert.rejects(()=>governance.decideExchangeRate(client,{proposalId:proposal.id,decision:'approve',user:{id:maker.id}}),error=>error.code==='SOD_CONFLICT','pembuat tidak boleh menyetujui usulannya sendiri');
+  const decided=await governance.decideExchangeRate(client,{proposalId:proposal.id,decision:'approve',user});
+  assert.equal(decided.status,'APPROVED');assert.equal(decided.rate.status,'ACTIVE');
   const doc=await runtime.createDocument(client,{type:'INVOICE',user,title:'FX snapshot test',amount:10,transactionCurrency:'USD',currencyDate:today,requestId:randomUUID()});
   assert.equal(doc.transactionCurrency,'USD');assert.equal(doc.functionalCurrency,'IDR');assert.equal(Number(doc.exchangeRate),16000);assert.equal(Number(doc.functionalAmount),160000);
   assert.ok(doc.costCenterId,'financial document receives a valid cost center');assert.equal(doc.dimensionSnapshot.legalEntityId,user.legalEntityId);assert.equal(doc.currencySnapshot.source,'SPRINT-8C-TEST');

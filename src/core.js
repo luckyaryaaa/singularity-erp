@@ -51,7 +51,7 @@ window.MAT = (() => {
     if (res.status === 401 && state.user) { sessionLost(); }
     if (!res.ok) {
       const error = new Error(data.message || `Kesalahan ${res.status}`);
-      error.code = data.code || 'INTERNAL'; error.status = res.status; error.data = data;
+      error.code = data.code || 'INTERNAL'; error.status = res.status; error.data = data; error.detail = data.detail;
       throw error;
     }
     return data;

@@ -122,15 +122,40 @@ async function listExchangeRates(client,{fromCurrency,toCurrency,limit=100}={}) 
   return (await client.query(`SELECT * FROM exchange_rates WHERE ${where} ORDER BY effective_date DESC,created_at DESC LIMIT $${params.length}`,params)).rows;
 }
 
+// P0-G: kurs TIDAK lagi langsung ACTIVE oleh pembuatnya. Usulan masuk
+// exchange_rate_proposals (PENDING) dan hanya user BERBEDA yang boleh
+// menyetujui — constraint CHECK di basis data ikut menolak self-approval.
+// Dokumen lama tetap aman karena nilai kurs di-snapshot pada transaksi.
 async function createExchangeRate(client,body,user) {
   const from=String(body.fromCurrency||'').toUpperCase(),to=String(body.toCurrency||'').toUpperCase();
   if(!/^[A-Z]{3}$/.test(from)||!/^[A-Z]{3}$/.test(to)||!(Number(body.rate)>0)||!body.effectiveDate||!String(body.source||'').trim())
     throw new AppError('VALIDATION_ERROR','Mata uang, tanggal efektif, kurs positif, dan sumber wajib diisi.');
-  const row=(await client.query(`INSERT INTO exchange_rates(id,rate_type,from_currency,to_currency,effective_date,rate,source,status,notes,created_by,approved_by,approved_at)
-    VALUES($1,$2,$3,$4,$5,$6,$7,'ACTIVE',$8,$9,$9,now())
-    ON CONFLICT(rate_type,from_currency,to_currency,effective_date) DO UPDATE SET rate=excluded.rate,source=excluded.source,notes=excluded.notes,status='ACTIVE',approved_by=excluded.approved_by,approved_at=now()
-    RETURNING *`,[randomUUID(),body.rateType||'CORPORATE',from,to,body.effectiveDate,Number(body.rate),String(body.source).trim(),body.notes||null,user.id])).rows[0];
+  const row=(await client.query(`INSERT INTO exchange_rate_proposals(id,rate_type,from_currency,to_currency,effective_date,rate,source,notes,created_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [randomUUID(),body.rateType||'CORPORATE',from,to,body.effectiveDate,Number(body.rate),String(body.source).trim(),body.notes||null,user.id])).rows[0];
   return row;
+}
+
+async function listExchangeRateProposals(client){
+  return (await client.query(`SELECT p.*,u.display_name created_by_name FROM exchange_rate_proposals p
+    LEFT JOIN app_users u ON u.id=p.created_by WHERE p.status='PENDING' ORDER BY p.created_at DESC LIMIT 50`)).rows;
+}
+
+async function decideExchangeRate(client,{proposalId,decision,reason,user}){
+  if(!['approve','reject'].includes(decision))throw new AppError('VALIDATION_ERROR','Keputusan harus approve atau reject.');
+  const proposal=(await client.query(`SELECT * FROM exchange_rate_proposals WHERE id=$1 FOR UPDATE`,[proposalId])).rows[0];
+  if(!proposal)throw new AppError('RESOURCE_NOT_FOUND','Usulan kurs tidak ditemukan.');
+  if(proposal.status!=='PENDING')throw new AppError('STATUS_INVALID',`Usulan sudah ${proposal.status}.`);
+  if(proposal.created_by===user.id)throw new AppError('SOD_CONFLICT','Pembuat usulan kurs tidak boleh menjadi approver (maker-checker).');
+  if(decision==='reject'&&!String(reason||'').trim())throw new AppError('REASON_REQUIRED','Alasan penolakan kurs wajib diisi.');
+  await client.query(`UPDATE exchange_rate_proposals SET status=$2,decided_by=$3,decided_at=now(),decision_reason=$4 WHERE id=$1`,
+    [proposalId,decision==='approve'?'APPROVED':'REJECTED',user.id,String(reason||'').trim()||null]);
+  if(decision==='reject')return{status:'REJECTED',proposalId};
+  const row=(await client.query(`INSERT INTO exchange_rates(id,rate_type,from_currency,to_currency,effective_date,rate,source,status,notes,created_by,approved_by,approved_at)
+    VALUES($1,$2,$3,$4,$5,$6,$7,'ACTIVE',$8,$9,$10,now())
+    ON CONFLICT(rate_type,from_currency,to_currency,effective_date) DO UPDATE SET rate=excluded.rate,source=excluded.source,notes=excluded.notes,status='ACTIVE',approved_by=excluded.approved_by,approved_at=now()
+    RETURNING *`,[randomUUID(),proposal.rate_type,proposal.from_currency,proposal.to_currency,proposal.effective_date,proposal.rate,proposal.source,proposal.notes,proposal.created_by,user.id])).rows[0];
+  return{status:'APPROVED',rate:row};
 }
 
 async function findRate(client,from,to,date) {
@@ -228,4 +253,4 @@ async function scoreSuppliers(client,period,user) {
   return items;
 }
 
-module.exports={validateMaster,refreshQuality,scanQuality,qualityDashboard,listCurrencies,listExchangeRates,createExchangeRate,resolveCurrency,resolveDimensions,productCostTrace,calculateSupplierPerformance,supplierPerformance,scoreSuppliers};
+module.exports={validateMaster,refreshQuality,scanQuality,qualityDashboard,listCurrencies,listExchangeRates,createExchangeRate,listExchangeRateProposals,decideExchangeRate,resolveCurrency,resolveDimensions,productCostTrace,calculateSupplierPerformance,supplierPerformance,scoreSuppliers};

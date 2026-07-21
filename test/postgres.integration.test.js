@@ -165,7 +165,14 @@ pgTest('PostgreSQL Sprint 4: accounting, allocation, attendance, payroll, tax, i
     const summary=await businessOps.accountingSummary(client,payrollPeriod,owner);assert.equal(summary.debitTotal,summary.creditTotal);assert.ok(summary.profitLoss.opex>0);
     const taxes=await businessOps.taxSummary(client,payrollPeriod,owner);assert.ok(taxes.documents.some(row=>row.taxType==='PPH21'));
     const selfPayroll=await businessOps.payrollSelf(client,employee);assert.ok(selfPayroll.some(row=>row.payrollDocumentId===payroll.id));
-    const closed=await businessOps.closePeriod(client,{period:payrollPeriod,user:owner});assert.equal(closed.status,'CLOSED');const reopened=await businessOps.reopenPeriod(client,{period:payrollPeriod,user:owner,reason:'Integration test'});assert.equal(reopened.status,'OPEN');
+    // P0-E: closing WAJIB melewati seluruh checklist cockpit. Checklist WARN
+    // menolak penutupan tanpa waiver tertulis; dengan waiver, bukti checklist
+    // ikut tersimpan pada hasil closing.
+    await assert.rejects(()=>businessOps.closePeriod(client,{period:payrollPeriod,user:owner}),error=>error.code==='REASON_REQUIRED','WARN checklist wajib waiver');
+    const closed=await businessOps.closePeriod(client,{period:payrollPeriod,user:owner,waiveWarnings:'Integration test: WARN ditinjau dan diterima'});assert.equal(closed.status,'CLOSED');
+    assert.ok(closed.closingEvidence&&Array.isArray(closed.closingEvidence.checks)&&closed.closingEvidence.checks.length,'bukti checklist closing wajib tersimpan');
+    assert.equal(closed.closingEvidence.waiver.by,owner.id,'waiver mencatat siapa yang menyetujui');
+    const reopened=await businessOps.reopenPeriod(client,{period:payrollPeriod,user:owner,reason:'Integration test'});assert.equal(reopened.status,'OPEN');
 
     const invoice=await runtime.createDocument(client,{type:'INVOICE',user:owner,title:'Allocation invoice',amount:500000,requestId:randomUUID()}),payment=await runtime.createDocument(client,{type:'CUSTOMER_PAYMENT',user:owner,title:'Allocation payment',amount:500000,requestId:randomUUID()});await client.query(`UPDATE business_documents SET status='APPROVED' WHERE id=ANY($1::uuid[])`,[[invoice.id,payment.id]]);const allocated=await businessOps.allocatePayment(client,{paymentId:payment.id,invoiceId:invoice.id,amount:500000,user:owner});assert.equal(allocated.invoiceStatus,'CLOSED');assert.equal(allocated.remaining,0);
 

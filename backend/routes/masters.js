@@ -24,7 +24,17 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m){const body=await readBody(req);const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`customer-link.finalize:${m[1]}`,key:req.headers['idempotency-key'],body},async()=>({status:201,body:await masterWizards.finalize(client,ctx.user,m[1],body,ctx.requestId)}));ctx.status=result.status;return result.body;}
   if(method==='GET'&&p==='/api/master-governance/currencies'){assertPermission(ctx.user,'dashboard.view');return{items:(await masterGovernance.listCurrencies(client)).map(runtime.camel)};}
   if(method==='GET'&&p==='/api/master-governance/exchange-rates'){assertPermission(ctx.user,'settings.view');return{items:(await masterGovernance.listExchangeRates(client,Object.fromEntries(url.searchParams))).map(runtime.camel)};}
-  if(method==='POST'&&p==='/api/master-governance/exchange-rates'){assertPermission(ctx.user,'settings.edit');const body=await readBody(req);const item=runtime.camel(await masterGovernance.createExchangeRate(client,body,ctx.user));await runtime.audit(client,{userId:ctx.user.id,action:'UPSERT',module:'settings',entityType:'EXCHANGE_RATE',entityId:item.id,newValue:{fromCurrency:item.fromCurrency,toCurrency:item.toCurrency,rate:item.rate,effectiveDate:item.effectiveDate,source:item.source},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  // P0-G: pembuatan kurs = USULAN (PENDING), bukan aktivasi langsung.
+  if(method==='POST'&&p==='/api/master-governance/exchange-rates'){assertPermission(ctx.user,'settings.edit');const body=await readBody(req);const item=runtime.camel(await masterGovernance.createExchangeRate(client,body,ctx.user));await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module:'settings',entityType:'EXCHANGE_RATE_PROPOSAL',entityId:item.id,newValue:{fromCurrency:item.fromCurrency,toCurrency:item.toCurrency,rate:item.rate,effectiveDate:item.effectiveDate,source:item.source},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  if(method==='GET'&&p==='/api/master-governance/exchange-rate-proposals'){assertPermission(ctx.user,'settings.view');return{items:(await masterGovernance.listExchangeRateProposals(client)).map(runtime.camel)};}
+  m=p.match(/^\/api\/master-governance\/exchange-rate-proposals\/([0-9a-f-]{36})\/(approve|reject)$/);
+  if(method==='POST'&&m){
+    assertPermission(ctx.user,'settings.edit');
+    const body=await readBody(req);
+    const result=await masterGovernance.decideExchangeRate(client,{proposalId:m[1],decision:m[2]==='approve'?'approve':'reject',reason:body.reason,user:ctx.user});
+    await runtime.audit(client,{userId:ctx.user.id,action:m[2]==='approve'?'APPROVE':'REJECT',module:'settings',entityType:'EXCHANGE_RATE_PROPOSAL',entityId:m[1],newValue:{status:result.status},reason:body.reason||null,requestId:ctx.requestId,branchId:ctx.user.branchId});
+    return result;
+  }
   if(method==='GET'&&p==='/api/master-governance/quality'){assertPermission(ctx.user,'settings.view');const result=await masterGovernance.qualityDashboard(client);return{summary:result.summary.map(runtime.camel),issues:result.issues.map(runtime.camel)};}
   if(method==='POST'&&p==='/api/master-governance/quality/scan'){assertPermission(ctx.user,'settings.edit');const result=await masterGovernance.scanQuality(client);await runtime.audit(client,{userId:ctx.user.id,action:'SCAN',module:'settings',entityType:'MASTER_DATA_QUALITY',newValue:{issues:result.issues.length},requestId:ctx.requestId,branchId:ctx.user.branchId});return{summary:result.summary.map(runtime.camel),issues:result.issues.map(runtime.camel)};}
   m=p.match(/^\/api\/master-governance\/products\/([0-9a-f-]{36})\/cost-trace$/);

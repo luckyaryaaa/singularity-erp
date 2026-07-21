@@ -119,4 +119,16 @@ async function listTaxRates(client) {
   return { items: (await client.query('SELECT * FROM tax_rates WHERE active ORDER BY tax_key, effective_from DESC')).rows };
 }
 
-module.exports = { resolvePostingProfile, resolvePayrollRules, accountCode, accountCodes, taxRate, listAccountRoles, listTaxRates, invalidateConfigCache };
+// P0-H: periode akuntansi kini per Legal Entity. Resolver entitas default
+// (instalasi MAT saat ini satu entitas) — dokumen yang membawa legal_entity_id
+// sendiri selalu menang di pemanggil.
+async function defaultLegalEntityId(client) {
+  const key = 'entity|default';
+  const cached = cacheGet(key);
+  if (cached) return cached;
+  const row = (await client.query('SELECT id FROM legal_entities ORDER BY active DESC, created_at LIMIT 1')).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Legal entity belum dikonfigurasi.');
+  return cacheSet(key, row.id);
+}
+
+module.exports = { resolvePostingProfile, resolvePayrollRules, accountCode, accountCodes, taxRate, listAccountRoles, listTaxRates, invalidateConfigCache, defaultLegalEntityId };

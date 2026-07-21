@@ -23,9 +23,22 @@ async function dispatch(client, req, url, ctx) {
   // Payroll rule versions (§19.5) — tarif BPJS/PTKP/PPh21 effective-dated.
   if(method==='GET'&&p==='/api/accounting/payroll-rules'){assertPermission(ctx.user,'payroll.view');return{items:(await client.query(`SELECT rule_type,version,effective_from,effective_until,active,config,description FROM payroll_rule_versions WHERE active ORDER BY rule_type,effective_from DESC`)).rows.map(runtime.camel)};}
   if(method==='GET'&&p==='/api/accounting/ledger'){assertPermission(ctx.user,'ledger.view');return businessOps.ledger(client,{...Object.fromEntries(url.searchParams),user:ctx.user});}
-  if(method==='POST'&&p==='/api/accounting/period/close'){assertPermission(ctx.user,'closing.post');const body=await readBody(req),result=await businessOps.closePeriod(client,{period:body.period,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:'CLOSE_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:result,reason:body.reason||'Tutup periode',requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  if(method==='POST'&&p==='/api/accounting/period/close'){assertPermission(ctx.user,'closing.post');const body=await readBody(req),result=await businessOps.closePeriod(client,{period:body.period,user:ctx.user,waiveWarnings:body.waiveWarnings});await runtime.audit(client,{userId:ctx.user.id,action:'CLOSE_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:result,reason:body.reason||'Tutup periode',requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
   if(method==='POST'&&p==='/api/accounting/period/reopen'){assertPermission(ctx.user,'closing.edit');if(ctx.user.role!=='owner')throw new AppError('PERMISSION_DENIED','Hanya Owner yang dapat membuka kembali periode.');const body=await readBody(req),row=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!row?.owner_pin_hash||!verifyPassword(String(body.pin),row.owner_pin_hash))throw new AppError('PIN_REQUIRED');const result=await businessOps.reopenPeriod(client,{period:body.period,user:ctx.user,reason:body.reason});await runtime.audit(client,{userId:ctx.user.id,action:'REOPEN_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:result,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
-  if(method==='POST'&&p==='/api/payments/allocate'){assertPermission(ctx.user,'payment.post');const body=await readBody(req),result=await businessOps.allocatePayment(client,{...body,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:'ALLOCATE_PAYMENT',module:'payment',entityType:'PAYMENT_ALLOCATION',entityId:result.allocation.id,newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  if(method==='POST'&&p==='/api/payments/allocate'){
+    // P0-D: alokasi WAJIB idempoten — ON CONFLICT menambah amount sehingga
+    // retry jaringan/browser tanpa kunci akan menggandakan alokasi.
+    assertPermission(ctx.user,'payment.post');const body=await readBody(req);
+    if(!req.headers['idempotency-key'])throw new AppError('VALIDATION_ERROR','Header Idempotency-Key wajib untuk alokasi pembayaran.');
+    // operation dibatasi varchar(80): identitas payment/invoice sudah terlindung
+    // oleh request_hash (payload berbeda dengan kunci sama ditolak DUPLICATE_REQUEST).
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:'payments.allocate',key:req.headers['idempotency-key'],body},async()=>{
+      const outcome=await businessOps.allocatePayment(client,{...body,user:ctx.user});
+      await runtime.audit(client,{userId:ctx.user.id,action:'ALLOCATE_PAYMENT',module:'payment',entityType:'PAYMENT_ALLOCATION',entityId:outcome.allocation.id,newValue:outcome,requestId:ctx.requestId,branchId:ctx.user.branchId});
+      return{status:200,body:outcome};
+    });
+    return result.body;
+  }
   // ── Sprint 13: fixed asset, depresiasi, laporan keuangan, cockpit ─────────
   if(method==='GET'&&p==='/api/assets'){assertPermission(ctx.user,'asset.view');return fixedAssets.listAssets(client,ctx.user,Object.fromEntries(url.searchParams));}
   if(method==='POST'&&p==='/api/assets'){assertPermission(ctx.user,'asset.create');const body=await readBody(req);const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:'asset.create',key:req.headers['idempotency-key'],body},async()=>({status:201,body:await fixedAssets.createAsset(client,{...body,user:ctx.user,requestId:ctx.requestId})}));ctx.status=result.status;return result.body;}
