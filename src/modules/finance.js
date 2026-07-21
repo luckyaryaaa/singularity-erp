@@ -109,8 +109,11 @@
     async render(main, _p, signal) {
       this.period = this.period || new Date().toISOString().slice(0, 7);
       const period = this.period;
-      const t = await query(`tax:${period}`, () => api(`/api/tax/summary?period=${period}`, { signal }), { staleMs: 60_000 });
-      const actions = `<label class="period-picker"><span>Periode</span><input id="taxPeriod" type="month" value="${esc(period)}"></label>${can('tax.edit') ? `<button class="btn primary" id="taxSync">${ICONS.refresh} Sinkronkan pajak</button>` : ''}`;
+      const [t, cmp] = await Promise.all([
+        query(`tax:${period}`, () => api(`/api/tax/summary?period=${period}`, { signal }), { staleMs: 60_000 }),
+        api(`/api/tax/compliance?period=${period}`, { signal })
+      ]);
+      const actions = `<a class="btn secondary" href="/api/tax/efaktur.csv?period=${esc(period)}" target="_blank" rel="noopener">${ICONS.doc} Ekspor e-Faktur</a><label class="period-picker"><span>Periode</span><input id="taxPeriod" type="month" value="${esc(period)}"></label>${can('tax.edit') ? `<button class="btn primary" id="taxSync">${ICONS.refresh} Sinkronkan pajak</button>` : ''}`;
       main.innerHTML = pageHead({ eyebrow: 'PERPAJAKAN', title: 'Tax center', sub: `Periode ${t.period}. Kalkulasi bersumber dari transaksi yang sudah disetujui.`, actions }) + `
         <section class="metrics">
           ${kpiCard({ label: 'PPN keluaran', value: fmtIDR(t.ppnOutput), note: 'Faktur pajak diterbitkan', orb: 'tax', orbTone: 'blue' })}
@@ -130,7 +133,70 @@
               <tbody>${t.documents.map((d) => `<tr><td><b>${esc(d.taxType)}</b><small>${esc(d.documentId || 'Rekap manual')}</small></td><td class="right money">${fmtIDRFull(d.baseAmount)}</td><td class="right money">${fmtIDRFull(d.taxAmount)}</td><td>${d.reported ? '<span class="chip mint">Dilaporkan</span>' : can('tax.edit') ? `<button class="btn secondary sm" data-tax-report="${esc(d.id)}">Tandai lapor</button>` : '<span class="chip amber">Belum dilaporkan</span>'}</td></tr>`).join('') || '<tr><td colspan="4" class="table-loading">Belum ada transaksi pajak pada periode ini.</td></tr>'}</tbody>
             </table></div>
           </article>
+        </section>
+        <section class="kpi-grid">
+          <article class="kpi"><span>Sisa jatah NSFP</span><strong>${cmp.nsfpRemaining}</strong><small>${cmp.nsfpRanges} rentang aktif dari DJP</small></article>
+          <article class="kpi"><span>Faktur Pajak terbit</span><strong>${cmp.faktur.issued}</strong><small>${cmp.faktur.replaced} pengganti · ${cmp.faktur.cancelled} batal</small></article>
+          <article class="kpi"><span>DPP dilaporkan</span><strong>${fmtIDR(cmp.faktur.dpp)}</strong><small>PPN ${fmtIDR(cmp.faktur.ppn)}</small></article>
+          <article class="kpi"><span>Bukti potong</span><strong>${cmp.withholding.reduce((n, x) => n + x.n, 0)}</strong><small>${cmp.withholding.map((x) => `${esc(x.taxType)} ${fmtIDR(x.amount)}`).join(' · ') || 'Belum ada'}</small></article>
+        </section>
+        <section class="panel table-panel"><header><div><p class="eyebrow">FAKTUR PAJAK KELUARAN</p><h2>e-Faktur masa ${esc(period)}</h2></div>
+          ${can('tax.post') ? `<div class="row-actions"><button class="btn secondary sm" id="nsfpAdd">${ICONS.plus} Jatah NSFP</button><button class="btn primary sm" id="fpIssue">${ICONS.plus} Terbitkan Faktur Pajak</button></div>` : ''}</header>
+          <div class="table-wrap"><table><thead><tr><th>Nomor Faktur Pajak</th><th>Invoice</th><th>Pembeli</th><th class="right">DPP</th><th class="right">PPN</th><th>Status</th><th></th></tr></thead>
+          <tbody>${cmp.taxInvoices.length ? cmp.taxInvoices.map((f) => `<tr><td><b>${esc(f.fpNumber)}</b><small>${fmtDate(f.fpDate)} · kode ${esc(f.transactionCode)}</small></td><td>${esc(f.documentNumber)}</td><td>${esc(f.buyerName)}<small>${esc(f.buyerNpwp || 'tanpa NPWP')}</small></td><td class="right money">${fmtIDRFull(f.dpp)}</td><td class="right money">${fmtIDRFull(f.ppn)}</td><td>${chip(f.status)}</td><td class="right">${f.status === 'ISSUED' && can('tax.post') ? `<button class="btn ghost sm" data-fp-replace="${esc(f.id)}">Ganti</button><button class="btn danger-outline sm" data-fp-cancel="${esc(f.id)}">Batalkan</button>` : ''}</td></tr>`).join('') : `<tr><td colspan="7"><div class="empty-state">${clayOrb('blue', 'tax')}<h3>Belum ada Faktur Pajak</h3><p>Daftarkan jatah NSFP dari DJP lalu terbitkan Faktur Pajak atas invoice yang sudah disetujui.</p></div></td></tr>`}</tbody></table></div>
+        </section>
+        <section class="dashboard-grid">
+          <article class="panel table-panel"><header><div><p class="eyebrow">NSFP</p><h2>Jatah nomor seri</h2></div></header>
+            <div class="table-wrap"><table><thead><tr><th>Surat DJP</th><th>Rentang</th><th class="right">Sisa</th><th>Status</th></tr></thead>
+            <tbody>${cmp.ranges.length ? cmp.ranges.map((r) => `<tr><td><b>${esc(r.dgtLetterNumber)}</b><small>${fmtDate(r.issuedDate)}</small></td><td>${esc(r.prefix)}.${String(r.serialStart).padStart(8, '0')} – ${String(r.serialEnd).padStart(8, '0')}</td><td class="right">${r.remaining}</td><td>${chip(r.status)}</td></tr>`).join('') : '<tr><td colspan="4" class="table-loading">Belum ada jatah NSFP terdaftar.</td></tr>'}</tbody></table></div>
+          </article>
+          <article class="panel table-panel"><header><div><p class="eyebrow">e-BUPOT</p><h2>Bukti potong PPh</h2></div>${can('tax.post') ? `<button class="btn secondary sm" id="bupotAdd">${ICONS.plus} Terbitkan</button>` : ''}</header>
+            <div class="table-wrap"><table><thead><tr><th>Nomor</th><th>Lawan transaksi</th><th class="right">Bruto</th><th class="right">PPh</th></tr></thead>
+            <tbody>${cmp.withholding.length ? cmp.withholding.map((w) => `<tr><td><b>${esc(w.certificateNumber)}</b><small>${esc(w.taxType)} · ${Number(w.ratePct)}%</small></td><td>${esc(w.partnerName)}<small>${esc(w.partnerNpwp || 'tanpa NPWP')}</small></td><td class="right money">${fmtIDRFull(w.grossAmount)}</td><td class="right money">${fmtIDRFull(w.taxAmount)}</td></tr>`).join('') : '<tr><td colspan="4" class="table-loading">Belum ada bukti potong pada masa ini.</td></tr>'}</tbody></table></div>
+          </article>
         </section>`;
+      const reloadTax = () => { invalidate(`tax:${period}`); this.render(main); };
+      main.querySelector('#nsfpAdd')?.addEventListener('click', async () => {
+        const v = await formDialog({ title: 'Daftarkan jatah NSFP', description: 'Masukkan rentang Nomor Seri Faktur Pajak sesuai surat pemberian DJP. Rentang tidak boleh tumpang tindih.', fields: [{ name: 'dgtLetterNumber', label: 'Nomor surat DJP', required: true }, { name: 'prefix', label: 'Prefix (mis. 001-26)', required: true }, { name: 'serialStart', label: 'Serial awal', type: 'number', min: 1, required: true }, { name: 'serialEnd', label: 'Serial akhir', type: 'number', min: 1, required: true }, { name: 'issuedDate', label: 'Tanggal surat', type: 'date' }], submitLabel: 'Daftarkan' });
+        if (!v) return;
+        try { await api('/api/tax/nsfp', { method: 'POST', body: v }); toast('Jatah NSFP terdaftar'); reloadTax(); } catch (e) { toast('Gagal mendaftarkan', e.detail || e.message, 'coral'); }
+      });
+      main.querySelector('#fpIssue')?.addEventListener('click', async () => {
+        const invoices = asList(await api('/api/documents?type=INVOICE&limit=100'));
+        const usable = invoices.filter((d) => !['DRAFT', 'REJECTED', 'CANCELLED', 'VOID'].includes(d.status));
+        if (!usable.length) return toast('Tidak ada invoice', 'Belum ada invoice disetujui untuk diterbitkan Faktur Pajak.', 'amber');
+        const v = await formDialog({ title: 'Terbitkan Faktur Pajak', description: 'Nomor diambil otomatis dari jatah NSFP aktif. DPP dan PPN dihitung dari baris invoice.', fields: [
+          { name: 'documentId', label: 'Invoice', type: 'select', options: usable.map((d) => [d.id, `${d.documentNumber} · ${d.partyName || ''}`]), required: true },
+          { name: 'transactionCode', label: 'Kode transaksi', type: 'select', options: cmp.transactionCodes.map((c) => [c.code, `${c.code} · ${c.name}`]), required: true },
+          { name: 'npwp', label: 'NPWP pembeli' }, { name: 'nik', label: 'NIK pembeli (bila tanpa NPWP)' },
+          { name: 'name', label: 'Nama pembeli (kosongkan = dari master)' }, { name: 'address', label: 'Alamat pembeli', type: 'textarea' },
+          { name: 'fpDate', label: 'Tanggal faktur', type: 'date' }
+        ], submitLabel: 'Terbitkan' });
+        if (!v) return;
+        try { const fp = await api('/api/tax/faktur', { method: 'POST', body: { documentId: v.documentId, transactionCode: v.transactionCode, fpDate: v.fpDate || undefined, buyer: { npwp: v.npwp, nik: v.nik, name: v.name, address: v.address } }, idempotencyKey: newIdemKey() }); toast('Faktur Pajak terbit', fp.fpNumber); reloadTax(); }
+        catch (e) { toast('Penerbitan gagal', e.detail || e.message, 'coral'); }
+      });
+      main.querySelectorAll('[data-fp-replace]').forEach((b) => b.addEventListener('click', async () => {
+        const a = await actionDialog({ title: 'Terbitkan Faktur Pajak pengganti', description: 'Faktur lama menjadi REPLACED. Nomor seri tetap, kode pengganti naik satu — sesuai ketentuan DJP.', requireReason: true, confirmLabel: 'Terbitkan pengganti' });
+        if (!a) return;
+        try { const fp = await api(`/api/tax/faktur/${b.dataset.fpReplace}/replace`, { method: 'POST', body: a }); toast('Faktur pengganti terbit', fp.fpNumber); reloadTax(); } catch (e) { toast('Gagal', e.detail || e.message, 'coral'); }
+      }));
+      main.querySelectorAll('[data-fp-cancel]').forEach((b) => b.addEventListener('click', async () => {
+        const a = await actionDialog({ title: 'Batalkan Faktur Pajak', description: 'Pembatalan tercatat permanen pada audit trail dan wajib dilaporkan ke DJP.', requireReason: true, confirmLabel: 'Batalkan faktur' });
+        if (!a) return;
+        try { await api(`/api/tax/faktur/${b.dataset.fpCancel}/cancel`, { method: 'POST', body: a }); toast('Faktur Pajak dibatalkan'); reloadTax(); } catch (e) { toast('Gagal', e.detail || e.message, 'coral'); }
+      }));
+      main.querySelector('#bupotAdd')?.addEventListener('click', async () => {
+        const v = await formDialog({ title: 'Terbitkan bukti potong PPh', description: 'Tarif mengikuti ketentuan yang berlaku dan dicatat pada bukti potong (tidak di-hardcode sistem).', fields: [
+          { name: 'taxType', label: 'Jenis PPh', type: 'select', options: [['PPH23', 'PPh 23'], ['PPH21', 'PPh 21'], ['PPH26', 'PPh 26'], ['PPH22', 'PPh 22'], ['PPH_FINAL', 'PPh Final']], required: true },
+          { name: 'objectCode', label: 'Kode objek pajak' }, { name: 'name', label: 'Nama lawan transaksi', required: true },
+          { name: 'npwp', label: 'NPWP lawan transaksi' }, { name: 'grossAmount', label: 'Jumlah bruto', type: 'number', min: 0, required: true },
+          { name: 'ratePct', label: 'Tarif (%)', type: 'number', min: 0, required: true }, { name: 'certificateDate', label: 'Tanggal bukti potong', type: 'date' }
+        ], submitLabel: 'Terbitkan' });
+        if (!v) return;
+        try { const bp = await api('/api/tax/bupot', { method: 'POST', body: { taxType: v.taxType, objectCode: v.objectCode, grossAmount: v.grossAmount, ratePct: v.ratePct, certificateDate: v.certificateDate || undefined, partner: { name: v.name, npwp: v.npwp } } }); toast('Bukti potong terbit', bp.certificateNumber); reloadTax(); }
+        catch (e) { toast('Gagal', e.detail || e.message, 'coral'); }
+      });
       main.querySelector('#taxPeriod').addEventListener('change', (e) => { this.period = e.target.value; this.render(main); });
       main.querySelector('#taxSync')?.addEventListener('click', async () => { try { await api('/api/tax/sync', { method: 'POST', body: { period } }); invalidate(`tax:${period}`); toast('Pajak disinkronkan', `Data masa ${period} diperbarui.`); this.render(main); } catch (error) { toast('Sinkronisasi gagal', error.message, 'coral'); } });
       main.querySelectorAll('[data-tax-report]').forEach(btn => btn.addEventListener('click', async () => { const answer = await actionDialog({ title: 'Tandai sudah dilaporkan', description: 'Pastikan pelaporan pada sistem DJP telah berhasil. Tindakan ini masuk audit trail.', requireReason: true, confirmLabel: 'Tandai lapor' }); if (!answer) return; try { await api(`/api/tax/records/${btn.dataset.taxReport}/report`, { method: 'POST', body: answer }); invalidate(`tax:${period}`); toast('Status pelaporan diperbarui'); this.render(main); } catch (error) { toast('Pembaruan gagal', error.message, 'coral'); } }));

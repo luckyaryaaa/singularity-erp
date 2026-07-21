@@ -7,6 +7,7 @@ const businessOps = require('../infrastructure/database/repositories/business-op
 const runtime = require('../infrastructure/database/repositories/runtime');
 const fixedAssets = require('../infrastructure/database/repositories/fixed-assets');
 const financeReports = require('../infrastructure/database/repositories/finance-reports');
+const taxCompliance = require('../infrastructure/database/repositories/tax-compliance');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -50,6 +51,23 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&p==='/api/tax/summary'){assertPermission(ctx.user,'tax.view');return businessOps.taxSummary(client,url.searchParams.get('period'),ctx.user);}
   if(method==='POST'&&p==='/api/tax/sync'){assertPermission(ctx.user,'tax.edit');const body=await readBody(req);return businessOps.syncTaxes(client,body.period,ctx.user);}
   m=p.match(/^\/api\/tax\/records\/([^/]+)\/report$/);if(method==='POST'&&m){assertPermission(ctx.user,'tax.post');const result=await businessOps.reportTax(client,m[1],ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'REPORT_TAX',module:'tax',entityType:'TAX_RECORD',entityId:m[1],newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+
+  // ── Kepatuhan pajak Indonesia: NSFP, Faktur Pajak, e-Bupot ───────────────
+  if(method==='GET'&&p==='/api/tax/compliance'){assertPermission(ctx.user,'tax.view');const period=url.searchParams.get('period');const [summary,ranges,invoices,withholding,codes]=await Promise.all([taxCompliance.summary(client,period),taxCompliance.listRanges(client),taxCompliance.listTaxInvoices(client,period),taxCompliance.listWithholding(client,period),taxCompliance.listTransactionCodes(client)]);return{...summary,ranges:ranges.items,taxInvoices:invoices.items,withholding:withholding.items,transactionCodes:codes.items};}
+  if(method==='POST'&&p==='/api/tax/nsfp'){assertPermission(ctx.user,'tax.edit');const body=await readBody(req);ctx.status=201;return taxCompliance.allocateRange(client,{...body,user:ctx.user,requestId:ctx.requestId});}
+  if(method==='POST'&&p==='/api/tax/faktur'){assertPermission(ctx.user,'tax.post');const body=await readBody(req);ctx.status=201;return runtime.withIdempotency(client,{userId:ctx.user.id,operation:'tax.faktur',key:req.headers['idempotency-key'],body},async()=>({status:201,body:await taxCompliance.issueTaxInvoice(client,{...body,user:ctx.user,requestId:ctx.requestId})})).then(r=>{ctx.status=r.status;return r.body;});}
+  m=p.match(/^\/api\/tax\/faktur\/([0-9a-f-]{36})\/(replace|cancel)$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'tax.post');const body=await readBody(req);
+    return m[2]==='replace'?taxCompliance.replaceTaxInvoice(client,{taxInvoiceId:m[1],...body,user:ctx.user,requestId:ctx.requestId})
+      :taxCompliance.cancelTaxInvoice(client,{taxInvoiceId:m[1],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
+  if(method==='POST'&&p==='/api/tax/bupot'){assertPermission(ctx.user,'tax.post');const body=await readBody(req);ctx.status=201;return taxCompliance.issueWithholding(client,{...body,user:ctx.user,requestId:ctx.requestId});}
+  if(method==='GET'&&p==='/api/tax/efaktur.csv'){
+    assertPermission(ctx.user,'tax.view');
+    const result=await taxCompliance.exportEFaktur(client,url.searchParams.get('period'));
+    await runtime.audit(client,{userId:ctx.user.id,action:'EXPORT',module:'tax',entityType:'EFAKTUR',documentNumber:result.filename,newValue:{period:result.period,count:result.count},requestId:ctx.requestId});
+    ctx.download={item:{originalFilename:result.filename,mimeType:'text/csv'},buffer:Buffer.from('﻿'+result.csv,'utf8')};
+    return;
+  }
   return NO_MATCH;
 }
 
