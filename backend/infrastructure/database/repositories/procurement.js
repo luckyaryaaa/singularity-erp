@@ -14,21 +14,53 @@ async function creditStatus(client, customerId) {
   const cust = (await client.query(
     `SELECT id, name, credit_hold, credit_hold_reason, credit_limit_amount, credit_term_days FROM customers WHERE id=$1`, [customerId])).rows[0];
   if (!cust) return null;
-  const exposure = Number((await client.query(
-    `SELECT COALESCE(sum(amount - COALESCE((payload->>'paid')::numeric,0)),0) e
-     FROM business_documents WHERE document_type='INVOICE' AND party_id=$1
-     AND status IN ('APPROVED','PARTIALLY_PAID','OVERDUE','IN_PROCESS')`, [customerId])).rows[0].e);
+  // P0-K: eksposur = Open AR + Sales Order terbuka + pengiriman belum ditagih.
+  // Menghitung invoice saja membuat beberapa SO besar lolos berbarengan
+  // (mis. limit 100 jt, dua SO @80 jt sama-sama lolos karena AR masih nol).
+  // Double-count dicegah: SO yang sudah punya turunan INVOICE tidak dihitung,
+  // dan pengiriman hanya dihitung bila berdiri sendiri (tanpa induk SO yang
+  // sudah terhitung) serta belum ditagih.
+  const parts = (await client.query(
+    `WITH open_ar AS (
+       SELECT COALESCE(sum(amount - COALESCE((payload->>'paid')::numeric,0)),0) v
+       FROM business_documents WHERE document_type='INVOICE' AND party_id=$1
+         AND status IN ('APPROVED','PARTIALLY_PAID','OVERDUE','IN_PROCESS')
+     ), open_so AS (
+       SELECT COALESCE(sum(d.amount),0) v FROM business_documents d
+       WHERE d.document_type='SALES_ORDER' AND d.party_id=$1
+         AND d.status IN ('APPROVED','IN_PROCESS','PARTIALLY_COMPLETED')
+         AND NOT EXISTS (SELECT 1 FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id
+                         WHERE r.parent_document_id=d.id AND c.document_type='INVOICE'
+                           AND c.status NOT IN ('CANCELLED','VOID','REJECTED'))
+     ), unbilled_delivery AS (
+       SELECT COALESCE(sum(d.amount),0) v FROM business_documents d
+       WHERE d.document_type='DELIVERY' AND d.party_id=$1
+         AND d.status IN ('APPROVED','IN_PROCESS','COMPLETED')
+         AND NOT EXISTS (SELECT 1 FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id
+                         WHERE r.parent_document_id=d.id AND c.document_type='INVOICE'
+                           AND c.status NOT IN ('CANCELLED','VOID','REJECTED'))
+         AND NOT EXISTS (SELECT 1 FROM document_relations r JOIN business_documents pdoc ON pdoc.id=r.parent_document_id
+                         WHERE r.child_document_id=d.id AND pdoc.document_type='SALES_ORDER')
+     )
+     SELECT (SELECT v FROM open_ar)::float ar,(SELECT v FROM open_so)::float so,(SELECT v FROM unbilled_delivery)::float delivery`,
+    [customerId])).rows[0];
+  const breakdown = { openAr: Number(parts.ar), openSalesOrders: Number(parts.so), unbilledDeliveries: Number(parts.delivery) };
+  const exposure = Math.round((breakdown.openAr + breakdown.openSalesOrders + breakdown.unbilledDeliveries) * 100) / 100;
   const limit = Number(cust.credit_limit_amount);
   return {
     customerId, name: cust.name, creditHold: cust.credit_hold, creditHoldReason: cust.credit_hold_reason,
-    creditLimit: limit, exposure, available: limit > 0 ? limit - exposure : null, termDays: cust.credit_term_days
+    creditLimit: limit, exposure, breakdown, available: limit > 0 ? limit - exposure : null, termDays: cust.credit_term_days
   };
 }
 
 // Dipanggil saat submit SO/INVOICE: blokir bila hold atau melewati limit,
 // kecuali ada credit override finance yang masih berlaku.
+// P0-K: checkpoint kredit mencakup pelepasan DELIVERY (blueprint §8.6) dan
+// memakai advisory lock per pelanggan supaya dua pengajuan bersamaan tidak
+// sama-sama lolos membaca eksposur lama (race condition).
 async function assertCreditOk(client, doc) {
-  if (!['SALES_ORDER', 'INVOICE'].includes(doc.document_type) || !doc.party_id) return;
+  if (!['SALES_ORDER', 'INVOICE', 'DELIVERY'].includes(doc.document_type) || !doc.party_id) return;
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`credit:${doc.party_id}`]);
   const status = await creditStatus(client, doc.party_id);
   if (!status) return;
   const override = (await client.query(
@@ -207,7 +239,9 @@ async function rfqToPurchaseOrder(client, { rfqId, user, requestId }) {
     type: 'PURCHASE_ORDER', user: { ...user, branchId: rfq.branch_id },
     title: `PO dari ${rfq.document_number} — ${selected.supplier_name}`, amount: Number(selected.landed_cost),
     partyId: selected.supplier_id, partyName: selected.supplier_name,
-    payload: { ...(rfq.payload || {}), sourceRfqId: rfq.id, sourceRfqNumber: rfq.document_number, supplierId: selected.supplier_id, leadTimeDays: selected.lead_time_days, ...(quoteLines.length ? { lines: quoteLines } : {}) }, requestId
+    // freightTotal diteruskan agar total otoritatif server (P0-I) memasukkan
+    // landed cost: subtotal baris + freight = landed_cost kuota terpilih.
+    payload: { ...(rfq.payload || {}), sourceRfqId: rfq.id, sourceRfqNumber: rfq.document_number, supplierId: selected.supplier_id, leadTimeDays: selected.lead_time_days, freightTotal: Number(selected.freight_total || 0), ...(quoteLines.length ? { lines: quoteLines } : {}) }, requestId
   });
   await client.query(`INSERT INTO document_relations(parent_document_id,child_document_id,relation_type,created_by) VALUES($1,$2,'RFQ_TO_PO',$3)`, [rfq.id, po.id, user.id]);
   return { alreadyConverted: false, child: po };

@@ -40,7 +40,11 @@ async function dispatch(client, req, url, ctx) {
     if(body.action==='void'&&['INVOICE','CUSTOMER_PAYMENT','SUPPLIER_PAYMENT','PAYROLL_RUN'].includes(current.documentType)){if(ctx.user.role!=='owner')throw new AppError('PIN_REQUIRED');const row=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!row?.owner_pin_hash||!verifyPassword(String(body.pin),row.owner_pin_hash))throw new AppError('PIN_REQUIRED');}
     // R016 credit control: SO/Invoice tidak boleh diajukan bila pelanggan
     // dalam hold atau melewati batas kredit tanpa override finance.
-    if(body.action==='submit'&&['SALES_ORDER','INVOICE'].includes(current.documentType)){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertCreditOk(client,raw);}
+    // P0-K: checkpoint kredit di submit SO/Invoice DAN saat pelepasan DELIVERY
+    // (approve/start) — pengiriman menambah eksposur sebelum ditagih.
+    if((body.action==='submit'&&['SALES_ORDER','INVOICE'].includes(current.documentType))
+      ||(['approve','start'].includes(body.action)&&current.documentType==='DELIVERY')){
+      const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertCreditOk(client,raw);}
     // Sprint 10 budget check (§13): PR/PO tidak boleh diajukan melampaui
     // anggaran periode, kecuali override finance ber-alasan (teraudit).
     if(body.action==='submit'&&['PURCHASE_REQUEST','PURCHASE_ORDER'].includes(current.documentType)){const raw=(await client.query('SELECT * FROM business_documents WHERE id=$1',[current.id])).rows[0];await procurement.assertBudgetOk(client,raw,{overrideReason:body.budgetOverrideReason,user:ctx.user,requestId:ctx.requestId});}

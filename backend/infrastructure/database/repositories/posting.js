@@ -2,10 +2,54 @@
 const {randomUUID}=require('node:crypto');const {AppError}=require('../../../core/errors');
 const accountingConfig=require('./accounting-config');
 
+// Normalisasi + validasi baris (murni, tanpa DB) — dipakai untuk menghitung
+// total otoritatif SEBELUM dokumen disimpan, dan untuk menulis baris.
+function normalizeLines(lines){
+  if(!Array.isArray(lines))return null;
+  if(lines.length>500)throw new AppError('VALIDATION_ERROR','Maksimal 500 baris per dokumen.');
+  return lines.map((line,i)=>{
+    const qty=Number(line.qty),price=Number(line.unitPrice??line.price??0),discount=Number(line.discountPct||0),tax=Number(line.taxPct??0);
+    if(!(qty>0)||price<0||discount<0||discount>100||tax<0||tax>100)throw new AppError('VALIDATION_ERROR',`Baris ${i+1} tidak valid.`);
+    const base=qty*price*(1-discount/100);
+    return{lineNo:i+1,productId:line.productId||null,description:line.description||line.name||`Baris ${i+1}`,qty,uom:line.uom||null,price,discount,tax,total:Math.round((base+base*tax/100)*100)/100};
+  });
+}
+const lineSubtotalOf=(normalized)=>Math.round(normalized.reduce((s,l)=>s+l.total,0)*100)/100;
+
 async function syncDocumentLines(client,documentId,lines){
-  if(!Array.isArray(lines))return;if(lines.length>500)throw new AppError('VALIDATION_ERROR','Maksimal 500 baris per dokumen.');
+  const normalized=normalizeLines(lines);
+  if(!normalized)return null;
   await client.query('DELETE FROM document_lines WHERE document_id=$1',[documentId]);
-  for(let i=0;i<lines.length;i++){const line=lines[i],qty=Number(line.qty),price=Number(line.unitPrice??line.price??0),discount=Number(line.discountPct||0),tax=Number(line.taxPct??0);if(!(qty>0)||price<0||discount<0||discount>100||tax<0||tax>100)throw new AppError('VALIDATION_ERROR',`Baris ${i+1} tidak valid.`);const base=qty*price*(1-discount/100),total=Math.round((base+base*tax/100)*100)/100;await client.query(`INSERT INTO document_lines(id,document_id,line_no,product_id,description,qty,uom,unit_price,discount_pct,tax_pct,line_total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[randomUUID(),documentId,i+1,line.productId||null,line.description||line.name||`Baris ${i+1}`,qty,line.uom||null,price,discount,tax,total]);}
+  for(const l of normalized)await client.query(`INSERT INTO document_lines(id,document_id,line_no,product_id,description,qty,uom,unit_price,discount_pct,tax_pct,line_total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[randomUUID(),documentId,l.lineNo,l.productId,l.description,l.qty,l.uom,l.price,l.discount,l.tax,l.total]);
+  return lineSubtotalOf(normalized);
+}
+
+// P0-I: total dokumen dihitung SERVER dari baris + diskon/pajak header.
+// Klien boleh mengirim `amount`, tetapi nilai itu hanya diterima bila cocok
+// dengan hitungan server — mencegah header Rp10 jt dengan baris Rp100 jt
+// (memengaruhi ambang approval, margin, eksposur kredit, pajak, dan laporan).
+// Urutan: subtotal baris → diskon header → pajak header → biaya angkut/
+// surcharge level header (landed cost, mis. freight dari RFQ terpilih).
+function authoritativeTotal(lineSubtotal,payload={}){
+  const discountPct=Number(payload.discountPct||0),taxPct=Number(payload.taxPct||0);
+  const freight=Number(payload.freightTotal||payload.freight||0),surcharge=Number(payload.surchargeTotal||0);
+  if(discountPct<0||discountPct>100||taxPct<0||taxPct>100)throw new AppError('VALIDATION_ERROR','Diskon/pajak header harus di antara 0 dan 100 persen.');
+  if(freight<0||surcharge<0)throw new AppError('VALIDATION_ERROR','Biaya angkut/surcharge tidak boleh negatif.');
+  const discount=lineSubtotal*discountPct/100,taxed=(lineSubtotal-discount)*taxPct/100;
+  return Math.round((lineSubtotal-discount+taxed+freight+surcharge)*100)/100;
+}
+// Kontrak: total header TIDAK dipercaya dari klien.
+//  - amount dikosongkan (0/undefined) → server MENURUNKAN total dari baris.
+//  - amount diisi                      → wajib cocok, selisih ditolak.
+// Mengirim 0 bukan celah: nilainya diganti total sebenarnya, sehingga ambang
+// approval, margin, dan eksposur kredit tetap memakai angka yang benar.
+function assertAmountMatchesLines(submitted,expected,{documentType}={}){
+  const value=Number(submitted||0);
+  if(value===0)return expected;
+  if(Math.abs(value-expected)<=0.01)return expected;
+  throw new AppError('VALIDATION_ERROR',
+    `Total ${documentType||'dokumen'} tidak cocok dengan rincian baris: dikirim ${value.toLocaleString('id-ID')}, hasil hitung server ${expected.toLocaleString('id-ID')}.`,
+    {expectedAmount:expected,submittedAmount:value});
 }
 
 async function claimPosting(client,doc,user,kind){const row=(await client.query(`INSERT INTO document_postings(document_id,posting_kind,posted_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING document_id`,[doc.id,kind,user.id])).rows[0];return!!row;}
@@ -89,4 +133,4 @@ async function postPayroll(client,doc,user){if(doc.status!=='APPROVED')return nu
   // Kaki payroll dari posting profile: NET, TAX, BPJS_COMPANY dipetakan ke akun.
   const posted=await postFromProfile(client,doc,user,{transactionType:'PAYROLL_RUN',amounts:{NET:net,TAX:tax,BPJS_COMPANY:bpjs},memoBase:'payroll'});await finishPosting(client,doc,'ACCOUNTING',{period,net,tax,bpjs,...posted});return{period,net,tax,bpjs,...posted};}
 async function postDocument(client,doc,user){return{inventory:await postInventory(client,doc,user),accounting:await postAccounting(client,doc,user)};}
-module.exports={syncDocumentLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod};
+module.exports={syncDocumentLines,normalizeLines,lineSubtotalOf,authoritativeTotal,assertAmountMatchesLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod};

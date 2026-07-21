@@ -105,7 +105,8 @@ dbTest('RMA: garansi valid → posting RESTOCK + lot retur + jurnal RMA-DEFAULT;
   await withRollback(async (c) => {
     const u = await owner(c);
     const prod = (await c.query(`INSERT INTO products(id,code,name,uom,hpp,price,active,warranty_months) VALUES($1,$2,'Produk garansi','PCS',1000,2000,true,12) RETURNING id`, [randomUUID(), `WT-${Date.now()}`])).rows[0];
-    const delivery = await runtime.createDocument(c, { type: 'DELIVERY', user: u, title: 'DO', amount: 2000, requestId: randomUUID(), payload: { lines: [{ productId: prod.id, description: 'x', qty: 2, unitPrice: 2000 }] } });
+    // P0-I: header WAJIB konsisten dengan baris (2 × 2000 = 4000).
+    const delivery = await runtime.createDocument(c, { type: 'DELIVERY', user: u, title: 'DO', amount: 4000, requestId: randomUUID(), payload: { lines: [{ productId: prod.id, description: 'x', qty: 2, unitPrice: 2000 }] } });
     await c.query(`UPDATE business_documents SET status='COMPLETED',created_at=now()-interval '2 months' WHERE id=$1`, [delivery.id]);
     const rma = await o2c.createRma(c, { user: u, sourceDocumentId: delivery.id, warrantyClaim: true, requestId: randomUUID(),
       lines: [{ productId: prod.id, qty: 1, unitPrice: 2000, disposition: 'RESTOCK' }, { productId: prod.id, qty: 1, unitPrice: 0, disposition: 'SCRAP' }] });

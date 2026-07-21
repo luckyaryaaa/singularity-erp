@@ -63,6 +63,13 @@ async function outbox(client,eventType,payload={}) {
 
 async function createDocument(client,{type,user,title,amount=0,partyId,partyName,dueDate,payload={},requestId,transactionCurrency,currencyDate,departmentId,costCenterId,profitCenterId,projectWbsId}) {
   if(!(Number(amount)>=0)) throw new AppError('VALIDATION_ERROR','Nilai dokumen tidak boleh negatif.');
+  // P0-I: bila dokumen membawa baris, SERVER yang menentukan totalnya. Nilai
+  // dari klien hanya diterima jika cocok — dihitung sebelum snapshot kurs
+  // supaya functional/reporting amount ikut memakai angka otoritatif.
+  const normalizedLines=posting.normalizeLines(payload?.lines);
+  if(normalizedLines&&normalizedLines.length){
+    amount=posting.assertAmountMatchesLines(amount,posting.authoritativeTotal(posting.lineSubtotalOf(normalizedLines),payload),{documentType:type});
+  }
   if(type==='PURCHASE_ORDER'&&partyId){const supplier=(await client.query('SELECT name,performance_hold,performance_hold_reason,onboarding_status FROM suppliers WHERE id=$1',[partyId])).rows[0];if(!supplier)throw new AppError('RESOURCE_NOT_FOUND','Supplier PO tidak ditemukan.');if(supplier.performance_hold||['SUSPENDED','BLOCKED'].includes(supplier.onboarding_status))throw new AppError('SUPPLIER_HOLD',`Supplier ${supplier.name}: ${supplier.performance_hold_reason||supplier.onboarding_status}.`);}
   const id=randomUUID(); const documentNumber=await nextNumber(client,{documentType:type,branchId:user.branchId});
   const org=(await client.query(`SELECT le.id legal_entity_id,le.code,le.legal_name,le.trade_name,le.npwp,le.legal_address,le.operational_address,le.phone,le.whatsapp,le.email,le.website,le.document_footer,
@@ -95,6 +102,11 @@ async function updateDocument(client,{id,expectedVersion,patch,user,requestId}) 
   if(!current.rowCount) throw new AppError('RESOURCE_NOT_FOUND','Dokumen tidak ditemukan.');
   const doc=current.rows[0];
   if(!['DRAFT','REVISION_REQUIRED'].includes(doc.status)) throw new AppError('STATUS_INVALID',`Dokumen berstatus ${doc.status} tidak dapat diedit.`);
+  // P0-I: perubahan baris juga wajib rekonsiliasi dengan total header.
+  if(Array.isArray(patch.payload?.lines)&&patch.payload.lines.length){
+    const expected=posting.authoritativeTotal(posting.lineSubtotalOf(posting.normalizeLines(patch.payload.lines)),patch.payload);
+    patch.amount=posting.assertAmountMatchesLines(patch.amount??doc.amount,expected,{documentType:doc.document_type});
+  }
   const result=await client.query(`UPDATE business_documents SET
     title=COALESCE($3,title),amount=COALESCE($4,amount),due_date=COALESCE($5,due_date),payload=COALESCE($6,payload),
     party_id=COALESCE($7,party_id),party_name=COALESCE($8,party_name),version=version+1,updated_at=now(),updated_by=$9
