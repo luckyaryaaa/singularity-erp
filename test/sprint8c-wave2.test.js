@@ -34,7 +34,9 @@ dbTest('Sprint 8C Wave 2: supplier score memakai PO/GR/QC/doc dan risk hold memb
   assert.equal(pending.verificationStatus,'PENDING');assert.equal((await masterData.decideSupplierDocument(client,supplier.id,pending.id,'verify',user,randomUUID())).verificationStatus,'VERIFIED');
   const doc=(await client.query(`INSERT INTO supplier_documents(supplier_id,document_type,title,expiry_date,required,verification_status,verified_by,verified_at,created_by) VALUES($1,'NIB','NIB Supplier Score',$2,true,'VERIFIED',$3,now(),$4) RETURNING id`,[supplier.id,future,user.id,makerId])).rows[0];
   for(let i=0;i<3;i++){
-    const po=await runtime.createDocument(client,{type:'PURCHASE_ORDER',user,title:`PO score ${i}`,amount:1000,partyId:supplier.id,partyName:supplier.name,dueDate:new Date().toISOString().slice(0,10),requestId:randomUUID()});
+    // Due date +2 hari: toISOString() memakai UTC sedangkan Postgres membandingkan
+    // tanggal lokal — memakai "hari ini" membuat test flaky pada jam 00:00–07:00 WIB.
+    const po=await runtime.createDocument(client,{type:'PURCHASE_ORDER',user,title:`PO score ${i}`,amount:1000,partyId:supplier.id,partyName:supplier.name,dueDate:new Date(Date.now()+2*86400000).toISOString().slice(0,10),requestId:randomUUID()});
     const gr=await runtime.createDocument(client,{type:'GOODS_RECEIPT',user,title:`GR score ${i}`,amount:1000,partyId:supplier.id,partyName:supplier.name,requestId:randomUUID()});
     await client.query(`INSERT INTO document_relations(parent_document_id,child_document_id,relation_type,created_by) VALUES($1,$2,'ORDER_TO_RECEIPT',$3)`,[po.id,gr.id,user.id]);
     const qc=await runtime.createDocument(client,{type:'QC_INSPECTION',user,title:`QC score ${i}`,amount:0,partyId:supplier.id,partyName:supplier.name,requestId:randomUUID()});
