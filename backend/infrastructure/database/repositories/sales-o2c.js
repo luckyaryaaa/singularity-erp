@@ -164,6 +164,32 @@ async function createRma(client, { user, sourceDocumentId, warrantyClaim, reason
       if (until < new Date()) throw new AppError('VALIDATION_ERROR', `Baris ${i + 1}: garansi ${product.code} berakhir ${until.toISOString().slice(0, 10)} — klaim kedaluwarsa.`);
       warrantyUntil = until.toISOString().slice(0, 10);
     }
+    // P0-L: retur tidak boleh melampaui yang benar-benar dikirim.
+    //   Terkirim − retur selesai − retur berjalan = maksimum yang boleh diretur.
+    // Harga satuan juga diambil dari dokumen sumber (bukan input pengguna)
+    // supaya nilai nota kredit tidak dapat digelembungkan.
+    // Dicek SETELAH kelayakan garansi agar pesan penolakan paling spesifik.
+    if (source) {
+      const src = (await client.query(
+        `SELECT COALESCE(sum(qty),0)::float qty, COALESCE(max(unit_price),0)::float unit_price
+         FROM document_lines WHERE document_id=$1 AND product_id=$2`, [source.id, product.id])).rows[0];
+      const deliveredQty = Number(src.qty);
+      if (!(deliveredQty > 0)) throw new AppError('VALIDATION_ERROR', `Baris ${i + 1}: ${product.code} tidak terdapat pada ${source.document_number}.`);
+      const returned = Number((await client.query(
+        `SELECT COALESCE(sum((l->>'qty')::numeric),0)::float q
+         FROM business_documents d, jsonb_array_elements(d.payload->'lines') l
+         WHERE d.document_type='RMA' AND d.payload->>'sourceDocumentId'=$1
+           AND d.status NOT IN ('CANCELLED','VOID','REJECTED') AND l->>'productId'=$2`,
+        [source.id, product.id])).rows[0].q);
+      const available = Math.round((deliveredQty - returned) * 1e6) / 1e6;
+      if (qty > available) throw new AppError('VALIDATION_ERROR',
+        `Baris ${i + 1}: retur ${qty} ${product.uom || ''} melebihi sisa yang dapat diretur (${available} dari ${deliveredQty} terkirim, ${returned} sudah/sedang diretur).`,
+        { productId: product.id, deliveredQty, previouslyReturned: returned, availableQty: available });
+      // Nilai retur mengikuti harga dokumen sumber.
+      if (Number(src.unit_price) > 0 && Math.abs(price - Number(src.unit_price)) > 0.01 && price > Number(src.unit_price))
+        throw new AppError('VALIDATION_ERROR', `Baris ${i + 1}: harga retur ${price.toLocaleString('id-ID')} melebihi harga pada ${source.document_number} (${Number(src.unit_price).toLocaleString('id-ID')}).`,
+          { sourceUnitPrice: Number(src.unit_price), submittedUnitPrice: price });
+    }
     amount += qty * price;
     checked.push({ productId: product.id, description: `${product.code} · ${product.name}`, qty, uom: product.uom, unitPrice: price, disposition, warrantyUntil, note: line.note ? String(line.note).slice(0, 300) : null });
   }

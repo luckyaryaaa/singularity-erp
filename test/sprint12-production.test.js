@@ -86,6 +86,13 @@ dbTest('production: WO → reservasi → FIFO issue → costing → finished goo
     await client.query(`UPDATE business_documents SET status='COMPLETED' WHERE id=$1`, [result.finishedReceiptId]);
     const receipt = runtime.camel((await client.query('SELECT * FROM business_documents WHERE id=$1', [result.finishedReceiptId])).rows[0]);
     await posting.postInventory(client, receipt, user);
+    // P0-M: gerbang mutu — tanpa QC final yang PASS, WO tetap tidak boleh selesai.
+    await assert.rejects(() => production.assertReadyToComplete(client, wo.id),
+      (error) => error.code === 'STATUS_INVALID' && /QC final/.test(String(error.detail || error.message)),
+      'WO tanpa QC final wajib ditolak');
+    const finalQc = await runtime.createDocument(client, { type: 'QC_INSPECTION', user, title: 'QC final WO', amount: 0, requestId: randomUUID(), payload: {} });
+    await client.query(`INSERT INTO qc_inspections(qc_document_id,subject_document_id,inspection_type,sampled_qty,passed_qty,failed_qty,result,inspected_by)
+      VALUES($1,$2,'FINAL',2,2,0,'PASS',$3)`, [finalQc.id, wo.id, user.id]);
     assert.equal(await production.assertReadyToComplete(client, wo.id), true);
     const fgLot = (await client.query('SELECT qty_on_hand FROM stock_lots WHERE source_document_id=$1', [result.finishedReceiptId])).rows[0];
     assert.equal(Number(fgLot.qty_on_hand), 2);

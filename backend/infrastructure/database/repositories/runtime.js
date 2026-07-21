@@ -61,6 +61,48 @@ async function outbox(client,eventType,payload={}) {
   return id;
 }
 
+// P0-J — Customer PO adalah komitmen hukum pelanggan. Nomor PO, keabsahan
+// pelanggan, dan keterkaitan ke penawaran divalidasi di server; frontend tidak
+// boleh menjadi satu-satunya penjaga. Keunikan nomor per pelanggan ditegakkan
+// indeks ux_customer_po_number_per_customer (migrasi 040).
+async function assertCustomerPoValid(client,{partyId,amount,payload={}}){
+  const poNumber=String(payload.customerPoNumber||'').trim();
+  if(!poNumber)throw new AppError('VALIDATION_ERROR','Nomor PO pelanggan wajib diisi.');
+  if(poNumber.length>60)throw new AppError('VALIDATION_ERROR','Nomor PO pelanggan maksimal 60 karakter.');
+  if(!partyId)throw new AppError('VALIDATION_ERROR','Customer PO wajib menyebutkan pelanggan.');
+  const customer=(await client.query('SELECT id,name,active FROM customers WHERE id=$1',[partyId])).rows[0];
+  if(!customer)throw new AppError('RESOURCE_NOT_FOUND','Pelanggan Customer PO tidak ditemukan.');
+  if(!customer.active)throw new AppError('VALIDATION_ERROR',`Pelanggan ${customer.name} non-aktif — Customer PO tidak dapat dibuat.`);
+  // Kelayakan kredit sengaja TIDAK diperiksa di sini: mencatat PO yang diterima
+  // bukan komitmen pengiriman. Gerbang kredit tunggal ada di assertCreditOk
+  // (Sales Order / Delivery / Invoice) agar aturannya tidak berganda.
+  const duplicate=(await client.query(`SELECT document_number FROM business_documents
+    WHERE document_type='CUSTOMER_PO' AND party_id=$1 AND payload->>'customerPoNumber'=$2
+      AND status NOT IN('CANCELLED','VOID','REJECTED') LIMIT 1`,[partyId,poNumber])).rows[0];
+  if(duplicate)throw new AppError('DOCUMENT_CONFLICT',`Nomor PO ${poNumber} dari ${customer.name} sudah tercatat pada ${duplicate.document_number}.`,{existingDocument:duplicate.document_number});
+
+  if(payload.poDate){
+    const po=new Date(payload.poDate);
+    if(Number.isNaN(po.getTime()))throw new AppError('VALIDATION_ERROR','Tanggal PO pelanggan tidak valid.');
+    if(po.getTime()>Date.now()+86400000)throw new AppError('VALIDATION_ERROR','Tanggal PO pelanggan tidak boleh di masa depan.');
+  }
+
+  const quotationRef=payload.quotationId||payload.sourceDocumentId||null;
+  if(!quotationRef)return;
+  const quote=(await client.query(`SELECT id,document_number,document_type,status,party_id,party_name,amount,due_date FROM business_documents WHERE id=$1`,[quotationRef])).rows[0];
+  if(!quote)throw new AppError('RESOURCE_NOT_FOUND','Penawaran rujukan Customer PO tidak ditemukan.');
+  if(quote.document_type!=='QUOTATION')throw new AppError('VALIDATION_ERROR',`Rujukan ${quote.document_number} bukan penawaran.`);
+  if(quote.party_id&&String(quote.party_id)!==String(partyId))
+    throw new AppError('VALIDATION_ERROR',`Penawaran ${quote.document_number} milik ${quote.party_name||'pelanggan lain'} — tidak cocok dengan pelanggan Customer PO.`,{quotationPartyId:quote.party_id});
+  if(!['APPROVED','COMPLETED','CLOSED'].includes(quote.status))
+    throw new AppError('STATUS_INVALID',`Penawaran ${quote.document_number} berstatus ${quote.status} — hanya penawaran yang sudah disetujui yang dapat menjadi dasar Customer PO.`,{quotationStatus:quote.status});
+  if(quote.due_date&&new Date(quote.due_date).getTime()<Date.now()-86400000)
+    throw new AppError('VALIDATION_ERROR',`Penawaran ${quote.document_number} sudah kedaluwarsa pada ${String(quote.due_date).slice(0,10)}.`,{validUntil:quote.due_date});
+  const quoted=Number(quote.amount||0),ordered=Number(amount||0);
+  if(quoted>0&&ordered-quoted>0.01)
+    throw new AppError('VALIDATION_ERROR',`Nilai Customer PO (${ordered}) melebihi penawaran ${quote.document_number} (${quoted}) — terbitkan revisi penawaran terlebih dahulu.`,{quotedAmount:quoted,orderedAmount:ordered});
+}
+
 async function createDocument(client,{type,user,title,amount=0,partyId,partyName,dueDate,payload={},requestId,transactionCurrency,currencyDate,departmentId,costCenterId,profitCenterId,projectWbsId}) {
   if(!(Number(amount)>=0)) throw new AppError('VALIDATION_ERROR','Nilai dokumen tidak boleh negatif.');
   // P0-I: bila dokumen membawa baris, SERVER yang menentukan totalnya. Nilai
@@ -71,6 +113,7 @@ async function createDocument(client,{type,user,title,amount=0,partyId,partyName
     amount=posting.assertAmountMatchesLines(amount,posting.authoritativeTotal(posting.lineSubtotalOf(normalizedLines),payload),{documentType:type});
   }
   if(type==='PURCHASE_ORDER'&&partyId){const supplier=(await client.query('SELECT name,performance_hold,performance_hold_reason,onboarding_status FROM suppliers WHERE id=$1',[partyId])).rows[0];if(!supplier)throw new AppError('RESOURCE_NOT_FOUND','Supplier PO tidak ditemukan.');if(supplier.performance_hold||['SUSPENDED','BLOCKED'].includes(supplier.onboarding_status))throw new AppError('SUPPLIER_HOLD',`Supplier ${supplier.name}: ${supplier.performance_hold_reason||supplier.onboarding_status}.`);}
+  if(type==='CUSTOMER_PO') await assertCustomerPoValid(client,{partyId,amount,payload});
   const id=randomUUID(); const documentNumber=await nextNumber(client,{documentType:type,branchId:user.branchId});
   const org=(await client.query(`SELECT le.id legal_entity_id,le.code,le.legal_name,le.trade_name,le.npwp,le.legal_address,le.operational_address,le.phone,le.whatsapp,le.email,le.website,le.document_footer,
     (SELECT jsonb_build_object('bankName',b.bank_name,'accountNumber',b.account_number,'accountHolder',b.account_holder,'currency',b.currency,'usagePurpose',b.usage_purpose)
@@ -226,4 +269,4 @@ async function withIdempotency(client,{userId,operation,key,body},execute){
   return response;
 }
 
-module.exports={PREFIXES,camel,nextNumber,audit,outbox,createDocument,updateDocument,getDocument,documentRelations,convertDocument,listDocuments,auditTrail,pendingApprovals,transitionDocument,withIdempotency,approvalPolicy,APPROVAL_TIERS,CONVERSIONS};
+module.exports={PREFIXES,camel,nextNumber,audit,outbox,createDocument,assertCustomerPoValid,updateDocument,getDocument,documentRelations,convertDocument,listDocuments,auditTrail,pendingApprovals,transitionDocument,withIdempotency,approvalPolicy,APPROVAL_TIERS,CONVERSIONS};

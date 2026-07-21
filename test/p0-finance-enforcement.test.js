@@ -96,10 +96,21 @@ dbTest('P0-J: nomor PO pelanggan unik per pelanggan', async () => rollback(async
   const customer = (await client.query('SELECT id,name FROM customers WHERE active LIMIT 1')).rows[0];
   assert.ok(customer, 'butuh minimal satu pelanggan aktif');
   const poNumber = `PO-UNIQ-${Date.now()}`;
-  await runtime.createDocument(client, { type: 'CUSTOMER_PO', user, title: 'CPO pertama', amount: 1000, partyId: customer.id, partyName: customer.name, payload: { customerPoNumber: poNumber }, requestId: randomUUID() });
+  const first = await runtime.createDocument(client, { type: 'CUSTOMER_PO', user, title: 'CPO pertama', amount: 1000, partyId: customer.id, partyName: customer.name, payload: { customerPoNumber: poNumber }, requestId: randomUUID() });
+
+  // Lapisan 1 — aplikasi menolak lebih dulu dengan pesan yang bisa ditindaklanjuti.
   await assert.rejects(
     () => runtime.createDocument(client, { type: 'CUSTOMER_PO', user, title: 'CPO duplikat', amount: 2000, partyId: customer.id, partyName: customer.name, payload: { customerPoNumber: poNumber }, requestId: randomUUID() }),
-    (error) => error.code === 'VALIDATION_ERROR' || /unik|duplicate|unique/i.test(String(error.message) + String(error.detail || '')),
+    (error) => error.code === 'DOCUMENT_CONFLICT' && error.extra.existingDocument === first.documentNumber,
     'nomor PO pelanggan yang sama pada pelanggan yang sama wajib ditolak'
+  );
+
+  // Lapisan 2 — indeks unik adalah benteng terakhir terhadap balapan transaksi.
+  // Diuji lewat UPDATE langsung yang tidak melewati validasi aplikasi sama sekali.
+  const second = await runtime.createDocument(client, { type: 'CUSTOMER_PO', user, title: 'CPO kedua', amount: 2000, partyId: customer.id, partyName: customer.name, payload: { customerPoNumber: `${poNumber}-LAIN` }, requestId: randomUUID() });
+  await assert.rejects(
+    () => client.query(`UPDATE business_documents SET payload=jsonb_set(payload,'{customerPoNumber}',to_jsonb($1::text)) WHERE id=$2`, [poNumber, second.id]),
+    (error) => error.code === '23505',
+    'indeks unik database wajib menolak duplikat walau validasi aplikasi dilewati'
   );
 }));

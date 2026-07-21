@@ -212,6 +212,13 @@ async function completeOperation(client, { operationId, user }) {
   assertBranchScope(user, op.branch_id);
   if (op.status === 'DONE') return { replay: true };
   if (!['APPROVED', 'IN_PROCESS'].includes(op.doc_status)) throw new AppError('STATUS_INVALID', `WO berstatus ${op.doc_status} — operasi tidak dapat diselesaikan.`);
+  // P0-M: urutan operasi ditegakkan — operasi bernomor lebih kecil wajib
+  // selesai lebih dulu (SOP produksi menyatakan operasi berurutan, tetapi
+  // sebelumnya hanya operasi terpilih yang divalidasi).
+  const predecessor = (await client.query(
+    `SELECT op_no,name FROM work_order_operations WHERE work_order_id=$1 AND op_no<$2 AND status<>'DONE' ORDER BY op_no LIMIT 1`,
+    [op.work_order_id, op.op_no])).rows[0];
+  if (predecessor) throw new AppError('STATUS_INVALID', `Operasi ${predecessor.op_no} (${predecessor.name}) belum selesai — operasi wajib berurutan.`, { blockingOperation: predecessor.op_no });
   const updated = (await client.query(`UPDATE work_order_operations SET status='DONE',started_at=COALESCE(started_at,now()),finished_at=now() WHERE id=$1 RETURNING *`, [operationId])).rows[0];
   return { opNo: updated.op_no, status: updated.status };
 }
@@ -298,6 +305,16 @@ async function assertReadyToComplete(client, docId) {
   if (state.pending_materials > 0) throw new AppError('STATUS_INVALID', `${state.pending_materials} baris material belum selesai dikeluarkan.`);
   if (state.open_issues > 0) throw new AppError('STATUS_INVALID', 'Masih ada material issue yang belum selesai.');
   if (state.completed_receipts < 1) throw new AppError('STATUS_INVALID', 'Penerimaan barang jadi belum diselesaikan.');
+  // P0-M: gerbang mutu — SOP mewajibkan QC final lulus dan NCR kritis tertutup
+  // sebelum WO selesai. Sebelumnya WO bisa COMPLETED tanpa QC final sama sekali.
+  const quality = (await client.query(`SELECT
+      count(*) FILTER (WHERE inspection_type='FINAL')::int final_total,
+      count(*) FILTER (WHERE inspection_type='FINAL' AND result='PASS')::int final_pass,
+      count(*) FILTER (WHERE ncr_number IS NOT NULL AND result='FAIL')::int open_ncr
+    FROM qc_inspections WHERE subject_document_id=$1`, [docId])).rows[0];
+  if (Number(quality.final_total) < 1) throw new AppError('STATUS_INVALID', 'QC final belum dilakukan — Work Order tidak boleh diselesaikan tanpa inspeksi akhir.');
+  if (Number(quality.final_pass) < 1) throw new AppError('STATUS_INVALID', 'QC final belum berstatus PASS.');
+  if (Number(quality.open_ncr) > 0) throw new AppError('STATUS_INVALID', `${quality.open_ncr} NCR gagal masih terbuka — selesaikan sebelum menutup Work Order.`);
   return true;
 }
 
