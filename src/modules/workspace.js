@@ -6,8 +6,21 @@
 
   const dashboard = {
     permission: 'dashboard.view',
+    view: 'overview',
     onEvent() { this.render(document.getElementById('main')); },
+    // Shell dashboard: Executive Cockpit tergabung sebagai tab (§ tidak berdiri
+    // sendiri) — pengguna tanpa izin report.view hanya melihat Ringkasan.
     async render(main, _params, signal) {
+      const showCockpit = can('report.view') && window.MAT_PAGES && window.MAT_PAGES.cockpit;
+      if (!showCockpit) this.view = 'overview';
+      const tab = (id, label, icon) => `<button class="dash-tab ${this.view === id ? 'active' : ''}" role="tab" aria-selected="${this.view === id}" data-view="${id}">${icon} ${label}</button>`;
+      main.innerHTML = (showCockpit ? `<nav class="dash-tabs" role="tablist" aria-label="Tampilan dashboard">${tab('overview', 'Ringkasan', ICONS.grid)}${tab('cockpit', 'Executive Cockpit', ICONS.chart)}</nav>` : '') + `<div id="dashBody"></div>`;
+      const body = main.querySelector('#dashBody');
+      main.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { if (this.view === b.dataset.view) return; this.view = b.dataset.view; this.render(main); }));
+      if (this.view === 'cockpit' && showCockpit) return window.MAT_PAGES.cockpit.render(body, signal);
+      return this.renderOverview(body, signal);
+    },
+    async renderOverview(main, signal) {
       const data = await query('dashboard', () => api('/api/dashboard', { signal }), { staleMs: 30_000 });
       const hour = new Date().getHours();
       const greet = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 19 ? 'Selamat sore' : 'Selamat malam';
@@ -109,14 +122,16 @@
           </table></div>
         </section>`;
 
+      // Re-render lewat shell (top-level <main>) agar tab tetap ada.
+      const shell = () => dashboard.render(document.getElementById('main'));
       main.querySelector('#dashRefresh').addEventListener('click', async (e) => {
         const btn = e.currentTarget; btn.disabled = true;
         invalidate('dashboard');
-        await dashboard.render(main);
+        await shell();
         toast('Data disegarkan', 'Ringkasan terbaru sudah ditampilkan.');
       });
       main.querySelectorAll('[data-doc]').forEach((tr) => {
-        const open = () => openDrawer(tr.dataset.doc, { onChange: () => { invalidate('dashboard'); dashboard.render(main); } });
+        const open = () => openDrawer(tr.dataset.doc, { onChange: () => { invalidate('dashboard'); shell(); } });
         tr.addEventListener('click', open);
         tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
       });

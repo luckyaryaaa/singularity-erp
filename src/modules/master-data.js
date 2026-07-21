@@ -109,6 +109,39 @@
   }
 
   const LIFECYCLE_BTN = { DRAFT: [['submit','Ajukan review']], PENDING_REVIEW: [['approve','Setujui']], APPROVED: [['activate','Aktifkan']], ACTIVE: [['suspend','Suspend']], SUSPENDED: [['activate','Aktifkan'],['block','Blokir']], BLOCKED: [['obsolete','Usangkan']], OBSOLETE: [['archive','Arsipkan']] };
+  // Overview enterprise per-master: KPI ringkas + panel informasi rapi (bukan
+  // dump mentah). Nilai boleh HTML (chip); teks mentah wajib di-esc di sini.
+  const riskChip = (v) => v ? `<span class="chip ${{ LOW: 'mint', MEDIUM: 'amber', HIGH: 'coral' }[v] || 'gray'}">${esc(v)}</span>` : '—';
+  const OVERVIEW = {
+    customers: {
+      kpis: (o) => [
+        ['Batas kredit', o.creditLimit != null ? fmtIDR(o.creditLimit) : 'Tanpa batas', `Termin ${o.paymentTermDays || 0} hari · ${esc(o.currency || 'IDR')}`],
+        ['Rating risiko', riskChip(o.riskRating), `Koleksi: ${esc(o.collectionStatus || 'NORMAL')}`],
+        ['Status PPN', esc(o.ppnStatus || '—'), o.npwp ? `NPWP ${esc(o.npwp)}` : 'NPWP belum diisi'],
+        ['Tipe pelanggan', esc(o.customerType === 'INDIVIDUAL' ? 'Perorangan' : 'Perusahaan'), esc(o.businessCategory || 'Kategori umum')]
+      ],
+      detail: (o) => [['Kode', esc(o.code)], ['Nama legal', esc(o.legalName)], ['Kota', esc(o.city)], ['Website', esc(o.website)], ['Alamat', esc(o.address)]]
+    },
+    suppliers: {
+      kpis: (o) => [
+        ['Rating', o.rating ? '★'.repeat(o.rating) + `<span class="muted">${'★'.repeat(5 - o.rating)}</span>` : '—', esc(o.category || 'Kategori umum')],
+        ['Level risiko', riskChip(o.riskLevel), `Onboarding: ${esc(o.onboardingStatus || '—')}`],
+        ['Perlakuan PPN', esc(o.ppnTreatment || '—'), o.withholdingEligible ? 'Objek withholding' : 'Non-withholding'],
+        ['COI', o.coiDeclared ? '<span class="chip mint">Dideklarasikan</span>' : '<span class="chip amber">Belum</span>', o.npwp ? `NPWP ${esc(o.npwp)}` : 'NPWP belum diisi']
+      ],
+      detail: (o) => [['Kode', esc(o.code)], ['Nama legal', esc(o.legalName)], ['Kategori', esc(o.category)], ['Tipe', esc(o.supplierType === 'INDIVIDUAL' ? 'Perorangan' : 'Perusahaan')], ['Perlakuan PPh', esc(o.pphTreatment)]]
+    },
+    products: {
+      kpis: (o) => [
+        ['Harga jual', fmtIDR(o.price || 0), `Satuan ${esc(o.uom || '—')}`],
+        ['HPP', can('journal.view') || can('*') ? fmtIDR(o.hpp || 0) : '<span class="chip gray">Tersembunyi</span>', 'Harga pokok awal'],
+        ['Sourcing', esc({ MAKE: 'Produksi', BUY: 'Beli', SUBCONTRACT: 'Subkontrak' }[o.makeOrBuy] || o.makeOrBuy || '—'), esc(o.productType || 'PRODUCT')],
+        ['Kontrol mutu', o.inspectionRequired ? '<span class="chip amber">Wajib inspeksi</span>' : '<span class="chip mint">Standar</span>', [o.serialRequired && 'Serial', o.lotRequired && 'Lot'].filter(Boolean).join(' · ') || 'Tanpa tracking khusus']
+      ],
+      detail: (o) => [['Kode', esc(o.code)], ['Kategori', esc(o.category)], ['Material', esc(o.materialType)], ['Grade', esc(o.grade)], ['Dimensi', esc(o.dimensions)], ['No. drawing', esc([o.drawingNumber, o.drawingRevision].filter(Boolean).join(' rev '))], ['Spesifikasi', esc(o.specification)]]
+    }
+  };
+
   const fmtCell = (row, col) => {
     const [key, , type] = col; const v = row[key];
     if (type === 'money') return `<span class="money">${fmtIDR(Number(v) || 0)}</span>`;
@@ -156,7 +189,12 @@
             return;
           }
           const rows = cfg.tabs.filter((t) => t.sub).map((t) => `<div class="stat-row"><span>${esc(t.label)}</span><b>${(overview.subCounts && overview.subCounts[t.sub]) || 0} entri</b></div>`).join('');
-          body.innerHTML = `<div class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">RINGKASAN</p><h2>Informasi utama</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${Object.entries(overview).filter(([k, v]) => !['subCounts','id'].includes(k) && typeof v !== 'object' && v !== null && v !== '').slice(0, 12).map(([k, v]) => `<div><dt>${esc(k.replace(/([A-Z])/g, ' $1'))}</dt><dd>${esc(String(v))}</dd></div>`).join('')}</dl></div></article><article class="panel"><header><div><p class="eyebrow">KELENGKAPAN</p><h2>Sub-data</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
+          const ov = OVERVIEW[params.type];
+          const detailRows = ov
+            ? ov.detail(overview).filter(([, v]) => v != null && v !== '').map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')
+            : Object.entries(overview).filter(([k, v]) => !['subCounts', 'id'].includes(k) && typeof v !== 'object' && v !== null && v !== '').slice(0, 12).map(([k, v]) => `<div><dt>${esc(k.replace(/([A-Z])/g, ' $1'))}</dt><dd>${esc(String(v))}</dd></div>`).join('');
+          const kpiHtml = ov ? `<section class="kpi-grid">${ov.kpis(overview).map(([label, val, note]) => `<article class="kpi"><span>${esc(label)}</span><strong>${val}</strong><small>${note || ''}</small></article>`).join('')}</section>` : '';
+          body.innerHTML = kpiHtml + `<div class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">RINGKASAN</p><h2>Informasi utama</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">KELENGKAPAN</p><h2>Sub-data</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
           return;
         }
         if (tabId === 'cost-trace') {

@@ -56,8 +56,7 @@
       ['#/hr/attendance', 'Kehadiran', 'clock', 'attendance.view'],
       ['#/hr/workforce', 'Shift & kalender', 'gear', 'attendance.view'],
       ['#/hr/leave', 'Cuti', 'clock', 'leave.view'],
-      ['#/payroll', 'Payroll', 'payslip', 'payroll.view|payroll.view_self'],
-      ['#/reports', 'Laporan', 'chart', 'report.view']
+      ['#/payroll', 'Payroll', 'payslip', 'payroll.view|payroll.view_self']
     ]],
     ['MASTER DATA', [
       ['#/masters/governance', 'Data Quality & FX', 'shield', 'settings.view'],
@@ -76,6 +75,7 @@
       ['#/system/monitoring', 'Monitoring', 'monitor', 'monitoring.view'],
       ['#/system/jobs', 'Job latar belakang', 'job', 'job.view'],
       ['#/system/selftest', 'Self test', 'shield', 'selftest.view'],
+      ['#/system/document-templates', 'Template dokumen', 'doc', 'settings.view'],
       ['#/system/settings', 'Pengaturan', 'gear', 'settings.view']
     ]]
   ];

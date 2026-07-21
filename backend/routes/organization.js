@@ -6,7 +6,36 @@ const { verifyPassword } = require('../core/password');
 const organization = require('../infrastructure/database/repositories/organization');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const docTemplates = require('../infrastructure/database/repositories/document-templates');
+const docRender = require('../infrastructure/files/document-render');
 const { NO_MATCH } = require('./shared');
+
+// Data contoh untuk pratinjau template (tidak menyentuh dokumen nyata) — nilai
+// mengikuti desain resmi agar pengguna melihat hasil sebenarnya saat mendesain.
+function previewSample(documentType, orgSnapshot) {
+  const isQuo = documentType === 'QUOTATION';
+  const amount = isQuo ? 185_000_000 : 385_000_000;
+  return {
+    document: {
+      documentType, documentNumber: `${isQuo ? 'QO' : (documentType.split('_')[0].slice(0, 3))}-PRV/001`,
+      status: 'APPROVED', amount, partyName: 'PT Hitachi Construction Machinery Indonesia',
+      createdAt: new Date().toISOString(), dueDate: isQuo ? new Date(Date.now() + 30 * 864e5).toISOString() : null,
+      organizationIdentitySnapshot: orgSnapshot,
+      payload: { customerAddress: 'Cibitung, Bekasi', attn: 'Ibu Rani', customerPoNumber: isQuo ? null : 'PO-2026-001', poDate: isQuo ? null : '2026-06-01', terms: '30 Days' }
+    },
+    lines: [{ lineNo: 1, description: 'Hydraulic Cylinder Repair', qty: 1, uom: 'service', unitPrice: amount, discountPct: 0, taxPct: 0, lineTotal: amount }]
+  };
+}
+async function orgPreviewSnapshot(client, user) {
+  const profile = await organization.overview(client, user);
+  const banks = await organization.listResource(client, user, profile.id, 'bank-accounts');
+  const bank = banks.find((b) => b.verificationStatus === 'VERIFIED' && b.isPrimary) || banks.find((b) => b.verificationStatus === 'VERIFIED') || banks[0] || {};
+  return {
+    legalName: profile.legalName, tradeName: profile.tradeName, tagline: profile.tagline,
+    operationalAddress: profile.operationalAddress || profile.legalAddress, npwp: profile.npwp,
+    phone: profile.phone, whatsapp: profile.whatsapp, email: profile.email, website: profile.website, documentFooter: profile.documentFooter,
+    bank: bank.bankName ? { bankName: bank.bankName, accountHolder: bank.accountHolder, accountNumber: bank.accountNumber, branch: bank.branchName || bank.branch } : {}
+  };
+}
 
 async function dispatch(client, req, url, ctx) {
   const p=url.pathname, method=req.method;
@@ -30,6 +59,17 @@ async function dispatch(client, req, url, ctx) {
     assertPermission(ctx.user,'settings.edit');
     const body=await readBody(req);
     return docTemplates.saveTemplate(client,{documentType:body.documentType,name:body.name,config:body.config,user:ctx.user,requestId:ctx.requestId});
+  }
+  // Pratinjau PDF template dengan data contoh (inline, tanpa dokumen nyata).
+  m=p.match(/^\/api\/document-templates\/([A-Z_]{2,40})\/preview$/);
+  if(method==='GET'&&m){
+    assertPermission(ctx.user,'settings.view');
+    const template=await docTemplates.resolveTemplate(client,m[1]);
+    const orgSnapshot=await orgPreviewSnapshot(client,ctx.user);
+    const sample=previewSample(m[1],orgSnapshot);
+    const rendered=docRender.renderDocument({document:sample.document,lines:sample.lines,copy:true,template});
+    ctx.download={item:{originalFilename:`pratinjau-${m[1].toLowerCase()}.pdf`,mimeType:'application/pdf',disposition:'inline'},buffer:rendered.buffer};
+    return;
   }
   if(method==='GET'&&p==='/api/system/settings'){
     assertPermission(ctx.user,'settings.view');const profile=await organization.overview(client,ctx.user),banks=await organization.listResource(client,ctx.user,profile.id,'bank-accounts');

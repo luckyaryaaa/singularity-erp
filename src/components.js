@@ -44,7 +44,8 @@
     logout: I('<path d="M9 21H5V3h4M15 16l4-4-4-4M19 12H9"/>'),
     inbox: I('<path d="M4 4h16v16H4zM4 13h5l1.5 3h3L15 13h5"/>'),
     wand: I('<path d="m14 6 4 4L7 21H3v-4zM13 3l1.5 1.5M19 5l1 1M20 11l1.5 1.5"/>'),
-    building: I('<path d="M4 21V5l8-2v18M12 21h8V9l-8-2M7 9h.01M7 13h.01M7 17h.01M16 13h.01M16 17h.01"/>')
+    building: I('<path d="M4 21V5l8-2v18M12 21h8V9l-8-2M7 9h.01M7 13h.01M7 17h.01M16 13h.01M16 17h.01"/>'),
+    approval: I('<path d="M9 4h6v2H9zM7 4H5v16h14V4h-2M9 13l2 2 4-4"/>')
   };
   const ICONS = window.ICONS;
 

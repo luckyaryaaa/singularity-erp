@@ -643,3 +643,51 @@ table tfoot th{border-top:2px solid var(--border);background:var(--surface-soft)
 .revenue-panel .chart svg .gridline{stroke:rgba(120,140,170,.13);stroke-dasharray:3 5}
 .health-row{transition:background var(--ease-fast);border-radius:10px}
 .health-row:hover{background:#f7f9fc}
+
+/* ── Template dokumen (designer, cute&clay) ─────────────────────────────── */
+.tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:var(--space-5);margin-top:var(--space-4)}
+.tpl-card{display:flex;flex-direction:column;background:var(--bg-surface,#fff);border:1px solid var(--border);border-radius:var(--radius-2xl,20px);overflow:hidden;box-shadow:var(--shadow);transition:transform var(--ease-fast),box-shadow var(--ease-fast)}
+.tpl-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lift)}
+/* Thumbnail dokumen mini — memakai warna aksen template (--accent). */
+.tpl-preview{position:relative;height:150px;padding:16px 18px;background:linear-gradient(170deg,#fdfefe,#eef2f7);border-bottom:1px solid var(--border);overflow:hidden}
+.tpl-preview .tpl-kop{position:absolute;left:18px;top:16px;width:26px;height:26px;border-radius:7px;background:var(--accent);box-shadow:0 3px 8px rgba(22,32,51,.22)}
+.tpl-preview .tpl-title{position:absolute;right:18px;top:18px;font:800 15px/1 var(--font-display,inherit);letter-spacing:-.02em;color:var(--accent);text-transform:uppercase}
+.tpl-preview .tpl-line{position:absolute;left:52px;height:5px;border-radius:3px;background:#d4dbe6}
+.tpl-preview .tpl-line{top:20px;width:96px}
+.tpl-preview .tpl-line.short{top:31px;width:64px;background:#e1e7ef}
+.tpl-preview::before{content:"";position:absolute;left:18px;right:18px;top:52px;height:3px;border-radius:2px;background:#f0b429}
+.tpl-preview .tpl-rows{position:absolute;left:18px;right:18px;top:66px;height:44px;border-radius:6px;border:1px solid #dbe2ec;background:repeating-linear-gradient(180deg,#fff 0 10px,#f4f7fa 10px 11px)}
+.tpl-preview .tpl-rows::before{content:"";position:absolute;left:0;right:0;top:0;height:12px;border-radius:5px 5px 0 0;background:var(--accent);opacity:.92}
+.tpl-preview .tpl-total{position:absolute;right:18px;bottom:14px;width:118px;height:16px;border-radius:5px;background:var(--accent)}
+.tpl-preview .tpl-total::after{content:"";position:absolute;left:8px;top:5px;width:52px;height:6px;border-radius:3px;background:#f0b429}
+.tpl-meta{display:flex;flex-direction:column;gap:12px;padding:16px 18px}
+.tpl-meta>header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.tpl-meta h3{margin:2px 0 0;font-size:15px}
+.tpl-meta .eyebrow{margin:0}
+.tpl-flags{display:flex;flex-wrap:wrap;gap:6px}
+.tpl-flag{font-size:11px;font-weight:600;color:var(--muted);background:var(--soft-gray);padding:3px 9px;border-radius:999px}
+.tpl-flag.on{color:#16744a;background:#e3f5ec}
+.tpl-actions{display:flex;gap:8px;margin-top:2px}
+.tpl-actions .btn{flex:1;justify-content:center}
+@media(max-width:640px){.tpl-grid{grid-template-columns:1fr}}
+
+/* ── Dashboard tabs (Ringkasan ↔ Executive Cockpit) segmented control ────── */
+.dash-tabs{display:inline-flex;gap:4px;padding:5px;margin-bottom:20px;background:var(--soft-gray);border:1px solid var(--border);border-radius:var(--radius-2xl,20px);box-shadow:var(--elevation-xs)}
+.dash-tab{display:inline-flex;align-items:center;gap:8px;border:0;background:none;padding:9px 18px;font-size:13px;font-weight:650;color:var(--muted);border-radius:999px;white-space:nowrap;transition:var(--ease-fast)}
+.dash-tab svg{width:16px;height:16px}
+.dash-tab:hover{color:var(--text)}
+.dash-tab.active{color:var(--navy);background:var(--bg-surface,#fff);box-shadow:0 4px 12px -4px rgba(22,32,51,.28)}
+.exec-embed-bar{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+@media(max-width:640px){.dash-tabs{display:flex}.dash-tab{flex:1;justify-content:center;padding:9px 10px}}
+
+/* ── KPI cards (overview master, governance, organisasi) ─────────────────── */
+/* Kelas .kpi/.kpi-grid dipakai banyak halaman namun sebelumnya tanpa gaya —
+   diberi kartu clay ringkas yang selaras dengan .metric. */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(184px,1fr));gap:14px;margin-bottom:20px}
+.kpi{display:flex;flex-direction:column;gap:5px;background:var(--bg-surface,#fff);border:1px solid var(--border);border-radius:var(--r-card,16px);padding:16px 18px;box-shadow:var(--shadow);transition:box-shadow var(--ease-fast),transform var(--ease-fast)}
+.kpi:hover{box-shadow:var(--shadow-lift);transform:translateY(-2px)}
+.kpi>span{font-size:11px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.kpi>strong{font:700 21px/1.2 var(--font-display);letter-spacing:-.02em;color:var(--text);font-variant-numeric:tabular-nums}
+.kpi>strong .chip{font-size:12.5px;vertical-align:baseline}
+.kpi>small{font-size:11px;color:var(--muted);line-height:1.4}
+@media(max-width:640px){.kpi-grid{grid-template-columns:1fr 1fr}}
