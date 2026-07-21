@@ -14,7 +14,7 @@ const ROUTE_MATRIX = Object.freeze([
   { file:'organization.js', handlers:11, directGuards:4, strategy:'REPOSITORY_SCOPE_OWNER_PIN_AND_MFA', evidence:['test/sprint7-organization-employee.test.js','test/sprint15-docs.test.js'] },
   { file:'inventory.js', handlers:8, directGuards:8, strategy:'PERMISSION_AND_WAREHOUSE_BRANCH', evidence:['test/sprint11-inventory-lots.test.js'] },
   { file:'production.js', handlers:14, directGuards:14, strategy:'PERMISSION_AND_WORK_ORDER_BRANCH', evidence:['test/sprint12-production.test.js'] },
-  { file:'finance.js', handlers:27, directGuards:27, strategy:'PERMISSION_BRANCH_PIN_AND_SOD', evidence:['test/sprint13-finance.test.js','test/branch-isolation.test.js'] },
+  { file:'finance.js', handlers:30, directGuards:30, strategy:'PERMISSION_BRANCH_PIN_AND_SOD', evidence:['test/sprint13-finance.test.js','test/branch-isolation.test.js'] },
   { file:'hr.js', handlers:15, directGuards:15, strategy:'PERMISSION_BRANCH_AND_OWN_RECORD', evidence:['test/sprint14-hr.test.js','test/branch-isolation.test.js'] },
   { file:'reporting.js', handlers:9, directGuards:9, strategy:'PERMISSION_BRANCH_AND_FILTER_OWNERSHIP', evidence:['test/sprint16-reporting.test.js'] },
   { file:'governance.js', handlers:21, directGuards:21, strategy:'PERMISSION_SOD_PIN_MFA_AND_APPEND_ONLY', evidence:['test/sprint6-governance.test.js','test/r012-hardening.test.js'] }

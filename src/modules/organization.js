@@ -56,9 +56,10 @@
   const settings = {
     permission: 'settings.view',
     async render(main, _p, signal) {
-      const [s, devices] = await Promise.all([
+      const [s, devices, fin] = await Promise.all([
         query('settings', () => api('/api/system/settings', { signal }), { staleMs: 1_800_000 }),
-        api('/api/auth/devices', { signal })
+        api('/api/auth/devices', { signal }),
+        api('/api/finance-config', { signal })
       ]);
       const c = s.company;
       main.innerHTML = pageHead({ eyebrow: 'SISTEM', title: 'Pengaturan', sub: 'Perubahan identitas bank, pajak, dan penomoran membutuhkan PIN Owner + alasan tertulis.', actions: can('settings.edit') ? `<button class="btn primary" id="settingsEdit">${ICONS.gear} Edit profil</button>` : '' }) + `
@@ -80,6 +81,18 @@
             </div>
           </article>
         </section>
+        <section class="dashboard-grid">
+          <article class="panel table-panel"><header><div><p class="eyebrow">KONFIGURASI KEUANGAN</p><h2>Peran akun</h2></div>${can('settings.edit') ? `<button class="btn secondary sm" id="roleMap">${ICONS.gear} Petakan</button>` : ''}</header>
+            <div class="panel-body"><p class="muted">Laporan &amp; rekonsiliasi memakai peran ini — bukan kode akun yang ditulis di program. Mengubah pemetaan berlaku sejak tanggal efektif; periode lampau tetap memakai pemetaan lamanya.</p></div>
+            <div class="table-wrap"><table><thead><tr><th>Peran</th><th>Akun</th><th>Berlaku</th></tr></thead>
+            <tbody>${fin.accountRoles.map((r) => `<tr><td><b>${esc(r.roleKey)}</b></td><td>${esc(r.accountCode)}<small>${esc(r.accountName || '—')}</small></td><td>${fmtDate(r.effectiveFrom)}${r.effectiveUntil ? ` – ${fmtDate(r.effectiveUntil)}` : ''}</td></tr>`).join('')}</tbody></table></div>
+          </article>
+          <article class="panel table-panel"><header><div><p class="eyebrow">KONFIGURASI KEUANGAN</p><h2>Tarif pajak</h2></div>${can('settings.edit') ? `<button class="btn secondary sm" id="rateAdd">${ICONS.plus} Tarif baru</button>` : ''}</header>
+            <div class="panel-body"><p class="muted">Tarif effective-dated. Perubahan regulasi dicatat sebagai tarif baru sehingga perhitungan periode lampau tidak ikut berubah.</p></div>
+            <div class="table-wrap"><table><thead><tr><th>Pajak</th><th class="right">Tarif</th><th>Berlaku</th></tr></thead>
+            <tbody>${fin.taxRates.map((r) => `<tr><td><b>${esc(r.taxKey)}</b><small>${esc(r.description || '')}</small></td><td class="right">${Number(r.ratePct)}%</td><td>${fmtDate(r.effectiveFrom)}${r.effectiveUntil ? ` – ${fmtDate(r.effectiveUntil)}` : ''}</td></tr>`).join('')}</tbody></table></div>
+          </article>
+        </section>
         <section class="panel"><header><div><p class="eyebrow">KEAMANAN</p><h2>Sesi & perangkat</h2></div>
           <button class="btn danger-outline" id="logoutAll">${ICONS.logout} Keluar dari semua perangkat</button></header>
           <div class="table-wrap"><table>
@@ -87,6 +100,28 @@
             <tbody>${devices.items.map((d) => `<tr><td><b>${esc((d.device || '').slice(0, 60))}</b></td><td>${fmtDateTime(d.createdAt)}</td><td>${relTime(d.lastSeenAt)}</td><td>${d.active ? '<span class="chip mint">Aktif</span>' : `<span class="chip gray">${esc(d.endReason || 'berakhir')}</span>`}</td></tr>`).join('')}</tbody>
           </table></div>
         </section>`;
+      main.querySelector('#roleMap')?.addEventListener('click', async () => {
+        const accounts = asList(await api('/api/accounting/accounts'));
+        const v = await formDialog({ title: 'Petakan peran akun', description: 'Pemetaan lama otomatis ditutup sehari sebelum tanggal efektif baru sehingga laporan periode lampau tidak berubah.', fields: [
+          { name: 'roleKey', label: 'Peran', type: 'select', options: [...new Set(fin.accountRoles.map((r) => r.roleKey))].map((k) => [k, k]), required: true },
+          { name: 'accountCode', label: 'Akun', type: 'select', options: accounts.map((a) => [a.code, `${a.code} · ${a.name}`]), required: true },
+          { name: 'effectiveFrom', label: 'Berlaku sejak', type: 'date', required: true }
+        ], submitLabel: 'Simpan pemetaan' });
+        if (!v) return;
+        try { await api('/api/finance-config/account-roles', { method: 'POST', body: v }); toast('Peran akun diperbarui'); this.render(main); }
+        catch (e) { toast('Gagal memetakan', e.detail || e.message, 'coral'); }
+      });
+      main.querySelector('#rateAdd')?.addEventListener('click', async () => {
+        const v = await formDialog({ title: 'Tarif pajak baru', description: 'Tarif lama ditutup sehari sebelum tanggal berlaku baru — perhitungan periode lampau tetap memakai tarif lamanya.', fields: [
+          { name: 'taxKey', label: 'Jenis pajak', required: true, value: 'PPN' },
+          { name: 'ratePct', label: 'Tarif (%)', type: 'number', min: 0, required: true },
+          { name: 'effectiveFrom', label: 'Berlaku sejak', type: 'date', required: true },
+          { name: 'description', label: 'Dasar hukum / catatan' }
+        ], submitLabel: 'Simpan tarif' });
+        if (!v) return;
+        try { await api('/api/finance-config/tax-rates', { method: 'POST', body: v }); toast('Tarif pajak disimpan'); this.render(main); }
+        catch (e) { toast('Gagal menyimpan tarif', e.detail || e.message, 'coral'); }
+      });
       main.querySelector('#logoutAll').addEventListener('click', async () => {
         await api('/api/auth/logout-all', { method: 'POST' });
         window.MAT.sessionLost();

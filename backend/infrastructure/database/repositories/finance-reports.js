@@ -5,6 +5,7 @@
 // created_at) — konsisten dengan ledger, closing, dan posting engine.
 const { AppError } = require('../../../core/errors');
 const { hasGlobalScope, queryScope } = require('../../../core/data-scope');
+const accountingConfig = require('./accounting-config');
 
 const idr = (v) => Math.round(Number(v || 0) * 100) / 100;
 const PERIOD_EXPR = `COALESCE(NULLIF(d.payload->>'period',''),to_char(d.created_at,'YYYY-MM'))`;
@@ -81,7 +82,8 @@ async function subledger(client, { type, period: value, user }) {
   if (!['AR', 'AP'].includes(type)) throw new AppError('VALIDATION_ERROR', 'type wajib AR atau AP.');
   const isAr = type === 'AR';
   const docType = isAr ? 'INVOICE' : 'SUPPLIER_INVOICE';
-  const glCode = isAr ? '1200' : '2100';
+  // §35: akun kontrol AR/AP dari konfigurasi peran akun, bukan literal COA.
+  const glCode = await accountingConfig.accountCode(client, isAr ? 'AR_CONTROL' : 'AP_CONTROL', period);
   const party = isAr
     ? `JOIN customers pt ON pt.id=d.party_id`
     : `JOIN suppliers pt ON pt.id=d.party_id`;
@@ -113,6 +115,8 @@ async function closingCockpit(client, value, user) {
   if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Closing cockpit global membutuhkan scope perusahaan.');
   const period = assertPeriod(value);
   const businessOps = require('./business-operations');
+  // §35: akun rekonsiliasi berasal dari konfigurasi peran akun (migrasi 039).
+  const roles = await accountingConfig.accountCodes(client, ['INVENTORY', 'PAYROLL_EXPENSE'], period);
   const checks = [];
   const add = (id, name, status, detail) => checks.push({ id, name, status, detail });
 
@@ -130,21 +134,21 @@ async function closingCockpit(client, value, user) {
   add('bank_reconciliation', 'Rekonsiliasi bank dijalankan', bankRecon ? (Math.abs(Number(bankRecon.difference)) < 0.01 ? 'PASS' : 'WARN') : 'WARN',
     bankRecon ? `Selisih ${idr(bankRecon.difference).toLocaleString('id-ID')}` : 'Belum dijalankan periode ini');
 
-  // Rekonsiliasi inventori: GL 1300 kumulatif vs nilai saldo stok berjalan.
+  // Rekonsiliasi inventori: GL persediaan kumulatif vs nilai saldo stok berjalan.
   const glInv = Number((await client.query(`SELECT COALESCE(SUM(j.debit-j.credit),0)::float n FROM journal_lines j
     JOIN chart_of_accounts a ON a.id=j.account_id JOIN business_documents d ON d.id=j.journal_document_id
-    WHERE a.code='1300' AND ${PERIOD_EXPR}<=$1`, [period])).rows[0].n);
+    WHERE a.code=$2 AND ${PERIOD_EXPR}<=$1`, [period, roles.INVENTORY])).rows[0].n);
   const subInv = Number((await client.query('SELECT COALESCE(SUM(value_idr),0)::float n FROM inventory_balances')).rows[0].n);
-  add('inventory_reconciliation', 'Rekonsiliasi inventori (GL 1300 vs saldo stok)', Math.abs(glInv - subInv) < 1 ? 'PASS' : 'WARN',
+  add('inventory_reconciliation', `Rekonsiliasi inventori (GL ${roles.INVENTORY} vs saldo stok)`, Math.abs(glInv - subInv) < 1 ? 'PASS' : 'WARN',
     `GL ${idr(glInv).toLocaleString('id-ID')} vs subledger stok ${idr(subInv).toLocaleString('id-ID')} (selisih ${idr(glInv - subInv).toLocaleString('id-ID')})`);
 
   // Rekonsiliasi payroll: beban gaji GL periode vs total payroll run periode.
   const glPayroll = Number((await client.query(`SELECT COALESCE(SUM(j.debit-j.credit),0)::float n FROM journal_lines j
     JOIN chart_of_accounts a ON a.id=j.account_id JOIN business_documents d ON d.id=j.journal_document_id
-    WHERE a.code IN ('6200') AND ${PERIOD_EXPR}=$1`, [period])).rows[0].n);
+    WHERE a.code=$2 AND ${PERIOD_EXPR}=$1`, [period, roles.PAYROLL_EXPENSE])).rows[0].n);
   const payrollDocs = Number((await client.query(`SELECT COALESCE(SUM(i.net_pay+i.pph21),0)::float n FROM payroll_items i
     JOIN business_documents d ON d.id=i.payroll_document_id WHERE d.payload->>'period'=$1 AND d.status NOT IN('DRAFT','CANCELLED','VOID','REJECTED')`, [period])).rows[0].n);
-  add('payroll_reconciliation', 'Rekonsiliasi payroll (GL 6200 vs payroll items)',
+  add('payroll_reconciliation', `Rekonsiliasi payroll (GL ${roles.PAYROLL_EXPENSE} vs payroll items)`,
     payrollDocs === 0 && glPayroll === 0 ? 'PASS' : Math.abs(glPayroll - payrollDocs) < 1 ? 'PASS' : 'WARN',
     `GL ${idr(glPayroll).toLocaleString('id-ID')} vs payroll ${idr(payrollDocs).toLocaleString('id-ID')}`);
 
@@ -187,13 +191,15 @@ async function postInventoryOpeningBalance(client, { user, requestId }) {
   const existing = (await client.query(`SELECT document_number,created_at FROM business_documents
     WHERE document_type='JOURNAL' AND payload->>'source'='INVENTORY_OPENING_BALANCE' AND status NOT IN ('CANCELLED','VOID') LIMIT 1`)).rows[0];
   if (existing) return { replay: true, documentNumber: existing.document_number, postedAt: existing.created_at };
+  // §35: akun persediaan & lawan ekuitas dari konfigurasi peran akun.
+  const roles = await accountingConfig.accountCodes(client, ['INVENTORY', 'RETAINED_EARNINGS']);
   const sub = Number((await client.query('SELECT COALESCE(SUM(value_idr),0)::float n FROM inventory_balances')).rows[0].n);
   const gl = Number((await client.query(`SELECT COALESCE(SUM(j.debit-j.credit),0)::float n FROM journal_lines j
-    JOIN chart_of_accounts a ON a.id=j.account_id WHERE a.code='1300'`)).rows[0].n);
+    JOIN chart_of_accounts a ON a.id=j.account_id WHERE a.code=$1`, [roles.INVENTORY])).rows[0].n);
   const difference = idr(sub - gl);
-  if (Math.abs(difference) < 1) return { documentNumber: null, difference: 0, message: 'GL 1300 sudah selaras dengan subledger stok — tidak ada jurnal dibuat.' };
-  const accounts = (await client.query(`SELECT id,code FROM chart_of_accounts WHERE code IN ('1300','3900') AND active`)).rows.reduce((o, r) => (o[r.code] = r.id, o), {});
-  if (!accounts['1300'] || !accounts['3900']) throw new AppError('RESOURCE_NOT_FOUND', 'Akun 1300/3900 tidak ditemukan di COA.');
+  if (Math.abs(difference) < 1) return { documentNumber: null, difference: 0, message: `GL ${roles.INVENTORY} sudah selaras dengan subledger stok — tidak ada jurnal dibuat.` };
+  const accounts = (await client.query(`SELECT id,code FROM chart_of_accounts WHERE code=ANY($1) AND active`, [[roles.INVENTORY, roles.RETAINED_EARNINGS]])).rows.reduce((o, r) => (o[r.code] = r.id, o), {});
+  if (!accounts[roles.INVENTORY] || !accounts[roles.RETAINED_EARNINGS]) throw new AppError('RESOURCE_NOT_FOUND', `Akun ${roles.INVENTORY}/${roles.RETAINED_EARNINGS} tidak ditemukan di COA.`);
   const doc = await runtime.createDocument(client, {
     type: 'JOURNAL', user, title: 'Saldo awal persediaan (cut-over)', amount: Math.abs(difference), requestId,
     payload: { source: 'INVENTORY_OPENING_BALANCE', subledger: sub, glBefore: gl, difference, period: new Date().toISOString().slice(0, 7) }
@@ -204,11 +210,11 @@ async function postInventoryOpeningBalance(client, { user, requestId }) {
   const { randomUUID } = require('node:crypto');
   const memo = `${doc.documentNumber} · saldo awal persediaan cut-over`;
   if (difference > 0) {
-    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,$4,0,$5)`, [randomUUID(), doc.id, accounts['1300'], difference, memo]);
-    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,0,$4,$5)`, [randomUUID(), doc.id, accounts['3900'], difference, memo]);
+    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,$4,0,$5)`, [randomUUID(), doc.id, accounts[roles.INVENTORY], difference, memo]);
+    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,0,$4,$5)`, [randomUUID(), doc.id, accounts[roles.RETAINED_EARNINGS], difference, memo]);
   } else {
-    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,$4,0,$5)`, [randomUUID(), doc.id, accounts['3900'], -difference, memo]);
-    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,0,$4,$5)`, [randomUUID(), doc.id, accounts['1300'], -difference, memo]);
+    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,$4,0,$5)`, [randomUUID(), doc.id, accounts[roles.RETAINED_EARNINGS], -difference, memo]);
+    await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,0,$4,$5)`, [randomUUID(), doc.id, accounts[roles.INVENTORY], -difference, memo]);
   }
   await posting.finishPosting(client, { id: doc.id }, 'ACCOUNTING', { source: 'INVENTORY_OPENING_BALANCE', difference });
   const runtime2 = require('./runtime');

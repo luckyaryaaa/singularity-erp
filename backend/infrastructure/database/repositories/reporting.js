@@ -6,6 +6,7 @@ const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
 const { hasGlobalScope, assertBranchAccess } = require('../../../core/data-scope');
 const { camel } = require('./runtime');
+const accountingConfig = require('./accounting-config');
 
 const REPORTS = Object.freeze([
   { key:'sales_customer', title:'Penjualan per pelanggan', group:'Operasional', description:'Nilai quotation, order, dan invoice per pelanggan.' },
@@ -66,11 +67,12 @@ async function cockpit(client,{period:value,branchId,user}){
     ), cash AS (
       SELECT COALESCE(sum(j.debit-j.credit),0) value FROM journal_lines j
       JOIN chart_of_accounts a ON a.id=j.account_id JOIN business_documents d ON d.id=j.journal_document_id
-      WHERE a.code='1100' AND d.created_at<($1::date+interval '1 month') AND ($2::boolean OR d.branch_id=$3)
+      WHERE a.code=$4 AND d.created_at<($1::date+interval '1 month') AND ($2::boolean OR d.branch_id=$3)
     ) SELECT
       COALESCE(sum(GREATEST(amount-paid,0)) FILTER(WHERE document_type='INVOICE'),0)::float ar,
       COALESCE(sum(GREATEST(amount-paid,0)) FILTER(WHERE document_type='SUPPLIER_INVOICE'),0)::float ap,
-      (SELECT value::float FROM stock) inventory,(SELECT value::float FROM cash) cash FROM inv`,args)).rows[0];
+      (SELECT value::float FROM stock) inventory,(SELECT value::float FROM cash) cash FROM inv`,
+    [...args, await accountingConfig.accountCode(client,'CASH_BANK',start)])).rows[0];
   const live=(await client.query(`SELECT
       COALESCE(sum(functional_amount) FILTER(WHERE document_type='SALES_ORDER' AND status IN('APPROVED','IN_PROCESS','PARTIALLY_COMPLETED')),0)::float order_book,
       count(*) FILTER(WHERE document_type='SALES_ORDER' AND status IN('APPROVED','IN_PROCESS','PARTIALLY_COMPLETED'))::int active_orders,

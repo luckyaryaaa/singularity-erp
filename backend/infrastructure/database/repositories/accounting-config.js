@@ -49,4 +49,47 @@ async function resolvePayrollRules(client, onDate) {
   return { rules: byType, snapshot, resolvedAt: new Date().toISOString() };
 }
 
-module.exports = { resolvePostingProfile, resolvePayrollRules };
+// ── Peran akun semantik & tarif pajak (§35, migrasi 039) ───────────────────
+// Menggantikan literal '1100'/'1300'/1.11 yang dulu tertanam di query laporan.
+// Effective-dated: laporan periode lampau memakai pemetaan/tarif saat itu.
+const asDate = (v) => {
+  if (!v) return new Date().toISOString().slice(0, 10);
+  const s = v instanceof Date ? v.toISOString() : String(v);
+  return /^\d{4}-\d{2}$/.test(s) ? `${s}-01` : s.slice(0, 10);
+};
+
+async function accountCode(client, roleKey, onDate) {
+  return (await accountCodes(client, [roleKey], onDate))[roleKey];
+}
+
+// Beberapa peran sekaligus → { ROLE: 'kode' } (satu query untuk laporan).
+async function accountCodes(client, roleKeys, onDate) {
+  const date = asDate(onDate);
+  const rows = (await client.query(`SELECT DISTINCT ON (role_key) role_key, account_code FROM account_roles
+    WHERE active AND role_key=ANY($1) AND effective_from<=$2 AND (effective_until IS NULL OR effective_until>=$2)
+    ORDER BY role_key, effective_from DESC`, [roleKeys, date])).rows;
+  const map = Object.fromEntries(rows.map((r) => [r.role_key, r.account_code]));
+  const missing = roleKeys.filter((k) => !map[k]);
+  if (missing.length) throw new AppError('RESOURCE_NOT_FOUND', `Peran akun belum dipetakan ke bagan akun: ${missing.join(', ')}. Lengkapi konfigurasi account_roles.`);
+  return map;
+}
+
+async function taxRate(client, taxKey, onDate) {
+  const date = asDate(onDate);
+  const row = (await client.query(`SELECT rate_pct FROM tax_rates
+    WHERE active AND tax_key=$1 AND effective_from<=$2 AND (effective_until IS NULL OR effective_until>=$2)
+    ORDER BY effective_from DESC LIMIT 1`, [taxKey, date])).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND', `Tarif pajak '${taxKey}' belum dikonfigurasi untuk periode ${date}.`);
+  return Number(row.rate_pct);
+}
+
+async function listAccountRoles(client) {
+  return { items: (await client.query(`SELECT r.*, c.name account_name FROM account_roles r
+    LEFT JOIN chart_of_accounts c ON c.code=r.account_code AND c.active
+    WHERE r.active ORDER BY r.role_key, r.effective_from DESC`)).rows };
+}
+async function listTaxRates(client) {
+  return { items: (await client.query('SELECT * FROM tax_rates WHERE active ORDER BY tax_key, effective_from DESC')).rows };
+}
+
+module.exports = { resolvePostingProfile, resolvePayrollRules, accountCode, accountCodes, taxRate, listAccountRoles, listTaxRates };

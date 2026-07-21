@@ -8,6 +8,7 @@ const runtime = require('../infrastructure/database/repositories/runtime');
 const fixedAssets = require('../infrastructure/database/repositories/fixed-assets');
 const financeReports = require('../infrastructure/database/repositories/finance-reports');
 const taxCompliance = require('../infrastructure/database/repositories/tax-compliance');
+const accountingConfig = require('../infrastructure/database/repositories/accounting-config');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -51,6 +52,40 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&p==='/api/tax/summary'){assertPermission(ctx.user,'tax.view');return businessOps.taxSummary(client,url.searchParams.get('period'),ctx.user);}
   if(method==='POST'&&p==='/api/tax/sync'){assertPermission(ctx.user,'tax.edit');const body=await readBody(req);return businessOps.syncTaxes(client,body.period,ctx.user);}
   m=p.match(/^\/api\/tax\/records\/([^/]+)\/report$/);if(method==='POST'&&m){assertPermission(ctx.user,'tax.post');const result=await businessOps.reportTax(client,m[1],ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'REPORT_TAX',module:'tax',entityType:'TAX_RECORD',entityId:m[1],newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+
+  // ── Konfigurasi keuangan §35: peran akun & tarif pajak (effective-dated) ──
+  if(method==='GET'&&p==='/api/finance-config'){
+    assertPermission(ctx.user,'settings.view');
+    const [roles,rates]=await Promise.all([accountingConfig.listAccountRoles(client),accountingConfig.listTaxRates(client)]);
+    return{accountRoles:roles.items.map(runtime.camel),taxRates:rates.items.map(runtime.camel)};
+  }
+  if(method==='POST'&&p==='/api/finance-config/account-roles'){
+    assertPermission(ctx.user,'settings.edit');
+    const body=await readBody(req);
+    if(!body.roleKey||!body.accountCode)throw new AppError('VALIDATION_ERROR','roleKey dan accountCode wajib diisi.');
+    const exists=(await client.query('SELECT 1 FROM chart_of_accounts WHERE code=$1 AND active',[body.accountCode])).rowCount;
+    if(!exists)throw new AppError('VALIDATION_ERROR',`Akun ${body.accountCode} tidak ada/aktif pada bagan akun.`);
+    const from=body.effectiveFrom||new Date().toISOString().slice(0,10);
+    // Pemetaan lama ditutup pada H-1 agar histori laporan lampau tidak berubah.
+    await client.query(`UPDATE account_roles SET effective_until=($2::date - interval '1 day')::date
+      WHERE active AND role_key=$1 AND effective_until IS NULL AND effective_from<$2::date`,[body.roleKey,from]);
+    const row=(await client.query(`INSERT INTO account_roles(role_key,account_code,description,effective_from,created_by)
+      VALUES($1,$2,$3,$4::date,$5) RETURNING *`,[body.roleKey,body.accountCode,body.description||null,from,ctx.user.id])).rows[0];
+    await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'settings',entityType:'ACCOUNT_ROLE',entityId:row.id,documentNumber:body.roleKey,newValue:{accountCode:body.accountCode,effectiveFrom:from},requestId:ctx.requestId});
+    ctx.status=201;return runtime.camel(row);
+  }
+  if(method==='POST'&&p==='/api/finance-config/tax-rates'){
+    assertPermission(ctx.user,'settings.edit');
+    const body=await readBody(req),rate=Number(body.ratePct);
+    if(!body.taxKey||!Number.isFinite(rate)||rate<0)throw new AppError('VALIDATION_ERROR','taxKey dan ratePct (>=0) wajib diisi.');
+    if(!body.effectiveFrom)throw new AppError('VALIDATION_ERROR','effectiveFrom wajib diisi agar tarif lama tetap berlaku untuk periode lampau.');
+    await client.query(`UPDATE tax_rates SET effective_until=($2::date - interval '1 day')::date
+      WHERE active AND tax_key=$1 AND effective_until IS NULL AND effective_from<$2::date`,[body.taxKey,body.effectiveFrom]);
+    const row=(await client.query(`INSERT INTO tax_rates(tax_key,rate_pct,description,effective_from,created_by)
+      VALUES($1,$2,$3,$4::date,$5) RETURNING *`,[body.taxKey,rate,body.description||null,body.effectiveFrom,ctx.user.id])).rows[0];
+    await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'settings',entityType:'TAX_RATE',entityId:row.id,documentNumber:body.taxKey,newValue:{ratePct:rate,effectiveFrom:body.effectiveFrom},requestId:ctx.requestId});
+    ctx.status=201;return runtime.camel(row);
+  }
 
   // ── Kepatuhan pajak Indonesia: NSFP, Faktur Pajak, e-Bupot ───────────────
   if(method==='GET'&&p==='/api/tax/compliance'){assertPermission(ctx.user,'tax.view');const period=url.searchParams.get('period');const [summary,ranges,invoices,withholding,codes]=await Promise.all([taxCompliance.summary(client,period),taxCompliance.listRanges(client),taxCompliance.listTaxInvoices(client,period),taxCompliance.listWithholding(client,period),taxCompliance.listTransactionCodes(client)]);return{...summary,ranges:ranges.items,taxInvoices:invoices.items,withholding:withholding.items,transactionCodes:codes.items};}

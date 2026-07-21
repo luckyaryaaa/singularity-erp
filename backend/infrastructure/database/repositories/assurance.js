@@ -1,9 +1,13 @@
 'use strict';
 
+const accountingConfig=require('./accounting-config');
+
 const money=(v)=>Math.round(Number(v||0)*100)/100;
 const status=(condition,whenFalse='fail')=>condition?'pass':whenFalse;
 
 async function collect(client){
+  // §35: akun kontrol persediaan berasal dari konfigurasi peran akun.
+  const inventoryAccount=await accountingConfig.accountCode(client,'INVENTORY');
   const [financial,inventory,payroll,orphans,partitions]=await Promise.all([
     client.query(`SELECT count(*)::int posted,
       count(*) FILTER(WHERE abs(debit-credit)>0.01)::int unbalanced,
@@ -19,13 +23,13 @@ async function collect(client){
       (SELECT COALESCE(sum(j.debit-j.credit),0)::float FROM journal_lines j
         JOIN chart_of_accounts a ON a.id=j.account_id
         JOIN business_documents d ON d.id=j.journal_document_id
-        WHERE a.code='1300' AND d.status NOT IN('DRAFT','REJECTED','CANCELLED','VOID')) gl_value,
+        WHERE a.code=$1 AND d.status NOT IN('DRAFT','REJECTED','CANCELLED','VOID')) gl_value,
       (SELECT count(*)::int FROM (SELECT l.product_id,l.warehouse_id,sum(l.qty_on_hand) lot_qty,
         COALESCE(max(b.qty_on_hand),0) balance_qty FROM stock_lots l
         LEFT JOIN inventory_balances b ON b.product_id=l.product_id AND b.warehouse_id=l.warehouse_id
         WHERE l.status='ACTIVE' GROUP BY l.product_id,l.warehouse_id
         HAVING sum(l.qty_on_hand)>COALESCE(max(b.qty_on_hand),0)+0.0001) q) lot_exceeds_balance
-      FROM inventory_balances`),
+      FROM inventory_balances`,[inventoryAccount]),
     client.query(`SELECT count(*)::int runs,
       count(*) FILTER(WHERE abs(document_amount-item_total)>0.01 OR items=0)::int mismatched
       FROM (SELECT d.id,d.amount::numeric document_amount,count(p.*)::int items,

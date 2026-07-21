@@ -1,0 +1,4 @@
+BEGIN;
+DROP TABLE IF EXISTS tax_rates;
+DROP TABLE IF EXISTS account_roles;
+COMMIT;
