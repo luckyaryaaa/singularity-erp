@@ -16,9 +16,9 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m){assertPermission(ctx.user,'inventory.view');return inventoryLots.lotDetail(client,m[1],ctx.user);}
   m=p.match(/^\/api\/inventory\/lots\/([0-9a-f-]{36})\/(block|quarantine|release)$/);
   if(method==='POST'&&m){assertPermission(ctx.user,'inventory.edit');const body=await readBody(req);return inventoryLots.setLotStatus(client,{lotId:m[1],action:m[2],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
-  if(method==='POST'&&p==='/api/inventory/opname'){assertPermission(ctx.user,'stock_opname.create');const body=await readBody(req);ctx.status=201;return inventoryLots.createOpname(client,{user:ctx.user,warehouseId:body.warehouseId,title:body.title,requestId:ctx.requestId});}
+  if(method==='POST'&&p==='/api/inventory/opname'){assertPermission(ctx.user,'stock_opname.create');const body=await readBody(req);ctx.status=201;return inventoryLots.createOpname(client,{user:ctx.user,warehouseId:body.warehouseId,title:body.title,scope:body.scope,categories:body.categories,productIds:body.productIds,requestId:ctx.requestId});}
   m=p.match(/^\/api\/inventory\/opname\/([0-9a-f-]{36})\/lines$/);
-  if(method==='GET'&&m){assertPermission(ctx.user,'stock_opname.view');return inventoryLots.opnameLines(client,m[1]);}
+  if(method==='GET'&&m){assertPermission(ctx.user,'stock_opname.view');return inventoryLots.opnameLines(client,m[1],ctx.user);}
   m=p.match(/^\/api\/inventory\/opname\/([0-9a-f-]{36})\/counts$/);
   if(method==='POST'&&m){assertPermission(ctx.user,'stock_opname.edit');const body=await readBody(req);return inventoryLots.enterOpnameCounts(client,{docId:m[1],counts:body.counts,user:ctx.user,requestId:ctx.requestId});}
   return NO_MATCH;

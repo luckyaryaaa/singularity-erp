@@ -98,7 +98,7 @@ dbTest('opname: nomor OPN, snapshot baris, selisih → saldo + jurnal profil OPN
     await c.query(`UPDATE business_documents SET status='CANCELLED' WHERE document_type='STOCK_OPNAME' AND payload->>'warehouseId'=$1 AND status IN ('DRAFT','WAITING_APPROVAL','REVISION_REQUIRED')`, [wh.id]);
     const op = await inv.createOpname(c, { user: u, warehouseId: wh.id, requestId: randomUUID() });
     assert.match(op.documentNumber, /^OPN-/);
-    const lines = await inv.opnameLines(c, op.id);
+    const lines = await inv.opnameLines(c, op.id, u);
     assert.ok(lines.items.length >= 1);
     // Hitung: satu lot selisih -2, sisanya sesuai sistem
     const target = lines.items.find((l) => l.heatNumber === 'HT-OPN');
@@ -134,7 +134,7 @@ dbTest('opname: hitung hanya boleh saat DRAFT/REVISION; gudang dengan opname ber
     const op = await inv.createOpname(c, { user: u, warehouseId: wh.id, requestId: randomUUID() });
     await assert.rejects(() => inv.createOpname(c, { user: u, warehouseId: wh.id, requestId: randomUUID() }), (e) => e.code === 'DOCUMENT_CONFLICT');
     await c.query(`UPDATE business_documents SET status='WAITING_APPROVAL' WHERE id=$1`, [op.id]);
-    const lines = await inv.opnameLines(c, op.id);
+    const lines = await inv.opnameLines(c, op.id, u);
     await assert.rejects(() => inv.enterOpnameCounts(c, { docId: op.id, counts: [{ lineId: lines.items[0].id, countedQty: 1 }], user: u, requestId: randomUUID() }), (e) => e.code === 'STATUS_INVALID');
   });
 });

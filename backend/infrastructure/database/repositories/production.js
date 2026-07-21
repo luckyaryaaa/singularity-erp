@@ -7,14 +7,15 @@
 // QC yang mengkarantina lot gagal, dan MRP shortage → Purchase Request.
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
+const permissions = require('../../../core/permissions');
 
 const num = (v) => Math.round(Number(v || 0) * 10000) / 10000;
 const idr = (v) => Math.round(Number(v || 0) * 100) / 100;
 
-function assertBranchScope(user, branchId) {
-  const all = ['owner', 'admin', 'system_admin'].includes(user?.role) || user?.branchScope === '*';
-  if (!all && user?.branchId !== branchId) throw new AppError('PERMISSION_DENIED', 'Data produksi berada di luar scope cabang pengguna.');
-}
+// Cakupan cabang memakai penjaga terpusat core/permissions supaya aturannya
+// tunggal; sebelumnya modul ini punya salinan sendiri dengan daftar role yang
+// lebih sempit (auditor/security_admin tidak diakui).
+const assertBranchScope = (user, branchId) => permissions.assertBranchScope(user, branchId, 'Data produksi');
 
 async function requireStockLocation(client, { warehouseId, branchId }) {
   if (!warehouseId) throw new AppError('VALIDATION_ERROR', 'Lokasi stok wajib dipilih untuk produksi.');
@@ -378,51 +379,78 @@ async function listInspections(client, qcDocId, user) {
 }
 
 // ── MRP: kebutuhan (WO shortage + min stock) vs pasokan → saran beli ─────────
-async function runMrp(client, { user, requestId }) {
-  await client.query("SELECT pg_advisory_xact_lock(hashtextextended('mrp:global',0))");
+// P0-N: MRP dijalankan PER GUDANG. Menjumlahkan on-hand lintas cabang membuat
+// kekurangan di satu lokasi tertutup oleh stok lokasi lain — stok tidak bisa
+// dipakai dari jauh tanpa transfer, jadi netting lintas gudang menghasilkan
+// saran yang salah. Kebutuhan WO dilekatkan pada lokasi stok WO tersebut.
+async function runMrp(client, { user, requestId, warehouseId = null }) {
+  const sites = [];
+  if (warehouseId) {
+    permissions.assertBranchScope(user, warehouseId, 'Gudang');
+    const site = (await client.query('SELECT id FROM branches WHERE id=$1 AND active', [warehouseId])).rows[0];
+    if (!site) throw new AppError('RESOURCE_NOT_FOUND', 'Gudang MRP tidak ditemukan.');
+    sites.push(site.id);
+  } else {
+    const rows = (await client.query('SELECT id FROM branches WHERE active ORDER BY code')).rows;
+    for (const row of rows) if (permissions.withinBranchScope(user, row.id)) sites.push(row.id);
+    if (!sites.length) throw new AppError('PERMISSION_DENIED', 'Tidak ada gudang dalam cakupan Anda untuk dijalankan MRP.');
+  }
+  // Kunci per gudang — dua run paralel pada gudang berbeda tidak saling blokir.
+  for (const site of sites) await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`mrp:${site}`]);
+
   const runId = randomUUID();
-  // Gross requirement WO mencakup seluruh sisa rencana. Reserved sudah bagian
-  // dari on-hand sehingga tidak boleh dikurangkan dua kali saat netting.
-  const woNeeds = (await client.query(`SELECT m.product_id,SUM(GREATEST(0,m.planned_qty-m.issued_qty))::float need,
-      string_agg(DISTINCT d.document_number,', ') sources
-    FROM work_order_materials m JOIN business_documents d ON d.id=m.work_order_id
-    WHERE d.status IN ('APPROVED','IN_PROCESS') GROUP BY m.product_id HAVING SUM(GREATEST(0,m.planned_qty-m.issued_qty))>0`)).rows;
-  // Safety stock adalah target, bukan shortage bersih; netting dilakukan sekali
-  // setelah kebutuhan WO + target minimum digabung.
-  const minNeeds = (await client.query(`SELECT i.product_id,SUM(i.min_qty)::float need
-    FROM inventory_balances i WHERE i.min_qty>0 GROUP BY i.product_id`)).rows;
-  const demand = new Map();
-  for (const r of woNeeds) demand.set(r.product_id, { need: r.need, source: `WO: ${r.sources}` });
-  for (const r of minNeeds) {
-    const d = demand.get(r.product_id) || { need: 0, source: '' };
-    d.need = num(d.need + r.need); d.source = [d.source, 'di bawah stok minimum'].filter(Boolean).join(' + ');
-    demand.set(r.product_id, d);
-  }
   let created = 0;
-  for (const [productId, d] of demand) {
-    const supply = (await client.query(`SELECT
-        COALESCE((SELECT SUM(qty_on_hand) FROM inventory_balances WHERE product_id=$1),0)::float on_hand,
-        COALESCE((SELECT SUM(qty_reserved) FROM inventory_balances WHERE product_id=$1),0)::float reserved,
-        COALESCE((SELECT SUM(dl.qty) FROM document_lines dl JOIN business_documents po ON po.id=dl.document_id
-          WHERE dl.product_id=$1 AND po.document_type='PURCHASE_ORDER' AND po.status IN ('APPROVED','IN_PROCESS')),0)::float on_order,
-        COALESCE((SELECT SUM(min_qty) FROM inventory_balances WHERE product_id=$1),0)::float min_qty`, [productId])).rows[0];
-    const suggested = num(d.need - supply.on_hand - supply.on_order);
-    if (suggested <= 0) continue;
-    await client.query(`INSERT INTO mrp_suggestions(id,run_id,product_id,demand_qty,on_hand,reserved,on_order,min_qty,suggested_qty,source,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [randomUUID(), runId, productId, d.need, supply.on_hand, supply.reserved, supply.on_order, supply.min_qty, suggested, d.source, user.id]);
-    created++;
+  for (const site of sites) {
+    // Gross requirement WO pada lokasi stok WO. Reserved sudah bagian dari
+    // on-hand sehingga tidak boleh dikurangkan dua kali saat netting.
+    const woNeeds = (await client.query(`SELECT m.product_id,SUM(GREATEST(0,m.planned_qty-m.issued_qty))::float need,
+        string_agg(DISTINCT d.document_number,', ') sources
+      FROM work_order_materials m JOIN business_documents d ON d.id=m.work_order_id
+      WHERE d.status IN ('APPROVED','IN_PROCESS')
+        AND COALESCE((d.payload->'production'->>'warehouseId')::uuid,d.branch_id)=$1
+      GROUP BY m.product_id HAVING SUM(GREATEST(0,m.planned_qty-m.issued_qty))>0`, [site])).rows;
+    // Safety stock adalah target per gudang, bukan shortage bersih; netting
+    // dilakukan sekali setelah kebutuhan WO + target minimum digabung.
+    const minNeeds = (await client.query(`SELECT product_id,min_qty::float need
+      FROM inventory_balances WHERE warehouse_id=$1 AND min_qty>0`, [site])).rows;
+    const demand = new Map();
+    for (const r of woNeeds) demand.set(r.product_id, { need: r.need, source: `WO: ${r.sources}` });
+    for (const r of minNeeds) {
+      const d = demand.get(r.product_id) || { need: 0, source: '' };
+      d.need = num(d.need + r.need); d.source = [d.source, 'di bawah stok minimum'].filter(Boolean).join(' + ');
+      demand.set(r.product_id, d);
+    }
+    for (const [productId, d] of demand) {
+      const supply = (await client.query(`SELECT
+          COALESCE((SELECT qty_on_hand FROM inventory_balances WHERE product_id=$1 AND warehouse_id=$2),0)::float on_hand,
+          COALESCE((SELECT qty_reserved FROM inventory_balances WHERE product_id=$1 AND warehouse_id=$2),0)::float reserved,
+          COALESCE((SELECT SUM(dl.qty) FROM document_lines dl JOIN business_documents po ON po.id=dl.document_id
+            WHERE dl.product_id=$1 AND po.document_type='PURCHASE_ORDER' AND po.status IN ('APPROVED','IN_PROCESS')
+              AND COALESCE((po.payload->>'warehouseId')::uuid,po.branch_id)=$2),0)::float on_order,
+          COALESCE((SELECT min_qty FROM inventory_balances WHERE product_id=$1 AND warehouse_id=$2),0)::float min_qty`, [productId, site])).rows[0];
+      const suggested = num(d.need - supply.on_hand - supply.on_order);
+      if (suggested <= 0) continue;
+      await client.query(`INSERT INTO mrp_suggestions(id,run_id,warehouse_id,product_id,demand_qty,on_hand,reserved,on_order,min_qty,suggested_qty,source,created_by)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [randomUUID(), runId, site, productId, d.need, supply.on_hand, supply.reserved, supply.on_order, supply.min_qty, suggested, d.source, user.id]);
+      created++;
+    }
+    // Saran lama gudang INI yang masih OPEN ditutup (superseded). Gudang di luar
+    // cakupan run ini tidak boleh ikut terhapus.
+    await client.query(`UPDATE mrp_suggestions SET status='DISMISSED' WHERE status='OPEN' AND warehouse_id=$1 AND run_id<>$2`, [site, runId]);
   }
-  // Saran lama yang masih OPEN dari run sebelumnya ditutup (superseded).
-  await client.query(`UPDATE mrp_suggestions SET status='DISMISSED' WHERE status='OPEN' AND run_id<>$1`, [runId]);
   const runtime = require('./runtime');
-  await runtime.audit(client, { userId: user.id, action: 'POST', module: 'production', entityType: 'MRP_RUN', entityId: runId, newValue: { suggestions: created }, requestId });
-  return { runId, suggestions: created };
+  await runtime.audit(client, { userId: user.id, action: 'POST', module: 'production', entityType: 'MRP_RUN', entityId: runId, newValue: { suggestions: created, sites: sites.length }, requestId });
+  return { runId, suggestions: created, sites: sites.length };
 }
 
-async function listMrp(client) {
+async function listMrp(client, user, { warehouseId = null } = {}) {
   const runtime = require('./runtime');
-  const rows = (await client.query(`SELECT s.*,p.code product_code,p.name product_name,p.uom FROM mrp_suggestions s JOIN products p ON p.id=s.product_id
-    WHERE s.status='OPEN' ORDER BY s.suggested_qty*COALESCE(p.hpp,0) DESC LIMIT 200`)).rows;
+  const params = []; let where = "s.status='OPEN'";
+  if (warehouseId) { permissions.assertBranchScope(user, warehouseId, 'Gudang'); params.push(warehouseId); where += ` AND s.warehouse_id=$${params.length}`; }
+  else if (user?.branchId && !permissions.CROSS_BRANCH_ROLES.includes(user.role) && user.branchScope !== '*') { params.push(user.branchId); where += ` AND s.warehouse_id=$${params.length}`; }
+  const rows = (await client.query(`SELECT s.*,p.code product_code,p.name product_name,p.uom,b.name warehouse_name
+    FROM mrp_suggestions s JOIN products p ON p.id=s.product_id LEFT JOIN branches b ON b.id=s.warehouse_id
+    WHERE ${where} ORDER BY s.suggested_qty*COALESCE(p.hpp,0) DESC LIMIT 200`, params)).rows;
   return { items: rows.map(runtime.camel) };
 }
 

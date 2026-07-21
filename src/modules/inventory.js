@@ -62,9 +62,26 @@
         main.querySelector('#startOpname')?.addEventListener('click', async () => {
           try {
             const branches = await api('/api/branches');
-            const value = await formDialog({ title: 'Mulai stock opname', description: 'Sistem membuat snapshot qty per lot (dan sisa tanpa lot) untuk gudang terpilih. Selisih diposting setelah disetujui approver berbeda (SoD).', fields: [{ name: 'warehouseId', label: 'Gudang', type: 'select', options: branches.items.map((b) => [b.id, b.name]), required: true }, { name: 'title', label: 'Judul (opsional)' }], submitLabel: 'Buat sesi opname' });
+            const catalog = await api('/api/products?limit=1').catch(() => ({}));
+            const categories = catalog.facets?.categories || [];
+            const value = await formDialog({
+              title: 'Mulai stock opname',
+              description: 'Sistem membuat snapshot qty per lot (dan sisa tanpa lot) sesuai cakupan hitung. Cakupan sebagian dipakai untuk cycle counting tanpa menghentikan seluruh gudang. Selisih diposting setelah disetujui approver berbeda (SoD).',
+              fields: [
+                { name: 'warehouseId', label: 'Gudang', type: 'select', options: branches.items.map((b) => [b.id, b.name]), required: true },
+                { name: 'scope', label: 'Cakupan hitung', type: 'select', options: [['FULL', 'Seluruh gudang'], ['CATEGORY', 'Kategori tertentu (cycle count)']], required: true },
+                { name: 'category', label: 'Kategori (untuk cakupan kategori)', type: 'select', options: [['', '—'], ...categories.map((c) => [c, c])] },
+                { name: 'title', label: 'Judul (opsional)' }
+              ],
+              submitLabel: 'Buat sesi opname'
+            });
             if (!value) return;
-            const doc = await api('/api/inventory/opname', { method: 'POST', body: value });
+            const body = { warehouseId: value.warehouseId, title: value.title, scope: value.scope || 'FULL' };
+            if (body.scope === 'CATEGORY') {
+              if (!value.category) { toast('Kategori wajib', 'Cakupan kategori membutuhkan satu kategori.', 'coral'); return; }
+              body.categories = [value.category];
+            }
+            const doc = await api('/api/inventory/opname', { method: 'POST', body });
             toast('Sesi opname dibuat', `${doc.documentNumber} · ${doc.lineCount} baris`);
             location.hash = `#/warehouse/opname/${doc.id}`;
           } catch (error) { toast('Gagal membuat opname', error.message, 'coral'); }

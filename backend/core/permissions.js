@@ -61,15 +61,31 @@ function hasPermission(user, code) {
   return grants.has('*') || grants.has(code);
 }
 
+// Role yang secara desain melihat lintas cabang (owner/admin/pengawas).
+const CROSS_BRANCH_ROLES = ['owner', 'system_admin', 'security_admin', 'auditor', 'admin'];
+
+function withinBranchScope(user, branchId) {
+  if (!user || !branchId) return true;
+  if (CROSS_BRANCH_ROLES.includes(user.role) || user.branchScope === '*') return true;
+  return !user.branchId || String(branchId) === String(user.branchId);
+}
+
+// Penjaga cakupan cabang tunggal — dipakai assertPermission dan repository yang
+// menerima branch/warehouse dari klien (mis. stock opname) supaya aturannya
+// tidak berganda.
+function assertBranchScope(user, branchId, subject = 'Dokumen') {
+  if (!withinBranchScope(user, branchId)) {
+    throw new AppError('PERMISSION_DENIED', `${subject} berada di cabang di luar cakupan Anda.`);
+  }
+  return true;
+}
+
 // Pemeriksaan ABAC: role + branch + kepemilikan + status + jumlah + level approval.
 function assertPermission(user, code, context = {}) {
   if (!hasPermission(user, code)) {
     throw new AppError('PERMISSION_DENIED', `Izin '${code}' dibutuhkan untuk tindakan ini.`);
   }
-  if (context.branchId && !['owner','system_admin','security_admin','auditor','admin'].includes(user.role) && user.branchScope !== '*' &&
-      user.branchId && context.branchId !== user.branchId) {
-    throw new AppError('PERMISSION_DENIED', 'Dokumen berada di cabang di luar cakupan Anda.');
-  }
+  assertBranchScope(user, context.branchId);
   return true;
 }
 
@@ -95,4 +111,4 @@ const APPROVAL_LEVEL_BY_ROLE = Object.freeze({
   sales:'supervisor',procurement:'supervisor',warehouse:'supervisor',production:'supervisor',hrd:'supervisor'
 });
 
-module.exports = { MODULES, ACTIONS, ROLE_GRANTS, grantsFor, hasPermission, assertPermission, approvalLevelsFor, OWNER_PIN_ACTIONS, APPROVAL_MATRIX, APPROVAL_LEVEL_BY_ROLE };
+module.exports = { MODULES, ACTIONS, ROLE_GRANTS, grantsFor, hasPermission, assertPermission, withinBranchScope, assertBranchScope, CROSS_BRANCH_ROLES, approvalLevelsFor, OWNER_PIN_ACTIONS, APPROVAL_MATRIX, APPROVAL_LEVEL_BY_ROLE };

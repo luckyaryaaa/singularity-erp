@@ -7,6 +7,7 @@
 // (sebelum migrasi 020) boleh terpakai sebagai sisa "untracked".
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
+const permissions = require('../../../core/permissions');
 
 async function lotMovement(client, { lotId, documentId, type, qty, fromWh, toWh, memo, userId }) {
   await client.query(`INSERT INTO stock_lot_movements(lot_id,document_id,movement_type,qty,from_warehouse_id,to_warehouse_id,memo,created_by)
@@ -163,18 +164,33 @@ async function valuation(client, user, params = {}) {
 // ── Stock opname ─────────────────────────────────────────────────────────────
 // Header = business_documents STOCK_OPNAME (nomor OPN, approval + SoD dari
 // mesin dokumen). Baris = snapshot qty sistem per lot + sisa tanpa lot.
-async function createOpname(client, { user, warehouseId, title, requestId }) {
+async function createOpname(client, { user, warehouseId, title, requestId, scope = 'FULL', categories, productIds }) {
   const wh = (await client.query('SELECT id,name FROM branches WHERE id=$1', [warehouseId])).rows[0];
   if (!wh) throw new AppError('RESOURCE_NOT_FOUND', 'Gudang tidak ditemukan.');
+  // P0-N: gudang datang dari klien — cakupan cabang wajib ditegakkan di server.
+  permissions.assertBranchScope(user, wh.id, 'Gudang');
+  // P0-N: kunci per gudang supaya dua permintaan bersamaan tidak sama-sama lolos
+  // pemeriksaan "opname berjalan" dan membuat dua dokumen hitung.
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`opname:${warehouseId}`]);
   const open = (await client.query(`SELECT document_number FROM business_documents WHERE document_type='STOCK_OPNAME'
     AND payload->>'warehouseId'=$1 AND status IN('DRAFT','WAITING_APPROVAL','REVISION_REQUIRED') LIMIT 1`, [warehouseId])).rows[0];
   if (open) throw new AppError('DOCUMENT_CONFLICT', `Masih ada opname berjalan (${open.document_number}) untuk gudang ini.`);
+
+  // P0-N: cakupan hitung — FULL (seluruh gudang), CATEGORY, atau PRODUCT
+  // (cycle counting). Filter dibangun sekali dan dipakai untuk lot maupun saldo
+  // agar kedua sumber baris tidak pernah berbeda cakupan.
+  const selection = normalizeOpnameScope({ scope, categories, productIds });
+  const filterParams = [warehouseId];
+  let productFilter = '';
+  if (selection.scope === 'CATEGORY') { filterParams.push(selection.categories); productFilter = ` AND p.category=ANY($${filterParams.length})`; }
+  if (selection.scope === 'PRODUCT') { filterParams.push(selection.productIds); productFilter = ` AND p.id=ANY($${filterParams.length}::uuid[])`; }
+
   const runtime = require('./runtime');
-  const doc = await runtime.createDocument(client, { type: 'STOCK_OPNAME', user, title: title || `Stock opname ${wh.name}`, amount: 0, payload: { warehouseId }, requestId });
+  const doc = await runtime.createDocument(client, { type: 'STOCK_OPNAME', user, title: title || `Stock opname ${wh.name}${selection.scope === 'FULL' ? '' : ` (${selection.scope.toLowerCase()})`}`, amount: 0, payload: { warehouseId, opnameScope: selection }, requestId });
   const lots = (await client.query(`SELECT l.* FROM stock_lots l JOIN products p ON p.id=l.product_id
-    WHERE l.warehouse_id=$1 AND l.status<>'CONSUMED' AND l.qty_on_hand>0 ORDER BY p.code,l.received_at`, [warehouseId])).rows;
+    WHERE l.warehouse_id=$1 AND l.status<>'CONSUMED' AND l.qty_on_hand>0${productFilter} ORDER BY p.code,l.received_at`, filterParams)).rows;
   const balances = (await client.query(`SELECT i.*,p.hpp FROM inventory_balances i JOIN products p ON p.id=i.product_id
-    WHERE i.warehouse_id=$1 AND i.qty_on_hand<>0 ORDER BY p.code`, [warehouseId])).rows;
+    WHERE i.warehouse_id=$1 AND i.qty_on_hand<>0${productFilter} ORDER BY p.code`, filterParams)).rows;
   let lineNo = 0; const lotSum = {};
   for (const lot of lots) {
     lineNo++; lotSum[lot.product_id] = (lotSum[lot.product_id] || 0) + Number(lot.qty_on_hand);
@@ -188,14 +204,37 @@ async function createOpname(client, { user, warehouseId, title, requestId }) {
     await client.query(`INSERT INTO stock_opname_lines(id,document_id,line_no,product_id,lot_id,system_qty,unit_cost) VALUES($1,$2,$3,$4,NULL,$5,$6)`,
       [randomUUID(), doc.id, lineNo, b.product_id, rest, Number(b.hpp || 0)]);
   }
-  if (!lineNo) throw new AppError('VALIDATION_ERROR', 'Gudang ini tidak memiliki saldo stok untuk diopname.');
-  return { ...doc, lineCount: lineNo };
+  if (!lineNo) throw new AppError('VALIDATION_ERROR', selection.scope === 'FULL'
+    ? 'Gudang ini tidak memiliki saldo stok untuk diopname.'
+    : 'Tidak ada saldo stok yang cocok dengan cakupan hitung yang dipilih.');
+  return { ...doc, lineCount: lineNo, opnameScope: selection };
 }
 
-async function opnameLines(client, docId) {
+const OPNAME_SCOPES = ['FULL', 'CATEGORY', 'PRODUCT'];
+function normalizeOpnameScope({ scope, categories, productIds }) {
+  const value = String(scope || 'FULL').toUpperCase();
+  if (!OPNAME_SCOPES.includes(value)) throw new AppError('VALIDATION_ERROR', `Cakupan opname harus salah satu dari ${OPNAME_SCOPES.join(', ')}.`);
+  if (value === 'CATEGORY') {
+    const list = [...new Set((Array.isArray(categories) ? categories : []).map((c) => String(c || '').trim()).filter(Boolean))];
+    if (!list.length) throw new AppError('VALIDATION_ERROR', 'Cakupan CATEGORY membutuhkan minimal satu kategori.');
+    if (list.length > 50) throw new AppError('VALIDATION_ERROR', 'Maksimal 50 kategori per opname.');
+    return { scope: value, categories: list };
+  }
+  if (value === 'PRODUCT') {
+    const list = [...new Set((Array.isArray(productIds) ? productIds : []).map((p) => String(p || '').trim()).filter(Boolean))];
+    if (!list.length) throw new AppError('VALIDATION_ERROR', 'Cakupan PRODUCT membutuhkan minimal satu produk.');
+    if (list.length > 500) throw new AppError('VALIDATION_ERROR', 'Maksimal 500 produk per opname.');
+    if (list.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) throw new AppError('VALIDATION_ERROR', 'Daftar produk opname mengandung id tidak valid.');
+    return { scope: value, productIds: list };
+  }
+  return { scope: 'FULL' };
+}
+
+async function opnameLines(client, docId, user) {
   const doc = (await client.query(`SELECT d.*,b.name warehouse_name FROM business_documents d
     LEFT JOIN branches b ON b.id=(d.payload->>'warehouseId')::uuid WHERE d.id=$1 AND d.document_type='STOCK_OPNAME'`, [docId])).rows[0];
   if (!doc) throw new AppError('RESOURCE_NOT_FOUND', 'Dokumen opname tidak ditemukan.');
+  permissions.assertBranchScope(user, doc.payload?.warehouseId || doc.branch_id, 'Opname');
   const lines = (await client.query(`SELECT ol.*,p.code product_code,p.name product_name,p.uom,l.lot_number,l.heat_number,
       CASE WHEN ol.counted_qty IS NULL THEN NULL ELSE ol.counted_qty-ol.system_qty END variance,
       CASE WHEN ol.counted_qty IS NULL THEN NULL ELSE (ol.counted_qty-ol.system_qty)*ol.unit_cost END variance_value
@@ -211,14 +250,19 @@ async function opnameLines(client, docId) {
 async function enterOpnameCounts(client, { docId, counts, user, requestId }) {
   const doc = (await client.query(`SELECT * FROM business_documents WHERE id=$1 AND document_type='STOCK_OPNAME' FOR UPDATE`, [docId])).rows[0];
   if (!doc) throw new AppError('RESOURCE_NOT_FOUND', 'Dokumen opname tidak ditemukan.');
+  permissions.assertBranchScope(user, doc.payload?.warehouseId || doc.branch_id, 'Opname');
   if (!['DRAFT', 'REVISION_REQUIRED'].includes(doc.status)) throw new AppError('STATUS_INVALID', `Hasil hitung hanya dapat diisi saat draft/revisi (status sekarang ${doc.status}).`);
   if (!Array.isArray(counts) || !counts.length) throw new AppError('VALIDATION_ERROR', 'Daftar hasil hitung kosong.');
+  if (counts.length > 1000) throw new AppError('VALIDATION_ERROR', 'Maksimal 1000 baris hasil hitung per permintaan.');
   let updated = 0;
   for (const row of counts) {
     const qty = Number(row.countedQty);
     if (!(qty >= 0)) throw new AppError('VALIDATION_ERROR', 'Qty hasil hitung tidak boleh negatif.');
+    // Baris WAJIB milik dokumen ini — id baris dari klien tidak boleh menyentuh
+    // opname gudang lain.
     const res = await client.query(`UPDATE stock_opname_lines SET counted_qty=$3,note=$4,counted_by=$5,counted_at=now() WHERE id=$1 AND document_id=$2`,
       [row.lineId, docId, qty, row.note ? String(row.note).slice(0, 500) : null, user.id]);
+    if (!res.rowCount) throw new AppError('RESOURCE_NOT_FOUND', `Baris hitung ${row.lineId} bukan bagian dari opname ${doc.document_number}.`);
     updated += res.rowCount;
   }
   const sums = (await client.query(`SELECT

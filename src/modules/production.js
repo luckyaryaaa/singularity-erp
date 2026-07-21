@@ -147,12 +147,13 @@
         actions: can('production.post') ? `<button class="btn primary" id="mrpRun">${ICONS.refresh} Jalankan MRP</button>` : ''
       }) + `
         <section class="panel"><header><div><p class="eyebrow">SARAN PEMBELIAN</p><h2>${data.items.length} saran terbuka</h2></div></header>
-          <div class="table-wrap"><table><thead><tr><th>Komponen</th><th class="right">Kebutuhan</th><th class="right">Stok</th><th class="right">Reservasi</th><th class="right">PO terbuka</th><th class="right">Disarankan beli</th><th>Pemicu</th><th></th></tr></thead>
+          <div class="table-wrap"><table><thead><tr><th>Komponen</th><th>Gudang</th><th class="right">Kebutuhan</th><th class="right">Stok</th><th class="right">Reservasi</th><th class="right">PO terbuka</th><th class="right">Disarankan beli</th><th>Pemicu</th><th></th></tr></thead>
           <tbody>${data.items.map((r) => `<tr><td><b>${esc(r.productCode)}</b><small>${esc(r.productName)}</small></td>
+            <td><small>${esc(r.warehouseName || '—')}</small></td>
             <td class="right">${Number(r.demandQty)}</td><td class="right">${Number(r.onHand)}</td><td class="right">${Number(r.reserved)}</td><td class="right">${Number(r.onOrder)}</td>
             <td class="right"><b class="money">${Number(r.suggestedQty)} ${esc(r.uom || '')}</b></td><td><small>${esc(r.source || '—')}</small></td>
-            <td>${can('purchase_request.create') ? `<button class="btn primary sm" data-mrpconv="${r.id}">Buat PR</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="8" class="table-loading">Tidak ada saran — jalankan MRP untuk menghitung ulang.</td></tr>'}</tbody></table></div>
-          <div class="panel-body"><p class="muted">Menjalankan MRP menutup saran lama (superseded) dan menghitung ulang dari kebutuhan terkini. Konversi membuat draft Purchase Request yang mengikuti alur approval normal.</p></div>
+            <td>${can('purchase_request.create') ? `<button class="btn primary sm" data-mrpconv="${r.id}">Buat PR</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="9" class="table-loading">Tidak ada saran — jalankan MRP untuk menghitung ulang.</td></tr>'}</tbody></table></div>
+          <div class="panel-body"><p class="muted">MRP dihitung <b>per gudang</b>: stok di gudang lain tidak menutup kekurangan di sini karena tetap butuh transfer. Menjalankan MRP menutup saran lama gudang yang dihitung ulang (superseded). Konversi membuat draft Purchase Request yang mengikuti alur approval normal.</p></div>
         </section>`;
       main.querySelector('#mrpRun')?.addEventListener('click', async () => {
         try { const r = await api('/api/mrp/run', { method: 'POST', idempotencyKey: newIdemKey(), body: {} }); toast('MRP selesai', `${r.suggestions} saran dihasilkan.`); this.render(main); }
