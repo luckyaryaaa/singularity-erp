@@ -67,7 +67,8 @@ async function dispatch(client, req, url, ctx) {
     const template=await docTemplates.resolveTemplate(client,m[1]);
     const orgSnapshot=await orgPreviewSnapshot(client,ctx.user);
     const sample=previewSample(m[1],orgSnapshot);
-    const rendered=docRender.renderDocument({document:sample.document,lines:sample.lines,copy:true,template});
+    const assets=await organization.documentAssets(client,null);
+    const rendered=docRender.renderDocument({document:sample.document,lines:sample.lines,copy:true,template,assets});
     ctx.download={item:{originalFilename:`pratinjau-${m[1].toLowerCase()}.pdf`,mimeType:'application/pdf',disposition:'inline'},buffer:rendered.buffer};
     return;
   }

@@ -106,4 +106,32 @@ async function decideBank(client,user,entityId,bankId,decision,reason,requestId)
   return runtime.camel(updated);
 }
 
-module.exports={overview,hierarchy,listResource,createResource,updateIdentity,decideBank};
+// Aset visual resmi (logo kop, stempel, tanda tangan) untuk dokumen PDF.
+// Effective-dated pada tanggal dokumen sehingga cetak ulang dokumen lama tetap
+// memakai kop/stempel yang berlaku saat itu. Berkas wajib lolos pemindaian
+// (privateStorage.download memverifikasi checksum + scan_status CLEAN);
+// kegagalan satu aset tidak boleh menggagalkan pencetakan.
+const ASSET_SLOTS={LETTERHEAD_LOGO:'logo',APPLICATION_LOGO:'logo',STAMP:'stamp',SIGNATURE:'signature'};
+// legalEntityId opsional: bila kosong dipakai legal entity default. Tidak ada
+// assertPermission di sini — pemanggil sudah lolos izin view dokumen, dan aset
+// kop bersifat identitas publik pada dokumen resmi.
+async function documentAssets(client,legalEntityId,onDate){
+  const entityId=legalEntityId||(await entity(client).catch(()=>null))?.id;
+  if(!entityId)return{};
+  const date=(onDate||new Date().toISOString()).slice(0,10);
+  const rows=(await client.query(`SELECT asset_type,file_id FROM organization_assets
+    WHERE legal_entity_id=$1 AND status='ACTIVE' AND file_id IS NOT NULL
+      AND effective_from<=$2 AND (effective_to IS NULL OR effective_to>=$2)
+      AND asset_type=ANY($3) ORDER BY effective_from DESC`,
+    [entityId,date,Object.keys(ASSET_SLOTS)])).rows;
+  const storage=require('../../files/private-storage'),out={};
+  for(const row of rows){
+    const slot=ASSET_SLOTS[row.asset_type];
+    if(!slot||out[slot])continue;                              // baris pertama (terbaru) menang
+    try{const {item,buffer}=await storage.download(client,row.file_id);out[slot]={buffer,mimeType:item.mimeType};}
+    catch{/* aset hilang/belum bersih — lewati, renderer memakai fallback */}
+  }
+  return out;
+}
+
+module.exports={overview,hierarchy,listResource,createResource,updateIdentity,decideBank,documentAssets};

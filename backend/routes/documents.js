@@ -16,6 +16,7 @@ const docRender = require('../infrastructure/files/document-render');
 const docVerify = require('../core/doc-verification');
 const smtp = require('../infrastructure/smtp');
 const docTemplates = require('../infrastructure/database/repositories/document-templates');
+const organization = require('../infrastructure/database/repositories/organization');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -78,7 +79,8 @@ async function dispatch(client, req, url, ctx) {
       template=await docTemplates.resolveTemplate(client,doc.documentType,(doc.createdAt instanceof Date?doc.createdAt.toISOString():String(doc.createdAt||'')).slice(0,10)||undefined);
       await client.query('UPDATE business_documents SET document_template_snapshot=$2 WHERE id=$1',[doc.id,template]);
     }
-    const rendered=docRender.renderDocument({document:issued.document,lines:issued.lines,copy:issued.copy,template});
+    const assets=await organization.documentAssets(client,null,(doc.createdAt instanceof Date?doc.createdAt.toISOString():String(doc.createdAt||'')));
+    const rendered=docRender.renderDocument({document:issued.document,lines:issued.lines,copy:issued.copy,template,assets});
     ctx.download={item:{originalFilename:`${doc.documentNumber}.pdf`,mimeType:'application/pdf'},buffer:rendered.buffer};
     await runtime.audit(client,{userId:ctx.user.id,action:'EXPORT',module:documentCore.moduleOf(doc.documentType),entityType:doc.documentType,entityId:doc.id,documentNumber:doc.documentNumber,newValue:{official:true,copy:issued.copy,verifyCode:rendered.code,templateVersion:rendered.templateVersion,pages:rendered.pageCount},requestId:ctx.requestId,branchId:doc.branchId});
     return;
@@ -89,7 +91,9 @@ async function dispatch(client, req, url, ctx) {
     const to=String(body.to||'').trim();if(!to)throw new AppError('VALIDATION_ERROR','Alamat email tujuan wajib diisi.');
     const lines=(await client.query('SELECT line_no,description,qty,uom,unit_price,discount_pct,tax_pct,line_total FROM document_lines WHERE document_id=$1 ORDER BY line_no',[doc.id])).rows.map(runtime.camel);
     const issued=await issueOfficial(client,doc,lines,ctx.user,ctx.requestId);
-    const rendered=docRender.renderDocument({document:issued.document,lines:issued.lines,copy:true});
+    const emailTemplate=doc.documentTemplateSnapshot||await docTemplates.resolveTemplate(client,doc.documentType);
+    const emailAssets=await organization.documentAssets(client,null,(doc.createdAt instanceof Date?doc.createdAt.toISOString():String(doc.createdAt||'')));
+    const rendered=docRender.renderDocument({document:issued.document,lines:issued.lines,copy:true,template:emailTemplate,assets:emailAssets});
     const org=doc.organizationIdentitySnapshot||{};
     const subject=body.subject||`${doc.documentType.replace(/_/g,' ')} ${doc.documentNumber} — ${org.legalName||'MAT'}`;
     const text=`${body.message?body.message+'\n\n':''}Terlampir informasi dokumen ${doc.documentNumber}.\nNilai: Rp ${Math.round(Number(doc.amount||0)).toLocaleString('id-ID')}\nTerbilang: ${rendered.terbilang}\n\nVerifikasi keaslian: kode ${rendered.code}\n${org.documentFooter||''}`;

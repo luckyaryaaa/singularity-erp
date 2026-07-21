@@ -5,6 +5,7 @@
 // Identitas diambil dari SNAPSHOT dokumen (immutable) — dokumen lama tetap
 // mencerminkan identitas saat diterbitkan meski master berubah.
 const { codeFor } = require('../../core/doc-verification');
+const { decodeImage } = require('./pdf-image');
 const QRCode = require('qrcode');
 
 const PW = 595, PH = 842, ML = 40, MR = 555;                 // A4, margin kiri/kanan
@@ -68,29 +69,58 @@ class Page {
     this.text(x + 11, y + 10.5, String(label).toUpperCase(), { size: 8, bold: true, color: '1 1 1' });
     return this;
   }
+  // Gambar XObject (logo/stempel/tanda tangan). index merujuk /ImN pada Resources.
+  image(x, y, w, h, index) {
+    this.ops.push(`q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${(PH - y - h).toFixed(2)} cm /Im${index} Do Q`);
+    return this;
+  }
   stream() { return this.ops.join('\n'); }
 }
 
-function buildPdf(input) {
+// Perakit PDF berbasis Buffer (bukan string) agar stream gambar biner tidak
+// rusak oleh enkode UTF-8. `images` = deskriptor dari pdf-image.decodeImage().
+function buildPdf(input, images = []) {
   const pages = Array.isArray(input) ? input : [input];
   const pageStart = 3, contentStart = pageStart + pages.length;
   const fontRegular = contentStart + pages.length, fontBold = fontRegular + 1;
-  const objects = [
-    '<< /Type /Catalog /Pages 2 0 R >>',
-    `<< /Type /Pages /Kids [${pages.map((_, i) => `${pageStart + i} 0 R`).join(' ')}] /Count ${pages.length} >>`
-  ];
-  for (let i = 0; i < pages.length; i++) objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /Font << /F1 ${fontRegular} 0 R /FB ${fontBold} 0 R >> >> /Contents ${contentStart + i} 0 R >>`);
+  let next = fontBold + 1;
+  const imgObjs = images.map((img) => ({ img, num: next++, smaskNum: img.smask ? next++ : null }));
+  const xobj = imgObjs.length ? ` /XObject << ${imgObjs.map((o, i) => `/Im${i} ${o.num} 0 R`).join(' ')} >>` : '';
+
+  const objects = [];                                        // { dict, stream?: Buffer }
+  objects.push({ dict: '<< /Type /Catalog /Pages 2 0 R >>' });
+  objects.push({ dict: `<< /Type /Pages /Kids [${pages.map((_, i) => `${pageStart + i} 0 R`).join(' ')}] /Count ${pages.length} >>` });
+  for (let i = 0; i < pages.length; i++) objects.push({ dict: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /Font << /F1 ${fontRegular} 0 R /FB ${fontBold} 0 R >>${xobj} >> /Contents ${contentStart + i} 0 R >>` });
   for (const page of pages) {
-    const stream = page.stream();
-    objects.push(`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`);
+    const stream = Buffer.from(page.stream(), 'latin1');
+    objects.push({ dict: `<< /Length ${stream.length} >>`, stream });
   }
-  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
-  objects.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
-  let out = '%PDF-1.4\n'; const offsets = [0];
-  for (let i = 0; i < objects.length; i++) { offsets.push(Buffer.byteLength(out)); out += `${i + 1} 0 obj\n${objects[i]}\nendobj\n`; }
-  const xref = Buffer.byteLength(out);
-  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map((n) => String(n).padStart(10, '0') + ' 00000 n ').join('\n')}\ntrailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-  return Buffer.from(out);
+  objects.push({ dict: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>' });
+  objects.push({ dict: '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>' });
+  for (const { img, smaskNum } of imgObjs) {
+    objects.push({
+      dict: `<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace ${img.colorSpace} /BitsPerComponent ${img.bpc} /Filter ${img.filter}${smaskNum ? ` /SMask ${smaskNum} 0 R` : ''} /Length ${img.data.length} >>`,
+      stream: img.data
+    });
+    if (smaskNum) objects.push({
+      dict: `<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length ${img.smask.length} >>`,
+      stream: img.smask
+    });
+  }
+
+  const chunks = [Buffer.from('%PDF-1.4\n', 'latin1')];
+  const offsets = []; let cursor = chunks[0].length;
+  objects.forEach((obj, i) => {
+    const head = Buffer.from(`${i + 1} 0 obj\n${obj.dict}\n`, 'latin1');
+    const body = obj.stream ? Buffer.concat([Buffer.from('stream\n', 'latin1'), obj.stream, Buffer.from('\nendstream\n', 'latin1')]) : Buffer.alloc(0);
+    const tail = Buffer.from('endobj\n', 'latin1');
+    offsets.push(cursor);
+    chunks.push(head, body, tail);
+    cursor += head.length + body.length + tail.length;
+  });
+  const trailer = `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((n) => String(n).padStart(10, '0') + ' 00000 n ').join('\n')}\ntrailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${cursor}\n%%EOF`;
+  chunks.push(Buffer.from(trailer, 'latin1'));
+  return Buffer.concat(chunks);
 }
 
 function verificationUrl(documentNumber, code) {
@@ -130,10 +160,27 @@ function renderDocument(data) {
   const navy = hexToPdf(tpl.accentColor, NAVY);
   p.watermark(watermark);
 
+  // ── Aset asli organisasi (logo/stempel/tanda tangan) → XObject ─────────────
+  // Aset rusak/format tak dikenal otomatis fallback ke gaya lama: pencetakan
+  // dokumen resmi tidak boleh gagal hanya karena berkas gambar bermasalah.
+  const images = [];
+  const addImage = (asset) => {
+    if (!asset || !asset.buffer) return null;
+    const img = decodeImage(Buffer.isBuffer(asset.buffer) ? asset.buffer : Buffer.from(asset.buffer), asset.mimeType);
+    if (!img) return null;
+    images.push(img);
+    return { index: images.length - 1, w: img.width, h: img.height };
+  };
+  const assets = data.assets || {};
+  const logo = addImage(assets.logo), stamp = addImage(assets.stamp), signatureArt = addImage(assets.signature);
+  const fit = (img, maxW, maxH) => { const s = Math.min(maxW / img.w, maxH / img.h); return { w: img.w * s, h: img.h * s }; };
+
   // ── KOP: logo + identitas kiri, judul + metadata kanan ──────────────────────
-  // Lambang perusahaan (placeholder gerigi bila tanpa logo aset).
-  p.rect(ML, 34, 30, 30, { fill: navy });
-  p.text(ML + 5, 53, 'MAT', { size: 11, bold: true, color: '1 1 1' });
+  if (logo) { const d = fit(logo, 34, 34); p.image(ML, 34 + (34 - d.h) / 2, d.w, d.h, logo.index); }
+  else {                                                       // fallback lambang
+    p.rect(ML, 34, 30, 30, { fill: navy });
+    p.text(ML + 5, 53, 'MAT', { size: 11, bold: true, color: '1 1 1' });
+  }
   p.text(ML + 40, 47, (org.legalName || org.tradeName || 'PT MANDIRI ABADI TEKNIK').toUpperCase(), { size: 15, bold: true, color: INK });
   p.text(ML + 40, 60, (org.tagline || 'ENGINEERING SERVICE | FABRICATION').toUpperCase(), { size: 7.5, bold: true, color: navy });
   let hy = 78;
@@ -254,15 +301,20 @@ function renderDocument(data) {
   if (tpl.showSignature !== false) {
     const sy = Math.max(by, ry + 46) + 14, boxW = 232;
     const sig = org.signatory || {};
-    const sigBox = (x, headLabel, name, sub) => {
+    const sigBox = (x, headLabel, name, sub, art) => {
       p.rect(x, sy, boxW, 66);
       p.text(x + boxW / 2 - String(headLabel).length * 2.6, sy + 14, headLabel, { size: 8, bold: true, color: INK });
+      if (art) art(x);                                        // stempel + tanda tangan di atas garis
       p.line(x + 40, sy + 48, x + boxW - 40, sy + 48, 0.4);
       p.text(x + boxW / 2 - String(name).length * 2.4, sy + 58, name, { size: 8, bold: true, color: INK });
       p.text(x + boxW / 2 - String(sub).length * 1.9, sy + 64.5, sub, { size: 6.5, color: MUTE });
     };
     sigBox(ML, 'RECEIVER', 'Nama / Stempel', '');
-    sigBox(MR - boxW, (tpl.signatureLabel || 'PREPARED BY').toUpperCase(), sig.name || 'ERP Admin', sig.positionTitle || 'Authorized');
+    sigBox(MR - boxW, (tpl.signatureLabel || 'PREPARED BY').toUpperCase(), sig.name || 'ERP Admin', sig.positionTitle || 'Authorized', (bx) => {
+      // Stempel digambar lebih dahulu agar tanda tangan tampak menimpa (seperti dokumen basah).
+      if (stamp) { const d = fit(stamp, 88, 31); p.image(bx + boxW / 2 - d.w / 2 - 12, sy + 16, d.w, d.h, stamp.index); }
+      if (signatureArt) { const d = fit(signatureArt, 78, 29); p.image(bx + boxW / 2 - d.w / 2 + 14, sy + 17, d.w, d.h, signatureArt.index); }
+    });
   }
 
   // ── FOOTER NAVY + VERIFIKASI QR ─────────────────────────────────────────────
@@ -310,7 +362,7 @@ function renderDocument(data) {
     pages.push(page);
   }
   pages.forEach((page, index) => page.right(MR, PH - 16, `Halaman ${index + 1}/${pages.length}`, { size: 7, color: '0.4 0.4 0.4' }));
-  return { buffer: buildPdf(pages), code, terbilang: terbilangRupiah(grand), pageCount: pages.length, templateVersion: TEMPLATE_VERSION, verificationUrl: url };
+  return { buffer: buildPdf(pages, images), code, terbilang: terbilangRupiah(grand), pageCount: pages.length, templateVersion: TEMPLATE_VERSION, verificationUrl: url };
 }
 
 function statusFill(status) {
