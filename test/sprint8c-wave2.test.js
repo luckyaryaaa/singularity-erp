@@ -8,7 +8,7 @@ const governance=require('../backend/infrastructure/database/repositories/master
 const masterData=require('../backend/infrastructure/database/repositories/master-data');
 
 const dbTest=process.env.DATABASE_URL?test:test.skip;
-async function rollback(fn){const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();try{await client.query('BEGIN');await fn(client);}finally{await client.query('ROLLBACK').catch(()=>{});await client.end();}}
+async function rollback(fn){const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();try{await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");await fn(client);}finally{await client.query('ROLLBACK').catch(()=>{});await client.end();}}
 async function owner(client){const r=(await client.query(`SELECT u.*,b.legal_entity_id FROM app_users u JOIN branches b ON b.id=u.branch_id WHERE u.role='owner' AND b.legal_entity_id IS NOT NULL LIMIT 1`)).rows[0];return{id:r.id,role:r.role,branchId:r.branch_id,branchScope:'*',displayName:r.display_name};}
 const code=(prefix)=>`${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2,5)}`.slice(0,20).toUpperCase();
 

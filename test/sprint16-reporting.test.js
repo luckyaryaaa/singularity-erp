@@ -28,7 +28,7 @@ test('R023 contract: migration, cockpit UI, provenance, dan endpoint terpasang',
 });
 
 const enabled=!!process.env.DATABASE_URL,dbTest=enabled?test:test.skip;
-async function rollback(fn){const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();try{await c.query('BEGIN');await fn(c);}finally{await c.query('ROLLBACK').catch(()=>{});await c.end();}}
+async function rollback(fn){const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();try{await c.query('BEGIN'); await c.query("SELECT set_config('app.is_system','on',true)");await fn(c);}finally{await c.query('ROLLBACK').catch(()=>{});await c.end();}}
 async function owner(c){return(await c.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope",employee_id "employeeId" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0];}
 
 dbTest('Executive Cockpit: 12 bulan, definisi KPI, freshness, dan revenue rekonsiliasi ke materialized GL',async()=>rollback(async c=>{

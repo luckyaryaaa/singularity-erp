@@ -39,7 +39,7 @@ pgTest('PostgreSQL integration: app role minimum, localhost, schema, dan CRUD tr
     const tables = await client.query("SELECT count(*)::int AS count FROM information_schema.tables WHERE table_schema='public'");
     assert.ok(tables.rows[0].count >= 20);
 
-    await client.query('BEGIN');
+    await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");
     const inserted = await client.query("INSERT INTO branches(code,name,active) VALUES($1,$2,true) RETURNING code", [`IT-${Date.now()}`, 'Integration Test']);
     assert.equal(inserted.rowCount, 1);
     await client.query('ROLLBACK');
@@ -97,7 +97,7 @@ pgTest('PostgreSQL integration: retry email idempotent mempertahankan delivery a
   await client.connect();
   const previousHost = process.env.MAT_SMTP_HOST;
   try {
-    await client.query('BEGIN');
+    await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");
     const user = (await client.query(`SELECT id,role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0];
     process.env.MAT_SMTP_HOST = 'smtp.example.invalid';
     const job = await operations.enqueue(client, { type: 'NOTIFICATION_SEND', user, params: { title: 'Retry integration', email: 'alamat-tidak-valid', dedupeKey: `retry-${Date.now()}` } });
@@ -122,7 +122,9 @@ pgTest('PostgreSQL integration: retry email idempotent mempertahankan delivery a
 });
 
 pgTest('PostgreSQL integration: document lines, inventory ledger, dan jurnal double-entry atomic', async()=>{
-  const client=new Client({connectionString:process.env.DATABASE_URL}),admin=new Client({connectionString:process.env.MIGRATION_DATABASE_URL});await Promise.all([client.connect(),admin.connect()]);const ids={docs:[]};
+  // Uji ini menulis tanpa transaksi pembungkus (COMMIT ke DB dev), jadi konteks
+  // RLS disetel pada level sesi — SET LOCAL hanya hidup di dalam transaksi.
+  const client=new Client({connectionString:process.env.DATABASE_URL}),admin=new Client({connectionString:process.env.MIGRATION_DATABASE_URL});await Promise.all([client.connect(),admin.connect()]); await client.query("SELECT set_config('app.is_system','on',false)");const ids={docs:[]};
   try{const user=(await client.query(`SELECT u.id,u.username,u.display_name "displayName",u.role,u.branch_id "branchId",u.branch_scope "branchScope" FROM app_users u WHERE role='owner' AND active LIMIT 1`)).rows[0],productId=randomUUID();ids.productId=productId;await client.query(`INSERT INTO products(id,code,name,uom,hpp,price) VALUES($1,$2,'Ledger Test Product','PCS',25000,40000)`,[productId,`LED-${Date.now()}`]);
     let receipt=await runtime.createDocument(client,{type:'GOODS_RECEIPT',user,title:'Ledger receipt',amount:125000,payload:{lines:[{productId,name:'Ledger Test Product',uom:'PCS',qty:5,price:25000}]},requestId:randomUUID()});ids.docs.push(receipt.id);for(const action of ['submit','approve','start','complete'])receipt=await runtime.transitionDocument(client,{id:receipt.id,action,user,requestId:randomUUID(),allowOwnerOverride:true});await posting.postDocument(client,receipt,user);await posting.postDocument(client,receipt,user);const stock=(await client.query('SELECT qty_on_hand FROM inventory_balances WHERE product_id=$1 AND warehouse_id=$2',[productId,user.branchId])).rows[0];assert.equal(Number(stock.qty_on_hand),5);assert.equal(Number((await client.query('SELECT count(*) n FROM inventory_movements WHERE document_id=$1',[receipt.id])).rows[0].n),1);
     let invoice=await runtime.createDocument(client,{type:'INVOICE',user,title:'Ledger invoice',amount:1000000,payload:{lines:[{description:'Service',qty:1,price:1000000}]},requestId:randomUUID()});ids.docs.push(invoice.id);for(const action of ['submit','approve'])invoice=await runtime.transitionDocument(client,{id:invoice.id,action,user,requestId:randomUUID(),allowOwnerOverride:true});await posting.postDocument(client,invoice,user);await posting.postDocument(client,invoice,user);const journal=(await client.query('SELECT count(*)::int lines,sum(debit)::float debit,sum(credit)::float credit FROM journal_lines WHERE journal_document_id=$1',[invoice.id])).rows[0];assert.equal(journal.lines,2);assert.equal(journal.debit,1000000);assert.equal(journal.credit,1000000);assert.equal(Number((await client.query('SELECT count(*) n FROM document_postings WHERE document_id=$1 AND posting_kind=$2',[invoice.id,'ACCOUNTING'])).rows[0].n),1);
@@ -136,7 +138,7 @@ pgTest('PostgreSQL integration: document lines, inventory ledger, dan jurnal dou
 
 pgTest('PostgreSQL Sprint 3: conversion, master CRUD, private file, artifact, dan matriks role',async()=>{
   const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();const files=[];
-  try{await client.query('BEGIN');const user=(await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0];assert.ok(user);
+  try{await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");const user=(await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0];assert.ok(user);
     const customer=await operations.createMaster(client,'customers',{code:`S3-${Date.now()}`,name:'Sprint 3 Customer',city:'Bekasi'},user);assert.equal(customer.name,'Sprint 3 Customer');const changed=await operations.updateMaster(client,'customers',customer.id,{city:'Jakarta'},user);assert.equal(changed.city,'Jakarta');
     let source=await runtime.createDocument(client,{type:'QUOTATION',user,title:'Sprint 3 Conversion',amount:1000000,payload:{lines:[{description:'Service',qty:1,price:1000000}]},requestId:randomUUID()});source=await runtime.transitionDocument(client,{id:source.id,action:'submit',user,requestId:randomUUID(),allowOwnerOverride:true});source=await runtime.transitionDocument(client,{id:source.id,action:'approve',user,requestId:randomUUID(),allowOwnerOverride:true});const first=await runtime.convertDocument(client,{id:source.id,user,requestId:randomUUID()}),replay=await runtime.convertDocument(client,{id:source.id,user,requestId:randomUUID()});assert.equal(first.child.documentType,'SALES_ORDER');assert.equal(replay.child.id,first.child.id);assert.equal(replay.alreadyConverted,true);assert.equal((await runtime.documentRelations(client,source.id)).length,1);
     const uploaded=await privateStorage.upload(client,{buffer:Buffer.from('%PDF-1.4\n%%EOF'),filename:'sprint-3.pdf',mimeType:'application/pdf',user,module:'quotation',documentId:source.id});files.push(path.join(privateStorage.ROOT,uploaded.storagePath));assert.equal(uploaded.scanStatus,'QUARANTINED');const scanned=await privateStorage.scan(client,uploaded.id);assert.equal(scanned.scanStatus,'CLEAN');const downloaded=await privateStorage.download(client,uploaded.id);assert.equal(downloaded.buffer.toString(),'%PDF-1.4\n%%EOF');
@@ -149,7 +151,7 @@ pgTest('PostgreSQL Sprint 3: conversion, master CRUD, private file, artifact, da
 pgTest('PostgreSQL Sprint 4: accounting, allocation, attendance, payroll, tax, import, reconciliation, dan employee self-service',async()=>{
   const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();
   try{
-    await client.query('BEGIN');
+    await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");
     const owner=(await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope",employee_id "employeeId" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0];
     const employee=(await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope",employee_id "employeeId" FROM app_users WHERE role='employee' AND active AND employee_id IS NOT NULL LIMIT 1`)).rows[0];
     assert.ok(owner);assert.ok(employee?.employeeId);

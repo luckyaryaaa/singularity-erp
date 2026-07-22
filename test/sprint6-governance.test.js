@@ -26,7 +26,7 @@ test('Sprint 6 approval steps menolak duplikat dan level liar',()=>{
 const pgTest=process.env.DATABASE_URL?test:test.skip;
 pgTest('Sprint 6 IAM maker-checker, SoD conflict, session revoke, dan policy snapshot atomic',async()=>{
   const {Client}=require('pg'),client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();
-  await client.query('BEGIN');
+  await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");
   try{
     const branch=(await client.query('SELECT id FROM branches ORDER BY created_at LIMIT 1')).rows[0],ownerRow=(await client.query("SELECT * FROM app_users WHERE role='owner' AND active LIMIT 1")).rows[0];
     const owner={id:ownerRow.id,role:'owner',branchId:branch.id,branchScope:'*',displayName:ownerRow.display_name};

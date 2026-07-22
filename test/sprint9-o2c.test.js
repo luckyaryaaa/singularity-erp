@@ -18,7 +18,7 @@ const o2c = require('../backend/infrastructure/database/repositories/sales-o2c')
 async function withRollback(fn) {
   const c = new Client({ connectionString: process.env.DATABASE_URL });
   await c.connect();
-  try { await c.query('BEGIN'); await fn(c); } finally { await c.query('ROLLBACK').catch(() => {}); await c.end(); }
+  try { await c.query('BEGIN'); await c.query("SELECT set_config('app.is_system','on',true)"); await fn(c); } finally { await c.query('ROLLBACK').catch(() => {}); await c.end(); }
 }
 const owner = async (c) => runtime.camel((await c.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' LIMIT 1`)).rows[0]);
 

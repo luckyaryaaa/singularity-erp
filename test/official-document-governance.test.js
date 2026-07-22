@@ -15,7 +15,7 @@ dbTest('official document: DRAFT ditolak, issuance immutable, reprint COPY, sign
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    await client.query('BEGIN');
+    await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");
     const owner = runtime.camel((await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0]);
     const doc = await runtime.createDocument(client, { type: 'QUOTATION', title: 'Immutable official title', amount: 12345, payload: { lines: [{ description: 'Official line', qty: 1, unitPrice: 12345 }] }, user: owner, requestId: randomUUID() });
     const lines = (await client.query('SELECT line_no,description,qty,uom,unit_price,discount_pct,tax_pct,line_total FROM document_lines WHERE document_id=$1 ORDER BY line_no', [doc.id])).rows.map(runtime.camel);
@@ -44,7 +44,7 @@ dbTest('official document: VOID tidak dapat diterbitkan ulang sebagai dokumen re
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    await client.query('BEGIN');
+    await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");
     const owner = runtime.camel((await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0]);
     const doc = await runtime.createDocument(client, { type: 'INVOICE', title: 'Void official guard', amount: 1, user: owner, requestId: randomUUID() });
     await client.query(`UPDATE business_documents SET status='VOID' WHERE id=$1`, [doc.id]);

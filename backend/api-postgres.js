@@ -3,7 +3,7 @@ const { randomUUID } = require('node:crypto');
 const { parseCookies } = require('./core/util');
 const { AppError } = require('./core/errors');
 const { getPool } = require('./infrastructure/database/pool');
-const { withTransaction } = require('./infrastructure/database/transaction');
+const { withTransaction, setRlsContext } = require('./infrastructure/database/transaction');
 const auth = require('./infrastructure/database/repositories/auth');
 const ratelimit = require('./core/ratelimit');
 const events = require('./core/events');
@@ -22,7 +22,7 @@ const domainRoutes = [
 const openapi=require('./core/openapi');
 const json=(res,status,body,headers={})=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-API-Version':openapi.API_VERSION,...headers});res.end(JSON.stringify(body));};
 const originAllowed=(req,ctx)=>!req.headers.origin||req.headers.origin===`${ctx.protocol}://${ctx.host}`;
-async function loginTransaction(work){const client=await getPool().connect();try{await client.query('BEGIN');try{const value=await work(client);await client.query('COMMIT');return value;}catch(error){if(error instanceof AppError&&['AUTH_FAILED','ACCOUNT_LOCKED'].includes(error.code))await client.query('COMMIT');else await client.query('ROLLBACK');throw error;}}finally{client.release();}}
+async function loginTransaction(work){const client=await getPool().connect();try{await client.query('BEGIN');await setRlsContext(client,null);try{const value=await work(client);await client.query('COMMIT');return value;}catch(error){if(error instanceof AppError&&['AUTH_FAILED','ACCOUNT_LOCKED'].includes(error.code))await client.query('COMMIT');else await client.query('ROLLBACK');throw error;}}finally{client.release();}}
 async function dispatch(client,req,url,ctx){
   const publicResult=await authRoutes.dispatchPublic(client,req,url,ctx);if(publicResult!==NO_MATCH)return publicResult;
   const resolved=await auth.resolveSession(client,parseCookies(req).mat_session,{ip:ctx.ip,device:ctx.device});
@@ -61,7 +61,7 @@ async function handle(req,res){const started=Date.now(),requestId=randomUUID(),u
       return;
     }
     const durableAuth=req.method==='POST'&&['/api/auth/login','/api/auth/mfa','/api/auth/change-password-required'].includes(url.pathname);
-    const body=durableAuth?await loginTransaction(c=>dispatch(c,req,url,ctx)):await withTransaction(c=>dispatch(c,req,url,ctx));
+    const body=durableAuth?await loginTransaction(c=>dispatch(c,req,url,ctx)):await withTransaction(c=>dispatch(c,req,url,ctx),{user:ctx.user});
     apiMetrics.requests++;apiMetrics.latencies.push(Date.now()-started);if(apiMetrics.latencies.length>500)apiMetrics.latencies.shift();
     if(ctx.download){const {item,buffer}=ctx.download,filename=item.originalFilename||item.fileName||'download',disposition=item.disposition==='inline'?'inline':'attachment';res.writeHead(200,{'Content-Type':item.mimeType,'Content-Length':buffer.length,'Content-Disposition':`${disposition}; filename="${privateStorage.safeName(filename).replace(/"/g,'')}"`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Request-Id':requestId});return res.end(buffer);}
     json(res,ctx.status||200,body,{'X-Request-Id':requestId,...(ctx.cookie?{'Set-Cookie':ctx.cookie}:{})});

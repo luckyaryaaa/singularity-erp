@@ -16,7 +16,7 @@ const runtime = require('../backend/infrastructure/database/repositories/runtime
 async function withRollback(fn) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
-  try { await client.query('BEGIN'); await fn(client); } finally { await client.query('ROLLBACK').catch(() => {}); await client.end(); }
+  try { await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)"); await fn(client); } finally { await client.query('ROLLBACK').catch(() => {}); await client.end(); }
 }
 async function owner(client) {
   return runtime.camel((await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' LIMIT 1`)).rows[0]);

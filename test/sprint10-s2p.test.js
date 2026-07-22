@@ -20,7 +20,7 @@ const businessOps = require('../backend/infrastructure/database/repositories/bus
 async function withRollback(fn) {
   const c = new Client({ connectionString: process.env.DATABASE_URL });
   await c.connect();
-  try { await c.query('BEGIN'); await fn(c); } finally { await c.query('ROLLBACK').catch(() => {}); await c.end(); }
+  try { await c.query('BEGIN'); await c.query("SELECT set_config('app.is_system','on',true)"); await fn(c); } finally { await c.query('ROLLBACK').catch(() => {}); await c.end(); }
 }
 const getUser = async (c, role) => runtime.camel((await c.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role=$1 AND active LIMIT 1`, [role])).rows[0]);
 
