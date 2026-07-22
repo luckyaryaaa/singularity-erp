@@ -55,6 +55,11 @@ function verify() {
   if (!fs.existsSync(manifestPath)) findings.push({ file: 'release-manifest.json', kind: 'manifest-missing' });
   else {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const sourcePackage = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    const sourceLatestMigration = fs.readdirSync(path.join(ROOT, 'data', 'migrations'))
+      .filter((name) => /^\d+_.+\.sql$/.test(name) && !name.endsWith('.down.sql')).sort().at(-1);
+    if (manifest.version !== sourcePackage.version) findings.push({ file: 'release-manifest.json', kind: `stale-version:${manifest.version}->${sourcePackage.version}` });
+    if (manifest.migrationLatest !== sourceLatestMigration) findings.push({ file: 'release-manifest.json', kind: `stale-migration:${manifest.migrationLatest}->${sourceLatestMigration}` });
     const listed = new Map(manifest.files.map((f) => [f.path, f.sha256]));
     for (const file of files) {
       if (file.rel === 'release-manifest.json') continue;

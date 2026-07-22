@@ -108,11 +108,14 @@ async function refreshReporting(client){
   await reporting.refresh(client);return true;
 }
 function start({pollMs=1000}={}) {
-  const workerId=`mat-worker-${process.pid}-${randomUUID().slice(0,8)}`;let stopped=false,running=false,timer,lastSchedule=0,lastReporting=0,lastMaintenance=0;
+  const workerId=`mat-worker-${process.pid}-${randomUUID().slice(0,8)}`;let stopped=false,running=false,timer,lastSchedule=0,lastReporting=0,lastMaintenance=0,lastReservationSweep=0;
   const schedule=()=>{if(!stopped)timer=setTimeout(tick,pollMs).unref();};
   const tick=async()=>{if(running||stopped)return schedule();running=true;try{
     await withTransaction(c=>jobs.recoverExpired(c));if(Date.now()-lastSchedule>60000){await withTransaction(scheduleBackup);await withTransaction(scheduleReports);lastSchedule=Date.now();}
     if(Date.now()-lastReporting>60000){await withTransaction(refreshReporting);lastReporting=Date.now();}
+    // Reservasi kedaluwarsa dilepas berkala; tanpa ini stok yang ditahan pesanan
+    // yang tidak pernah berlanjut tersandera selamanya.
+    if(Date.now()-lastReservationSweep>300000){await withTransaction(c=>require('../infrastructure/database/repositories/stock-reservations').expireStale(c));lastReservationSweep=Date.now();}
     if(Date.now()-lastMaintenance>12*3600000){await withTransaction(auditPartitionMaintenance).catch(error=>{console.error(JSON.stringify({level:'error',service:'job-worker',message:`Maintenance partisi gagal: ${error.message}`,at:new Date().toISOString()}));require('../infrastructure/alerts').send('Maintenance partisi gagal',error.message).catch(()=>{});});lastMaintenance=Date.now();}
     const claimed=await withTransaction(c=>jobs.claim(c,workerId,{leaseSeconds:60}));
     if(claimed){const job=await withTransaction(c=>jobs.startRunning(c,claimed.id,workerId)),heartbeat=setInterval(()=>withTransaction(c=>jobs.heartbeat(c,job.id,workerId,60)).catch(()=>{}),15000);heartbeat.unref();try{const result=await withTransaction(async c=>{await c.query(`SET LOCAL statement_timeout = '${Math.max(10000,Number(job.timeoutSeconds||300)*1000)}ms'`);return execute(c,job);});if(result?.retryableError)throw new Error(result.retryableError);if(await withTransaction(c=>jobs.cancellationRequested(c,job.id,workerId)))throw new Error('Job dibatalkan atau melewati timeout.');await withTransaction(async c=>{await jobs.complete(c,job.id,workerId,result);await jobs.notify(c,{userId:job.requestedBy,category:'SUCCESS',title:`${job.label} selesai`,body:result.fileName?`${result.fileName} siap diunduh.`:'Proses latar belakang selesai.',link:'#/system/jobs',dedupeKey:`job:${job.id}:succeeded`});});}catch(error){await withTransaction(async c=>{await jobs.fail(c,job.id,workerId,error.message);await jobs.notify(c,{userId:job.requestedBy,category:'WARNING',title:`${job.label} gagal`,body:String(error.message).slice(0,500),link:'#/system/jobs',dedupeKey:`job:${job.id}:failed:${job.attempts}`});});if(job.jobType==='BACKUP_RUN')require('../infrastructure/alerts').send('Job backup terjadwal GAGAL',error.message,{key:'backup-job'}).catch(()=>{});}finally{clearInterval(heartbeat);}}

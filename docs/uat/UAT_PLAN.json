@@ -1,0 +1,20 @@
+{
+  "name": "MAT ERP V2 — Cross-Functional LAN-UAT",
+  "owner": "UAT Coordinator",
+  "requiredEnvironment": "LAN-UAT",
+  "scenarios": [
+    {"id":"UAT-OWN-01","role":"owner","title":"Final approval dan executive assurance","steps":["Buka approval center","Periksa detail dan exposure","Setujui memakai kontrol step-up"],"expected":"Approval tercatat, SoD dan audit trail lengkap."},
+    {"id":"UAT-SYS-01","role":"system_admin","title":"Health, job, dan configuration visibility","steps":["Buka monitoring","Periksa job queue","Jalankan self-test read-only"],"expected":"Seluruh kontrol platform terlihat tanpa hak transaksi finance."},
+    {"id":"UAT-SEC-01","role":"security_admin","title":"IAM, SoD, dan access review","steps":["Tinjau role assignment","Uji konflik SoD","Tinjau access review"],"expected":"Konflik diblokir dan keputusan akses teraudit."},
+    {"id":"UAT-FIN-01","role":"finance_manager","title":"Credit, payment, dan finance approval","steps":["Periksa exposure customer","Tinjau payment proposal","Putuskan approval finance"],"expected":"Limit, scope cabang, dan maker-checker ditegakkan."},
+    {"id":"UAT-ACC-01","role":"accounting","title":"Posting, subledger, dan closing cockpit","steps":["Periksa jurnal posting","Rekonsiliasi AR/AP","Buka closing cockpit"],"expected":"Jurnal seimbang dan seluruh selisih terukur."},
+    {"id":"UAT-TAX-01","role":"tax","title":"Tax document dan reconciliation","steps":["Tinjau Faktur Pajak","Ekspor data pajak","Cocokkan tax reconciliation"],"expected":"Nomor, nilai, dan akses pajak valid serta teraudit."},
+    {"id":"UAT-HRD-01","role":"hrd","title":"Attendance, leave, dan payroll","steps":["Tinjau koreksi absensi","Proses cuti","Validasi payroll run"],"expected":"SoD koreksi, saldo cuti, dan rule snapshot konsisten."},
+    {"id":"UAT-SAL-01","role":"sales","title":"Quotation hingga fulfilment","steps":["Buat quotation","Konversi ke sales order","Tinjau delivery dan invoice parsial"],"expected":"Harga server-side, credit gate, dan sisa fulfilment benar."},
+    {"id":"UAT-PRC-01","role":"procurement","title":"PR, RFQ, PO, dan three-way match","steps":["Buat purchase request","Bandingkan quotation RFQ","Tinjau match PO/GR/invoice"],"expected":"Budget, supplier, baris, dan tolerance policy ditegakkan."},
+    {"id":"UAT-WHS-01","role":"warehouse","title":"Receipt, lot, transfer, dan opname","steps":["Terima barang ber-lot","Transfer lokasi","Jalankan blind stock opname"],"expected":"Scope gudang, lineage lot, dan selisih opname akurat."},
+    {"id":"UAT-PRD-01","role":"production","title":"WO, material, MRP, dan quality gate","steps":["Rilis work order","Issue material FIFO","Catat QC dan completion"],"expected":"Urutan operasi, reservasi, dan NCR completion gate aktif."},
+    {"id":"UAT-AUD-01","role":"auditor","title":"Audit read-only dan export","steps":["Tinjau audit trail","Ekspor laporan","Coba mutasi dokumen"],"expected":"Data terbaca sesuai scope dan seluruh mutasi auditor ditolak."},
+    {"id":"UAT-EMP-01","role":"employee","title":"Employee self-service","steps":["Lihat kehadiran sendiri","Ajukan cuti","Coba lihat payroll pengguna lain"],"expected":"Own-record tersedia dan data pengguna lain ditolak."}
+  ]
+}

@@ -1,6 +1,6 @@
 'use strict';
-require('../backend/core/env').loadEnv();
-if(process.env.NODE_ENV==='production')throw new Error('UAT seed dilarang di production.');
+const env=require('../backend/core/env');env.loadEnv();env.assertSeedAllowed('uat');
+require('./uat-database-guard').assertDedicatedUatDatabase();
 const {Client}=require('pg');
 const operations=require('../backend/infrastructure/database/repositories/operations');
 
@@ -9,6 +9,7 @@ const operations=require('../backend/infrastructure/database/repositories/operat
   await client.connect();
   try{
     await client.query('BEGIN');
+    await client.query("SELECT set_config('app.is_system','on',true)");
     const owner=(await client.query(`SELECT id,branch_id "branchId" FROM app_users WHERE role='owner' AND active ORDER BY created_at LIMIT 1`)).rows[0];
     if(!owner)throw new Error('Owner aktif tidak ditemukan.');
     const employees=(await client.query('SELECT id,nik,base_salary FROM employees WHERE active ORDER BY nik')).rows;

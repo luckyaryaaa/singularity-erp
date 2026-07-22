@@ -5,6 +5,7 @@ const { assertPermission } = require('../core/permissions');
 const { verifyPassword } = require('../core/password');
 const organization = require('../infrastructure/database/repositories/organization');
 const orgStructure = require('../infrastructure/database/repositories/org-structure');
+const orgWorkforce = require('../infrastructure/database/repositories/org-workforce');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const docTemplates = require('../infrastructure/database/repositories/document-templates');
 const docRender = require('../infrastructure/files/document-render');
@@ -64,6 +65,33 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m){const body=await readBody(req);ctx.status=201;return organization.createResource(client,ctx.user,m[1],m[2],body,ctx.requestId);}
   m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/bank-accounts\/([0-9a-f-]{36})\/(approve|reject)$/);
   if(method==='POST'&&m){const body=await readBody(req);if(ctx.user.role!=='owner')throw new AppError('PERMISSION_DENIED');const pinRow=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!pinRow?.owner_pin_hash||!verifyPassword(String(body.pin),pinRow.owner_pin_hash))throw new AppError('PIN_REQUIRED');if(!ctx.session.mfaVerifiedAt||Date.now()-new Date(ctx.session.mfaVerifiedAt).getTime()>10*60*1000)throw new AppError('MFA_REQUIRED','Persetujuan rekening perusahaan membutuhkan login MFA yang masih baru.');return organization.decideBank(client,ctx.user,m[1],m[2],m[3],body.reason,ctx.requestId);}
+
+  // Versioned hierarchy + canonical Job/Position/Assignment + delegation.
+  m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/workforce\/hierarchy-versions$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'organization.view');return{items:await orgWorkforce.listVersions(client,ctx.user,m[1])};}
+  if(method==='POST'&&m){assertPermission(ctx.user,'organization.edit');const body=await readBody(req),item=await orgWorkforce.captureVersion(client,ctx.user,m[1],body);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module:'organization',entityType:'HIERARCHY_VERSION',entityId:item.id,newValue:{version:item.versionNo,sha:item.snapshotSha256},reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/workforce\/hierarchy-versions\/([0-9a-f-]{36})\/(submit|approve|reject|activate)$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,m[3]==='submit'?'organization.edit':'organization.approve');const body=await readBody(req),result=await orgWorkforce.decideVersion(client,ctx.user,m[2],m[3],body.reason);await runtime.audit(client,{userId:ctx.user.id,action:m[3].toUpperCase(),module:'organization',entityType:'HIERARCHY_VERSION',entityId:m[2],newValue:result,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/workforce\/jobs$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'organization.view');return{items:await orgWorkforce.listJobs(client,ctx.user,m[1])};}
+  if(method==='POST'&&m){assertPermission(ctx.user,'organization.create');const body=await readBody(req),item=await orgWorkforce.createJob(client,ctx.user,m[1],body);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module:'organization',entityType:'JOB',entityId:item.id,newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  m=p.match(/^\/api\/organization\/[0-9a-f-]{36}\/workforce\/jobs\/([0-9a-f-]{36})$/);
+  if(method==='PATCH'&&m){assertPermission(ctx.user,'organization.edit');const body=await readBody(req),item=await orgWorkforce.updateJob(client,ctx.user,m[1],body);await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'organization',entityType:'JOB',entityId:m[1],newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});return item;}
+  m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/workforce\/positions$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'organization.view');return{items:await orgWorkforce.listPositions(client,ctx.user,m[1])};}
+  if(method==='POST'&&m){assertPermission(ctx.user,'organization.create');const body=await readBody(req),item=await orgWorkforce.createPosition(client,ctx.user,m[1],body);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module:'organization',entityType:'POSITION',entityId:item.id,newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  m=p.match(/^\/api\/organization\/[0-9a-f-]{36}\/workforce\/positions\/([0-9a-f-]{36})$/);
+  if(method==='PATCH'&&m){assertPermission(ctx.user,'organization.edit');const body=await readBody(req),item=await orgWorkforce.updatePosition(client,ctx.user,m[1],body);await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'organization',entityType:'POSITION',entityId:m[1],newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});return item;}
+  m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/workforce\/assignments$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'organization.view');return{items:await orgWorkforce.listAssignments(client,ctx.user,m[1])};}
+  if(method==='POST'&&m){assertPermission(ctx.user,'organization.edit');const body=await readBody(req),item=await orgWorkforce.proposeAssignment(client,ctx.user,body);await runtime.audit(client,{userId:ctx.user.id,action:'SUBMIT',module:'organization',entityType:'POSITION_ASSIGNMENT',entityId:item.id,newValue:item,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  m=p.match(/^\/api\/organization\/[0-9a-f-]{36}\/workforce\/assignments\/([0-9a-f-]{36})\/(approve|reject)$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'organization.approve');const body=await readBody(req),result=await orgWorkforce.decideAssignment(client,ctx.user,m[1],m[2],body.reason);await runtime.audit(client,{userId:ctx.user.id,action:m[2].toUpperCase(),module:'organization',entityType:'POSITION_ASSIGNMENT',entityId:m[1],newValue:result,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  if(method==='GET'&&p==='/api/organization/delegation-candidates'){assertPermission(ctx.user,'organization.view');return{items:(await client.query(`SELECT id,display_name,role FROM app_users WHERE active AND id<>$1 ORDER BY display_name`,[ctx.user.id])).rows.map(runtime.camel)};}
+  if(method==='GET'&&p==='/api/organization/delegations'){assertPermission(ctx.user,'organization.view');return{items:await orgWorkforce.listDelegations(client,ctx.user)};}
+  if(method==='POST'&&p==='/api/organization/delegations'){assertPermission(ctx.user,'organization.edit');const body=await readBody(req),item=await orgWorkforce.proposeDelegation(client,ctx.user,body);await runtime.audit(client,{userId:ctx.user.id,action:'SUBMIT',module:'organization',entityType:'AUTHORITY_DELEGATION',entityId:item.id,newValue:{delegateUserId:item.delegateUserId,permissionCode:item.permissionCode,scopeType:item.scopeType,scopeId:item.scopeId},reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  m=p.match(/^\/api\/organization\/delegations\/([0-9a-f-]{36})\/(approve|reject)$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'organization.approve');const body=await readBody(req),result=await orgWorkforce.decideDelegation(client,ctx.user,m[1],m[2],body.reason);await runtime.audit(client,{userId:ctx.user.id,action:m[2].toUpperCase(),module:'organization',entityType:'AUTHORITY_DELEGATION',entityId:m[1],newValue:result,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
 
   // Compatibility settings view: organization master tetap menjadi single source of truth.
   // ── Template dokumen resmi (configuration-driven, ber-versi) ──────────────

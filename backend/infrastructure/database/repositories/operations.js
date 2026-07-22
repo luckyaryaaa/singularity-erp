@@ -115,7 +115,7 @@ async function createMaster(client,name,body,user){const fields=MASTER_FIELDS[na
 // P1-2 — kolom master yang berdampak uang/pajak/kepatuhan tidak tersimpan
 // langsung: perubahannya menjadi usulan yang wajib diputuskan orang lain.
 // Kolom lain tetap tersimpan seketika supaya pekerjaan harian tidak tersendat.
-async function updateMaster(client,name,id,body,user){
+async function updateMaster(client,name,id,body,user,requestId=null){
   const fields=MASTER_FIELDS[name];if(!fields)throw new AppError('RESOURCE_NOT_FOUND');
   await masterGovernance.validateMaster(client,name,body,id);
   const entries=Object.entries(body||{}).map(([k,v])=>[snake(k),v]).filter(([k,v])=>fields.includes(k)&&v!==undefined);
@@ -131,6 +131,9 @@ async function updateMaster(client,name,id,body,user){
       reason:body.changeReason||body.reason,user,
       label:[current.code,current.name].filter(Boolean).join(' — ')||null,
       branchId:current.branch_id||null});
+    await require('./runtime').audit(client,{userId:user.id,action:'SUBMIT',module:'change_request',entityType:'CHANGE_REQUEST',entityId:changeRequest.id,
+      newValue:{entityType:name,entityId:id,fields:Object.keys(controlled),supersededCount:changeRequest.supersededCount},reason:body.changeReason||body.reason,
+      requestId,branchId:current.branch_id||user.branchId||null});
   }
   if(direct.length){
     const values=[id],sets=direct.map(([k,v])=>{values.push(v);return`${k}=$${values.length}`;});

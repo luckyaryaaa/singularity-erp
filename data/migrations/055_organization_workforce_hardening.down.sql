@@ -1,0 +1,10 @@
+BEGIN;
+DROP POLICY IF EXISTS delegation_scope ON authority_delegations;
+ALTER TABLE authority_delegations DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS legal_entity_scope ON position_assignments;
+ALTER TABLE position_assignments DISABLE ROW LEVEL SECURITY;
+DROP TRIGGER IF EXISTS organization_position_hierarchy ON organization_positions;
+DROP FUNCTION IF EXISTS enforce_position_hierarchy();
+DROP TRIGGER IF EXISTS hierarchy_snapshot_immutable ON organization_hierarchy_versions;
+DROP FUNCTION IF EXISTS protect_hierarchy_snapshot();
+COMMIT;

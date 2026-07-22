@@ -1,0 +1,10 @@
+{
+  "status": "NOT_RUN",
+  "backupId": null,
+  "startedAt": null,
+  "completedAt": null,
+  "actualRtoMinutes": null,
+  "actualRpoMinutes": null,
+  "evidenceRef": null,
+  "executedBy": null
+}

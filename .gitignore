@@ -6,6 +6,8 @@ data/runtime/
 storage/
 coverage/
 release/
+.claude/settings.local.json
+.npm-cache/
 *.log
 *.err
 *.tmp

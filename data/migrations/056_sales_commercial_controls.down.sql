@@ -1,0 +1,10 @@
+BEGIN;
+DROP TABLE IF EXISTS sales_backorders;
+DROP TABLE IF EXISTS sales_milestone_schedules;
+DROP TABLE IF EXISTS sales_availability_promises;
+DROP TABLE IF EXISTS sales_contract_releases;
+DROP TABLE IF EXISTS sales_contract_lines;
+DROP TABLE IF EXISTS sales_contracts;
+DROP TABLE IF EXISTS sales_margin_assessments;
+DROP TABLE IF EXISTS sales_margin_policies;
+COMMIT;

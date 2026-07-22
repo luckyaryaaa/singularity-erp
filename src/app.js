@@ -25,6 +25,7 @@
       ['#/sales/quotations', 'Penawaran', 'doc', 'quotation.view'],
       ['#/sales/customer-pos', 'PO pelanggan', 'inbox', 'customer_po.view'],
       ['#/sales/orders', 'Sales order', 'cart', 'sales_order.view'],
+      ['#/sales/commercial-control', 'Commercial control', 'chart', 'sales_order.view'],
       ['#/sales/projects', 'Proyek', 'project', 'project.view'],
       ['#/sales/rma', 'Retur & garansi', 'refresh', 'rma.view']
     ]],
@@ -56,6 +57,7 @@
     ]],
     ['ORGANISASI', [
       ['#/organization', 'Struktur perusahaan', 'building', 'organization.view'],
+      ['#/organization/workforce', 'Job & Position', 'people', 'organization.view'],
       ['#/hr/employees', 'Karyawan', 'people', 'employee.view'],
       ['#/hr/attendance', 'Kehadiran', 'clock', 'attendance.view'],
       ['#/hr/workforce', 'Shift & kalender', 'gear', 'attendance.view'],
@@ -63,6 +65,7 @@
       ['#/payroll', 'Payroll', 'payslip', 'payroll.view|payroll.view_self']
     ]],
     ['MASTER DATA', [
+      ['#/masters/business-partners', 'Business Partner', 'building', 'business_partner.view'],
       ['#/masters/governance', 'Data Quality & FX', 'shield', 'settings.view'],
       ['#/masters/customers/link', 'Customer Link', 'project', 'customer.create'],
       ['#/masters/customers', 'Pelanggan', 'building', 'customer.view'],

@@ -128,6 +128,35 @@ dbTest('P1-3: struktur tidak dapat dibuat atau diubah tanpa izin organisasi', as
   (e) => e.code === 'PERMISSION_DENIED');
 }));
 
+dbTest('P0.5: legal entity scope menutup IDOR list, create, dan update', async () => rollback(async (client) => {
+  const ctx = await context(client);
+  const otherLe = (await client.query(`INSERT INTO legal_entities(id,code,legal_name,trade_name,npwp,address,functional_currency,reporting_currency)
+    VALUES($1,$2,'PT Entitas Lain','Entitas lain',$3,'Alamat','IDR','IDR') RETURNING id`,
+    [randomUUID(), code('LE'), `00${Date.now()}`.slice(-15)])).rows[0];
+  const foreign = await orgStructure.create(client, ctx.user, 'departments',
+    { code: code('DEP'), name: 'Departemen entitas lain', reason: 'Pengujian isolasi legal entity.' },
+    { legalEntityId: otherLe.id, requestId: randomUUID() });
+  const scoped = { ...ctx.user, role: 'finance_manager', branchScope: null };
+  await assert.rejects(() => orgStructure.list(client, scoped, 'departments', { legalEntityId: otherLe.id }), (e) => e.code === 'PERMISSION_DENIED');
+  await assert.rejects(() => orgStructure.create(client, scoped, 'departments',
+    { code: code('DEP'), name: 'Tidak boleh', reason: 'Percobaan lintas legal entity.' }, { legalEntityId: otherLe.id }),
+  (e) => e.code === 'PERMISSION_DENIED');
+  await assert.rejects(() => orgStructure.update(client, scoped, 'departments', foreign.id,
+    { name: 'IDOR', reason: 'Percobaan update lintas legal entity.' }, opts(ctx)),
+  (e) => ['RESOURCE_NOT_FOUND','PERMISSION_DENIED'].includes(e.code));
+}));
+
+dbTest('P0.5: hierarki departemen menolak siklus rekursif', async () => rollback(async (client) => {
+  const ctx = await context(client);
+  const parent = await orgStructure.create(client, ctx.user, 'departments',
+    { code: code('DEP'), name: 'Induk', reason: 'Pengujian hierarki departemen.' }, opts(ctx));
+  const child = await orgStructure.create(client, ctx.user, 'departments',
+    { code: code('DEP'), name: 'Anak', parentId: parent.id, reason: 'Pengujian hierarki departemen.' }, opts(ctx));
+  await assert.rejects(() => orgStructure.update(client, ctx.user, 'departments', parent.id,
+    { parentId: child.id, reason: 'Percobaan membuat siklus hierarki.' }, opts(ctx)),
+  (e) => e.code === 'VALIDATION_ERROR' && /siklus/.test(String(e.detail || e.message)));
+}));
+
 test('P1-3: setiap tipe struktur menyatakan rujukan yang menghalangi penonaktifan', () => {
   for (const [node, spec] of Object.entries(orgStructure.NODES)) {
     assert.ok(spec.table && spec.fields.length && spec.required.length, `${node} wajib lengkap`);

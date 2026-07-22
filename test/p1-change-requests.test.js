@@ -146,6 +146,36 @@ dbTest('P1-2: batas kredit yang diedit adalah batas yang DITEGAKKAN, bukan kolom
   assert.equal(status.creditLimit, 25_000_000, 'mesin kredit wajib membaca batas yang baru disetujui');
 }));
 
+dbTest('P0.5: payload Change Request yang dimanipulasi tidak dapat menulis kolom arbitrer', async () => rollback(async (client) => {
+  const { maker, checker } = await actors(client);
+  const cust = await customer(client);
+  const saved = await operations.updateMaster(client, 'customers', cust.id,
+    { creditLimitAmount: 20_000_000, changeReason: 'Pengujian allowlist perubahan sensitif.' }, maker);
+  await client.query(`UPDATE change_requests SET changes=$2 WHERE id=$1`, [saved.pendingChanges.requestId,
+    { name: { from: cust.name, to: 'Nama hasil injeksi' } }]);
+  await assert.rejects(() => changeRequests.decide(client, { requestId: saved.pendingChanges.requestId, decision: 'APPROVED', user: checker }),
+    (e) => e.code === 'VALIDATION_ERROR' && /tidak diizinkan/.test(String(e.detail || e.message)));
+  assert.equal((await reload(client, cust.id)).name, cust.name);
+}));
+
+dbTest('P0.5: persetujuan stale ditolak agar tidak menimpa perubahan yang lebih baru', async () => rollback(async (client) => {
+  const { maker, checker } = await actors(client);
+  const cust = await customer(client);
+  const saved = await operations.updateMaster(client, 'customers', cust.id,
+    { creditLimitAmount: 30_000_000, changeReason: 'Pengujian baseline perubahan master.' }, maker);
+  await client.query('UPDATE customers SET credit_limit_amount=15000000 WHERE id=$1', [cust.id]);
+  await assert.rejects(() => changeRequests.decide(client, { requestId: saved.pendingChanges.requestId, decision: 'APPROVED', user: checker }),
+    (e) => e.code === 'DOCUMENT_CONFLICT' && e.extra.staleFields.includes('credit_limit_amount'));
+  assert.equal(Number((await reload(client, cust.id)).credit_limit_amount), 15_000_000);
+}));
+
+test('P0.5: entity dan kolom Change Request memakai allowlist eksplisit', () => {
+  assert.throws(() => changeRequests.assertValidChangeSet('app_users', { role: { from: 'sales', to: 'owner' } }),
+    (e) => e.code === 'VALIDATION_ERROR');
+  assert.throws(() => changeRequests.assertValidChangeSet('customers', { name: { from: 'A', to: 'B' } }),
+    (e) => e.code === 'VALIDATION_ERROR');
+});
+
 test('P1-2: daftar kolom terkendali sempit dan setiap kolom menyertakan alasannya', () => {
   const controlled = changeRequests.CONTROLLED_FIELDS;
   assert.ok(controlled.customers.credit_limit_amount, 'batas kredit wajib terkendali');

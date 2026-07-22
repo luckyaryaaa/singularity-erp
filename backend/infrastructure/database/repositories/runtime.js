@@ -133,7 +133,8 @@ async function createDocument(client,{type,user,title,amount=0,partyId,partyName
   if(normalizedLines&&normalizedLines.length){
     amount=posting.assertAmountMatchesLines(amount,posting.authoritativeTotal(posting.lineSubtotalOf(normalizedLines),payload),{documentType:type});
     // P1-4: baris yang menautkan diri ke pesanan tidak boleh melampaui sisanya.
-    await posting.assertFulfilmentWithinOrder(client,{documentType:type,partyId,lines:payload.lines});
+    await posting.assertFulfilmentWithinOrder(client,{documentType:type,partyId,lines:payload.lines,
+      requireLinked:['DELIVERY','INVOICE'].includes(type)&&(Boolean(payload?.sourceDocumentId)||normalizedLines.some(l=>l.sourceLineId))});
   }
   if(type==='PURCHASE_ORDER'&&partyId){const supplier=(await client.query('SELECT name,performance_hold,performance_hold_reason,onboarding_status FROM suppliers WHERE id=$1',[partyId])).rows[0];if(!supplier)throw new AppError('RESOURCE_NOT_FOUND','Supplier PO tidak ditemukan.');if(supplier.performance_hold||['SUSPENDED','BLOCKED'].includes(supplier.onboarding_status))throw new AppError('SUPPLIER_HOLD',`Supplier ${supplier.name}: ${supplier.performance_hold_reason||supplier.onboarding_status}.`);}
   if(type==='CUSTOMER_PO') await assertCustomerPoValid(client,{partyId,amount,payload});
@@ -174,8 +175,11 @@ async function updateDocument(client,{id,expectedVersion,patch,user,requestId}) 
     patch.amount=posting.assertAmountMatchesLines(patch.amount??doc.amount,expected,{documentType:doc.document_type});
     // P1-4: baris dokumen ini sendiri dikecualikan dari hitungan sisa, supaya
     // menyunting pengiriman yang sama tidak dianggap penambahan baru.
+    const sourceRef=patch.payload?.sourceDocumentId??doc.payload?.sourceDocumentId;
+    const normalized=posting.normalizeLines(patch.payload.lines);
     await posting.assertFulfilmentWithinOrder(client,{documentId:doc.id,documentType:doc.document_type,
-      partyId:patch.partyId??doc.party_id,lines:patch.payload.lines});
+      partyId:patch.partyId??doc.party_id,lines:patch.payload.lines,
+      requireLinked:['DELIVERY','INVOICE'].includes(doc.document_type)&&(Boolean(sourceRef)||normalized.some(l=>l.sourceLineId))});
   }
   const result=await client.query(`UPDATE business_documents SET
     title=COALESCE($3,title),amount=COALESCE($4,amount),due_date=COALESCE($5,due_date),payload=COALESCE($6,payload),
@@ -258,6 +262,24 @@ async function transitionDocument(client,{id,action,user,reason,requestId,allowO
   if(!rule)throw new AppError('VALIDATION_ERROR',`Aksi '${action}' tidak dikenal.`);
   if(!rule.from.includes(doc.status))throw new AppError('STATUS_INVALID',`Aksi '${action}' tidak diizinkan dari ${doc.status}.`);
   if(['void','cancel','reject','revise'].includes(action)&&!reason)throw new AppError('REASON_REQUIRED');
+  // Wave 5 — gerbang komersial tunggal pada lifecycle. Draft quotation/order
+  // tidak boleh masuk approval tanpa snapshot margin; Sales Order juga wajib
+  // membawa janji ATP/CTP per baris yang masih aktif.
+  if(action==='submit'&&['QUOTATION','SALES_ORDER'].includes(doc.document_type)){
+    const commercial=require('./sales-commercial');
+    await commercial.assertMarginRelease(client,doc,user);
+    await commercial.assertAvailabilityRelease(client,doc,user);
+  }
+  // Draf tidak ikut view pemenuhan. Karena itu validasi saat save saja tidak
+  // cukup: dua draf dapat lolos lalu sama-sama diajukan. Recheck pada setiap
+  // lifecycle gate yang membuat/mempertahankan klaim terhadap sales order.
+  if(['submit','approve','start','complete'].includes(action)&&['DELIVERY','INVOICE'].includes(doc.document_type)){
+    const lines=(await client.query(`SELECT product_id "productId",description,qty,uom,unit_price "unitPrice",
+      discount_pct "discountPct",tax_pct "taxPct",source_line_id "sourceLineId"
+      FROM document_lines WHERE document_id=$1 ORDER BY line_no`,[id])).rows;
+    await posting.assertFulfilmentWithinOrder(client,{documentId:id,documentType:doc.document_type,
+      partyId:doc.party_id,lines,requireLinked:Boolean(doc.payload?.sourceDocumentId)||lines.some(l=>l.sourceLineId)});
+  }
   let status=rule.to,approvals=Array.isArray(doc.approvals)?doc.approvals:[],levels=doc.required_approval_levels||[];
   const extra={};
   if(action==='submit'){const resolved=await approvalPolicy(client,doc);levels=resolved.levels;approvals=[];extra.submitted_at=new Date();extra.approval_policy_version_id=resolved.id;extra.approval_policy_snapshot=resolved.snapshot;}
@@ -280,6 +302,24 @@ async function transitionDocument(client,{id,action,user,reason,requestId,allowO
   const updated=(await client.query(`UPDATE business_documents SET ${columns.join(',')} WHERE id=$1 RETURNING *`,values)).rows[0];
   await audit(client,{userId:user.id,action:{submit:'SUBMIT',approve:'APPROVE',reject:'REJECT',revise:'REQUEST_REVISION',start:'POST',complete:'POST',close:'POST',cancel:'CANCEL',void:'VOID'}[action]||'UPDATE',module:doc.document_type.toLowerCase(),entityType:doc.document_type,entityId:id,documentNumber:doc.document_number,oldValue:{status:doc.status},newValue:{status},reason,requestId,branchId:doc.branch_id});
   await outbox(client,['submit','approve','reject','revise'].includes(action)?'approval.updated':'document.updated',{entityId:doc.document_number,documentType:doc.document_type,branchId:doc.branch_id,version:updated.version,status});
+  // Dokumen yang berakhir tanpa dipenuhi WAJIB melepas stok yang ditahannya.
+  // Tanpa ini, pesanan yang dibatalkan menyandera stoknya selamanya dan tidak
+  // ada yang tahu penyebabnya — persis masalah yang membuat reservasi harus
+  // menjadi catatan, bukan sekadar angka.
+  if(['CANCELLED','VOID','REJECTED','CLOSED'].includes(status)){
+    await require('./stock-reservations').releaseDocument(client,{documentId:doc.id,user,
+      reason:`Dokumen ${doc.document_number} berstatus ${status}${reason?` — ${String(reason).slice(0,200)}`:''}`});
+  }
+  // Backorder adalah proyeksi tersimpan dari fakta pemenuhan. Segarkan setelah
+  // order dilepas dan setelah delivery mengubah kuantitas terpenuhi.
+  if(doc.document_type==='SALES_ORDER'&&status==='APPROVED'){
+    const commercial=require('./sales-commercial');await commercial.refreshBackorders(client,doc.id,user);
+  }
+  if(doc.document_type==='DELIVERY'&&['COMPLETED','CLOSED'].includes(status)){
+    const commercial=require('./sales-commercial');
+    const sourceOrders=(await client.query(`SELECT DISTINCT so.id FROM document_lines child JOIN document_lines source ON source.id=child.source_line_id JOIN business_documents so ON so.id=source.document_id WHERE child.document_id=$1 AND so.document_type='SALES_ORDER'`,[doc.id])).rows;
+    for(const source of sourceOrders)await commercial.refreshBackorders(client,source.id,user);
+  }
   return camel(updated);
 }
 

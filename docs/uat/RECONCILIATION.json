@@ -1,0 +1,10 @@
+{
+  "checks": [
+    {"code":"TRIAL_BALANCE","status":"NOT_RUN","evidenceRef":null,"approvedBy":null},
+    {"code":"AR_GL","status":"NOT_RUN","evidenceRef":null,"approvedBy":null},
+    {"code":"AP_GL","status":"NOT_RUN","evidenceRef":null,"approvedBy":null},
+    {"code":"INVENTORY_GL","status":"NOT_RUN","evidenceRef":null,"approvedBy":null},
+    {"code":"PAYROLL_GL","status":"NOT_RUN","evidenceRef":null,"approvedBy":null},
+    {"code":"TAX","status":"NOT_RUN","evidenceRef":null,"approvedBy":null}
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "mat-erp-v2",
-  "version": "0.29.0",
+  "version": "0.34.0",
   "private": true,
   "scripts": {
     "dev": "node server.js",
@@ -17,6 +17,7 @@
     "test:a11y": "node scripts/accessibility-audit.js",
     "test:visual": "node scripts/ui-smoke-cdp.js",
     "test:all": "npm test",
+    "test:uat:isolated": "node scripts/run-isolated-uat-tests.js",
     "security:scan": "node scripts/secret-scan.js",
     "assets:build": "node scripts/build-assets.js",
     "release:build": "node scripts/build-release.js && node scripts/verify-release-artifact.js",
@@ -41,6 +42,9 @@
     "load:lan": "node scripts/load-lan.js",
     "cutover:opening-inventory": "node scripts/cutover-opening-inventory.js",
     "uat:lan": "node scripts/start-lan-uat.js",
+    "uat:evidence:check": "node scripts/uat-evidence.js readiness",
+    "uat:validate": "node scripts/uat-evidence.js validate",
+    "uat:technical": "node scripts/run-uat-technical.js",
     "data:purge": "node scripts/purge-business-data.js",
     "data:restore-config": "node scripts/restore-config-seed.js",
     "release:verify": "node scripts/verify-release-artifact.js",

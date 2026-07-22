@@ -15,6 +15,89 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.34.0 — Sales Commercial Controls
+
+- Commercial Control Center mengelola ATP/CTP line promise, margin exception,
+  customer contract/blanket release, milestone billing, dan backorder worklist.
+- Submission quotation/Sales Order berbaris melewati margin snapshot; Sales
+  Order juga wajib memiliki availability promise aktif pada seluruh baris.
+- Policy margin effective-dated, contract/milestone maker-checker, RLS cabang,
+  audit, idempotency, dan lifecycle integration tersedia.
+- PostgreSQL source of truth: migration 001–056. Evidence ada di
+  `docs/operations/v0.34-sales-commercial-controls.md`.
+
+Release ini menutup gap komersial Sales, bukan seluruh blueprint. Procurement,
+WMS, Production/Finance hardening, UAT manusia, dan VPS tetap mengikuti roadmap.
+
+## Status v0.33.0 — Organization & Workforce Foundation
+
+- Struktur organisasi memiliki snapshot versioned, approval, SHA-256, effective
+  date, dan activation/supersession workflow.
+- Job, Position, Assignment, headcount, reporting line, dan delegation
+  authority tersedia pada Workforce Architecture Control Center.
+- Delegasi aktif dibaca runtime authorization dan dibatasi scope, waktu,
+  permission delegator, maker-checker, serta daftar privilege terlarang.
+- PostgreSQL source of truth: migration 001–055. Evidence ada di
+  `docs/operations/v0.33-organization-workforce.md`.
+
+## Status v0.32.0 — Unified Business Partner MDM
+
+- Customer dan Supplier kini terhubung ke satu canonical Business Partner;
+  endpoint dan ID legacy tetap kompatibel.
+- Control Center menyediakan Golden Record, duplicate queue, maker-checker
+  merge, lineage, staged import, dan configurable data quality.
+- PostgreSQL source of truth berada pada migration 001–053. Full-chain
+  rollback/reapply dan 256/256 test disposable lulus.
+- Evidence: `docs/operations/v0.32-business-partner-mdm.md`.
+
+Release ini menutup fondasi Business Partner MDM, bukan seluruh blueprint.
+Organization foundation, UAT manusia, dan VPS tetap mengikuti gate roadmap.
+
+## Status v0.31.0 — Sprint 18 LAN-UAT Technical Readiness
+
+- Database staf khusus `mat_erp_v2_lan_uat` telah diprovision pada PostgreSQL
+  16 dengan runtime role non-superuser dan migration 001–050 valid.
+- `npm run uat:technical` menyiapkan organisasi, 13 role, master/transaksi UAT,
+  HR/Finance, opening inventory, backup terenkripsi, restore drill, serta gate
+  LAN-UAT dalam satu alur fail-fast.
+- Regression gate memakai database disposable `mat_erp_v2_gate_uat`; database
+  tersebut dibuat fresh dan dihapus otomatis sehingga data UAT staf tidak
+  terkontaminasi fixture test.
+- Evidence pack R025 tersedia di `docs/uat` dan production gate memvalidasi
+  release version/SHA/migration, 13 hasil role, issue closure, training,
+  enam rekonsiliasi, restore evidence, dan Owner sign-off secara fail-closed.
+- Evidence teknis: 251/251 tes lulus, LAN load 10/25 user lulus, health DB UP,
+  final assurance 5 PASS/0 warning/0 blocking, backup lokal+offsite terenkripsi
+  dan restore 162 tabel berhasil. Detail ada di
+  `docs/operations/v0.31-lan-uat-technical-readiness.md`.
+
+Status ini **LAN-UAT TECHNICALLY READY**, bukan UAT bisnis selesai dan bukan
+izin production. Sprint 18 baru boleh ditutup setelah pengujian nyata 13 role,
+training, rekonsiliasi Finance, issue retest, dan Owner sign-off tervalidasi.
+VPS/R026 tetap terkunci sampai seluruh bukti tersebut lengkap.
+
+## Status v0.30.0 — P0.5 Transaction Correctness Closure
+
+- Source of truth PostgreSQL kini berada pada migration 001–050.
+- Organization Workbench memiliki legal-entity boundary dan cycle guard.
+- Change Request sensitif memakai maker-checker, allowlist, baseline conflict
+  detection, unique pending invariant, row lock, audit, dan RLS cabang.
+- Delivery/Invoice memiliki quantity invariant pada create, update, dan
+  transition, termasuk agregasi source line dan serialization lock.
+- Emergency grant dibatasi oleh data scope; permission response login konsisten
+  dengan multi-role grant database.
+- Predeploy selalu membangun ulang release, lalu verifier memblokir manifest
+  versi/migration stale dan memvalidasi hash serta SBOM.
+- Evidence lokal: 247/247 automated tests dan 203/203 handler authorization
+  contract lulus. Predeploy LOCAL 14/14 dan paket release+SBOM 334 file juga
+  lulus tanpa temuan; rincian ada di
+  `docs/operations/v0.30-p0-5-closure-evidence.md`.
+
+Status ini adalah **LOCAL BUILD READY**, bukan persetujuan production. LAN-UAT
+lintas divisi, Owner sign-off, konfigurasi production secrets, dan deployment
+VPS tetap merupakan gate terpisah. “Enterprise” berarti kontrol dan bukti yang
+terukur—bukan klaim kesetaraan fitur penuh dengan SAP, Oracle, atau Dynamics 365.
+
 ## Status v0.24.0 — Final Assurance & LAN-UAT Readiness
 
 - Sprint 17/R024 selesai: matriks otorisasi 14 router dan 183 handler,

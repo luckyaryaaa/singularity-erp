@@ -300,6 +300,65 @@
     } catch (error) { toast('Gagal merekam PO pelanggan', error.message, 'coral'); }
   }
 
+  const commercialControl = {
+    permission: 'sales_order.view',
+    async render(main, _params, signal) {
+      const [overview, contractsRes, ordersRes, backordersRes] = await Promise.all([
+        api('/api/sales/commercial/overview', { signal }), api('/api/sales/contracts', { signal }),
+        api('/api/documents?type=SALES_ORDER&limit=100', { signal }), api('/api/sales/backorders', { signal })
+      ]);
+      const contracts = asList(contractsRes), orders = asList(ordersRes), backorders = asList(backordersRes);
+      const orderOptions = orders.map((o) => [o.id, `${o.documentNumber} · ${o.partyName || 'Tanpa pelanggan'} · ${fmtIDR(o.amount)}`]);
+      main.innerHTML = pageHead({ eyebrow: 'PENJUALAN · GOVERNANCE', title: 'Commercial Control Center', sub: 'Kendali margin, availability promise, kontrak, milestone billing, dan backorder dengan jejak keputusan.', actions: can('sales_order.create') ? `<button class="btn primary" id="newContract">${ICONS.plus} Kontrak pelanggan</button>` : '' }) + `
+        <section class="kpi-grid">
+          ${kpiCard({label:'Sales order aktif',value:String(overview.openOrders || 0),note:'Komitmen pelanggan berjalan',orb:'cart',orbTone:'blue'})}
+          ${kpiCard({label:'Margin menunggu',value:String(overview.marginPending || 0),note:'Perlu keputusan Finance',tone:overview.marginPending?'warn':'up',orb:'checkCircle',orbTone:'amber'})}
+          ${kpiCard({label:'Backorder terbuka',value:String(overview.backorderLines || 0),note:'Baris belum terpenuhi',tone:overview.backorderLines?'warn':'up',orb:'inbox',orbTone:'coral'})}
+          ${kpiCard({label:'Kontrak aktif',value:String(overview.activeContracts || 0),note:`${overview.milestonesReady || 0} milestone siap tagih`,orb:'doc',orbTone:'mint'})}
+        </section>
+        <section class="panel"><header><div><p class="eyebrow">ORDER PROMISE</p><h2>ATP/CTP & billing orchestration</h2></div></header>
+          <div class="table-wrap"><table><thead><tr><th>Sales order</th><th>Pelanggan</th><th>Nilai</th><th>Status</th><th>Kontrol</th></tr></thead><tbody>
+          ${orders.map((o) => `<tr><td>${docCell(o)}</td><td>${esc(o.partyName || '—')}</td><td class="money">${fmtIDR(o.amount)}</td><td>${chip(o.status)}</td><td><div class="table-actions">
+            ${can('sales_order.submit') ? `<button class="btn xs light" data-margin="${o.id}">Margin</button>` : ''}
+            ${can('sales_order.edit') ? `<button class="btn xs light" data-atp="${o.id}">ATP/CTP</button>` : ''}
+            ${can('invoice.create') || can('invoice.approve') ? `<button class="btn xs light" data-milestone="${o.id}">Milestone</button>` : ''}
+            ${can('sales_order.edit') ? `<button class="btn xs light" data-backorder="${o.id}">Backorder</button>` : ''}
+          </div></td></tr>`).join('') || '<tr><td colspan="5" class="empty-cell">Belum ada Sales Order.</td></tr>'}
+          </tbody></table></div></section>
+        <section class="panel"><header><div><p class="eyebrow">MARGIN EXCEPTION</p><h2>Maker-checker Finance</h2></div><span class="chip amber">${overview.marginItems?.length || 0} pending</span></header>
+          <div class="table-wrap"><table><thead><tr><th>Dokumen</th><th>Pelanggan</th><th>Revenue</th><th>Est. cost</th><th>Margin</th><th>Keputusan</th></tr></thead><tbody>
+          ${(overview.marginItems || []).map((x) => `<tr><td><b>${esc(x.documentNumber)}</b><small>versi ${x.documentVersion}</small></td><td>${esc(x.partyName || '—')}</td><td class="money">${fmtIDR(x.revenue)}</td><td class="money">${fmtIDR(x.estimatedCost)}</td><td><span class="chip coral">${Number(x.marginPct).toLocaleString('id-ID',{maximumFractionDigits:2})}%</span></td><td>${can('credit.approve') ? `<button class="btn xs primary" data-margin-decide="${x.id}" data-doc="${esc(x.documentNumber)}">Putuskan</button>` : '<span class="muted">Finance approver</span>'}</td></tr>`).join('') || '<tr><td colspan="6" class="empty-cell">Tidak ada margin exception.</td></tr>'}
+          </tbody></table></div></section>
+        <section class="panel"><header><div><p class="eyebrow">CUSTOMER AGREEMENT</p><h2>Kontrak & blanket release</h2></div></header>
+          <div class="table-wrap"><table><thead><tr><th>Kontrak</th><th>Pelanggan</th><th>Masa berlaku</th><th>Plafon</th><th>Terpakai</th><th>Status / aksi</th></tr></thead><tbody>
+          ${contracts.map((c) => `<tr><td><b>${esc(c.contractNumber)}</b><small>${esc(c.title)}</small></td><td>${esc(c.customerName)}</td><td>${fmtDate(c.validFrom)} – ${fmtDate(c.validTo)}</td><td class="money">${fmtIDR(c.ceilingAmount)}</td><td class="money">${fmtIDR(c.consumedAmount)}</td><td>${chip(c.status)} <span class="table-actions">${c.status === 'DRAFT' && can('sales_order.submit') ? `<button class="btn xs light" data-contract-submit="${c.id}">Ajukan</button>` : ''}${c.status === 'PENDING_APPROVAL' && can('sales_order.approve') ? `<button class="btn xs light" data-contract-decide="${c.id}" data-number="${esc(c.contractNumber)}">Putuskan</button>` : ''}${c.status === 'ACTIVE' && can('sales_order.edit') && orderOptions.length ? `<button class="btn xs light" data-contract-release="${c.id}" data-remaining="${Number(c.ceilingAmount)-Number(c.consumedAmount)}">Release</button>` : ''}</span></td></tr>`).join('') || '<tr><td colspan="6" class="empty-cell">Belum ada kontrak penjualan.</td></tr>'}
+          </tbody></table></div></section>
+        <section class="panel"><header><div><p class="eyebrow">FULFILMENT EXCEPTION</p><h2>Backorder worklist</h2></div><span class="chip coral">${backorders.filter((x) => !['FULFILLED','CANCELLED'].includes(x.status)).length} terbuka</span></header>
+          <div class="table-wrap"><table><thead><tr><th>Sales order</th><th>Baris</th><th>Pelanggan</th><th>Backorder</th><th>Terallocasi</th><th>Promise</th><th>Status</th></tr></thead><tbody>
+          ${backorders.map((b) => `<tr><td><b>${esc(b.documentNumber)}</b></td><td>${b.lineNo} · ${esc(b.description)}</td><td>${esc(b.partyName || '—')}</td><td>${Number(b.backorderQty).toLocaleString('id-ID')}</td><td>${Number(b.allocatedQty).toLocaleString('id-ID')}</td><td>${b.promisedDate ? fmtDate(b.promisedDate) : 'Review manual'}</td><td>${chip(b.status)}</td></tr>`).join('') || '<tr><td colspan="7" class="empty-cell">Belum ada backorder tersimpan.</td></tr>'}
+          </tbody></table></div></section>`;
+
+      const reload = () => this.render(main, _params, signal);
+      main.querySelector('#newContract')?.addEventListener('click', async () => {
+        const customers = asList(await api('/api/customers?limit=200'));
+        const v = await formDialog({ title: 'Kontrak pelanggan', description: 'Kontrak dibuat DRAFT dan wajib melalui maker-checker.', fields: [
+          {name:'contractNumber',label:'Nomor kontrak',required:true},{name:'customerId',label:'Pelanggan',type:'select',options:customers.map(c=>[c.id,`${c.code} · ${c.name}`]),required:true},
+          {name:'title',label:'Judul kontrak',required:true},{name:'contractType',label:'Jenis',type:'select',options:[['FRAMEWORK','Framework'],['BLANKET','Blanket'],['PROJECT','Project'],['SERVICE','Service']]},
+          {name:'validFrom',label:'Berlaku mulai',type:'date',required:true},{name:'validTo',label:'Berlaku sampai',type:'date',required:true},{name:'ceilingAmount',label:'Plafon nilai',type:'number',min:1,required:true},{name:'description',label:'Ruang lingkup',type:'textarea',required:true}
+        ], submitLabel:'Buat draft kontrak' });
+        if (!v) return; try { await api('/api/sales/contracts',{method:'POST',idempotencyKey:newIdemKey(),body:{...v,ceilingAmount:Number(v.ceilingAmount),lines:[{description:v.description,ceilingAmount:Number(v.ceilingAmount)}]}});toast('Kontrak dibuat','Draft kontrak siap diajukan.');reload(); } catch(e){toast('Gagal',e.message,'coral');}
+      });
+      main.querySelectorAll('[data-margin]').forEach((b) => b.addEventListener('click', async()=>{try{const x=await api(`/api/sales/documents/${b.dataset.margin}/margin`,{method:'POST',idempotencyKey:newIdemKey(),body:{}});toast('Margin dinilai',`${Number(x.marginPct).toLocaleString('id-ID',{maximumFractionDigits:2})}% · ${x.status}`);reload();}catch(e){toast('Assessment gagal',e.message,'coral');}}));
+      main.querySelectorAll('[data-atp]').forEach((b) => b.addEventListener('click', async()=>{try{const x=await api(`/api/sales/orders/${b.dataset.atp}/availability`,{method:'POST',idempotencyKey:newIdemKey(),body:{}});toast('ATP/CTP dihitung',`${x.items.length} baris memiliki snapshot promise.`);reload();}catch(e){toast('ATP/CTP gagal',e.message,'coral');}}));
+      main.querySelectorAll('[data-backorder]').forEach((b) => b.addEventListener('click', async()=>{try{await api(`/api/sales/orders/${b.dataset.backorder}/backorders/refresh`,{method:'POST',idempotencyKey:newIdemKey(),body:{}});toast('Backorder disegarkan','Worklist mengikuti pemenuhan terbaru.');reload();}catch(e){toast('Refresh gagal',e.message,'coral');}}));
+      main.querySelectorAll('[data-margin-decide]').forEach((b) => b.addEventListener('click', async()=>{const a=await formDialog({title:`Keputusan margin ${b.dataset.doc}`,description:'Persetujuan hanya berlaku untuk versi dokumen yang dinilai.',fields:[{name:'decision',label:'Keputusan',type:'select',options:[['approve','Setujui exception'],['reject','Tolak exception']]},{name:'reason',label:'Alasan keputusan',type:'textarea',required:true}],submitLabel:'Simpan keputusan'});if(!a)return;try{await api(`/api/sales/margin-assessments/${b.dataset.marginDecide}/${a.decision}`,{method:'POST',idempotencyKey:newIdemKey(),body:{reason:a.reason}});reload();}catch(e){toast('Keputusan gagal',e.message,'coral');}}));
+      main.querySelectorAll('[data-contract-submit]').forEach((b)=>b.addEventListener('click',async()=>{try{await api(`/api/sales/contracts/${b.dataset.contractSubmit}/submit`,{method:'POST',idempotencyKey:newIdemKey(),body:{}});reload();}catch(e){toast('Gagal',e.message,'coral');}}));
+      main.querySelectorAll('[data-contract-decide]').forEach((b)=>b.addEventListener('click',async()=>{const a=await formDialog({title:`Keputusan ${b.dataset.number}`,description:'Maker-checker kontrak pelanggan.',fields:[{name:'decision',label:'Keputusan',type:'select',options:[['approve','Aktifkan kontrak'],['reject','Tolak kontrak']]},{name:'reason',label:'Alasan keputusan',type:'textarea',required:true}],submitLabel:'Simpan keputusan'});if(!a)return;try{await api(`/api/sales/contracts/${b.dataset.contractDecide}/${a.decision}`,{method:'POST',idempotencyKey:newIdemKey(),body:{reason:a.reason}});reload();}catch(e){toast('Gagal',e.message,'coral');}}));
+      main.querySelectorAll('[data-contract-release]').forEach((b)=>b.addEventListener('click',async()=>{const v=await formDialog({title:'Release kontrak ke Sales Order',description:`Sisa plafon ${fmtIDR(Number(b.dataset.remaining))}.`,fields:[{name:'salesOrderId',label:'Sales order',type:'select',options:orderOptions,required:true},{name:'releasedAmount',label:'Nilai release',type:'number',min:1,required:true}],submitLabel:'Catat release'});if(!v)return;try{await api(`/api/sales/contracts/${b.dataset.contractRelease}/releases`,{method:'POST',idempotencyKey:newIdemKey(),body:{salesOrderId:v.salesOrderId,releasedAmount:Number(v.releasedAmount)}});reload();}catch(e){toast('Release gagal',e.message,'coral');}}));
+      main.querySelectorAll('[data-milestone]').forEach((b)=>b.addEventListener('click',async()=>{try{const current=asList(await api(`/api/sales/orders/${b.dataset.milestone}/milestones`));if(!current.length){await api(`/api/sales/orders/${b.dataset.milestone}/milestones`,{method:'POST',idempotencyKey:newIdemKey(),body:{milestones:[{description:'Uang muka',billingPct:30,triggerType:'MANUAL_APPROVAL'},{description:'Serah terima',billingPct:70,triggerType:'ACCEPTANCE'}]}});toast('Jadwal dibuat','Skema 30% uang muka dan 70% serah terima dibuat.');return reload();}const ready=current.find(x=>x.status==='READY'),planned=current.find(x=>x.status==='PLANNED');if(ready&&can('invoice.create')){const x=await api(`/api/sales/milestones/${ready.id}/invoice`,{method:'POST',idempotencyKey:newIdemKey(),body:{}});toast('Invoice dibuat',x.invoice.documentNumber);return reload();}if(planned&&can('invoice.approve')){await api(`/api/sales/milestones/${planned.id}/ready`,{method:'POST',idempotencyKey:newIdemKey(),body:{}});toast('Milestone siap tagih',planned.description);return reload();}toast('Tidak ada aksi','Jadwal sudah diproses atau Anda bukan checker.');}catch(e){toast('Milestone gagal',e.message,'coral');}}));
+    }
+  };
+
   R('/sales/customer-pos', docListPage({
     type: 'CUSTOMER_PO', module: 'customer_po', title: 'PO pelanggan', eyebrow: 'PENJUALAN',
     createLabel: 'Rekam PO pelanggan', onCreate: createCustomerPoDialog,
@@ -319,5 +378,6 @@
     empty: { icon: 'inbox', title: 'Belum ada PO pelanggan', note: 'Klik "Rekam PO pelanggan" saat customer mengirimkan PO mereka.' }
   }));
   R('/sales/orders', docListPage({ type: 'SALES_ORDER', module: 'sales_order', title: 'Sales order', eyebrow: 'PENJUALAN' }));
+  R('/sales/commercial-control', commercialControl);
   R('/sales/projects', docListPage({ type: 'PROJECT', module: 'project', title: 'Proyek', eyebrow: 'PENJUALAN' }));
 })();

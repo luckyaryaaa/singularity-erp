@@ -21,15 +21,15 @@ async function withRollback(fn) {
   try { await c.query('BEGIN'); await c.query("SELECT set_config('app.is_system','on',true)"); await fn(c); } finally { await c.query('ROLLBACK').catch(() => {}); await c.end(); }
 }
 const getUser = async (c, role) => runtime.camel((await c.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope",employee_id "employeeId" FROM app_users WHERE role=$1 AND active LIMIT 1`, [role])).rows[0]);
-const mkEmployee = async (c, name, joinDate) => (await c.query(`INSERT INTO employees(id,nik,name,department,job_title,base_salary,active,join_date,branch_id)
-  SELECT $1,$2,$3,'HRD','Staf',17_300_000,true,$4,b.id FROM branches b WHERE b.active LIMIT 1 RETURNING id`,
-  [randomUUID(), `T${Date.now()}${Math.floor(Math.random() * 1000)}`, name, joinDate])).rows[0];
+const mkEmployee = async (c, name, joinDate, branchId) => (await c.query(`INSERT INTO employees(id,nik,name,department,job_title,base_salary,active,join_date,branch_id)
+  SELECT $1,$2,$3,'HRD','Staf',17_300_000,true,$4,b.id FROM branches b WHERE b.active AND b.id=$5 LIMIT 1 RETURNING id`,
+  [randomUUID(), `T${Date.now()}${Math.floor(Math.random() * 1000)}`, name, joinDate, branchId])).rows[0];
 const period = new Date().toISOString().slice(0, 7);
 
 dbTest('payroll lembur memakai jam shift (parity NORMAL 8j; roster shift lain mengubah lembur)', async () => {
   await withRollback(async (c) => {
     const u = await getUser(c, 'owner');
-    const emp = await mkEmployee(c, 'Shift Test', '2024-01-01');
+    const emp = await mkEmployee(c, 'Shift Test', '2024-01-01', u.branchId);
     await c.query(`INSERT INTO attendance_records(id,employee_id,work_date,check_in,check_out,status) VALUES($1,$2,$3::date,$3::date+time '08:00',$3::date+time '18:00','PRESENT')`, [randomUUID(), emp.id, `${period}-10`]);
     await c.query(`UPDATE business_documents SET status='CANCELLED' WHERE document_type='PAYROLL_RUN' AND payload->>'period'=$1 AND status NOT IN ('CANCELLED','VOID')`, [period]);
     const pr1 = await businessOps.createPayroll(c, { period, user: u, title: 'PR parity' });
@@ -59,7 +59,7 @@ dbTest('koreksi absensi: snapshot lama immutable, SoD pemohon≠pemutus, apply s
   await withRollback(async (c) => {
     const hrd = await getUser(c, 'hrd');
     const owner = await getUser(c, 'owner');
-    const emp = await mkEmployee(c, 'Koreksi Test', '2024-01-01');
+    const emp = await mkEmployee(c, 'Koreksi Test', '2024-01-01', hrd.branchId);
     await c.query(`INSERT INTO attendance_records(id,employee_id,work_date,status) VALUES($1,$2,'2026-07-15','ABSENT')`, [randomUUID(), emp.id]);
     const req = await hr.requestCorrection(c, { employeeId: emp.id, workDate: '2026-07-15', proposed: { status: 'PRESENT' }, reason: 'Mesin absen rusak', user: hrd, requestId: randomUUID() });
     assert.equal(req.status, 'PENDING');
@@ -78,8 +78,8 @@ dbTest('koreksi absensi: snapshot lama immutable, SoD pemohon≠pemutus, apply s
 dbTest('akrual cuti: bulanan configuration-driven, masa kerja minimum, idempoten', async () => {
   await withRollback(async (c) => {
     const u = await getUser(c, 'owner');
-    const vet = await mkEmployee(c, 'Veteran', '2024-01-01');
-    const newbie = await mkEmployee(c, 'Baru', new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10));
+    const vet = await mkEmployee(c, 'Veteran', '2024-01-01', u.branchId);
+    const newbie = await mkEmployee(c, 'Baru', new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10), u.branchId);
     const run = await hr.runLeaveAccrual(c, { period, user: u, requestId: randomUUID() });
     assert.equal(run.monthlyDays, 1, '12 hari/tahun ÷ 12');
     assert.equal(Number((await c.query('SELECT entitlement FROM leave_balances WHERE employee_id=$1', [vet.id])).rows[0].entitlement), 13);
@@ -95,7 +95,7 @@ dbTest('akrual cuti: bulanan configuration-driven, masa kerja minimum, idempoten
 dbTest('LEAVE_REQUEST: durasi = hari kerja kalender, saldo dipotong saat approve, over-saldo diblokir', async () => {
   await withRollback(async (c) => {
     const u = await getUser(c, 'owner');
-    const emp = await mkEmployee(c, 'Cuti Test', '2024-01-01');
+    const emp = await mkEmployee(c, 'Cuti Test', '2024-01-01', u.branchId);
     const doc = await runtime.createDocument(c, { type: 'LEAVE_REQUEST', user: u, title: 'Cuti', amount: 0, requestId: randomUUID(), payload: { employeeId: emp.id, startDate: '2026-07-20', endDate: '2026-07-24' } });
     const raw = (await c.query('SELECT * FROM business_documents WHERE id=$1', [doc.id])).rows[0];
     const ok = await hr.assertLeaveOk(c, raw);

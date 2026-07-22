@@ -1,0 +1,5 @@
+{
+  "allowedSeverity": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+  "allowedStatus": ["OPEN", "IN_PROGRESS", "READY_FOR_RETEST", "CLOSED", "ACCEPTED_RISK"],
+  "issues": []
+}

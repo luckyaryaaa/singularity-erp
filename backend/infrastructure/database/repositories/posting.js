@@ -31,16 +31,31 @@ async function syncDocumentLines(client,documentId,lines){
 // mengirim 100 unit atas baris pesanan 10 unit dan sistem tetap menganggapnya
 // sah. Aturannya sejajar dengan retur RMA (P0-L) dan three-way match (P0-O):
 // klaim terdahulu ikut diperhitungkan, dan draf tidak mengunci sisa pesanan.
-async function assertFulfilmentWithinOrder(client,{documentId,documentType,partyId,lines}){
+async function assertFulfilmentWithinOrder(client,{documentId,documentType,partyId,lines,requireLinked=false}){
   const normalized=normalizeLines(lines);
   if(!normalized)return null;
   const linked=normalized.filter(l=>l.sourceLineId);
+  const unlinked=normalized.filter(l=>!l.sourceLineId);
+  if(requireLinked&&unlinked.length)
+    throw new AppError('VALIDATION_ERROR','Seluruh baris dokumen turunan wajib ditautkan ke baris sales order sumber.');
   if(!linked.length)return null;
   if(!['DELIVERY','INVOICE'].includes(documentType))
     throw new AppError('VALIDATION_ERROR',`Dokumen ${documentType} tidak dapat memenuhi baris pesanan.`);
 
-  const checked=[];
+  // Satu payload dapat membawa beberapa baris yang menunjuk source line sama.
+  // Validasi per-baris akan meloloskan 6+6 terhadap sisa 10; agregasikan dulu.
+  const groups=new Map();
   for(const line of linked){
+    const key=String(line.sourceLineId),current=groups.get(key)||{...line,qty:0,lineNos:[]};
+    if(current.productId&&line.productId&&String(current.productId)!==String(line.productId))
+      throw new AppError('VALIDATION_ERROR',`Baris ${current.lineNos.concat(line.lineNo).join(', ')} menunjuk baris pesanan yang sama tetapi memakai produk berbeda.`);
+    current.qty+=line.qty;current.lineNos.push(line.lineNo);groups.set(key,current);
+  }
+  const checked=[];
+  for(const line of groups.values()){
+    // Serialisasi seluruh create/update/transition untuk source line yang sama.
+    // Lock transaksi mencegah dua request paralel sama-sama membaca sisa lama.
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`fulfilment:${line.sourceLineId}`]);
     const source=(await client.query(`SELECT f.*,d.status order_status FROM sales_order_line_fulfilment f
       JOIN business_documents d ON d.id=f.sales_order_id WHERE f.line_id=$1`,[line.sourceLineId])).rows[0];
     if(!source)throw new AppError('RESOURCE_NOT_FOUND',`Baris pesanan ${line.sourceLineId} tidak ditemukan.`);
@@ -64,11 +79,11 @@ async function assertFulfilmentWithinOrder(client,{documentId,documentType,party
     if(line.qty>available){
       throw new AppError('VALIDATION_ERROR',
         documentType==='DELIVERY'
-          ? `Baris ${line.lineNo}: pengiriman ${line.qty} melebihi sisa pesanan ${available} pada ${source.sales_order_number} (dipesan ${source.ordered_qty}, sudah dikirim ${already}).`
-          : `Baris ${line.lineNo}: tagihan ${line.qty} melebihi yang sudah dikirim ${available} pada ${source.sales_order_number}.`,
+          ? `Baris ${line.lineNos.join(', ')}: pengiriman ${line.qty} melebihi sisa pesanan ${available} pada ${source.sales_order_number} (dipesan ${source.ordered_qty}, sudah dikirim ${already}).`
+          : `Baris ${line.lineNos.join(', ')}: tagihan ${line.qty} melebihi yang sudah dikirim ${available} pada ${source.sales_order_number}.`,
         {salesOrderNumber:source.sales_order_number,orderedQty:Number(source.ordered_qty),alreadyFulfilled:already,availableQty:available});
     }
-    checked.push({lineNo:line.lineNo,sourceLineId:line.sourceLineId,salesOrderId:source.sales_order_id,availableQty:available});
+    checked.push({lineNos:line.lineNos,sourceLineId:line.sourceLineId,salesOrderId:source.sales_order_id,availableQty:available,requestedQty:line.qty});
   }
   return checked;
 }
@@ -162,7 +177,7 @@ async function postInventory(client,doc,user){
       await lots.transferLots(client,{productId:line.product_id,fromWarehouseId:from,toWarehouseId:to,qty,doc,user}); // lot anak mewarisi heat/cert
     }}
   // Sprint 12: MATERIAL_ISSUE milik WO → catat issued_qty + lepas reservasi.
-  if(doc.documentType==='MATERIAL_ISSUE'&&doc.payload?.workOrderId){const production=require('./production');await production.onMaterialIssued(client,doc);}
+  if(doc.documentType==='MATERIAL_ISSUE'&&doc.payload?.workOrderId){const production=require('./production');await production.onMaterialIssued(client,doc,user);}
   await finishPosting(client,doc,'INVENTORY',{movements:result});return{movements:result};
 }
 // Status pemicu posting per tipe; AKUN ditentukan posting_profiles (bukan hardcoded).

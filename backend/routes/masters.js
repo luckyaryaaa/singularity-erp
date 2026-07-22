@@ -6,6 +6,7 @@ const runtime = require('../infrastructure/database/repositories/runtime');
 const masterData = require('../infrastructure/database/repositories/master-data');
 const masterGovernance = require('../infrastructure/database/repositories/master-governance');
 const masterWizards = require('../infrastructure/database/repositories/master-wizards');
+const businessPartners = require('../infrastructure/database/repositories/business-partners');
 const changeRequests = require('../infrastructure/database/repositories/change-requests');
 const masterModules={customers:'customer',suppliers:'supplier',products:'product',employees:'employee'};
 const { NO_MATCH } = require('./shared');
@@ -46,7 +47,10 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&p==='/api/master-governance/suppliers/score'){assertPermission(ctx.user,'supplier.approve');const body=await readBody(req),period=body.period||new Date().toISOString().slice(0,7),items=await masterGovernance.scoreSuppliers(client,period,ctx.user);return{period,items:items.map(runtime.camel)};}
   // P1-2 — antrean usulan perubahan master. Memutuskan menuntut izin yang
   // lebih tinggi daripada mengedit, dan pengusul tidak boleh memutus sendiri.
-  if(method==='GET'&&p==='/api/change-requests'){assertPermission(ctx.user,'audit.view');
+  if(method==='GET'&&p==='/api/change-requests'){
+    const canReview=Object.values(changeRequests.CONTROLLED_FIELDS).length&&Object.keys(changeRequests.CONTROLLED_FIELDS)
+      .some((entity)=>{try{changeRequests.assertCanDecide(ctx.user,entity);return true;}catch{return false;}});
+    if(!canReview)assertPermission(ctx.user,'audit.view');
     return changeRequests.list(client,ctx.user,{status:url.searchParams.get('status')||'PENDING',entityType:url.searchParams.get('entityType'),limit:url.searchParams.get('limit')});}
   m=p.match(/^\/api\/change-requests\/([0-9a-f-]{36})\/(approve|reject)$/);
   if(method==='POST'&&m){const body=await readBody(req);
@@ -56,11 +60,32 @@ async function dispatch(client, req, url, ctx) {
       requestId:ctx.requestId,branchId:ctx.user.branchId});
     return result;}
 
+  // Unified Business Partner MDM: canonical party, golden-record queue,
+  // staged import, and safe configurable data-quality rules.
+  if(method==='GET'&&p==='/api/business-partners'){assertPermission(ctx.user,'business_partner.view');return businessPartners.list(client,Object.fromEntries(url.searchParams));}
+  if(method==='POST'&&p==='/api/business-partners'){assertPermission(ctx.user,'business_partner.create');const body=await readBody(req),item=await businessPartners.create(client,body,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module:'business_partner',entityType:'BUSINESS_PARTNER',entityId:item.id,newValue:{partyNumber:item.partyNumber,partyType:item.partyType},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  if(method==='GET'&&p==='/api/business-partners/duplicates'){assertPermission(ctx.user,'business_partner.view');return businessPartners.listDuplicates(client,Object.fromEntries(url.searchParams));}
+  if(method==='POST'&&p==='/api/business-partners/duplicates/detect'){assertPermission(ctx.user,'business_partner.edit');const result=await businessPartners.detectDuplicates(client,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'SCAN',module:'business_partner',entityType:'DUPLICATE_CANDIDATE',newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  m=p.match(/^\/api\/business-partners\/duplicates\/([0-9a-f-]{36})\/resolve$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'business_partner.approve');const body=await readBody(req),result=await businessPartners.resolveDuplicate(client,{candidateId:m[1],decision:body.decision,survivorPartnerId:body.survivorPartnerId,reason:body.reason,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:result.status,module:'business_partner',entityType:'DUPLICATE_CANDIDATE',entityId:m[1],newValue:result,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  if(method==='POST'&&p==='/api/business-partners/imports'){assertPermission(ctx.user,'business_partner.import');const body=await readBody(req),item=await businessPartners.stageImport(client,body,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'STAGE',module:'business_partner',entityType:'MASTER_IMPORT_BATCH',entityId:item.id,newValue:{entityType:item.entityType,rowCount:item.rowCount,replayed:!!item.replayed},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=item.replayed?200:201;return item;}
+  m=p.match(/^\/api\/business-partners\/imports\/([0-9a-f-]{36})$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'business_partner.view');return businessPartners.importDetail(client,m[1]);}
+  m=p.match(/^\/api\/business-partners\/imports\/([0-9a-f-]{36})\/validate$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'business_partner.import');const result=await businessPartners.validateImport(client,m[1]);await runtime.audit(client,{userId:ctx.user.id,action:'VALIDATE',module:'business_partner',entityType:'MASTER_IMPORT_BATCH',entityId:m[1],newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  m=p.match(/^\/api\/business-partners\/imports\/([0-9a-f-]{36})\/promote$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'business_partner.approve');const result=await businessPartners.promoteImport(client,m[1],ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'PROMOTE',module:'business_partner',entityType:'MASTER_IMPORT_BATCH',entityId:m[1],newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  if(method==='GET'&&p==='/api/business-partners/quality-rules'){assertPermission(ctx.user,'business_partner.view');return{items:await businessPartners.listRules(client)};}
+  if(method==='POST'&&p==='/api/business-partners/quality-rules'){assertPermission(ctx.user,'business_partner.edit');const body=await readBody(req),item=await businessPartners.createRule(client,body,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module:'business_partner',entityType:'DATA_QUALITY_RULE',entityId:item.id,newValue:{code:item.code,targetType:item.targetType,ruleType:item.ruleType},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
+  if(method==='POST'&&p==='/api/business-partners/quality-rules/scan'){assertPermission(ctx.user,'business_partner.edit');const result=await businessPartners.scanRules(client,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'SCAN',module:'business_partner',entityType:'DATA_QUALITY_RULE',newValue:result,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  m=p.match(/^\/api\/business-partners\/([0-9a-f-]{36})$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'business_partner.view');return businessPartners.detail(client,m[1]);}
+
   m=p.match(/^\/api\/(customers|suppliers|products|employees)$/);
   if(method==='GET'&&m){assertPermission(ctx.user,`${masterModules[m[1]]}.view`);return operations.listMaster(client,m[1],Object.fromEntries(url.searchParams),ctx.user);}
   if(method==='POST'&&m){const name=m[1],module=masterModules[name],body=await readBody(req);assertPermission(ctx.user,`${module}.create`);const item=await operations.createMaster(client,name,body,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module,entityType:module.toUpperCase(),entityId:item.id,newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}
   m=p.match(/^\/api\/(customers|suppliers|products|employees)\/([^/]+)$/);
-  if(method==='PATCH'&&m){const name=m[1],module=masterModules[name],body=await readBody(req);assertPermission(ctx.user,`${module}.edit`);const item=await operations.updateMaster(client,name,m[2],body,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module,entityType:module.toUpperCase(),entityId:item.id,newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});return item;}
+  if(method==='PATCH'&&m){const name=m[1],module=masterModules[name],body=await readBody(req);assertPermission(ctx.user,`${module}.edit`);const item=await operations.updateMaster(client,name,m[2],body,ctx.user,ctx.requestId);await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module,entityType:module.toUpperCase(),entityId:item.id,newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});return item;}
 
   // ── Master data enterprise (R014/R015): overview, sub-resource, lifecycle ──
   m=p.match(/^\/api\/masters\/(employees|customers|suppliers|products)\/([0-9a-f-]{36})$/);

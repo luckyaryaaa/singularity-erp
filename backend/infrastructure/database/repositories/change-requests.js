@@ -54,6 +54,19 @@ const DECIDER_PERMISSION = Object.freeze({
   customers: 'credit.approve', suppliers: 'supplier.approve',
   products: 'product.approve', employees: 'payroll.approve'
 });
+const ENTITY_TABLES = new Set(Object.keys(CONTROLLED_FIELDS));
+
+function assertValidChangeSet(entityType, changes) {
+  if (!ENTITY_TABLES.has(entityType)) throw new AppError('VALIDATION_ERROR', 'Jenis master pada usulan tidak didukung.');
+  const entries = Object.entries(changes || {});
+  if (!entries.length) throw new AppError('VALIDATION_ERROR', 'Tidak ada perubahan terkendali untuk diusulkan.');
+  for (const [column, delta] of entries) {
+    if (!isControlled(entityType, column)) throw new AppError('VALIDATION_ERROR', `Kolom '${column}' tidak diizinkan dalam Change Request ${entityType}.`);
+    if (!delta || typeof delta !== 'object' || !Object.prototype.hasOwnProperty.call(delta, 'from') || !Object.prototype.hasOwnProperty.call(delta, 'to'))
+      throw new AppError('VALIDATION_ERROR', `Baseline dan nilai tujuan '${column}' wajib lengkap.`);
+  }
+  return entries;
+}
 
 function assertCanDecide(user, entityType) {
   const code = DECIDER_PERMISSION[entityType];
@@ -77,9 +90,13 @@ function split(entityType, entries, current) {
 }
 
 async function submit(client, { entityType, entityId, changes, reason, user, label, branchId }) {
-  if (!Object.keys(changes || {}).length) throw new AppError('VALIDATION_ERROR', 'Tidak ada perubahan terkendali untuk diusulkan.');
+  assertValidChangeSet(entityType, changes);
   const text = String(reason || '').trim();
   if (text.length < 10) throw new AppError('REASON_REQUIRED', 'Alasan perubahan wajib diisi minimal 10 karakter.');
+
+  // Satu entitas hanya boleh memiliki satu usulan terbuka. Advisory lock
+  // menutup race sebelum unique partial index menjadi jaring pengaman kedua.
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`change-request:${entityType}:${entityId}`]);
 
   // Usulan lama atas entitas yang sama ditandai SUPERSEDED, bukan ditumpuk:
   // dua usulan terbuka atas kolom yang sama membuat pemutus tidak tahu mana
@@ -117,6 +134,7 @@ async function decide(client, { requestId, decision, reason, user }) {
   const request = (await client.query('SELECT * FROM change_requests WHERE id=$1 FOR UPDATE', [requestId])).rows[0];
   if (!request) throw new AppError('RESOURCE_NOT_FOUND', 'Usulan perubahan tidak ditemukan.');
   if (request.status !== 'PENDING') throw new AppError('STATUS_INVALID', `Usulan sudah berstatus ${request.status}.`);
+  const entries = assertValidChangeSet(request.entity_type, request.changes);
   assertCanDecide(user, request.entity_type);
   permissions.assertBranchScope(user, request.branch_id, 'Usulan perubahan');
   if (String(request.requested_by) === String(user.id)) {
@@ -128,12 +146,15 @@ async function decide(client, { requestId, decision, reason, user }) {
 
   let applied = null;
   if (verdict === 'APPROVED') {
-    const columns = Object.keys(request.changes);
+    const current = (await client.query(`SELECT * FROM ${request.entity_type} WHERE id=$1 FOR UPDATE`, [request.entity_id])).rows[0];
+    if (!current) throw new AppError('RESOURCE_NOT_FOUND', `${request.entity_type} tujuan usulan sudah tidak ada.`);
+    const stale = entries.filter(([column, delta]) => String(current[column] ?? '') !== String(delta.from ?? '')).map(([column]) => column);
+    if (stale.length) throw new AppError('DOCUMENT_CONFLICT', `Master berubah setelah usulan dibuat. Muat ulang dan ajukan kembali: ${stale.join(', ')}.`, { staleFields: stale });
+    const columns = entries.map(([column]) => column);
     const values = [request.entity_id];
     const sets = columns.map((column) => { values.push(request.changes[column].to); return `${column}=$${values.length}`; });
     sets.push('updated_at=now()');
     const result = await client.query(`UPDATE ${request.entity_type} SET ${sets.join(',')} WHERE id=$1 RETURNING id`, values);
-    if (!result.rowCount) throw new AppError('RESOURCE_NOT_FOUND', `${request.entity_type} tujuan usulan sudah tidak ada.`);
     applied = columns;
   }
   const row = (await client.query(
@@ -142,4 +163,4 @@ async function decide(client, { requestId, decision, reason, user }) {
   return { ...camel(row), applied };
 }
 
-module.exports = { CONTROLLED_FIELDS, controlledFor, isControlled, split, submit, list, decide, assertCanDecide };
+module.exports = { CONTROLLED_FIELDS, ENTITY_TABLES, controlledFor, isControlled, split, submit, list, decide, assertCanDecide, assertValidChangeSet };

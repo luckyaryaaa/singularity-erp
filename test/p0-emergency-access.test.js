@@ -36,6 +36,20 @@ test('B3: hibah darurat memberi izin yang disebut, dan hanya itu', () => {
   assert.equal(permissions.emergencyGrantFor(null, 'ledger.post'), null);
 });
 
+test('B3: hibah darurat scoped gagal tertutup tanpa konteks dan tidak bocor lintas scope', () => {
+  const user = { id: 'u-1', role: 'employee', branchId: 'branch-a', emergencyGrants: [
+    { code: 'ledger.post', scopeType: 'BRANCH', scopeId: 'branch-a' },
+    { code: 'project.edit', scopeType: 'PROJECT', scopeId: 'project-a' }
+  ] };
+  assert.equal(permissions.hasPermission(user, 'ledger.post'), false, 'scope tanpa konteks harus ditolak');
+  assert.equal(permissions.hasPermission(user, 'ledger.post', { branchId: 'branch-a' }), true);
+  assert.equal(permissions.hasPermission(user, 'ledger.post', { branchId: 'branch-b' }), false);
+  assert.equal(permissions.hasPermission(user, 'project.edit', { projectId: 'project-a' }), true);
+  assert.equal(permissions.hasPermission(user, 'project.edit', { projectId: 'project-b' }), false);
+  assert.equal(permissions.emergencyGrantFor(user, 'ledger.post', { branchId: 'branch-a' }).scopeId, 'branch-a');
+  assert.throws(() => permissions.assertPermission(user, 'ledger.post', { branchId: 'branch-b' }), (e) => e.code === 'PERMISSION_DENIED');
+});
+
 dbTest('B3: sesi memuat hibah aktif; yang kedaluwarsa dan yang dicabut tidak berlaku', async () => rollback(async (client) => {
   const owner = (await client.query(`SELECT id,role,branch_id FROM app_users WHERE role='owner' LIMIT 1`)).rows[0];
   const target = (await client.query(`SELECT id FROM app_users WHERE role<>'owner' AND active LIMIT 1`)).rows[0];

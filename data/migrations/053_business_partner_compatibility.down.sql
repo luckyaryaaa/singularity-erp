@@ -1,0 +1,6 @@
+BEGIN;
+ALTER TABLE business_partner_roles DROP CONSTRAINT business_partner_roles_customer_id_fkey;
+ALTER TABLE business_partner_roles ADD CONSTRAINT business_partner_roles_customer_id_fkey FOREIGN KEY(customer_id) REFERENCES customers(id);
+ALTER TABLE business_partner_roles DROP CONSTRAINT business_partner_roles_supplier_id_fkey;
+ALTER TABLE business_partner_roles ADD CONSTRAINT business_partner_roles_supplier_id_fkey FOREIGN KEY(supplier_id) REFERENCES suppliers(id);
+COMMIT;

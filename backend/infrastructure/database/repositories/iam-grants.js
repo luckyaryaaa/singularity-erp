@@ -11,22 +11,20 @@
 // berasal — database, dengan ROLE_GRANTS sebagai baseline awal.
 const { ROLE_GRANTS, grantsFor } = require('../../../core/permissions');
 
-// Seed sekali per peran: hanya peran yang belum punya baris sama sekali yang
-// diisi. Dengan begitu penyesuaian oleh admin tidak pernah ditimpa kembali
-// oleh baseline, dan peran yang sengaja dikosongkan tetap kosong.
+// Reconcile baseline additively. Permission baru pada release berikutnya harus
+// masuk ke role yang sudah pernah di-seed; ON CONFLICT menjaga grant yang
+// sengaja dinonaktifkan admin tetap nonaktif dan tidak ditimpa.
 async function syncBaseline(client) {
-  const existing = new Set((await client.query(
-    `SELECT DISTINCT role FROM role_permissions WHERE source='BASELINE'`)).rows.map((r) => r.role));
   const known = new Set((await client.query('SELECT code FROM enterprise_roles')).rows.map((r) => r.code));
   let inserted = 0; const seeded = [];
   for (const [role, codes] of Object.entries(ROLE_GRANTS)) {
-    if (existing.has(role) || !known.has(role)) continue;   // alias legacy tanpa enterprise_role dilewati
+    if (!known.has(role)) continue;   // alias legacy tanpa enterprise_role dilewati
     const list = [...grantsFor(role)];
     if (!list.length) continue;
     const result = await client.query(
       `INSERT INTO role_permissions(role,permission_code,source) SELECT $1,unnest($2::text[]),'BASELINE'
        ON CONFLICT(role,permission_code) DO NOTHING`, [role, list]);
-    inserted += result.rowCount; seeded.push(role);
+    inserted += result.rowCount; if(result.rowCount)seeded.push(role);
   }
   return { inserted, roles: seeded };
 }

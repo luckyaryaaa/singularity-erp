@@ -194,3 +194,28 @@ dbTest('P1-4: baris pesanan yang sudah dipenuhi tidak dapat dihapus diam-diam', 
   await assert.rejects(() => client.query('DELETE FROM document_lines WHERE id=$1', [line.id]),
     (e) => e.code === '23503', 'menghapus baris pesanan yang sudah dipenuhi wajib gagal');
 }));
+
+dbTest('P0.5: duplikasi source line dan tautan parsial tidak dapat melewati batas', async () => rollback(async (client) => {
+  const user = await owner(client), cust = await customer(client), prod = await product(client);
+  const so = await doc(client, user, 'SALES_ORDER', cust, [{ productId: prod.id, description: prod.code, qty: 10, unitPrice: 2000, taxPct: 0 }]);
+  await approve(client, so.id); const [line] = await lineIdsOf(client, so.id);
+  await assert.rejects(() => doc(client, user, 'DELIVERY', cust, [
+    { productId: prod.id, description: 'A', qty: 6, unitPrice: 2000, sourceLineId: line.id },
+    { productId: prod.id, description: 'B', qty: 6, unitPrice: 2000, sourceLineId: line.id }
+  ]), (e) => e.code === 'VALIDATION_ERROR' && e.extra.requestedQty === undefined && /12/.test(String(e.detail || e.message)));
+  await assert.rejects(() => doc(client, user, 'DELIVERY', cust, [
+    { productId: prod.id, description: 'Linked', qty: 1, unitPrice: 2000, sourceLineId: line.id },
+    { productId: prod.id, description: 'Unlinked', qty: 1, unitPrice: 2000 }
+  ]), (e) => e.code === 'VALIDATION_ERROR' && /Seluruh baris/.test(String(e.detail || e.message)));
+}));
+
+dbTest('P0.5: dua draf tidak dapat sama-sama submit melampaui sisa order', async () => rollback(async (client) => {
+  const user = await owner(client), cust = await customer(client), prod = await product(client);
+  const so = await doc(client, user, 'SALES_ORDER', cust, [{ productId: prod.id, description: prod.code, qty: 10, unitPrice: 2000, taxPct: 0 }]);
+  await approve(client, so.id); const [line] = await lineIdsOf(client, so.id);
+  const first = await doc(client, user, 'DELIVERY', cust, [{ productId: prod.id, description: 'D1', qty: 7, unitPrice: 2000, sourceLineId: line.id }]);
+  const second = await doc(client, user, 'DELIVERY', cust, [{ productId: prod.id, description: 'D2', qty: 7, unitPrice: 2000, sourceLineId: line.id }]);
+  await runtime.transitionDocument(client, { id: first.id, action: 'submit', user, requestId: randomUUID(), allowOwnerOverride: true });
+  await assert.rejects(() => runtime.transitionDocument(client, { id: second.id, action: 'submit', user, requestId: randomUUID(), allowOwnerOverride: true }),
+    (e) => e.code === 'VALIDATION_ERROR' && e.extra.availableQty === 3);
+}));

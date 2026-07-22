@@ -1,10 +1,47 @@
 # Backlog Resmi — MAT ERP V2
 
+> **Wave Sales Commercial Controls v0.34.0: SELESAI — 22 Juli 2026.** ATP/CTP
+> line promise, effective-dated margin policy dan Finance exception approval,
+> customer contract/blanket release, milestone billing idempoten, backorder
+> worklist, RLS, audit, lifecycle gate, serta Commercial Control Center selesai.
+> Evidence: migration 001–056, rollback 56/55/55, isolated regression 264/264,
+> restore 186 tabel. Tahap aktif berikutnya adalah Procurement contract/blanket
+> PO lalu Inventory/WMS reservation dan bin execution.
+
+> **Wave Organization & Workforce v0.33.0: SELESAI — 22 Juli 2026.** Versioned
+> hierarchy, canonical Job/Position/Assignment, headcount dan overlap control,
+> reporting-line guard, authority delegation runtime, RLS, audit, UI, serta
+> backfill legacy selesai. Tahap aktif berikutnya adalah gap transaksi
+> Sales–Procurement–Inventory–Production sesuai urutan dependensi.
+
+> **Wave Enterprise MDM v0.32.0: SELESAI — 22 Juli 2026.** Unified Business
+> Partner, cross-role NPWP linkage, Golden Record, duplicate scoring,
+> survivorship, maker-checker merge lineage, import staging, configurable data
+> quality, RLS, permission, audit, UI, dan compatibility layer telah lulus
+> 256/256 test pada database disposable. Tahap aktif berikutnya: versioned
+> organization hierarchy + Job/Position/Assignment + delegation authority.
+
 > **Sumber acuan tunggal (terbaru): `FINAL_MASTER_UPDATE_TERPADU_MAT_ERP_V2_2026-07-15.md`**
 > (menggantikan `FINAL_MASTER_UPDATE_MAT_ERP_V2.md` 14 Juli). Urutan sprint resmi:
 > 8A release closure → 8B arsitektur/UI → 8C master data final → 9–16 modul →
 > 17 audit final → 18 LAN-UAT → 19 VPS go-live. Setiap item wajib berstatus
 > `SELESAI` atau punya alasan tertulis sebelum R026 (aktivasi VPS).
+>
+> **Sprint 18 / R025 technical readiness: ✅ SELESAI 22 Juli 2026
+> (v0.31.0).** Database staf `mat_erp_v2_lan_uat`, isolated regression DB,
+> 13-role evidence schema, backup+restore, load, release gate, dan final
+> assurance telah lulus. Eksekusi bisnis lintas divisi, attendance training,
+> enam approval rekonsiliasi, issue retest, serta Owner sign-off masih wajib
+> dilakukan manusia. Karena itu Sprint 18 keseluruhan berstatus ◐ dan R026/VPS
+> tetap diblokir.
+>
+> **P0.5 Transaction Correctness Closure: ✅ SELESAI 22 Juli 2026
+> (v0.30.0).** Legal-entity IDOR dan recursive hierarchy guard, fulfilment
+> aggregation/locking/revalidation, Change Request allowlist + stale detection
+> + unique pending + RLS, scoped emergency access, auth grant consistency, dan
+> stale release verification telah diterapkan. Evidence: migration 001–050
+> terpasang, 247/247 regression dan predeploy LOCAL 14/14 lulus. Status tetap LOCAL BUILD READY;
+> LAN-UAT, Owner sign-off, production secrets, dan VPS adalah gate berikutnya.
 >
 > **Sprint 17 — Final Audit & Assurance: ✅ SELESAI 20 Juli 2026
 > (v0.24.0).** Matriks otorisasi 14 router/183 handler, negative allow/deny,
@@ -176,7 +213,7 @@
 
 | Release | Ruang lingkup | Status |
 |---|---|---|
-| R016 Sales & Order-to-Cash | inquiry→quotation revisi→PO→SO/proyek→credit control→delivery→invoice→collection→warranty | ◐ alur dasar + credit control ✅ Wave 2 + **revisi quotation ber-versi (snapshot immutable, guard konversi), dunning/collection configuration-driven (jenjang policy + auto credit hold + resolve ber-alasan), RMA/warranty (validasi masa garansi, disposisi RESTOCK/SCRAP/REPAIR, lot retur, jurnal profile RMA-DEFAULT)** ✅ Sprint 9; margin approval formal, milestone billing, backorder ⬜ |
+| R016 Sales & Order-to-Cash | inquiry→quotation revisi→PO→SO/proyek→credit control→delivery→invoice→collection→warranty | ✅ v0.34.0 — alur dasar, quotation revision, credit/dunning/RMA, ATP/CTP line promise, margin exception maker-checker, customer contract/blanket release, milestone billing idempoten, dan backorder worklist selesai; UAT bisnis tetap gate terpisah |
 | R017 Procurement Source-to-Pay | PR→budget→RFQ→comparison→PO→GR→three-way match→payment proposal | ◐ PR/PO/GR/invoice/payment + RFQ landed cost + three-way match + payment proposal ✅ Wave 2 + **budget check per periode/cabang (409 + override finance teraudit), RFQ multi-baris (total server-side + termurah per item + salin baris ke PO), PO change order maker-checker (SoD DB, terkunci pasca-GR), service receipt tanpa mutasi stok, payment reversal Owner+PIN (jurnal pembalik + alokasi reversed + invoice pulih)** ✅ Sprint 10; kontrak/blanket PO ⬜ |
 | R018 Warehouse & Inventory | hierarchy, bin, lot/serial/heat, reservation, opname, valuation policy | ◐ movement ledger+balance ✅ + **lot/serial/heat-number traceability (mill certificate, FIFO, blokir QC, lineage transfer) + stock opname maker-checker (dokumen OPN, selisih dijurnal via posting profile OPNAME-DEFAULT) + valuasi per lapisan lot** ✅ Sprint 11; bin-level & reservation policy formal ⬜ |
 | R019 Production, BOM, MRP & QC | routing, work center, MRP, capacity, WIP, job costing, inspection plan, NCR/CAPA, kalibrasi | ◐ **foundation transaksi selesai v0.12.0**: routing+rate snapshot, BOM explosion, reservasi, FIFO issue, actual time, costing, FG lot, QC+NCR/CAPA+karantina, MRP→PR, completion/security gate ✅; capacity planning, WIP accounting formal, inspection plan, kalibrasi ⬜ |
@@ -194,7 +231,7 @@
 | Load test 10/25 user LAN | ✅ read+write ber-CSRF: 10 user/220 request dan 25 user/550 request, 0 gagal, p95 di bawah ambang |
 | Self-Test final PASS/WARNING/FAIL/BLOCKED (§30) | ✅ 20 kontrol: 19 PASS, 1 WARNING opening inventory, 0 FAIL/BLOCKED; warning menjadi tindakan UAT Finance/Owner |
 | Dokumentasi & SOP (§31, 18 dokumen) | ✅ katalog 18 SOP terversi dan tervalidasi automated test |
-| LAN multi-user pilot & UAT per divisi + Owner sign-off (R025) | ⬜ (butuh boss & staf) |
+| LAN multi-user pilot & UAT per divisi + Owner sign-off (R025) | ◐ technical gate ✅; 13 role execution, training, rekonsiliasi, retest, dan Owner sign-off ⬜ (butuh boss & staf) |
 | R026 VPS activation (runbook siap) | ⬜ ditahan sampai gate §34 penuh |
 
 ## Aturan koding permanen (§35)

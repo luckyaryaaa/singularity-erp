@@ -8,6 +8,7 @@
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
 const permissions = require('../../../core/permissions');
+const stockReservations = require('./stock-reservations');
 
 const num = (v) => Math.round(Number(v || 0) * 10000) / 10000;
 const idr = (v) => Math.round(Number(v || 0) * 100) / 100;
@@ -97,12 +98,17 @@ async function planWorkOrder(client, { docId, warehouseId, operations, user, req
   for (const line of lines) {
     const planned = num(Number(line.qty) * woQty * (1 + Number(line.scrap_pct || 0) / 100));
     // Reservasi terhadap saldo tersedia (advisory lock pola posting.balance).
-    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`stock:${line.component_product_id}:${stockLocation.id}`]);
-    const bal = (await client.query('SELECT qty_on_hand,qty_reserved FROM inventory_balances WHERE product_id=$1 AND warehouse_id=$2 FOR UPDATE', [line.component_product_id, stockLocation.id])).rows[0];
-    const available = bal ? Math.max(0, Number(bal.qty_on_hand) - Number(bal.qty_reserved)) : 0;
-    const reserve = num(Math.min(available, planned));
-    if (reserve > 0) await client.query('UPDATE inventory_balances SET qty_reserved=qty_reserved+$3,version=version+1,updated_at=now() WHERE product_id=$1 AND warehouse_id=$2', [line.component_product_id, stockLocation.id, reserve]);
-    if (reserve < planned) shortage.push({ productId: line.component_product_id, code: line.code, shortQty: num(planned - reserve) });
+    // Reservasi lewat mesin tunggal stock-reservations: menghasilkan CATATAN
+    // (siapa menahan, untuk WO mana), bukan sekadar menaikkan angka.
+    // allowPartial: perencanaan produksi memang menerima kekurangan dan
+    // mencatatnya sebagai shortage.
+    const claim = await stockReservations.reserve(client, {
+      productId: line.component_product_id, warehouseId: stockLocation.id, documentId: docId,
+      qty: planned, allowPartial: true, user,
+      reason: `Reservasi material work order untuk ${line.code || line.component_product_id}`
+    });
+    const reserve = claim.reserved;
+    if (claim.shortQty > 0) shortage.push({ productId: line.component_product_id, code: line.code, shortQty: claim.shortQty });
     const row = (await client.query(`INSERT INTO work_order_materials(id,work_order_id,line_no,product_id,bom_line_id,planned_qty,reserved_qty,uom,unit_cost_snapshot)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, [randomUUID(), docId, line.line_no, line.component_product_id, line.id, planned, reserve, line.uom, Number(line.hpp || 0)])).rows[0];
     materials.push(row);
@@ -127,8 +133,10 @@ async function releaseReservations(client, docId, user) {
   await requireStockLocation(client, { warehouseId, branchId: wo.branch_id });
   let released = 0;
   for (const m of rows) {
-    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`stock:${m.product_id}:${warehouseId}`]);
-    await client.query('UPDATE inventory_balances SET qty_reserved=GREATEST(0,qty_reserved-$3),version=version+1,updated_at=now() WHERE product_id=$1 AND warehouse_id=$2', [m.product_id, warehouseId, Number(m.reserved_qty)]);
+    // Pelepasan lewat mesin tunggal: catatan reservasinya ditutup dengan alasan,
+    // bukan sekadar angkanya dikurangi dan diharap benar.
+    await stockReservations.releaseDocument(client, { documentId: wo.id, productId: m.product_id,
+      reason: 'Reservasi material dibatalkan — perencanaan work order dibatalkan.', user });
     await client.query('UPDATE work_order_materials SET reserved_qty=0 WHERE id=$1', [m.id]);
     released++;
   }
@@ -163,7 +171,7 @@ async function createIssueFromPlan(client, { docId, user, requestId }) {
 
 // Hook dari posting.postInventory saat MATERIAL_ISSUE (payload.workOrderId)
 // COMPLETED: catat issued_qty + lepas reservasi proporsional.
-async function onMaterialIssued(client, doc) {
+async function onMaterialIssued(client, doc, user) {
   const woId = doc.payload?.workOrderId;
   if (!woId) return null;
   const lines = (await client.query('SELECT product_id,qty FROM document_lines WHERE document_id=$1', [doc.id])).rows;
@@ -184,7 +192,11 @@ async function onMaterialIssued(client, doc) {
       remaining = num(remaining - issued); released = num(released + releaseQty);
     }
     if (remaining > 0) throw new AppError('VALIDATION_ERROR', `Qty material issue melebihi sisa rencana WO untuk produk ${line.product_id}.`);
-    if (released > 0) await client.query('UPDATE inventory_balances SET qty_reserved=GREATEST(0,qty_reserved-$3),version=version+1,updated_at=now() WHERE product_id=$1 AND warehouse_id=$2', [line.product_id, warehouseId, released]);
+    // Material benar-benar keluar: reservasinya DIPAKAI (consume), bukan
+    // dilepas. Bedanya penting untuk jejak — dilepas berarti batal, dipakai
+    // berarti terpenuhi.
+    if (released > 0) await stockReservations.consume(client, { documentId: woId,
+      productId: line.product_id, warehouseId, qty: released, user });
   }
   return { workOrderId: woId, lines: lines.length };
 }

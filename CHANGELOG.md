@@ -3,6 +3,131 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.34.0] — 2026-07-22
+
+### Sales Commercial Controls
+
+- ATP/CTP per Sales Order line menyimpan snapshot stok, reservasi, komitmen
+  terdahulu, sumber promise, lead time, dan tanggal janji sebelum order diajukan.
+- Margin quotation dan Sales Order dihitung server dari net revenue dan HPP
+  per baris, memakai policy effective-dated serta maker-checker Finance untuk
+  exception di bawah batas minimum.
+- Kontrak pelanggan/blanket agreement memiliki plafon header dan baris,
+  effective date, approval, consumption control, dan release ke Sales Order.
+- Milestone billing 100% tervalidasi, konfirmasi ready memakai SoD, dan
+  menghasilkan invoice idempoten yang terhubung ke Sales Order.
+- Backorder worklist mengikuti fulfilment aktual dan memisahkan kuantitas
+  terbuka, teralokasi, promise date, serta status pemenuhan.
+- Commercial Control Center, RLS, audit, permission, lifecycle gate, dan
+  negative regression telah terpasang.
+
+### Verified
+
+- Migration 001–056 valid; full-chain 56 up/55 down/55 re-up lulus.
+- 264/264 automated test lulus melalui disposable PostgreSQL gate; restore
+  drill menghasilkan 186 tabel, accessibility 18/18, UI 5/5, secret scan 0.
+
+## [0.33.0] — 2026-07-22
+
+### Organization & Workforce Foundation
+
+- Hierarchy organisasi kini memiliki snapshot version, SHA-256, effective date,
+  maker-checker approval, aktivasi, dan supersession tanpa mengubah sejarah.
+- Job, Position, dan Position Assignment dipisahkan secara kanonis, dilengkapi
+  headcount capacity, primary-assignment overlap guard, reporting-line cycle
+  guard, legal-entity scope, dan effective dating.
+- Authority delegation kini time-bound maksimal 90 hari, scoped, anti-escalasi,
+  maker-checker, dan benar-benar dibaca mesin otorisasi runtime.
+- Workforce Architecture UI, RLS, audit trail, permission HRD, dan backfill
+  `employee_positions` lama tersedia.
+
+### Verified
+
+- Migration 001–055 valid; full-chain 55 up/54 down/54 re-up lulus.
+- 260/260 automated test lulus melalui disposable PostgreSQL gate; restore
+  drill menghasilkan 178 tabel.
+
+## [0.32.0] — 2026-07-22
+
+### Unified Business Partner MDM
+
+- Customer dan Supplier terhubung ke canonical Business Partner tanpa
+  mengubah ID transaksi legacy; NPWP identik lintas peran memakai satu party.
+- Golden Record duplicate workbench memakai scoring multi-sinyal,
+  survivorship, maker-checker, merge alias, dan lineage permanen.
+- Import staging memiliki checksum replay protection, validasi per baris,
+  promosi terkontrol, serta configurable rule tanpa arbitrary SQL.
+- RLS, permission `business_partner.*`, audit trail, control-center UI, dan
+  compatibility trigger endpoint lama telah terpasang.
+
+### Verified
+
+- Migration 001–053 valid; full-chain 52 up/51 down/51 re-up lulus.
+- 256/256 test lulus di PostgreSQL disposable; restore menghasilkan 173 tabel.
+
+## [0.31.0] — 2026-07-22
+
+### LAN-UAT Readiness
+
+- Menambahkan evidence pack R025 untuk 13 role, issue register, attendance,
+  enam rekonsiliasi, restore drill, dan Owner sign-off.
+- Production gate memvalidasi bukti terhadap version, release SHA, migration,
+  run ID, executor, evidence reference, dan status issue; file sign-off sengaja
+  tidak dibuat sebelum keputusan manusia.
+- Menambahkan orchestrator `uat:technical` dengan database staf khusus
+  `mat_erp_v2_lan_uat`, seed guard `_uat`, least privilege, seed lintas role,
+  opening inventory, backup/restore, evidence readiness, dan predeploy.
+- Regression LAN-UAT berjalan pada database disposable
+  `mat_erp_v2_gate_uat`, sehingga fixture test tidak menyentuh data staf.
+- Baseline UAT melengkapi legal entity, business unit, plant, warehouse,
+  storage location, bin, work center, Owner, serta 12 akun role operasional.
+
+### Verified
+
+- 251/251 automated tests lulus pada database PostgreSQL terisolasi.
+- Gate LAN-UAT lulus seluruh kontrol: accessibility, visual, environment,
+  secret/dependency, migration, release+SBOM, regression, load 10/25 user,
+  health, runtime controls, final assurance, backup, dan restore.
+- Database `mat_erp_v2_lan_uat` sehat pada PostgreSQL 16.14; migration 001–050
+  checksum-valid, runtime `mat_erp_app` non-superuser, final assurance
+  5 PASS/0 warning/0 blocking, dan restore menghasilkan 162 tabel.
+- Backup terenkripsi lokal dan offsite berhasil. Final business UAT tetap
+  diblokir sampai 13 role, training, rekonsiliasi, issue closure, dan Owner
+  sign-off diisi oleh pelaksana sebenarnya.
+
+## [0.30.0] — 2026-07-22
+
+### Security & Correctness
+
+- Organization Workbench menegakkan legal-entity scope pada list/create/update,
+  validasi parent lintas entitas, plant–warehouse satu cabang, dan pencegahan
+  siklus hierarki departemen.
+- Delivery/Invoice mengagregasi source line duplikat, menolak tautan parsial,
+  memakai transaction advisory lock, serta memvalidasi ulang kuantitas saat
+  lifecycle transition agar dua draft tidak dapat melampaui sisa order.
+- Change Request memakai entity/field allowlist, stale-baseline detection,
+  master row lock, advisory lock, unique pending request, RLS cabang, dan audit
+  submission. Payload hasil manipulasi tidak dapat menjadi identifier SQL.
+- Emergency access kini fail-closed untuk scope BRANCH/LEGAL_ENTITY/PROJECT dan
+  scope enterprise lainnya. Respons login/MFA/password-change memakai union
+  permission database yang sama dengan session runtime.
+
+### Release
+
+- Migration `050_p0_5_transaction_correctness.sql` aktif dan checksum-valid.
+- Versi `package.json` dan lockfile diselaraskan ke 0.30.0.
+- Verifikasi artefak membandingkan versi dan migration terbaru terhadap source;
+  predeploy membangun ulang lalu memblokir paket release atau SBOM yang gagal.
+
+### Verified
+
+- 247/247 automated tests lulus, termasuk negative tests IDOR, recursive cycle,
+  tampered/stale Change Request, scoped break-glass, duplicate source line, dan
+  competing fulfilment drafts.
+- Predeploy LOCAL 14/14 lulus: a11y, visual, environment, secret/dependency,
+  migration, release+SBOM, regression, load, health, runtime controls, final
+  assurance, serta backup/restore. Paket memindai 334 file tanpa temuan.
+
 ## [0.25.0] — 2026-07-20
 
 ### Added

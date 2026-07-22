@@ -1,0 +1,10 @@
+BEGIN;
+DROP TRIGGER IF EXISTS position_assignment_capacity ON position_assignments;
+DROP FUNCTION IF EXISTS enforce_position_assignment_capacity();
+DROP TABLE IF EXISTS authority_delegations;
+DROP TABLE IF EXISTS position_assignments;
+DROP TABLE IF EXISTS organization_positions;
+DROP TABLE IF EXISTS organization_jobs;
+DROP TABLE IF EXISTS organization_hierarchy_versions;
+DROP FUNCTION IF EXISTS app_legal_entity_visible(uuid);
+COMMIT;
