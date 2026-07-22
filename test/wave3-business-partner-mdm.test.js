@@ -8,6 +8,7 @@ const {Client}=require('pg');
 const {randomUUID}=require('node:crypto');
 const operations=require('../backend/infrastructure/database/repositories/operations');
 const partners=require('../backend/infrastructure/database/repositories/business-partners');
+const runtime=require('../backend/infrastructure/database/repositories/runtime');
 
 const dbTest=process.env.DATABASE_URL?test:test.skip;
 async function rollback(fn){const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();try{await client.query('BEGIN');await client.query("SELECT set_config('app.is_system','on',true)");await fn(client);}finally{await client.query('ROLLBACK').catch(()=>{});await client.end();}}
@@ -35,7 +36,19 @@ dbTest('Wave 3 MDM: duplicate workbench maker-checker menyimpan merge lineage ta
   const left=await partners.create(client,{displayName:'PT Golden Nusantara',legalName:'PT Golden Nusantara',partyType:'ORGANIZATION'},checker);
   const right=await partners.create(client,{displayName:'Golden Nusantara PT',legalName:'PT Golden Nusantara',partyType:'ORGANIZATION'},checker);
   await partners.detectDuplicates(client,maker);
-  const queue=await partners.listDuplicates(client,{limit:100});const candidate=queue.items.find(x=>new Set([x.leftPartnerId,x.rightPartnerId]).has(left.id)&&new Set([x.leftPartnerId,x.rightPartnerId]).has(right.id));assert.ok(candidate);
+  // listDuplicates mengembalikan 100 TERATAS berdasarkan match_score. Pasangan
+  // ini berskor 92 (EXACT_LEGAL_NAME), sehingga tergeser keluar halaman pertama
+  // bila test lain yang berjalan paralel meng-commit kandidat berskor 100
+  // (EXACT_TAX_ID) — membuat uji ini lulus atau gagal karena urutan eksekusi.
+  // Kandidat dicari langsung berdasarkan pasangan partner yang dibuat uji ini.
+  const queue=await partners.listDuplicates(client,{limit:100});
+  assert.ok(Array.isArray(queue.items),'antrean duplikat wajib dapat dibaca');
+  const candidate=runtime.camel((await client.query(
+    `SELECT * FROM business_partner_duplicate_candidates
+     WHERE status='OPEN' AND ((left_partner_id=$1 AND right_partner_id=$2) OR (left_partner_id=$2 AND right_partner_id=$1))`,
+    [left.id,right.id])).rows[0]);
+  assert.ok(candidate,'pasangan duplikat yang dibuat uji ini wajib terdeteksi');
+  assert.equal(Number(candidate.matchScore),92,'nama legal identik wajib berskor 92');
   await assert.rejects(()=>partners.resolveDuplicate(client,{candidateId:candidate.id,decision:'MERGE',survivorPartnerId:left.id,reason:'Exact legal-name duplicate',user:maker}),error=>error.code==='SOD_CONFLICT');
   const result=await partners.resolveDuplicate(client,{candidateId:candidate.id,decision:'MERGE',survivorPartnerId:left.id,reason:'Exact legal-name duplicate',user:checker});assert.equal(result.status,'MERGED');
   const source=(await client.query('SELECT status,merged_into_id FROM business_partners WHERE id=$1',[right.id])).rows[0];assert.equal(source.status,'MERGED');assert.equal(source.merged_into_id,left.id);

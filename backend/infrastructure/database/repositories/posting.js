@@ -156,7 +156,13 @@ async function postInventory(client,doc,user){
     await finishPosting(client,doc,'INVENTORY',{opname:{adjusted:opname.adjusted,gain:opname.gain,loss:opname.loss}});
     return opname;
   }
-  const types={GOODS_RECEIPT:'RECEIPT',MATERIAL_ISSUE:'ISSUE',STOCK_ADJUSTMENT:'ADJUSTMENT',STOCK_TRANSFER:'TRANSFER_OUT'};if(!types[doc.documentType]||doc.status!=='COMPLETED')return null;if(!await claimPosting(client,doc,user,'INVENTORY'))return{replay:true};
+  // DELIVERY sebelumnya TIDAK ada di daftar ini: mengirim barang ke pelanggan
+  // sama sekali tidak mengurangi stok. Terbukti terukur — kirim 20 unit dari
+  // saldo 50 menyisakan 50, nol baris pergerakan. Akibatnya stok tidak pernah
+  // habis, HPP mustahil dihitung (tidak ada pergerakan keluar untuk dinilai),
+  // dan eksposur kredit "pengiriman belum ditagih" bersandar pada dokumen yang
+  // tidak pernah menyentuh ledger.
+  const types={GOODS_RECEIPT:'RECEIPT',MATERIAL_ISSUE:'ISSUE',DELIVERY:'ISSUE',STOCK_ADJUSTMENT:'ADJUSTMENT',STOCK_TRANSFER:'TRANSFER_OUT'};if(!types[doc.documentType]||doc.status!=='COMPLETED')return null;if(!await claimPosting(client,doc,user,'INVENTORY'))return{replay:true};
   // Sprint 10: service receipt — penerimaan jasa TANPA mutasi stok/lot; claim
   // tetap dicatat sebagai bukti penerimaan untuk three-way match.
   if(doc.documentType==='GOODS_RECEIPT'&&doc.payload?.receiptType==='SERVICE'){
@@ -167,8 +173,8 @@ async function postInventory(client,doc,user){
   for(const line of lines){const qty=Number(line.qty);
     if(doc.documentType==='GOODS_RECEIPT'){const wh=doc.payload?.warehouseId||doc.branchId;result.push(await balance(client,line.product_id,wh,qty,user,doc,'RECEIPT'));
       await lots.receiveLotLine(client,doc,line,wh,user); // lot + heat number per baris GR
-    }else if(doc.documentType==='MATERIAL_ISSUE'){const wh=doc.payload?.warehouseId||doc.branchId;result.push(await balance(client,line.product_id,wh,-qty,user,doc,'ISSUE'));
-      await lots.consumeLots(client,{productId:line.product_id,warehouseId:wh,qty,doc,user,type:'ISSUE'}); // konsumsi FIFO
+    }else if(doc.documentType==='MATERIAL_ISSUE'||doc.documentType==='DELIVERY'){const wh=doc.payload?.warehouseId||doc.branchId;result.push(await balance(client,line.product_id,wh,-qty,user,doc,'ISSUE'));
+      await lots.consumeLots(client,{productId:line.product_id,warehouseId:wh,qty,doc,user,type:'ISSUE'}); // konsumsi FIFO — sama untuk pengeluaran produksi maupun pengiriman pelanggan
     }else if(doc.documentType==='STOCK_ADJUSTMENT'){const wh=doc.payload?.warehouseId||doc.branchId;const out=doc.payload?.adjustmentDirection==='OUT';result.push(await balance(client,line.product_id,wh,out?-qty:qty,user,doc,'ADJUSTMENT'));
       if(out)await lots.consumeLots(client,{productId:line.product_id,warehouseId:wh,qty,doc,user,type:'ADJUST_OUT'});
       else await lots.receiveLotLine(client,doc,line,wh,user,{movementType:'ADJUST_IN',lotPrefix:'A'});
@@ -182,6 +188,38 @@ async function postInventory(client,doc,user){
 }
 // Status pemicu posting per tipe; AKUN ditentukan posting_profiles (bukan hardcoded).
 const POSTING_TRIGGER={INVOICE:'APPROVED',CUSTOMER_PAYMENT:'CLOSED',SUPPLIER_INVOICE:'APPROVED',SUPPLIER_PAYMENT:'CLOSED',EXPENSE:'CLOSED'};
+
+// Persediaan perpetual (migrasi 062). Dokumen di sini menjurnal NILAI
+// PERSEDIAAN dari inventory_movements (qty x unit_cost), bukan nilai header
+// yang memuat pajak dan ongkos angkut. Sebelum ini penerimaan barang dan
+// pengeluaran material tidak menyentuh buku besar sama sekali, dan HPP tidak
+// pernah diakui — pendapatan berdiri tanpa biaya lawan.
+const PERPETUAL_TRIGGER={GOODS_RECEIPT:'COMPLETED',MATERIAL_ISSUE:'COMPLETED',DELIVERY:'COMPLETED'};
+
+// Nilai mutlak pergerakan persediaan sebuah dokumen. Dipakai sebagai dasar
+// jurnal supaya buku besar dan ledger persediaan tidak pernah berbeda.
+async function movementValue(client,documentId){
+  const row=(await client.query(
+    `SELECT COALESCE(SUM(ABS(qty*COALESCE(unit_cost,0))),0)::float v FROM inventory_movements WHERE document_id=$1`,
+    [documentId])).rows[0];
+  return Math.round(Number(row.v)*100)/100;
+}
+
+// Jurnal persediaan perpetual. Dijalankan setelah pergerakan stok tercatat,
+// memakai claim ACCOUNTING yang sama sehingga tidak pernah ganda.
+async function postPerpetualInventory(client,doc,user){
+  const trigger=PERPETUAL_TRIGGER[doc.documentType];
+  if(!trigger||doc.status!==trigger)return null;
+  const value=await movementValue(client,doc.id);
+  // Dokumen tanpa pergerakan bernilai (mis. penerimaan jasa) tidak dijurnal —
+  // biayanya diakui lewat tagihan supplier, bukan lewat persediaan.
+  if(!(value>0))return null;
+  if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};
+  const period=await ensureOpenPeriod(client,doc);
+  const posted=await postFromProfile(client,doc,user,{transactionType:doc.documentType,amounts:{VALUE:value},memoBase:'persediaan perpetual'});
+  await finishPosting(client,doc,'ACCOUNTING',{period,value,...posted});
+  return{period,value,...posted};
+}
 // Periode posting: payload.period bila dokumen menyatakannya (payroll, jurnal
 // manual ber-periode, run penyusutan) — selaras dengan ledger/closing yang
 // memakai COALESCE(payload.period, created_at); selain itu tanggal dokumen.
@@ -201,10 +239,10 @@ async function postFromProfile(client,doc,user,{transactionType,amounts,memoBase
   await client.query(`UPDATE business_documents SET posting_profile_snapshot=$2 WHERE id=$1`,[doc.id,profile.snapshot]);
   return{profileCode:profile.code,profileVersion:profile.version,debit:debitTotal,credit:creditTotal};
 }
-async function postAccounting(client,doc,user){if(doc.documentType==='JOURNAL')return postManualJournal(client,doc,user);if(doc.documentType==='PAYROLL_RUN')return postPayroll(client,doc,user);const trigger=POSTING_TRIGGER[doc.documentType];if(!trigger||doc.status!==trigger)return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const amount=Number(doc.amount);if(!(amount>0))throw new AppError('VALIDATION_ERROR','Nilai posting jurnal harus lebih dari nol.');const period=await ensureOpenPeriod(client,doc);const posted=await postFromProfile(client,doc,user,{transactionType:doc.documentType,amounts:{AMOUNT:amount},memoBase:'auto posting'});await finishPosting(client,doc,'ACCOUNTING',{period,...posted,amount});return{period,...posted,amount};}
+async function postAccounting(client,doc,user){if(doc.documentType==='JOURNAL')return postManualJournal(client,doc,user);if(doc.documentType==='PAYROLL_RUN')return postPayroll(client,doc,user);if(PERPETUAL_TRIGGER[doc.documentType])return postPerpetualInventory(client,doc,user);const trigger=POSTING_TRIGGER[doc.documentType];if(!trigger||doc.status!==trigger)return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const amount=Number(doc.amount);if(!(amount>0))throw new AppError('VALIDATION_ERROR','Nilai posting jurnal harus lebih dari nol.');const period=await ensureOpenPeriod(client,doc);const posted=await postFromProfile(client,doc,user,{transactionType:doc.documentType,amounts:{AMOUNT:amount},memoBase:'auto posting'});await finishPosting(client,doc,'ACCOUNTING',{period,...posted,amount});return{period,...posted,amount};}
 async function postManualJournal(client,doc,user){if(doc.status!=='APPROVED')return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const lines=doc.payload?.journalLines;if(!Array.isArray(lines)||lines.length<2)throw new AppError('VALIDATION_ERROR','Jurnal manual membutuhkan minimal dua baris.');const debit=lines.reduce((n,x)=>n+Number(x.debit||0),0),credit=lines.reduce((n,x)=>n+Number(x.credit||0),0);if(!(debit>0)||Math.abs(debit-credit)>.01)throw new AppError('VALIDATION_ERROR','Total debit dan kredit jurnal harus seimbang.');const period=await ensureOpenPeriod(client,doc),codes=[...new Set(lines.map(x=>String(x.accountCode||'')))],accounts=await accountMap(client,codes);if(codes.some(code=>!accounts[code]))throw new AppError('RESOURCE_NOT_FOUND','Salah satu akun jurnal tidak ditemukan.');for(const line of lines){const d=Number(line.debit||0),c=Number(line.credit||0);if(d<0||c<0||d&&c||!d&&!c)throw new AppError('VALIDATION_ERROR','Baris jurnal harus memiliki tepat satu sisi debit/kredit.');await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,$4,$5,$6)`,[randomUUID(),doc.id,accounts[line.accountCode],d,c,String(line.memo||doc.title).slice(0,500)]);}await finishPosting(client,doc,'ACCOUNTING',{period,debit,credit,manual:true});return{period,debit,credit,manual:true};}
 async function postPayroll(client,doc,user){if(doc.status!=='APPROVED')return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const net=Number(doc.amount),tax=Number(doc.payload?.pph21||0),bpjs=Number(doc.payload?.bpjs||0),period=await ensureOpenPeriod(client,doc);
   // Kaki payroll dari posting profile: NET, TAX, BPJS_COMPANY dipetakan ke akun.
   const posted=await postFromProfile(client,doc,user,{transactionType:'PAYROLL_RUN',amounts:{NET:net,TAX:tax,BPJS_COMPANY:bpjs},memoBase:'payroll'});await finishPosting(client,doc,'ACCOUNTING',{period,net,tax,bpjs,...posted});return{period,net,tax,bpjs,...posted};}
 async function postDocument(client,doc,user){return{inventory:await postInventory(client,doc,user),accounting:await postAccounting(client,doc,user)};}
-module.exports={syncDocumentLines,normalizeLines,assertFulfilmentWithinOrder,orderFulfilment,lineSubtotalOf,authoritativeTotal,assertAmountMatchesLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod};
+module.exports={syncDocumentLines,normalizeLines,postPerpetualInventory,movementValue,assertFulfilmentWithinOrder,orderFulfilment,lineSubtotalOf,authoritativeTotal,assertAmountMatchesLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod};
