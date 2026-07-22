@@ -6,6 +6,7 @@ const { assertPermission } = require('../core/permissions');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const production = require('../infrastructure/database/repositories/production');
 const capacity = require('../infrastructure/database/repositories/capacity');
+const qualityCapa = require('../infrastructure/database/repositories/quality-capa');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -39,6 +40,24 @@ async function dispatch(client, req, url, ctx) {
     return { items: (await client.query(`SELECT wc.id,wc.code,wc.name,wc.work_center_type,wc.capacity_hours_per_day,wc.hourly_rate,p.name plant_name FROM work_centers wc JOIN plants p ON p.id=wc.plant_id WHERE wc.active AND ($1 OR p.branch_id=$2) ORDER BY wc.code`, [scopeAll, ctx.user.branchId])).rows.map(runtime.camel) };
   }
   if (method === 'POST' && pathname === '/api/mrp/run') { assertPermission(ctx.user, 'production.post'); const body = await readBody(req); return idempotent('mrp.run', body, 200, () => production.runMrp(client, { user: ctx.user, warehouseId: body.warehouseId || null, requestId: ctx.requestId })); }
+  // CAPA & kalibrasi — NCR sebelumnya hanya sebuah nomor tanpa siklus, dan
+  // kalibrasi alat ukur tidak ada sama sekali.
+  if (method === 'GET' && pathname === '/api/quality/capa')
+    return qualityCapa.listCases(client, ctx.user, { branchId: url.searchParams.get('branchId'), status: url.searchParams.get('status') || 'OPEN_ONLY' });
+  if (method === 'POST' && pathname === '/api/quality/capa') { const body = await readBody(req); ctx.status = 201;
+    return qualityCapa.openCase(client, { ...body, user: ctx.user, requestId: ctx.requestId }); }
+  match = pathname.match(/^\/api\/quality\/capa\/([0-9a-f-]{36})\/advance$/);
+  if (method === 'POST' && match) { const body = await readBody(req);
+    return qualityCapa.advanceCase(client, { id: match[1], toStatus: body.toStatus, payload: body,
+      reason: body.reason, user: ctx.user, requestId: ctx.requestId }); }
+  if (method === 'GET' && pathname === '/api/quality/instruments')
+    return qualityCapa.listInstruments(client, ctx.user, { branchId: url.searchParams.get('branchId') });
+  if (method === 'POST' && pathname === '/api/quality/instruments') { const body = await readBody(req); ctx.status = 201;
+    return qualityCapa.registerInstrument(client, { ...body, user: ctx.user, requestId: ctx.requestId }); }
+  match = pathname.match(/^\/api\/quality\/instruments\/([0-9a-f-]{36})\/calibrations$/);
+  if (method === 'POST' && match) { const body = await readBody(req); ctx.status = 201;
+    return qualityCapa.recordCalibration(client, { instrumentId: match[1], ...body, user: ctx.user, requestId: ctx.requestId }); }
+
   // Kapasitas & WIP — capacity_hours_per_day ada sejak migrasi 012 tetapi tidak
   // pernah diperiksa, dan operasi tidak punya tanggal sampai migrasi 060.
   if (method === 'GET' && pathname === '/api/production/capacity')

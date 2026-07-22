@@ -4,6 +4,7 @@ const { AppError } = require('../../../core/errors');
 const { createHash } = require('node:crypto');
 const posting = require('./posting');
 const masterGovernance = require('./master-governance');
+const businessDate = require('../../../core/business-date');
 
 const PREFIXES = {
   CUSTOMER_INQUIRY:'INQ',QUOTATION:'QUO',CUSTOMER_PO:'CPO',SALES_ORDER:'SO',PROJECT:'PRJ',WORK_ORDER:'WO',
@@ -118,7 +119,7 @@ async function assertCustomerPoValid(client,{partyId,amount,payload={}}){
   if(!['APPROVED','COMPLETED','CLOSED'].includes(quote.status))
     throw new AppError('STATUS_INVALID',`Penawaran ${quote.document_number} berstatus ${quote.status} — hanya penawaran yang sudah disetujui yang dapat menjadi dasar Customer PO.`,{quotationStatus:quote.status});
   if(quote.due_date&&new Date(quote.due_date).getTime()<Date.now()-86400000)
-    throw new AppError('VALIDATION_ERROR',`Penawaran ${quote.document_number} sudah kedaluwarsa pada ${String(quote.due_date).slice(0,10)}.`,{validUntil:quote.due_date});
+    throw new AppError('VALIDATION_ERROR',`Penawaran ${quote.document_number} sudah kedaluwarsa pada ${businessDate.toBusinessDate(quote.due_date)}.`,{validUntil:quote.due_date});
   const quoted=Number(quote.amount||0),ordered=Number(amount||0);
   if(quoted>0&&ordered-quoted>0.01)
     throw new AppError('VALIDATION_ERROR',`Nilai Customer PO (${ordered}) melebihi penawaran ${quote.document_number} (${quoted}) — terbitkan revisi penawaran terlebih dahulu.`,{quotedAmount:quoted,orderedAmount:ordered});

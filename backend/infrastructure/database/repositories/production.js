@@ -337,7 +337,10 @@ async function recordInspection(client, { qcDocId, inspection, user, requestId }
   if (!qc) throw new AppError('RESOURCE_NOT_FOUND', 'Dokumen QC tidak ditemukan.');
   assertBranchScope(user, qc.branch_id);
   if (['CLOSED', 'CANCELLED', 'VOID', 'REJECTED'].includes(qc.status)) throw new AppError('STATUS_INVALID', `Dokumen QC berstatus ${qc.status}.`);
-  const { inspectionType, lotId, productId, subjectDocumentId, sampledQty, passedQty, failedQty, defectCode, rootCause, correctiveAction } = inspection || {};
+  const { inspectionType, lotId, productId, subjectDocumentId, sampledQty, passedQty, failedQty, defectCode, rootCause, correctiveAction, instrumentId } = inspection || {};
+  // Alat ukur kedaluwarsa membuat hasil inspeksi tidak dapat dipertanggungjawabkan.
+  const qualityCapa = require('./quality-capa');
+  await qualityCapa.assertInstrumentUsable(client, instrumentId, { branchId: qc.branch_id });
   if (!['INCOMING', 'IN_PROCESS', 'FINAL'].includes(inspectionType)) throw new AppError('VALIDATION_ERROR', 'inspectionType harus INCOMING/IN_PROCESS/FINAL.');
   const sampled = num(sampledQty), passed = num(passedQty), failed = num(failedQty);
   if (!(sampled > 0) || passed < 0 || failed < 0 || passed + failed > sampled) throw new AppError('VALIDATION_ERROR', 'Qty sampel/lulus/gagal tidak konsisten.');
@@ -357,10 +360,10 @@ async function recordInspection(client, { qcDocId, inspection, user, requestId }
     const seq = (await client.query(`SELECT count(*)::int n FROM qc_inspections WHERE ncr_number IS NOT NULL AND inspected_at>=date_trunc('year',now())`)).rows[0];
     ncrNumber = `NCR-${new Date().getFullYear()}-${String(seq.n + 1).padStart(4, '0')}`;
   }
-  const row = (await client.query(`INSERT INTO qc_inspections(id,ncr_number,qc_document_id,subject_document_id,inspection_type,lot_id,product_id,sampled_qty,passed_qty,failed_qty,result,defect_code,root_cause,corrective_action,inspected_by)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`, [
+  const row = (await client.query(`INSERT INTO qc_inspections(id,ncr_number,qc_document_id,subject_document_id,inspection_type,lot_id,product_id,sampled_qty,passed_qty,failed_qty,result,defect_code,root_cause,corrective_action,inspected_by,instrument_id)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`, [
     randomUUID(), ncrNumber, qcDocId, subjectDocumentId || null, inspectionType, lotId || null, prodId,
-    sampled, passed, failed, result, defectCode || null, rootCause || null, correctiveAction || null, user.id
+    sampled, passed, failed, result, defectCode || null, rootCause || null, correctiveAction || null, user.id, instrumentId || null
   ])).rows[0];
 
   // Gagal pada lot → karantina otomatis (dilewati FIFO sampai dilepas QC).
@@ -375,7 +378,20 @@ async function recordInspection(client, { qcDocId, inspection, user, requestId }
     [qcDocId, JSON.stringify({ qcSummary: summary }), user.id]);
   const runtime = require('./runtime');
   await runtime.audit(client, { userId: user.id, action: failed > 0 ? 'REJECT' : 'APPROVE', module: 'quality', entityType: 'QC_INSPECTION', entityId: qcDocId, documentNumber: qc.document_number, newValue: { ncrNumber, result, sampled, passed, failed, lotId, quarantined }, reason: rootCause || null, requestId });
-  return { ...runtime.camel(row), quarantined };
+  // NCR yang terbit WAJIB melahirkan kasus CAPA. Temuan yang tidak wajib
+  // ditutup bukan sistem mutu — sebelumnya NCR hanya sebuah nomor dengan dua
+  // kolom teks bebas yang boleh dibiarkan kosong selamanya.
+  let capaCase = null;
+  if (ncrNumber) {
+    capaCase = await qualityCapa.openCase(client, {
+      inspectionId: row.id, branchId: qc.branch_id, source: 'NCR',
+      severity: result === 'FAIL' ? 'CRITICAL' : 'MAJOR',
+      title: `${ncrNumber} — ${defectCode}`,
+      description: `Inspeksi ${inspectionType} menemukan ${failed} unit gagal. Akar masalah awal: ${rootCause}`,
+      user, requestId
+    });
+  }
+  return { ...runtime.camel(row), quarantined, capaCase };
 }
 
 async function listInspections(client, qcDocId, user) {

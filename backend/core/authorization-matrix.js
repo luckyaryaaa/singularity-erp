@@ -13,7 +13,7 @@ const ROUTE_MATRIX = Object.freeze([
   { file:'masters.js', handlers:47, directGuards:30, strategy:'DYNAMIC_MASTER_PERMISSION_RLS_STAGING_AND_MAKER_CHECKER', evidence:['test/sprint8c-master-governance.test.js','test/sprint8c-wave2.test.js','test/wave3-business-partner-mdm.test.js'] },
   { file:'organization.js', handlers:30, directGuards:20, strategy:'REPOSITORY_SCOPE_VERSIONING_MAKER_CHECKER_OWNER_PIN_AND_MFA', evidence:['test/sprint7-organization-employee.test.js','test/sprint15-docs.test.js','test/wave4-organization-workforce.test.js'] },
   { file:'inventory.js', handlers:12, directGuards:8, strategy:'PERMISSION_AND_WAREHOUSE_BRANCH', evidence:['test/sprint11-inventory-lots.test.js'] },
-  { file:'production.js', handlers:18, directGuards:14, strategy:'PERMISSION_AND_WORK_ORDER_BRANCH', evidence:['test/sprint12-production.test.js'] },
+  { file:'production.js', handlers:24, directGuards:14, strategy:'PERMISSION_AND_WORK_ORDER_BRANCH', evidence:['test/sprint12-production.test.js'] },
   { file:'finance.js', handlers:30, directGuards:30, strategy:'PERMISSION_BRANCH_PIN_AND_SOD', evidence:['test/sprint13-finance.test.js','test/branch-isolation.test.js'] },
   { file:'hr.js', handlers:15, directGuards:15, strategy:'PERMISSION_BRANCH_AND_OWN_RECORD', evidence:['test/sprint14-hr.test.js','test/branch-isolation.test.js'] },
   { file:'reporting.js', handlers:9, directGuards:9, strategy:'PERMISSION_BRANCH_AND_FILTER_OWNERSHIP', evidence:['test/sprint16-reporting.test.js'] },
