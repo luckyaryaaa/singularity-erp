@@ -4,6 +4,7 @@ const { AppError } = require('../core/errors');
 const { assertPermission } = require('../core/permissions');
 const { verifyPassword } = require('../core/password');
 const organization = require('../infrastructure/database/repositories/organization');
+const orgStructure = require('../infrastructure/database/repositories/org-structure');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const docTemplates = require('../infrastructure/database/repositories/document-templates');
 const docRender = require('../infrastructure/files/document-render');
@@ -46,6 +47,18 @@ async function dispatch(client, req, url, ctx) {
   if(method==='PATCH'&&m){const body=await readBody(req),pinRow=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!pinRow?.owner_pin_hash||!verifyPassword(String(body.pin),pinRow.owner_pin_hash))throw new AppError('PIN_REQUIRED');return organization.updateIdentity(client,ctx.user,m[1],body,ctx.requestId);}
   m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/hierarchy$/);
   if(method==='GET'&&m)return organization.hierarchy(client,ctx.user,m[1]);
+  // P1-3 — workbench struktur organisasi. Sebelumnya business unit, cabang,
+  // departemen, cost center, profit center, plant, dan gudang hanya lahir dari
+  // seed migrasi: membuka cabang baru menuntut developer menjalankan SQL ke
+  // produksi. Perubahan struktur menuntut alasan tertulis dan tercatat di audit.
+  m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/structure\/(business-units|branches|departments|cost-centers|profit-centers|plants|warehouses)$/);
+  if(method==='GET'&&m)return orgStructure.list(client,ctx.user,m[2],{legalEntityId:m[1]});
+  if(method==='POST'&&m){const body=await readBody(req);ctx.status=201;
+    return orgStructure.create(client,ctx.user,m[2],body,{legalEntityId:m[1],requestId:ctx.requestId});}
+  m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/structure\/(business-units|branches|departments|cost-centers|profit-centers|plants|warehouses)\/([0-9a-f-]{36})$/);
+  if(method==='PATCH'&&m){const body=await readBody(req);
+    return orgStructure.update(client,ctx.user,m[2],m[3],body,{legalEntityId:m[1],requestId:ctx.requestId});}
+
   m=p.match(/^\/api\/organization\/([0-9a-f-]{36})\/(assets|signatories|tax-identities|bank-accounts)$/);
   if(method==='GET'&&m)return{items:await organization.listResource(client,ctx.user,m[1],m[2])};
   if(method==='POST'&&m){const body=await readBody(req);ctx.status=201;return organization.createResource(client,ctx.user,m[1],m[2],body,ctx.requestId);}

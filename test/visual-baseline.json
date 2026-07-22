@@ -1,6 +1,7 @@
 {
   "version": 2,
   "_note": "v2 menyesuaikan arsitektur menu v0.29.0: Executive Cockpit melebur ke Dashboard (hero-exec selalu dirender, baik varian rich maupun fallback), dan #/reports kini Report Factory yang berdiri sendiri.",
+  "_batasCakupan": "PENTING: scripts/ui-smoke-cdp.js menjalankan server dengan MAT_DB_MODE=memory, yaitu adapter lama backend/api.js yang hanya melayani 9 endpoint (dashboard, documents, approvals, notifications, audit, jobs, runtime, events, health). Produksi memakai PostgreSQL dengan 202 handler. Halaman yang bergantung pada endpoint di luar sembilan itu — organisasi, master data, keuangan, inventori, produksi, HR — TIDAK DAPAT dirender di sini dan karenanya tidak boleh dimasukkan ke daftar pages. Artinya gerbang visual ini hanya membuktikan sebagian kecil aplikasi; jangan diperlakukan sebagai jaminan menyeluruh. Menjalankan smoke terhadap PostgreSQL adalah pekerjaan tersendiri yang masih terbuka.",
   "maxHorizontalOverflow": 1,
   "minMainWidth": {
     "desktop": 900,

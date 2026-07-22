@@ -4,17 +4,46 @@
   const { ICONS, chip, toast, formDialog, actionDialog, openDrawer, dataTable, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL, STATUS_META } = window.UI;
   const { progressBar, docCell, docListPage, masterPage } = window.PageKit;
 
+  // P1-3 — workbench struktur organisasi. Sebelumnya halaman ini hanya
+  // MENAMPILKAN jumlah unit; membuat cabang atau departemen baru sama sekali
+  // tidak mungkin lewat aplikasi dan menuntut SQL langsung ke produksi.
+  const STRUCTURE_TABS = [['branches','Cabang'],['business-units','Business unit'],['departments','Departemen'],
+    ['cost-centers','Cost center'],['profit-centers','Profit center'],['plants','Plant'],['warehouses','Gudang']];
+  // Kolom formulir per tipe. Induk diisi dari daftar yang sudah dimuat halaman
+  // supaya pengguna tidak perlu menghafal UUID.
+  const STRUCTURE_FORM = {
+    'business-units': () => [],
+    branches: (h) => [{ name:'businessUnitId', label:'Business unit', type:'select', options:[['','—'],...(h.businessUnits||[]).map(b=>[b.id,`${b.code} · ${b.name}`])] }],
+    departments: (h) => [{ name:'parentId', label:'Induk departemen', type:'select', options:[['','—'],...(h.departments||[]).map(d=>[d.id,`${d.code} · ${d.name}`])] }],
+    'cost-centers': (h) => [
+      { name:'departmentId', label:'Departemen', type:'select', options:[['','—'],...(h.departments||[]).map(d=>[d.id,`${d.code} · ${d.name}`])] },
+      { name:'branchId', label:'Cabang', type:'select', options:[['','—'],...(h.branches||[]).map(b=>[b.id,`${b.code} · ${b.name}`])] }],
+    'profit-centers': () => [],
+    plants: (h) => [
+      { name:'branchId', label:'Cabang', type:'select', options:(h.branches||[]).map(b=>[b.id,`${b.code} · ${b.name}`]), required:true },
+      { name:'plantType', label:'Tipe', type:'select', options:[['WORKSHOP','Workshop'],['FACTORY','Pabrik'],['SERVICE_CENTER','Service center']] },
+      { name:'address', label:'Alamat' }],
+    warehouses: (h) => [
+      { name:'branchId', label:'Cabang', type:'select', options:(h.branches||[]).map(b=>[b.id,`${b.code} · ${b.name}`]), required:true },
+      { name:'plantId', label:'Plant', type:'select', options:[['','—'],...(h.plants||[]).map(p=>[p.id,`${p.code} · ${p.name}`])] },
+      { name:'warehouseType', label:'Tipe', type:'select', options:[['GENERAL','Umum'],['RAW_MATERIAL','Bahan baku'],['FINISHED_GOODS','Barang jadi'],['CONSIGNMENT','Konsinyasi']] }]
+  };
+
   const organizationPage = {
     permission: 'organization.view',
+    _node: 'branches',
     async render(main, _p, signal) {
       const org = await api('/api/organization', { signal });
       const base = `/api/organization/${org.id}`;
-      // asList: endpoint sub-resource organisasi mengembalikan {items:[…]}
-      // (dulu array telanjang) — dinormalisasi agar halaman tidak blank.
-      const [hierarchy, assets, signatories, tax, banks] = (await Promise.all([
-        api(`${base}/hierarchy`, { signal }), api(`${base}/assets`, { signal }), api(`${base}/signatories`, { signal }),
-        api(`${base}/tax-identities`, { signal }), api(`${base}/bank-accounts`, { signal })
-      ])).map(asList);
+      // asList menormalkan sub-resource yang mengembalikan {items:[…]}.
+      // hierarchy TIDAK boleh ikut: bentuknya {businessUnits, branches, …},
+      // bukan {items}, sehingga asList mengubahnya menjadi array kosong dan
+      // seluruh hitungan struktur tampil 0 walau datanya ada.
+      const [hierarchy, assets, signatories, tax, banks] = await Promise.all([
+        api(`${base}/hierarchy`, { signal }),
+        api(`${base}/assets`, { signal }).then(asList), api(`${base}/signatories`, { signal }).then(asList),
+        api(`${base}/tax-identities`, { signal }).then(asList), api(`${base}/bank-accounts`, { signal }).then(asList)
+      ]);
       const count = (items) => (items || []).length;
       main.innerHTML = pageHead({
         eyebrow: 'ENTERPRISE ORGANIZATION', title: org.tradeName || org.legalName,
@@ -38,6 +67,14 @@
             ${[['Business unit',hierarchy.businessUnits],['Cabang',hierarchy.branches],['Departemen',hierarchy.departments],['Plant',hierarchy.plants],['Gudang',hierarchy.warehouses],['Work location',hierarchy.workLocations],['Ledger',hierarchy.ledgers],['Kalender fiskal',hierarchy.fiscalCalendars]].map(([label,items])=>`<div class="stat-row"><span>${esc(label)}</span><b>${count(items)} unit</b></div>`).join('')}
           </div></article>
         </section>
+        <section class="panel table-panel" id="orgStructure">
+          <header><div><p class="eyebrow">WORKBENCH STRUKTUR</p><h2>Kelola unit organisasi</h2></div>
+            <nav class="chip-tabs" aria-label="Tipe struktur">${STRUCTURE_TABS.map(([id,label])=>`<button class="btn ${this._node===id?'primary':'secondary'} sm" data-orgnode="${id}">${esc(label)}</button>`).join('')}</nav>
+            ${can('organization.create')?`<button class="btn primary sm" id="orgNodeAdd">${ICONS.plus} Tambah</button>`:''}
+          </header>
+          <div id="orgNodeBody" class="table-wrap"><p class="table-loading">Memuat…</p></div>
+          <div class="panel-body"><p class="muted">Perubahan struktur menuntut alasan tertulis dan tercatat di audit trail. Kode tidak dapat diubah karena nomor dokumen yang sudah terbit memuatnya, dan unit yang masih dipakai tidak dapat dinonaktifkan.</p></div>
+        </section>
         <section class="panel table-panel"><header><div><p class="eyebrow">TREASURY CONTROL</p><h2>Rekening perusahaan</h2></div>${can('organization.edit') ? `<button class="btn primary sm" id="orgBankAdd">${ICONS.plus} Ajukan rekening</button>` : ''}</header>
           <div class="table-wrap"><table><thead><tr><th>Bank</th><th>Nomor rekening</th><th>Tujuan</th><th>Status</th><th>Efektif</th><th></th></tr></thead><tbody>${banks.length ? banks.map(b=>`<tr><td><b>${esc(b.bankName)}</b><small>${esc(b.accountHolder)}</small></td><td>${esc(b.accountNumber)}</td><td>${esc(b.currency)} · ${esc(b.usagePurpose)}</td><td>${chip(b.verificationStatus)}</td><td>${fmtDate(b.effectiveFrom)}</td><td class="right">${b.verificationStatus==='PENDING_VERIFICATION'&&can('organization.approve')?`<button class="btn secondary sm" data-org-bank="${esc(b.id)}">Periksa</button>`:''}</td></tr>`).join('') : '<tr><td colspan="6"><div class="empty-state"><h3>Belum ada rekening terverifikasi</h3><p>Ajukan rekening dan selesaikan maker–checker sebelum digunakan pada dokumen.</p></div></td></tr>'}</tbody></table></div>
         </section>
@@ -49,6 +86,58 @@
       main.querySelector('#orgEdit')?.addEventListener('click', async()=>{const value=await formDialog({title:'Edit identitas legal entity',description:'Gunakan sumber dokumen resmi. Perubahan menaikkan versi master.',initial:org,fields:[{name:'legalName',label:'Nama legal',required:true},{name:'tradeName',label:'Nama dagang'},{name:'businessField',label:'Bidang usaha'},{name:'tagline',label:'Tagline'},{name:'npwp',label:'NPWP'},{name:'phone',label:'Telepon'},{name:'whatsapp',label:'WhatsApp'},{name:'email',label:'Email',type:'email'},{name:'website',label:'Website'},{name:'legalAddress',label:'Alamat legal',type:'textarea'},{name:'operationalAddress',label:'Alamat operasional',type:'textarea'},{name:'documentFooter',label:'Footer dokumen',type:'textarea'}],submitLabel:'Lanjut verifikasi'});if(!value)return;const verify=await actionDialog({title:'Verifikasi perubahan identitas',description:'PIN Owner dan alasan wajib untuk audit trail.',requireReason:true,requirePin:true,confirmLabel:'Simpan versi baru'});if(!verify)return;try{await api(base,{method:'PATCH',body:{...value,...verify}});toast('Identitas organisasi diperbarui');this.render(main);}catch(error){toast('Pembaruan gagal',error.message,'coral');}});
       main.querySelector('#orgBankAdd')?.addEventListener('click',async()=>{const value=await formDialog({title:'Ajukan rekening perusahaan',description:'Usulan tidak dapat dipakai sebelum disetujui Owner yang berbeda melalui PIN + MFA.',fields:[{name:'bankName',label:'Nama bank',required:true},{name:'accountNumber',label:'Nomor rekening',required:true},{name:'accountHolder',label:'Nama pemilik',required:true},{name:'currency',label:'Mata uang',value:'IDR',required:true},{name:'usagePurpose',label:'Tujuan',type:'select',options:[['OPERATING','Operasional'],['PAYROLL','Payroll'],['TAX','Pajak'],['COLLECTION','Penerimaan']],required:true},{name:'effectiveFrom',label:'Berlaku sejak',type:'date',required:true},{name:'isPrimary',label:'Rekening utama',type:'checkbox'},{name:'changeReason',label:'Alasan pengajuan',type:'textarea',required:true}],submitLabel:'Kirim usulan'});if(!value)return;try{await api(`${base}/bank-accounts`,{method:'POST',body:value,idempotencyKey:newIdemKey()});toast('Rekening diajukan','Menunggu checker Owner yang berbeda.');this.render(main);}catch(error){toast('Pengajuan gagal',error.message,'coral');}});
       main.querySelector('#orgTaxAdd')?.addEventListener('click',async()=>{const value=await formDialog({title:'Tambah identitas pajak/legal',description:'Nomor harus bersumber dari dokumen resmi.',fields:[{name:'identityType',label:'Jenis',type:'select',options:[['NPWP','NPWP'],['NITKU','NITKU'],['PKP','PKP'],['NIB','NIB'],['OTHER','Lainnya']],required:true},{name:'identityNumber',label:'Nomor identitas',required:true},{name:'registeredName',label:'Nama terdaftar'},{name:'effectiveFrom',label:'Berlaku sejak',type:'date',required:true},{name:'isPrimary',label:'Identitas utama',type:'checkbox'}],submitLabel:'Simpan'});if(!value)return;try{await api(`${base}/tax-identities`,{method:'POST',body:value});toast('Identitas resmi ditambahkan');this.render(main);}catch(error){toast('Gagal',error.message,'coral');}});
+      // ── Workbench struktur ────────────────────────────────────────────────
+      const structureBase = `${base}/structure`;
+      const renderNodes = async () => {
+        const body = main.querySelector('#orgNodeBody');
+        if (!body) return;
+        try {
+          const { items } = await api(`${structureBase}/${this._node}`);
+          const label = STRUCTURE_TABS.find(([id]) => id === this._node)?.[1] || this._node;
+          body.innerHTML = items.length ? `<table><thead><tr><th>Kode</th><th>Nama</th><th>Status</th><th></th></tr></thead><tbody>${items.map((r) => `
+            <tr><td><b>${esc(r.code)}</b></td><td>${esc(r.name)}</td>
+              <td>${r.active === false ? '<span class="chip gray">Non-aktif</span>' : '<span class="chip mint">Aktif</span>'}</td>
+              <td>${can('organization.edit') ? `<button class="btn secondary sm" data-orgedit="${r.id}" data-orgactive="${r.active === false ? '0' : '1'}" data-orgname="${esc(r.name)}">${r.active === false ? 'Aktifkan' : 'Nonaktifkan'}</button>` : ''}</td></tr>`).join('')}</tbody></table>`
+            : `<p class="table-loading">Belum ada ${esc(label.toLowerCase())}.</p>`;
+        } catch (error) { body.innerHTML = `<p class="error-text">${esc(error.message)}</p>`; }
+      };
+      main.querySelectorAll('[data-orgnode]').forEach((btn) => btn.addEventListener('click', () => {
+        this._node = btn.dataset.orgnode; this.render(main);
+      }));
+      main.querySelector('#orgNodeAdd')?.addEventListener('click', async () => {
+        const label = STRUCTURE_TABS.find(([id]) => id === this._node)?.[1] || this._node;
+        const value = await formDialog({
+          title: `Tambah ${label.toLowerCase()}`,
+          description: 'Struktur organisasi menentukan penomoran dokumen, cakupan data, dan lokasi persediaan. Alasan wajib dan tercatat permanen di audit trail.',
+          fields: [
+            { name: 'code', label: 'Kode', required: true },
+            { name: 'name', label: 'Nama', required: true },
+            ...(STRUCTURE_FORM[this._node] ? STRUCTURE_FORM[this._node](hierarchy) : []),
+            { name: 'reason', label: 'Alasan perubahan struktur', required: true }
+          ],
+          submitLabel: 'Simpan struktur'
+        });
+        if (!value) return;
+        try { await api(`${structureBase}/${this._node}`, { method: 'POST', body: value }); toast('Struktur ditambahkan', `${value.code} · ${value.name}`); this.render(main); }
+        catch (error) { toast('Gagal menambah struktur', error.message, 'coral'); }
+      });
+      main.addEventListener('click', async (event) => {
+        const btn = event.target.closest('[data-orgedit]');
+        if (!btn) return;
+        const activating = btn.dataset.orgactive === '0';
+        const verify = await actionDialog({
+          title: `${activating ? 'Aktifkan' : 'Nonaktifkan'} ${btn.dataset.orgname}`,
+          description: activating ? 'Unit akan kembali dapat dipilih pada dokumen baru.' : 'Unit yang masih dipakai dokumen, pengguna, atau turunannya tidak dapat dinonaktifkan.',
+          requireReason: true, confirmLabel: activating ? 'Aktifkan' : 'Nonaktifkan', danger: !activating
+        });
+        if (!verify) return;
+        try {
+          await api(`${structureBase}/${this._node}/${btn.dataset.orgedit}`, { method: 'PATCH', body: { active: activating, reason: verify.reason } });
+          toast('Struktur diperbarui', btn.dataset.orgname); this.render(main);
+        } catch (error) { toast('Gagal memperbarui struktur', error.message, 'coral'); }
+      });
+      renderNodes();
+
       main.querySelectorAll('[data-org-bank]').forEach(btn=>btn.addEventListener('click',async()=>{const verify=await actionDialog({title:'Setujui rekening perusahaan',description:'Wajib login dengan MFA aktif dalam 10 menit terakhir. Maker dan checker harus berbeda.',requireReason:true,requirePin:true,confirmLabel:'Setujui rekening'});if(!verify)return;try{await api(`${base}/bank-accounts/${btn.dataset.orgBank}/approve`,{method:'POST',body:verify});toast('Rekening perusahaan terverifikasi');this.render(main);}catch(error){toast('Persetujuan gagal',error.message,'coral');}}));
     }
   };
