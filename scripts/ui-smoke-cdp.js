@@ -6,6 +6,17 @@ const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { DEMO_PASSWORD } = require('../backend/modules/seed');
 
+// Gerbang visual dapat berjalan terhadap PostgreSQL (backend produksi, ratusan
+// handler) atau adapter in-memory lama yang hanya melayani sembilan endpoint.
+// Default POSTGRES: menguji backend yang sebenarnya dipakai. Adapter in-memory
+// tidak dapat merender mayoritas halaman, sehingga gerbang yang berjalan di
+// sana memberi keyakinan palsu — persis yang membuat sejumlah cacat lama lolos.
+const dbMode = (process.env.MAT_UI_SMOKE_DB || 'postgres').toLowerCase();
+const usePostgres = dbMode === 'postgres';
+const credentials = usePostgres
+  ? { username: process.env.MAT_BOOTSTRAP_OWNER_USERNAME, password: process.env.MAT_BOOTSTRAP_OWNER_PASSWORD }
+  : { username: 'andi', password: DEMO_PASSWORD };
+
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const root = path.resolve(__dirname, '..');
 const port = Number(process.env.MAT_UI_SMOKE_DEBUG_PORT) || 9333;
@@ -29,9 +40,24 @@ async function target() {
 
 async function run() {
   const baseline = JSON.parse(await fs.readFile(baselineFile, 'utf8'));
+  // Halaman yang menuntut endpoint di luar sembilan milik adapter in-memory
+  // hanya diuji pada mode postgres.
+  baseline.pages = baseline.pages.filter((page) => usePostgres || page.memorySafe !== false);
+  if (usePostgres && (!credentials.username || !credentials.password)) {
+    throw new Error('MAT_BOOTSTRAP_OWNER_USERNAME/PASSWORD wajib diisi untuk visual smoke mode postgres.');
+  }
   await fs.mkdir(output, { recursive: true });
   const appPort = new URL(base).port || '4174';
-  const server = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: appPort, NODE_ENV: 'test', MAT_EPHEMERAL: '1', MAT_DB_MODE: 'memory' }, windowsHide: true, stdio: 'ignore' });
+  const server = spawn(process.execPath, ['server.js'], { cwd: root, env: {
+      ...process.env, PORT: appPort,
+      // server.js memaksa mode ephemeral (in-memory) bila NODE_ENV=test — itu
+      // pengaman supaya uji tidak menyentuh database nyata. Mode postgres
+      // karenanya TIDAK boleh memakai flag itu, kalau tidak gerbang ini kembali
+      // menguji adapter sembilan endpoint tanpa ada yang menyadarinya.
+      ...(usePostgres
+        ? { MAT_DB_MODE: 'postgres', NODE_ENV: 'development', MAT_EPHEMERAL: '0' }
+        : { MAT_DB_MODE: 'memory', NODE_ENV: 'test', MAT_EPHEMERAL: '1' })
+    }, windowsHide: true, stdio: 'ignore' });
   let child;
   let socket;
   try {
@@ -76,8 +102,8 @@ async function run() {
       if (i === 59) throw new Error('App shell tidak selesai bootstrap.');
       await delay(100);
     }
-    const credentials = JSON.stringify({ username: 'andi', password: DEMO_PASSWORD });
-    await evaluate(`(()=>{const c=${credentials},f=document.getElementById('loginForm');f.username.value=c.username;f.password.value=c.password;f.requestSubmit();return true})()`);
+    const credentialsJson = JSON.stringify(credentials);
+    await evaluate(`(()=>{const c=${credentialsJson},f=document.getElementById('loginForm');f.username.value=c.username;f.password.value=c.password;f.requestSubmit();return true})()`);
     await delay(1500);
     const session = await evaluate(`({url:location.href,ready:document.readyState,appVisible:!document.getElementById('app')?.hidden,loginVisible:!document.getElementById('loginLayer')?.hidden,loginError:document.getElementById('loginError')?.textContent||'',challengeVisible:!document.getElementById('loginChallenge')?.hidden})`);
     if (!session.appVisible) throw new Error(`Login UI gagal: ${JSON.stringify(session)}`);

@@ -1,7 +1,8 @@
 {
-  "version": 2,
-  "_note": "v2 menyesuaikan arsitektur menu v0.29.0: Executive Cockpit melebur ke Dashboard (hero-exec selalu dirender, baik varian rich maupun fallback), dan #/reports kini Report Factory yang berdiri sendiri.",
-  "_batasCakupan": "PENTING: scripts/ui-smoke-cdp.js menjalankan server dengan MAT_DB_MODE=memory, yaitu adapter lama backend/api.js yang hanya melayani 9 endpoint (dashboard, documents, approvals, notifications, audit, jobs, runtime, events, health). Produksi memakai PostgreSQL dengan 202 handler. Halaman yang bergantung pada endpoint di luar sembilan itu — organisasi, master data, keuangan, inventori, produksi, HR — TIDAK DAPAT dirender di sini dan karenanya tidak boleh dimasukkan ke daftar pages. Artinya gerbang visual ini hanya membuktikan sebagian kecil aplikasi; jangan diperlakukan sebagai jaminan menyeluruh. Menjalankan smoke terhadap PostgreSQL adalah pekerjaan tersendiri yang masih terbuka.",
+  "version": 3,
+  "_note": "v3 menjalankan gerbang visual terhadap PostgreSQL — backend yang sebenarnya dipakai produksi — dan memperluas cakupan dari 5 menjadi 14 halaman lintas modul.",
+  "_riwayat": "v2 menyesuaikan arsitektur menu v0.29.0 (Executive Cockpit melebur ke Dashboard, #/reports menjadi Report Factory). Sebelum v3, gerbang ini berjalan dengan MAT_DB_MODE=memory yaitu adapter lama backend/api.js yang hanya melayani sembilan endpoint, sementara produksi memakai PostgreSQL dengan ratusan handler. Akibatnya mayoritas halaman tidak pernah dirender oleh pemeriksaan otomatis apa pun, dan sejumlah cacat lama — hitungan organisasi selalu nol, total dokumen tampil Rp NaN, rute persediaan yang hilang — baru ketahuan lewat pemeriksaan browser manual.",
+  "_memorySafe": "Halaman bertanda memorySafe:false menuntut endpoint di luar sembilan milik adapter in-memory dan hanya diuji pada mode postgres (MAT_UI_SMOKE_DB=postgres, default). Jalankan MAT_UI_SMOKE_DB=memory hanya untuk pemeriksaan cepat tanpa database.",
   "maxHorizontalOverflow": 1,
   "minMainWidth": {
     "desktop": 900,
@@ -13,9 +14,20 @@
   ],
   "pages": [
     { "name": "dashboard", "hash": "#/dashboard", "selector": ".hero-exec" },
-    { "name": "quotations", "hash": "#/sales/quotations", "selector": ".table-panel" },
-    { "name": "work-orders", "hash": "#/production/work-orders", "selector": ".table-panel" },
+    { "name": "my-work", "hash": "#/my-work", "selector": "main" },
     { "name": "approvals", "hash": "#/approvals", "selector": ".table-panel" },
-    { "name": "report-factory", "hash": "#/reports", "selector": ".exec-library" }
+    { "name": "notifications", "hash": "#/notifications", "selector": "main" },
+    { "name": "quotations", "hash": "#/sales/quotations", "selector": ".table-panel" },
+    { "name": "sales-orders", "hash": "#/sales/orders", "selector": ".table-panel" },
+    { "name": "work-orders", "hash": "#/production/work-orders", "selector": ".table-panel" },
+    { "name": "report-factory", "hash": "#/reports", "selector": ".exec-library" },
+
+    { "name": "organization", "hash": "#/organization", "selector": "#orgStructure", "memorySafe": false },
+    { "name": "inventory", "hash": "#/warehouse/inventory", "selector": ".chip-tabs", "memorySafe": false },
+    { "name": "customers", "hash": "#/masters/customers", "selector": ".table-panel", "memorySafe": false },
+    { "name": "products", "hash": "#/masters/products", "selector": ".table-panel", "memorySafe": false },
+    { "name": "business-partners", "hash": "#/masters/business-partners", "selector": "main", "memorySafe": false },
+    { "name": "purchase-requests", "hash": "#/procurement/requests", "selector": ".table-panel", "memorySafe": false },
+    { "name": "mrp", "hash": "#/production/mrp", "selector": ".table-wrap", "memorySafe": false }
   ]
 }
