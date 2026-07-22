@@ -1,6 +1,6 @@
 'use strict';
 const { randomUUID, randomBytes, createHash } = require('node:crypto');
-const { hashPassword, verifyPassword } = require('../../../core/password');
+const { hashPassword, verifyPassword, needsRehash } = require('../../../core/password');
 const { AppError } = require('../../../core/errors');
 const { grantsFor } = require('../../../core/permissions');
 const totp = require('../../../core/totp');
@@ -50,6 +50,10 @@ async function login(client,{username,password,ip,device}){
     await fail();
   }
   await client.query('UPDATE app_users SET failed_login_count=0,locked_until=NULL,last_login_at=now(),updated_at=now() WHERE id=$1',[row.id]);
+  // B6: login sukses adalah satu-satunya saat plaintext tersedia — pakai untuk
+  // menaikkan hash lama ke parameter terkini tanpa mengganggu pengguna.
+  if(needsRehash(row.password_hash))
+    await client.query('UPDATE app_users SET password_hash=$2 WHERE id=$1',[row.id,hashPassword(password)]);
   await client.query('INSERT INTO login_history(user_id,username_attempted,succeeded,ip,device) VALUES($1,$2,true,$3,$4)',[row.id,username,ip||null,(device||'unknown').slice(0,160)]);
   const user=publicUser(row);
   if(row.must_change_password) return {passwordChangeRequired:true,changeToken:await createPending(client,'password_change',row.id)};
@@ -80,6 +84,15 @@ async function resolveSession(client,plainToken,{ip,device}={}){
       risk_updated_at=CASE WHEN cardinality($4::text[])>0 THEN now() ELSE risk_updated_at END WHERE id=$1 AND active=true`,[row.id,ip||null,device?normalizedDevice:null,risk]);
   }
   const user=publicUser({...row,id:row.app_user_id,active:row.user_active});
+  // B3 — emergency access dicatat di emergency_access_overrides tetapi tidak
+  // pernah dibaca runtime: break-glass tampak berhasil di UI padahal izinnya
+  // tidak pernah berlaku. Hibah aktif dimuat ke objek user di sini (tempat
+  // role & branch scope juga berasal) sehingga hasPermission tetap sinkron
+  // dan hibah kedaluwarsa hilang sendiri pada request berikutnya.
+  user.emergencyGrants=(await client.query(`SELECT permission_code,scope_type,scope_id,effective_until
+    FROM emergency_access_overrides WHERE user_id=$1 AND status='ACTIVE'
+      AND effective_from<=now() AND effective_until>now()`,[row.app_user_id])).rows
+    .map(g=>({code:g.permission_code,scopeType:g.scope_type,scopeId:g.scope_id,until:g.effective_until}));
   return {session:{id:row.id,userId:row.user_id,csrfTokenHash:row.csrf_token_hash,createdAt:row.created_at,lastSeenAt:row.last_seen_at,expiresAt:row.expires_at,ip:row.ip,device:row.device,mfaVerifiedAt:row.mfa_verified_at,riskFlags:[...(row.risk_flags||[]),...risk],active:true},user};
 }
 

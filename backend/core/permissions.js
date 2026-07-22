@@ -58,8 +58,17 @@ function grantsFor(role) {
 function hasPermission(user, code) {
   if (!user) return false;
   const grants = grantsFor(user.role);
-  return grants.has('*') || grants.has(code);
+  if (grants.has('*') || grants.has(code)) return true;
+  // B3 — hibah break-glass yang masih berlaku, dimuat dari
+  // emergency_access_overrides saat sesi di-resolve. Hanya berlaku untuk
+  // permission yang disebut eksplisit: darurat tidak pernah berarti '*'.
+  return Array.isArray(user.emergencyGrants) && user.emergencyGrants.some((g) => g?.code === code);
 }
+
+// Aksi yang berjalan atas hibah darurat wajib dapat dibedakan di jejak audit.
+const emergencyGrantFor = (user, code) =>
+  (Array.isArray(user?.emergencyGrants) ? user.emergencyGrants : []).find((g) => g?.code === code
+    && !(grantsFor(user.role).has('*') || grantsFor(user.role).has(code))) || null;
 
 // Role yang secara desain melihat lintas cabang (owner/admin/pengawas).
 const CROSS_BRANCH_ROLES = ['owner', 'system_admin', 'security_admin', 'auditor', 'admin'];
@@ -111,4 +120,4 @@ const APPROVAL_LEVEL_BY_ROLE = Object.freeze({
   sales:'supervisor',procurement:'supervisor',warehouse:'supervisor',production:'supervisor',hrd:'supervisor'
 });
 
-module.exports = { MODULES, ACTIONS, ROLE_GRANTS, grantsFor, hasPermission, assertPermission, withinBranchScope, assertBranchScope, CROSS_BRANCH_ROLES, approvalLevelsFor, OWNER_PIN_ACTIONS, APPROVAL_MATRIX, APPROVAL_LEVEL_BY_ROLE };
+module.exports = { MODULES, ACTIONS, ROLE_GRANTS, grantsFor, hasPermission, emergencyGrantFor, assertPermission, withinBranchScope, assertBranchScope, CROSS_BRANCH_ROLES, approvalLevelsFor, OWNER_PIN_ACTIONS, APPROVAL_MATRIX, APPROVAL_LEVEL_BY_ROLE };

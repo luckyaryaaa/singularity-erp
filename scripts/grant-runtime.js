@@ -14,7 +14,17 @@ const q = `"${appUser}"`;
     await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO ${q}`);
     await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE,SELECT ON SEQUENCES TO ${q}`);
     await client.query(`REVOKE CREATE ON SCHEMA public FROM ${q}`);
-    await client.query(`REVOKE UPDATE,DELETE,TRUNCATE ON audit_logs,audit_logs_2026 FROM ${q}`);
+    // D2 — jejak audit INSERT-only pada SELURUH partisi, ditemukan dinamis.
+    // Sebelumnya hanya `audit_logs` dan `audit_logs_2026` yang di-revoke secara
+    // hardcode, sementara partisi 2027–2031, DEFAULT, dan setiap partisi baru
+    // hasil maintenance tetap mewarisi broad grant di atas — artinya runtime
+    // user bisa MENGUBAH dan MENGHAPUS jejak audit tahun-tahun berikutnya.
+    const auditTables = (await client.query(`SELECT c.relname FROM pg_class c
+      JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relkind IN('r','p') AND c.relname LIKE 'audit_logs%'
+      ORDER BY c.relname`)).rows.map((r) => `"${r.relname}"`);
+    if (!auditTables.length) throw new Error('Tabel audit_logs tidak ditemukan — hardening tidak dapat diterapkan.');
+    await client.query(`REVOKE UPDATE,DELETE,TRUNCATE ON ${auditTables.join(',')} FROM ${q}`);
     await client.query(`REVOKE UPDATE,DELETE,TRUNCATE ON schema_migrations FROM ${q}`);
     // Selalu terapkan ulang deny-list setelah broad grant. Ini menjaga script
     // idempotent tanpa membatalkan hardening tabel append-only/controlled flow.
@@ -27,6 +37,16 @@ const q = `"${appUser}"`;
     await client.query(`GRANT SELECT ON mv_executive_monthly_kpis TO ${q}`);
     await client.query(`GRANT EXECUTE ON FUNCTION refresh_executive_reporting() TO ${q}`);
     await client.query(`GRANT EXECUTE ON FUNCTION inventory_partition_maintenance(integer) TO ${q}`);
+
+    // Verifikasi, bukan asumsi: pastikan tidak ada partisi audit yang masih
+    // dapat diubah/dihapus oleh runtime user setelah seluruh grant diterapkan.
+    const leaks = (await client.query(`SELECT c.relname FROM pg_class c
+      JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relkind IN('r','p') AND c.relname LIKE 'audit_logs%'
+        AND (has_table_privilege($1,c.oid,'UPDATE') OR has_table_privilege($1,c.oid,'DELETE')
+          OR has_table_privilege($1,c.oid,'TRUNCATE'))`, [appUser])).rows.map((r) => r.relname);
+    if (leaks.length) throw new Error(`Partisi audit masih dapat diubah/dihapus oleh ${appUser}: ${leaks.join(', ')}`);
+    var auditProtected = auditTables.length;
   } finally { await client.end(); }
-  console.log(JSON.stringify({ granted: true, role: appUser, createSchema: false }));
+  console.log(JSON.stringify({ granted: true, role: appUser, createSchema: false, auditTablesProtected: auditProtected }));
 })().catch((error) => { console.error(error.message); process.exitCode = 1; });

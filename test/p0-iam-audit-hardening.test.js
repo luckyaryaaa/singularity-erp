@@ -77,6 +77,22 @@ dbTest('C17: base_salary tidak ikut pada daftar karyawan tanpa izin payroll', as
   assert.ok(withoutPayroll.items.every((e) => e.nik !== undefined && e.name !== undefined));
 }));
 
+dbTest('D2: SELURUH partisi audit INSERT-only bagi runtime user, bukan hanya tahun berjalan', async () => rollback(async (client) => {
+  const rows = (await client.query(`SELECT c.relname,
+      has_table_privilege(current_user,c.oid,'INSERT') can_insert,
+      has_table_privilege(current_user,c.oid,'UPDATE') can_update,
+      has_table_privilege(current_user,c.oid,'DELETE') can_delete,
+      has_table_privilege(current_user,c.oid,'TRUNCATE') can_truncate
+    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind IN('r','p') AND c.relname LIKE 'audit_logs%'`)).rows;
+  assert.ok(rows.length >= 2, 'butuh tabel audit beserta partisinya');
+  // Dulu hanya audit_logs dan audit_logs_2026 yang di-revoke secara hardcode;
+  // partisi tahun berikutnya mewarisi broad grant dan tetap bisa diubah.
+  const writable = rows.filter((r) => r.can_update || r.can_delete || r.can_truncate).map((r) => r.relname);
+  assert.deepEqual(writable, [], `partisi audit berikut masih dapat diubah/dihapus: ${writable.join(', ')}`);
+  assert.ok(rows.every((r) => r.can_insert), 'aplikasi tetap harus dapat menulis jejak audit');
+}));
+
 dbTest('B4: MFA tidak dapat dimatikan sendiri oleh akun berkewenangan tinggi', async () => rollback(async (client) => {
   const admin = await owner(client);
   for (const role of auth.PRIVILEGED_ROLES) {
