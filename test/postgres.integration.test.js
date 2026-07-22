@@ -60,8 +60,14 @@ pgTest('PostgreSQL integration: notification persistence dan job claim tidak tum
     const notification = await operations.notify(first, { userId:user.id, category:'INFORMATION', title:'Integration test', dedupeKey:marker });
     const duplicate = await operations.notify(first, { userId:user.id, category:'INFORMATION', title:'Duplicate', dedupeKey:marker });
     assert.ok(notification.id); assert.equal(duplicate, null);
-    assert.ok((await operations.unreadCount(second, user)) >= 1);
+    const before = await operations.unreadCount(second, user);
+    assert.ok(before.unread >= 1, 'notifikasi baru wajib terhitung belum dibaca');
+    assert.ok(Number.isInteger(before.actionRequired), 'hitungan "menuntut tindakan" terpisah dari sekadar belum dibaca');
     assert.equal(await operations.markRead(second, user, notification.id), true);
+    // Status baca kini per pengguna: tanda baca tersimpan sebagai receipt.
+    const receipts = Number((await second.query('SELECT count(*) n FROM notification_receipts WHERE notification_id=$1 AND user_id=$2', [notification.id, user.id])).rows[0].n);
+    assert.equal(receipts, 1);
+    assert.equal((await operations.unreadCount(second, user)).unread, before.unread - 1);
 
     jobIds.push((await operations.enqueue(first, { type:'REPORT_GENERATE', user, params:{ marker, sequence:1 } })).id);
     jobIds.push((await operations.enqueue(first, { type:'REPORT_GENERATE', user, params:{ marker, sequence:2 } })).id);

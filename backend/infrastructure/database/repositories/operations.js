@@ -1,5 +1,5 @@
 'use strict';
-const {randomUUID}=require('node:crypto');const {AppError}=require('../../../core/errors');const {hasPermission}=require('../../../core/permissions');const dataScope=require('../../../core/data-scope');const {camel}=require('./runtime');const masterGovernance=require('./master-governance');
+const {randomUUID}=require('node:crypto');const {AppError}=require('../../../core/errors');const permissions=require('../../../core/permissions');const {hasPermission}=permissions;const dataScope=require('../../../core/data-scope');const {camel}=require('./runtime');const masterGovernance=require('./master-governance');
 const CATEGORIES=new Set(['ACTION_REQUIRED','WARNING','INFORMATION','SUCCESS','SYSTEM_ALERT']);
 const JOBS={
   FILE_SCAN:{priority:'high',label:'Pemindaian keamanan file',permission:'job.create',roles:['*'],limit:5,timeoutSeconds:120,maxAttempts:2,maxRows:1,retentionDays:30,internalOnly:true},
@@ -16,15 +16,49 @@ const activeStatuses=['QUEUED','CLAIMED','RUNNING'];
 function policyFor(type){const spec=JOBS[type];if(!spec)throw new AppError('VALIDATION_ERROR',`Tipe job '${type}' tidak dikenal.`);return spec;}
 function authorizeJob(type,user,{system=false}={}){const spec=policyFor(type);if(system)return spec;if(spec.internalOnly)throw new AppError('PERMISSION_DENIED','Job internal tidak dapat dibuat dari API.');if(!user||!(spec.roles.includes('*')||spec.roles.includes(user.role)))throw new AppError('PERMISSION_DENIED',`Role tidak diizinkan menjalankan ${type}.`);if(spec.permission&&!hasPermission(user,spec.permission))throw new AppError('PERMISSION_DENIED',`Izin '${spec.permission}' dibutuhkan untuk ${type}.`);if(spec.requiresMfa&&!user.mfaActive)throw new AppError('PERMISSION_DENIED','MFA aktif dibutuhkan untuk job sensitif ini.');return spec;}
 
-async function notify(client,{userId,role,category,title,body,link,dedupeKey}){
-  const id=randomUUID();const result=await client.query(`INSERT INTO notifications(id,user_id,target_role,category,title,body,link,dedupe_key)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING RETURNING *`,[id,userId||null,role||null,CATEGORIES.has(category)?category:'INFORMATION',title,body||'',link||null,dedupeKey||null]);
+async function notify(client,{userId,role,category,title,body,link,dedupeKey,branchId=null}){
+  const id=randomUUID();const result=await client.query(`INSERT INTO notifications(id,user_id,target_role,category,title,body,link,dedupe_key,branch_id)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING RETURNING *`,[id,userId||null,role||null,CATEGORIES.has(category)?category:'INFORMATION',title,body||'',link||null,dedupeKey||null,branchId]);
   return camel(result.rows[0]);
 }
-async function listNotifications(client,user,{limit=60}={}){return (await client.query(`SELECT * FROM notifications WHERE user_id=$1 OR target_role IN($2,'*') ORDER BY created_at DESC LIMIT $3`,[user.id,user.role,Math.min(limit,100)])).rows.map(camel);}
-async function unreadCount(client,user){return Number((await client.query(`SELECT count(*) n FROM notifications WHERE read_at IS NULL AND (user_id=$1 OR target_role IN($2,'*'))`,[user.id,user.role])).rows[0].n);}
-async function markRead(client,user,id){return (await client.query(`UPDATE notifications SET read_at=now() WHERE id=$1 AND (user_id=$2 OR target_role IN($3,'*')) RETURNING id`,[id,user.id,user.role])).rowCount>0;}
-async function markAllRead(client,user){return (await client.query(`UPDATE notifications SET read_at=now() WHERE read_at IS NULL AND (user_id=$1 OR target_role IN($2,'*'))`,[user.id,user.role])).rowCount;}
+
+// P0-R: keterlihatan + status baca notifikasi.
+// - Notifikasi bertarget role terlihat oleh seluruh pemegang role itu, tetapi
+//   status bacanya PER PENGGUNA (notification_receipts). Sebelumnya satu
+//   read_at dipakai bersama sehingga pemberitahuan lenyap bagi rekan lain
+//   begitu satu orang membukanya.
+// - branch_id NULL berarti seluruh perusahaan; selain itu hanya pengguna dalam
+//   cakupan cabang yang melihatnya.
+const NOTIF_VISIBLE = `(n.user_id=$1 OR n.target_role IN($2,'*'))
+  AND (n.branch_id IS NULL OR $3::boolean OR n.branch_id=$4)`;
+const notifArgs=(user)=>[user.id,user.role,permissions.CROSS_BRANCH_ROLES.includes(user.role)||user.branchScope==='*',user.branchId||null];
+
+async function listNotifications(client,user,{limit=60}={}){
+  return (await client.query(`SELECT n.*,(r.read_at IS NOT NULL) read_by_me,r.read_at read_at_me
+    FROM notifications n LEFT JOIN notification_receipts r ON r.notification_id=n.id AND r.user_id=$1
+    WHERE ${NOTIF_VISIBLE} ORDER BY n.created_at DESC LIMIT $5`,
+  [...notifArgs(user),Math.min(limit,100)])).rows.map((row)=>({...camel(row),readAt:row.read_at_me}));
+}
+// Belum terbaca dan "menuntut tindakan" adalah dua hal berbeda: yang pertama
+// sekadar belum dibuka, yang kedua adalah pekerjaan yang belum dikerjakan.
+async function unreadCount(client,user){
+  const row=(await client.query(`SELECT count(*)::int unread,
+      count(*) FILTER(WHERE n.category='ACTION_REQUIRED')::int action_required
+    FROM notifications n LEFT JOIN notification_receipts r ON r.notification_id=n.id AND r.user_id=$1
+    WHERE r.notification_id IS NULL AND ${NOTIF_VISIBLE}`,notifArgs(user))).rows[0];
+  return {unread:row.unread,actionRequired:row.action_required};
+}
+async function markRead(client,user,id){
+  const visible=(await client.query(`SELECT n.id FROM notifications n WHERE n.id=$5 AND ${NOTIF_VISIBLE}`,[...notifArgs(user),id])).rows[0];
+  if(!visible)return false;
+  await client.query(`INSERT INTO notification_receipts(notification_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING`,[id,user.id]);
+  return true;
+}
+async function markAllRead(client,user){
+  return (await client.query(`INSERT INTO notification_receipts(notification_id,user_id)
+    SELECT n.id,$1 FROM notifications n LEFT JOIN notification_receipts r ON r.notification_id=n.id AND r.user_id=$1
+    WHERE r.notification_id IS NULL AND ${NOTIF_VISIBLE} ON CONFLICT DO NOTHING`,notifArgs(user))).rowCount;
+}
 
 async function enqueue(client,{type,user,params={},executionKey,system=false,pinVerified=false}){
   const spec=authorizeJob(type,user,{system});if(spec.requiresPin&&!system&&!pinVerified)throw new AppError('PIN_REQUIRED');

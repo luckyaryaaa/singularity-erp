@@ -7,17 +7,31 @@ const { AppError } = require('../../../core/errors');
 const { hasGlobalScope, assertBranchAccess } = require('../../../core/data-scope');
 const { camel } = require('./runtime');
 const accountingConfig = require('./accounting-config');
+const permissions = require('../../../core/permissions');
 
+// P0-Q: setiap laporan menuntut izin MODUL SUMBER DATANYA, bukan sekadar
+// `report.view`/`report.export` generik. Tanpa ini, siapa pun yang boleh
+// membuat laporan dapat mengekspor rekap gaji dan laporan keuangan penuh —
+// role sales pun memegang izin `report.*`.
 const REPORTS = Object.freeze([
-  { key:'sales_customer', title:'Penjualan per pelanggan', group:'Operasional', description:'Nilai quotation, order, dan invoice per pelanggan.' },
-  { key:'ar_ap_aging', title:'AR & AP aging', group:'Keuangan', description:'Outstanding dan umur piutang/utang per relasi.' },
-  { key:'project_profitability', title:'Profitabilitas proyek', group:'Keuangan', description:'Nilai proyek dibanding job cost aktual work order.' },
-  { key:'production_performance', title:'Kinerja produksi', group:'Produksi', description:'Progress, lead time, jam aktual, dan costing WO.' },
-  { key:'inventory_movement', title:'Mutasi persediaan', group:'Operasional', description:'Pergerakan stok per SKU dan lokasi.' },
-  { key:'payroll_bpjs', title:'Rekap payroll & BPJS', group:'Keuangan', description:'Komponen gaji, BPJS, pajak, dan net pay.' },
-  { key:'financial_statement', title:'Neraca & laba rugi', group:'Keuangan', description:'Saldo akun GL dan mutasi periode.' },
-  { key:'quality_analytics', title:'Quality analytics', group:'Produksi', description:'Yield inspeksi, kegagalan, NCR, dan tindakan korektif.' }
+  { key:'sales_customer', title:'Penjualan per pelanggan', group:'Operasional', permission:'sales_order.view', description:'Nilai quotation, order, dan invoice per pelanggan.' },
+  { key:'ar_ap_aging', title:'AR & AP aging', group:'Keuangan', permission:'invoice.view', description:'Outstanding dan umur piutang/utang per relasi.' },
+  { key:'project_profitability', title:'Profitabilitas proyek', group:'Keuangan', permission:'project.view', description:'Nilai proyek dibanding job cost aktual work order.' },
+  { key:'production_performance', title:'Kinerja produksi', group:'Produksi', permission:'work_order.view', description:'Progress, lead time, jam aktual, dan costing WO.' },
+  { key:'inventory_movement', title:'Mutasi persediaan', group:'Operasional', permission:'inventory.view', description:'Pergerakan stok per SKU dan lokasi.' },
+  { key:'payroll_bpjs', title:'Rekap payroll & BPJS', group:'Keuangan', permission:'payroll.view', description:'Komponen gaji, BPJS, pajak, dan net pay.' },
+  { key:'financial_statement', title:'Neraca & laba rugi', group:'Keuangan', permission:'ledger.view', description:'Saldo akun GL dan mutasi periode.' },
+  { key:'quality_analytics', title:'Quality analytics', group:'Produksi', permission:'quality.view', description:'Yield inspeksi, kegagalan, NCR, dan tindakan korektif.' }
 ]);
+// Dipakai katalog & generator; laporan tanpa izin tidak ditawarkan DAN tidak
+// dapat dijalankan walaupun key-nya ditebak.
+const visibleReports = (user) => REPORTS.filter((r) => permissions.hasPermission(user, r.permission));
+function assertReportAllowed(user, item) {
+  if (!permissions.hasPermission(user, item.permission)) {
+    throw new AppError('PERMISSION_DENIED', `Laporan "${item.title}" membutuhkan izin '${item.permission}'.`);
+  }
+  return item;
+}
 const BY_KEY = new Map(REPORTS.map((r) => [r.key,r]));
 const BY_TITLE = new Map(REPORTS.map((r) => [r.title,r]));
 const round = (v) => Math.round(Number(v || 0) * 100) / 100;
@@ -27,7 +41,9 @@ function period(value) {
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(p))throw new AppError('VALIDATION_ERROR','Periode wajib berformat YYYY-MM.');
   return p;
 }
-function report(value){const item=BY_KEY.get(value)||BY_TITLE.get(value);if(!item)throw new AppError('VALIDATION_ERROR','Laporan tidak dikenal.');return item;}
+// user opsional: penjadwal internal (worker) memanggil tanpa user karena
+// otorisasinya sudah diperiksa saat jadwal dibuat.
+function report(value,user){const item=BY_KEY.get(value)||BY_TITLE.get(value);if(!item)throw new AppError('VALIDATION_ERROR','Laporan tidak dikenal.');return user?assertReportAllowed(user,item):item;}
 function scopeFor(user,requestedBranchId){
   if(requestedBranchId){assertBranchAccess(user,requestedBranchId);return{global:false,branchId:requestedBranchId};}
   return hasGlobalScope(user)?{global:true,branchId:null}:{global:false,branchId:user.branchId};
@@ -145,7 +161,7 @@ function fillMonths(p,rows){const map=new Map(rows.map(r=>[String(r.periodStart)
 async function listSchedules(client,user){const global=hasGlobalScope(user);return(await client.query(`SELECT s.*,b.code branch_code,b.name branch_name,u.display_name created_by_name
   FROM report_schedules s LEFT JOIN branches b ON b.id=s.branch_id JOIN app_users u ON u.id=s.created_by
   WHERE $1::boolean OR s.created_by=$2 OR s.branch_id=$3 ORDER BY s.enabled DESC,s.next_run_at`,[global,user.id,user.branchId])).rows.map(camel);}
-async function createSchedule(client,body,user){const item=report(body.reportKey),frequency=String(body.frequency||'').toUpperCase(),format=String(body.format||'XLSX').toUpperCase();if(!['DAILY','WEEKLY','MONTHLY'].includes(frequency)||!['XLSX','PDF'].includes(format))throw new AppError('VALIDATION_ERROR','Frekuensi atau format laporan tidak valid.');const next=new Date(body.firstRunAt);if(Number.isNaN(next.getTime())||next<=new Date()||next.getTime()>Date.now()+366*86400000)throw new AppError('VALIDATION_ERROR','Jadwal pertama harus di masa depan dan maksimal 366 hari.');const scope=scopeFor(user,body.branchId||null),id=randomUUID(),name=String(body.name||item.title).trim().slice(0,120);if(!name)throw new AppError('VALIDATION_ERROR','Nama jadwal wajib diisi.');const row=(await client.query(`INSERT INTO report_schedules(id,name,report_key,format,frequency,branch_id,filters,next_run_at,created_by,updated_by)
+async function createSchedule(client,body,user){const item=report(body.reportKey,user),frequency=String(body.frequency||'').toUpperCase(),format=String(body.format||'XLSX').toUpperCase();if(!['DAILY','WEEKLY','MONTHLY'].includes(frequency)||!['XLSX','PDF'].includes(format))throw new AppError('VALIDATION_ERROR','Frekuensi atau format laporan tidak valid.');const next=new Date(body.firstRunAt);if(Number.isNaN(next.getTime())||next<=new Date()||next.getTime()>Date.now()+366*86400000)throw new AppError('VALIDATION_ERROR','Jadwal pertama harus di masa depan dan maksimal 366 hari.');const scope=scopeFor(user,body.branchId||null),id=randomUUID(),name=String(body.name||item.title).trim().slice(0,120);if(!name)throw new AppError('VALIDATION_ERROR','Nama jadwal wajib diisi.');const row=(await client.query(`INSERT INTO report_schedules(id,name,report_key,format,frequency,branch_id,filters,next_run_at,created_by,updated_by)
   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) RETURNING *`,[id,name,item.key,format,frequency,scope.global?null:scope.branchId,body.filters||{},next,user.id])).rows[0];return camel(row);}
 async function updateSchedule(client,id,body,user){const current=(await client.query('SELECT * FROM report_schedules WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!current)throw new AppError('RESOURCE_NOT_FOUND');if(current.created_by!==user.id&&!hasGlobalScope(user))throw new AppError('PERMISSION_DENIED');if(Number(body.version)!==Number(current.version))throw new AppError('DOCUMENT_CONFLICT','Jadwal telah berubah. Segarkan data.');let next=current.next_run_at;if(body.nextRunAt){next=new Date(body.nextRunAt);if(Number.isNaN(next.getTime())||next<=new Date())throw new AppError('VALIDATION_ERROR','Eksekusi berikutnya harus di masa depan.');}const row=(await client.query(`UPDATE report_schedules SET enabled=COALESCE($2,enabled),next_run_at=$3,version=version+1,updated_by=$4,updated_at=now() WHERE id=$1 RETURNING *`,[id,body.enabled??null,next,user.id])).rows[0];return camel(row);}
 async function listFilters(client,user){return(await client.query(`SELECT * FROM report_saved_filters WHERE created_by=$1 AND report_key='executive_cockpit' ORDER BY created_at DESC`,[user.id])).rows.map(camel);}
@@ -154,4 +170,4 @@ async function saveFilter(client,body,user){const name=String(body.name||'').tri
 async function deleteFilter(client,id,user){const result=await client.query(`DELETE FROM report_saved_filters WHERE id=$1 AND created_by=$2 RETURNING id`,[id,user.id]);if(!result.rowCount)throw new AppError('RESOURCE_NOT_FOUND');return{ok:true};}
 async function refresh(client){const row=(await client.query('SELECT refresh_executive_reporting()::int rows')).rows[0];return{rows:Number(row.rows),refreshedAt:new Date().toISOString()};}
 
-module.exports={REPORTS,report,period,scopeFor,scopedUser,cockpit,listSchedules,createSchedule,updateSchedule,listFilters,saveFilter,deleteFilter,refresh};
+module.exports={REPORTS,visibleReports,assertReportAllowed,report,period,scopeFor,scopedUser,cockpit,listSchedules,createSchedule,updateSchedule,listFilters,saveFilter,deleteFilter,refresh};

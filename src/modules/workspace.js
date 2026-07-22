@@ -205,7 +205,7 @@
       const catTone = { ACTION_REQUIRED: 'amber', WARNING: 'coral', INFORMATION: 'blue', SUCCESS: 'mint', SYSTEM_ALERT: 'coral' };
       main.innerHTML = pageHead({
         eyebrow: 'PUSAT NOTIFIKASI', title: 'Notifikasi',
-        sub: `${data.unread} belum dibaca dari ${data.items.length} notifikasi terakhir.`,
+        sub: `${data.unread} belum dibaca dari ${data.items.length} notifikasi terakhir${data.actionRequired ? ` · ${data.actionRequired} menuntut tindakan Anda` : ''}.`,
         actions: data.unread ? `<button class="btn secondary" id="readAll">${ICONS.check} Tandai semua dibaca</button>` : ''
       }) + `
         <section class="notif-list">
