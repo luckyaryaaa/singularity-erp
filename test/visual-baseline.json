@@ -1,5 +1,6 @@
 {
-  "version": 1,
+  "version": 2,
+  "_note": "v2 menyesuaikan arsitektur menu v0.29.0: Executive Cockpit melebur ke Dashboard (hero-exec selalu dirender, baik varian rich maupun fallback), dan #/reports kini Report Factory yang berdiri sendiri.",
   "maxHorizontalOverflow": 1,
   "minMainWidth": {
     "desktop": 900,
@@ -10,10 +11,10 @@
     { "name": "mobile", "width": 390, "height": 844, "mobile": true }
   ],
   "pages": [
-    { "name": "dashboard", "hash": "#/dashboard", "selector": ".dashboard-grid" },
+    { "name": "dashboard", "hash": "#/dashboard", "selector": ".hero-exec" },
     { "name": "quotations", "hash": "#/sales/quotations", "selector": ".table-panel" },
     { "name": "work-orders", "hash": "#/production/work-orders", "selector": ".table-panel" },
     { "name": "approvals", "hash": "#/approvals", "selector": ".table-panel" },
-    { "name": "executive-cockpit", "hash": "#/reports", "selector": ".exec-pulse" }
+    { "name": "report-factory", "hash": "#/reports", "selector": ".exec-library" }
   ]
 }
