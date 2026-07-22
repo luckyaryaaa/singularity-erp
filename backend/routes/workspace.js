@@ -17,40 +17,111 @@ const DASHBOARD_CARDS = {
 };
 const entitlementsFor = (user) => Object.fromEntries(Object.entries(DASHBOARD_CARDS).map(([card, code]) => [card, hasPermission(user, code)]));
 
+// P1-1 — read model dashboard.
+//
+// Sebelumnya dashboard menarik SELURUH baris business_documents yang terlihat
+// (SELECT *, termasuk payload jsonb selebar ~2 KB per baris) lalu memfilter,
+// menjumlah, dan mengurutkannya di memori Node. Biayanya tumbuh linear terhadap
+// seluruh riwayat perusahaan — pada 100 ribu dokumen itu ratusan MB ditarik
+// setiap kali halaman dibuka, hanya untuk menghasilkan belasan angka.
+//
+// Agregasi kini dikerjakan database. Kolom yang ditarik hanya yang dipakai, dan
+// daftar pekerjaan aktif dibatasi LIMIT 8 di SQL, bukan slice setelah semuanya
+// terlanjur ditarik. Bukan engine kedua — tetap query biasa lewat client yang
+// sama, tanpa materialized view baru.
+
+// Tanggal invoice yang dipakai bisnis: payload.invoiceDate bila ada, kalau
+// tidak tanggal dibuatnya. Dinormalkan ke zona waktu bisnis (lihat
+// core/business-date) supaya cocok dengan current_date database.
+const INVOICE_DATE = `COALESCE(NULLIF(d.payload->>'invoiceDate','')::date, (d.created_at AT TIME ZONE current_setting('TimeZone'))::date)`;
+const PAID = `COALESCE(NULLIF(d.payload->>'paid','')::numeric,0)`;
+const ACTIVE_ORDER = `d.document_type IN('WORK_ORDER','SALES_ORDER','PROJECT')
+  AND d.status IN('WAITING_APPROVAL','APPROVED','IN_PROCESS','PARTIALLY_COMPLETED')`;
+
 async function dashboard(client, user) {
   assertPermission(user,'dashboard.view');
   const grants=entitlementsFor(user);
   const global=['owner','admin'].includes(user.role)||user.branchScope==='*';
-  const docs=(await client.query(`SELECT * FROM business_documents WHERE is_archived=false AND ($1::boolean OR branch_id=$2) ORDER BY updated_at DESC`,[global,user.branchId])).rows.map(runtime.camel);
-  const invoices=docs.filter(d=>d.documentType==='INVOICE'&&!['DRAFT','VOID','CANCELLED'].includes(d.status)),month=new Date().toISOString().slice(0,7);
-  const monthOf=(d)=>String(d.payload?.invoiceDate||d.createdAt).slice(0,7);
-  const monthInvoices=invoices.filter(d=>monthOf(d)===month),revenueMonth=monthInvoices.reduce((s,d)=>s+d.amount,0);
-  // Pertumbuhan dibandingkan bulan kalender sebelumnya — dulu di-hardcode 0
-  // sehingga kartu selalu menampilkan angka yang tidak pernah benar.
-  const prevKey=(()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return d.toISOString().slice(0,7);})();
-  const revenuePrevMonth=invoices.filter(d=>monthOf(d)===prevKey).reduce((s,d)=>s+d.amount,0);
-  const revenueGrowthPct=revenuePrevMonth>0?Math.round((revenueMonth-revenuePrevMonth)/revenuePrevMonth*1000)/10:null;
-  const overdue=invoices.filter(d=>d.status==='OVERDUE'),open=invoices.filter(d=>d.status!=='CLOSED'),supplier=docs.filter(d=>d.documentType==='SUPPLIER_INVOICE'&&!['CLOSED','VOID','CANCELLED'].includes(d.status));
-  const active=docs.filter(d=>['WORK_ORDER','SALES_ORDER','PROJECT'].includes(d.documentType)&&['WAITING_APPROVAL','APPROVED','IN_PROCESS','PARTIALLY_COMPLETED'].includes(d.status)),inProduction=active.filter(d=>d.status==='IN_PROCESS');
+  const scope=[global,user.branchId];                       // $1 global, $2 branch
+  const SCOPE = `d.is_archived=false AND ($1::boolean OR d.branch_id=$2)`;
+
+  // Satu lintasan untuk seluruh angka pesanan aktif — tidak perlu menarik baris.
+  const orders=(await client.query(`SELECT
+      count(*)::int active_orders,
+      COALESCE(sum(d.amount),0)::float order_book,
+      count(*) FILTER(WHERE d.status='IN_PROCESS')::int in_production,
+      COALESCE(avg(COALESCE(NULLIF(d.payload->>'progress','')::numeric,0))
+        FILTER(WHERE d.status='IN_PROCESS'),0)::float progress
+    FROM business_documents d WHERE ${SCOPE} AND ${ACTIVE_ORDER}`,scope)).rows[0];
+
+  const kpi={activeOrders:orders.active_orders,inProduction:orders.in_production,
+    utilizationPct:Math.round(orders.progress),utilizationTarget:82};
+  const health={orderCount:orders.active_orders,orderBook:orders.order_book};
+
+  let revenueSeries=[];
+  if(grants.revenue){
+    // Bulan berjalan + bulan sebelumnya + AR terbuka/jatuh tempo sekaligus.
+    const rev=(await client.query(`WITH inv AS (
+        SELECT d.amount,d.status,${PAID} paid,${INVOICE_DATE} invoice_date
+        FROM business_documents d
+        WHERE ${SCOPE} AND d.document_type='INVOICE' AND d.status NOT IN('DRAFT','VOID','CANCELLED')
+      ) SELECT
+        COALESCE(sum(amount) FILTER(WHERE date_trunc('month',invoice_date)=date_trunc('month',current_date)),0)::float revenue_month,
+        COALESCE(sum(amount) FILTER(WHERE date_trunc('month',invoice_date)=date_trunc('month',current_date-interval '1 month')),0)::float revenue_prev,
+        COALESCE(sum(amount-paid) FILTER(WHERE status='OVERDUE'),0)::float ar_overdue,
+        count(*) FILTER(WHERE status='OVERDUE')::int ar_overdue_count,
+        COALESCE(sum(amount-paid) FILTER(WHERE status<>'CLOSED'),0)::float ar_total,
+        count(*) FILTER(WHERE status<>'CLOSED')::int ar_count
+      FROM inv`,scope)).rows[0];
+    const prev=Number(rev.revenue_prev);
+    Object.assign(kpi,{revenueMonth:rev.revenue_month,revenuePrevMonth:prev,
+      revenueGrowthPct:prev>0?Math.round((rev.revenue_month-prev)/prev*1000)/10:null,
+      arOverdue:rev.ar_overdue,arOverdueCount:rev.ar_overdue_count});
+    Object.assign(health,{arCount:rev.ar_count,arTotal:rev.ar_total});
+
+    // Seri kumulatif harian dihitung window function, bukan Map di Node.
+    // "day" WAJIB pakai AS: tanpa itu parser membacanya sebagai kualifier
+    // interval, bukan alias kolom, dan query gagal dengan syntax error.
+    revenueSeries=(await client.query(`SELECT to_char(s.inv_day,'DD') AS day,
+        sum(s.total) OVER(ORDER BY s.inv_day)::float AS value FROM (
+        SELECT ${INVOICE_DATE} inv_day,sum(d.amount) total FROM business_documents d
+        WHERE ${SCOPE} AND d.document_type='INVOICE' AND d.status NOT IN('DRAFT','VOID','CANCELLED')
+          AND date_trunc('month',${INVOICE_DATE})=date_trunc('month',current_date)
+        GROUP BY 1) s ORDER BY s.inv_day`,scope)).rows.map(r=>({day:r.day,value:r.value}));
+    if(!revenueSeries.length)revenueSeries.push({day:'01',value:0});
+  }
+
+  if(grants.payable){
+    const ap=(await client.query(`SELECT count(*)::int ap_count,COALESCE(sum(d.amount),0)::float ap_total
+      FROM business_documents d WHERE ${SCOPE} AND d.document_type='SUPPLIER_INVOICE'
+        AND d.status NOT IN('CLOSED','VOID','CANCELLED')`,scope)).rows[0];
+    Object.assign(health,{apCount:ap.ap_count,apTotal:ap.ap_total});
+  }
+
   // Persediaan wajib ter-scope cabang seperti dokumen; sebelumnya agregat ini
   // tanpa filter sehingga pengguna cabang melihat nilai stok seluruh perusahaan.
-  const inventory=grants.inventory
-    ?(await client.query(`SELECT count(*)::int sku_count,COALESCE(sum(value_idr),0)::float value,count(*) FILTER(WHERE qty_on_hand<min_qty)::int critical
-      FROM inventory_balances WHERE ($1::boolean OR warehouse_id=$2)`,[global,user.branchId])).rows[0]
-    :null;
-  const cashPosition=grants.cash?await cashOnHand(client,{global,branchId:user.branchId}):null;
-  const pending=await runtime.pendingApprovals(client,user,{limit:100}),daily=new Map();for(const d of monthInvoices){const day=String(d.payload?.invoiceDate||d.createdAt).slice(8,10);daily.set(day,(daily.get(day)||0)+d.amount);}let cumulative=0;const revenueSeries=[...daily.entries()].sort().map(([day,value])=>({day,value:(cumulative+=value)}));if(!revenueSeries.length)revenueSeries.push({day:'01',value:0});
-  const kpi={activeOrders:active.length,inProduction:inProduction.length,utilizationPct:inProduction.length?Math.round(inProduction.reduce((s,d)=>s+Number(d.payload?.progress||0),0)/inProduction.length):0,utilizationTarget:82};
-  if(grants.revenue)Object.assign(kpi,{revenueMonth,revenuePrevMonth,revenueGrowthPct,arOverdue:overdue.reduce((s,d)=>s+d.amount-Number(d.payload?.paid||0),0),arOverdueCount:overdue.length});
-  const health={orderCount:active.length,orderBook:active.reduce((s,d)=>s+d.amount,0)};
-  if(grants.revenue)Object.assign(health,{arCount:open.length,arTotal:open.reduce((s,d)=>s+d.amount-Number(d.payload?.paid||0),0)});
-  if(grants.payable)Object.assign(health,{apCount:supplier.length,apTotal:supplier.reduce((s,d)=>s+d.amount,0)});
-  if(grants.inventory)Object.assign(health,{skuCount:inventory.sku_count,criticalStock:inventory.critical,inventoryValue:inventory.value});
-  if(grants.cash)health.cashPosition=cashPosition;
+  if(grants.inventory){
+    const inv=(await client.query(`SELECT count(*)::int sku_count,COALESCE(sum(value_idr),0)::float value,
+        count(*) FILTER(WHERE qty_on_hand<min_qty)::int critical
+      FROM inventory_balances WHERE ($1::boolean OR warehouse_id=$2)`,scope)).rows[0];
+    Object.assign(health,{skuCount:inv.sku_count,criticalStock:inv.critical,inventoryValue:inv.value});
+  }
+  if(grants.cash)health.cashPosition=await cashOnHand(client,{global,branchId:user.branchId});
+
+  // Daftar pekerjaan aktif dibatasi di SQL — dulu seluruh dokumen ditarik lalu
+  // di-slice(0,8) di Node.
+  const activeJobs=(await client.query(`SELECT d.id,d.document_number,d.title,d.party_name,d.amount,d.due_date,d.status,
+      COALESCE(NULLIF(d.payload->>'progress','')::numeric,0)::float progress,
+      COALESCE(NULLIF(d.payload->>'stage',''),d.status::text) AS stage
+    FROM business_documents d WHERE ${SCOPE} AND ${ACTIVE_ORDER}
+    ORDER BY d.updated_at DESC LIMIT 8`,scope)).rows;
+
+  const pending=await runtime.pendingApprovals(client,user,{limit:100});
   return {asOf:new Date().toISOString(),scope:global?'ALL':user.branchId,entitlements:grants,kpi,
     attention:{pendingApprovals:pending.total,pendingAmount:pending.items.reduce((s,d)=>s+d.amount,0),slaRisk:pending.items.filter(d=>d.risk==='high').length},
     health,revenueSeries:grants.revenue?revenueSeries:[],
-    activeJobs:active.slice(0,8).map(d=>({id:d.id,documentNumber:d.documentNumber,title:d.title,party:d.partyName,progress:Number(d.payload?.progress||0),amount:d.amount,dueDate:d.dueDate,status:d.status,stage:d.payload?.stage||d.status}))};
+    activeJobs:activeJobs.map(d=>({id:d.id,documentNumber:d.document_number,title:d.title,party:d.party_name,
+      progress:Number(d.progress),amount:Number(d.amount),dueDate:d.due_date,status:d.status,stage:d.stage}))};
 }
 
 // Posisi kas dihitung dari buku besar lewat peran akun CASH_BANK (bukan kode
