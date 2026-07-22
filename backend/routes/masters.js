@@ -6,6 +6,7 @@ const runtime = require('../infrastructure/database/repositories/runtime');
 const masterData = require('../infrastructure/database/repositories/master-data');
 const masterGovernance = require('../infrastructure/database/repositories/master-governance');
 const masterWizards = require('../infrastructure/database/repositories/master-wizards');
+const changeRequests = require('../infrastructure/database/repositories/change-requests');
 const masterModules={customers:'customer',suppliers:'supplier',products:'product',employees:'employee'};
 const { NO_MATCH } = require('./shared');
 
@@ -43,6 +44,18 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m){assertPermission(ctx.user,'supplier.view');const result=await masterGovernance.supplierPerformance(client,m[1]);return{supplier:runtime.camel(result.supplier),evaluations:result.evaluations.map(runtime.camel),documents:result.documents.map(runtime.camel)};}
   if(method==='POST'&&m){assertPermission(ctx.user,'supplier.edit');const body=await readBody(req),period=body.period||new Date().toISOString().slice(0,7);const item=runtime.camel(await masterGovernance.calculateSupplierPerformance(client,m[1],period,ctx.user));await runtime.audit(client,{userId:ctx.user.id,action:'CALCULATE',module:'supplier',entityType:'SUPPLIER_PERFORMANCE',entityId:m[1],newValue:{period,score:item.overallScore,risk:item.riskLevel},requestId:ctx.requestId,branchId:ctx.user.branchId});return item;}
   if(method==='POST'&&p==='/api/master-governance/suppliers/score'){assertPermission(ctx.user,'supplier.approve');const body=await readBody(req),period=body.period||new Date().toISOString().slice(0,7),items=await masterGovernance.scoreSuppliers(client,period,ctx.user);return{period,items:items.map(runtime.camel)};}
+  // P1-2 — antrean usulan perubahan master. Memutuskan menuntut izin yang
+  // lebih tinggi daripada mengedit, dan pengusul tidak boleh memutus sendiri.
+  if(method==='GET'&&p==='/api/change-requests'){assertPermission(ctx.user,'audit.view');
+    return changeRequests.list(client,ctx.user,{status:url.searchParams.get('status')||'PENDING',entityType:url.searchParams.get('entityType'),limit:url.searchParams.get('limit')});}
+  m=p.match(/^\/api\/change-requests\/([0-9a-f-]{36})\/(approve|reject)$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    const result=await changeRequests.decide(client,{requestId:m[1],decision:m[2]==='approve'?'APPROVED':'REJECTED',reason:body.reason,user:ctx.user});
+    await runtime.audit(client,{userId:ctx.user.id,action:m[2]==='approve'?'APPROVE':'REJECT',module:'change_request',
+      entityType:'CHANGE_REQUEST',entityId:m[1],reason:body.reason,newValue:{entity:result.entityType,applied:result.applied},
+      requestId:ctx.requestId,branchId:ctx.user.branchId});
+    return result;}
+
   m=p.match(/^\/api\/(customers|suppliers|products|employees)$/);
   if(method==='GET'&&m){assertPermission(ctx.user,`${masterModules[m[1]]}.view`);return operations.listMaster(client,m[1],Object.fromEntries(url.searchParams),ctx.user);}
   if(method==='POST'&&m){const name=m[1],module=masterModules[name],body=await readBody(req);assertPermission(ctx.user,`${module}.create`);const item=await operations.createMaster(client,name,body,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module,entityType:module.toUpperCase(),entityId:item.id,newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}

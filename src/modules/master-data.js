@@ -115,7 +115,7 @@
   const OVERVIEW = {
     customers: {
       kpis: (o) => [
-        ['Batas kredit', o.creditLimit != null ? fmtIDR(o.creditLimit) : 'Tanpa batas', `Termin ${o.paymentTermDays || 0} hari · ${esc(o.currency || 'IDR')}`],
+        ['Batas kredit', Number(o.creditLimitAmount) > 0 ? fmtIDR(o.creditLimitAmount) : 'Tanpa batas', `Termin ${o.paymentTermDays || 0} hari · ${esc(o.currency || 'IDR')}`],
         ['Rating risiko', riskChip(o.riskRating), `Koleksi: ${esc(o.collectionStatus || 'NORMAL')}`],
         ['Status PPN', esc(o.ppnStatus || '—'), o.npwp ? `NPWP ${esc(o.npwp)}` : 'NPWP belum diisi'],
         ['Tipe pelanggan', esc(o.customerType === 'INDIVIDUAL' ? 'Perorangan' : 'Perusahaan'), esc(o.businessCategory || 'Kategori umum')]
@@ -297,7 +297,7 @@
         const v=(id)=>main.querySelector(id)?.value?.trim(),checked=(id)=>!!main.querySelector(id)?.checked;
         if(step===1){payload.mode=main.querySelector('input[name="linkMode"]:checked')?.value||payload.mode||'EXISTING';if(payload.mode==='EXISTING')payload.customerId=v('#linkCustomer');else payload.customer={...(payload.customer||{}),code:v('#newCode'),name:v('#newName'),legalName:v('#newLegal'),customerType:v('#newType')||'COMPANY',npwp:v('#newNpwp'),ppnStatus:v('#newPpn')||'PKP'};}
         if(step===2&&payload.mode==='NEW'){payload.contact={name:v('#picName'),positionTitle:v('#picPosition'),phone:v('#picPhone'),email:v('#picEmail'),whatsapp:v('#picWhatsapp')};payload.address={addressType:v('#addressType')||'BILLING',address:v('#addressText'),city:v('#addressCity'),province:v('#addressProvince'),postalCode:v('#addressPostal')};}
-        if(step===3&&payload.mode==='NEW'){payload.customer={...(payload.customer||{}),businessCategory:v('#commercialCategory'),paymentTermDays:Number(v('#commercialTerm'))||30,creditLimit:Number(v('#commercialLimit'))||0,currency:(v('#commercialCurrency')||'IDR').toUpperCase(),riskRating:v('#commercialRisk')||'LOW',collectionStatus:'NORMAL',creditHold:checked('#commercialHold')};}
+        if(step===3&&payload.mode==='NEW'){payload.customer={...(payload.customer||{}),businessCategory:v('#commercialCategory'),paymentTermDays:Number(v('#commercialTerm'))||30,creditLimitAmount:Number(v('#commercialLimit'))||0,currency:(v('#commercialCurrency')||'IDR').toUpperCase(),riskRating:v('#commercialRisk')||'LOW',collectionStatus:'NORMAL',creditHold:checked('#commercialHold')};}
         dirty=true;
       };
       const validate=()=>{
