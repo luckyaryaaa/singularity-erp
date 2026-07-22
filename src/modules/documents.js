@@ -82,7 +82,11 @@
             <div class="stat-row"><span>Nilai PO</span><b>${fmtIDR(match.poAmount)}</b></div>
             <div class="stat-row"><span>Nilai tagihan</span><b>${fmtIDR(match.invoiceAmount)}</b></div>
             <div class="stat-row"><span>Selisih</span><b>${match.amountVariance != null ? fmtIDR(match.amountVariance) : '—'}${match.priceVariancePct != null ? ` (${Number(match.priceVariancePct).toFixed(1)}%)` : ''}</b></div>
-            ${(match.exceptions || []).length ? `<div class="stat-row"><span>Pengecualian</span></div>${match.exceptions.map((x) => `<p class="muted" style="font-size:11.5px">• ${esc(x)}</p>`).join('')}` : ''}
+            ${(match.lineVariances || []).length ? `<div class="table-wrap"><table><thead><tr><th>Baris</th><th class="right">Dipesan</th><th class="right">Diterima</th><th class="right">Sudah ditagih</th><th class="right">Ditagih kini</th><th class="right">Harga PO</th><th class="right">Harga tagihan</th></tr></thead><tbody>${match.lineVariances.map((l) => `<tr><td><b>${esc(l.code)}</b></td>
+              <td class="right">${Number(l.orderedQty)}</td><td class="right">${Number(l.receivedQty)}</td><td class="right">${Number(l.previouslyInvoicedQty)}</td>
+              <td class="right"><b>${Number(l.invoicedQty)}</b></td><td class="right">${fmtIDR(l.poUnitPrice)}</td>
+              <td class="right ${Number(l.invoiceUnitPrice) > Number(l.poUnitPrice) ? 'error-text' : ''}">${fmtIDR(l.invoiceUnitPrice)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+            ${(match.exceptions || []).length ? `<div class="stat-row"><span>Pengecualian</span></div>${match.exceptions.map((x) => `<p class="muted note-fine">• ${esc(x)}</p>`).join('')}` : ''}
             ${match.overrideReason ? `<p class="muted">Override: "${esc(match.overrideReason)}"</p>` : ''}`;
         }).catch((e) => { matchBody.innerHTML = `<p class="error-text">${esc(e.message)}</p>`; });
       }

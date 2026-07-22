@@ -6,7 +6,6 @@
 
   const inventory = {
     permission: 'inventory.view',
-    onEvent() { if (this._table) this._table.reload(); },
     onEvent() { this._table?.reload(); },
     render(main) {
       this._tab = this._tab || 'saldo';
@@ -149,9 +148,9 @@
               <td><b>${esc(r.productCode)}</b><small>${esc(r.productName)}</small></td>
               <td>${r.lotNumber ? `<b>${esc(r.lotNumber)}</b><small>${esc(r.heatNumber || '—')}</small>` : '<span class="muted">Tanpa lot</span>'}</td>
               <td class="right money">${Number(r.systemQty)} ${esc(r.uom || '')}</td>
-              <td class="right">${editable ? `<input type="number" class="count-input" data-count="${r.id}" min="0" step="any" value="${r.countedQty ?? ''}" placeholder="—" style="width:90px;text-align:right">` : `<span class="money">${r.countedQty ?? '—'}</span>`}</td>
+              <td class="right">${editable ? `<input type="number" class="count-input" data-count="${r.id}" min="0" step="any" value="${r.countedQty ?? ''}" placeholder="—">` : `<span class="money">${r.countedQty ?? '—'}</span>`}</td>
               <td class="right money">${variance === null ? '—' : `<span class="chip ${variance === 0 ? 'mint' : variance > 0 ? 'blue' : 'coral'}">${variance > 0 ? '+' : ''}${variance}</span>`}</td>
-              <td>${editable ? `<input type="text" data-note="${r.id}" value="${esc(r.note || '')}" placeholder="Catatan" style="width:140px">` : esc(r.note || '—')}</td></tr>`;
+              <td>${editable ? `<input type="text" data-note="${r.id}" value="${esc(r.note || '')}" placeholder="Catatan">` : esc(r.note || '—')}</td></tr>`;
           }).join('')}</tbody></table></div>
           <div class="panel-body"><p class="muted">Alur: isi qty fisik → simpan → ajukan lewat "Buka dokumen" → approver berbeda menyetujui (SoD) → selisih otomatis menyesuaikan saldo + lot dan dijurnal via posting profile OPNAME-DEFAULT.</p></div>
         </section>`;

@@ -19,7 +19,7 @@
         </div>`;
       const section = (key, icon, tone, titleText, body, link) => `
         <article class="panel">
-          <header><div style="display:flex;align-items:center;gap:12px">${clayOrb(tone, icon).replace('clay-orb', 'clay-orb sm-orb')}
+          <header><div class="row-inline">${clayOrb(tone, icon).replace('clay-orb', 'clay-orb sm-orb')}
             <div><p class="eyebrow">${esc(titleText)}</p><h2>${w[key].total} item</h2></div></div>
             ${link ? `<a class="text-btn" href="${link}">${t('common.open', 'Buka')} ${ICONS.arrow}</a>` : ''}</header>
           <div class="panel-body stack">${body || `<p class="muted">${t('mywork.empty', 'Tidak ada — semuanya beres.')}</p>`}</div>

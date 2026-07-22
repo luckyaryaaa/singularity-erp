@@ -254,32 +254,117 @@ async function evaluateThreeWayMatch(client, { supplierInvoiceId, user, requestI
   if (!inv) throw new AppError('RESOURCE_NOT_FOUND', 'Tagihan supplier tidak ditemukan.');
   assertBranchAccess(user, inv.branch_id, 'Tagihan supplier berada di cabang di luar cakupan Anda.');
   // Telusuri PO & GR melalui payload/relasi dokumen.
+  // PO ditelusuri lewat nomor pada payload ATAU relasi dokumen — tagihan yang
+  // dibuat dari konversi tidak selalu membawa nomor PO di payload.
   const poNumber = inv.payload?.purchaseOrderNumber || inv.payload?.sourceDocumentNumber;
-  const po = poNumber ? (await client.query(`SELECT * FROM business_documents WHERE document_number=$1 AND document_type='PURCHASE_ORDER' AND branch_id=$2`, [poNumber, inv.branch_id])).rows[0] : null;
-  const gr = po ? (await client.query(`SELECT c.* FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id WHERE r.parent_document_id=$1 AND c.document_type='GOODS_RECEIPT' LIMIT 1`, [po.id])).rows[0] : null;
-  const tol = (await client.query(`SELECT * FROM match_tolerance_config WHERE active ORDER BY effective_from DESC LIMIT 1`)).rows[0] || { price_tolerance_pct: 2, amount_tolerance_abs: 50000, qty_tolerance_pct: 5 };
+  const po = (poNumber
+    ? (await client.query(`SELECT * FROM business_documents WHERE document_number=$1 AND document_type='PURCHASE_ORDER' AND branch_id=$2`, [poNumber, inv.branch_id])).rows[0]
+    : null)
+    || (await client.query(`SELECT p.* FROM document_relations r JOIN business_documents p ON p.id=r.parent_document_id
+        WHERE r.child_document_id=$1 AND p.document_type='PURCHASE_ORDER' LIMIT 1`, [inv.id])).rows[0]
+    || null;
+  // P0-O: SEMUA penerimaan PO dikumpulkan — pengiriman parsial menghasilkan
+  // beberapa GR dan sebelumnya hanya satu yang diperhitungkan.
+  const receipts = po ? (await client.query(`SELECT c.* FROM document_relations r JOIN business_documents c ON c.id=r.child_document_id
+    WHERE r.parent_document_id=$1 AND c.document_type='GOODS_RECEIPT' AND c.status NOT IN('CANCELLED','VOID','REJECTED')
+    ORDER BY c.created_at`, [po.id])).rows : [];
+  const tol = (await client.query(`SELECT * FROM match_tolerance_config WHERE active ORDER BY effective_from DESC LIMIT 1`)).rows[0]
+    || { price_tolerance_pct: 2, amount_tolerance_abs: 50000, qty_tolerance_pct: 5, qty_tolerance_abs: 0 };
 
-  const poAmt = po ? Number(po.amount) : null, grAmt = gr ? Number(gr.amount) : null, invAmt = Number(inv.amount);
+  const poAmt = po ? Number(po.amount) : null;
+  const grAmt = receipts.length ? receipts.reduce((sum, r) => sum + Number(r.amount || 0), 0) : null;
+  const invAmt = Number(inv.amount);
   const exceptions = [];
   if (!po) exceptions.push('PO referensi tidak ditemukan pada tagihan.');
-  if (po && !gr) exceptions.push('Penerimaan barang (GR) belum tercatat untuk PO ini.');
+  if (po && !receipts.length) exceptions.push('Penerimaan barang (GR) belum tercatat untuk PO ini.');
+  const { lineVariances, qtyVariancePct, expectedAmount } = await matchLines(client, { inv, po, receipts, tol, exceptions });
   let amountVar = null, priceVarPct = null;
   if (po) {
-    amountVar = Math.abs(invAmt - poAmt);
-    priceVarPct = poAmt ? Math.abs(invAmt - poAmt) / poAmt * 100 : 0;
+    // P0-O: pembanding nilai adalah nilai YANG DITAGIH pada harga PO, bukan
+    // total PO penuh. Membandingkan dengan total PO membuat setiap tagihan
+    // parsial tampak menyimpang besar dan menenggelamkan exception yang nyata.
+    // Total PO hanya dipakai bila tagihan tidak punya baris yang bisa diadu.
+    const baseline = expectedAmount == null ? poAmt : expectedAmount;
+    amountVar = Math.abs(invAmt - baseline);
+    priceVarPct = baseline ? amountVar / baseline * 100 : 0;
     if (amountVar > Number(tol.amount_tolerance_abs) && priceVarPct > Number(tol.price_tolerance_pct)) {
-      exceptions.push(`Selisih nilai ${amountVar.toLocaleString('id-ID')} (${priceVarPct.toFixed(1)}%) melebihi toleransi ${tol.price_tolerance_pct}%.`);
+      exceptions.push(`Selisih nilai ${amountVar.toLocaleString('id-ID')} (${priceVarPct.toFixed(1)}%) terhadap ${expectedAmount == null ? 'nilai PO' : 'nilai baris pada harga PO'} melebihi toleransi ${tol.price_tolerance_pct}%.`);
     }
   }
   const result = exceptions.length ? 'EXCEPTION' : 'MATCHED';
   const row = (await client.query(
-    `INSERT INTO three_way_matches(supplier_invoice_id,purchase_order_id,goods_receipt_id,po_amount,gr_amount,invoice_amount,price_variance_pct,amount_variance,result,exceptions,evaluated_by)
-     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-     ON CONFLICT(supplier_invoice_id) DO UPDATE SET purchase_order_id=excluded.purchase_order_id,goods_receipt_id=excluded.goods_receipt_id,po_amount=excluded.po_amount,gr_amount=excluded.gr_amount,invoice_amount=excluded.invoice_amount,price_variance_pct=excluded.price_variance_pct,amount_variance=excluded.amount_variance,result=excluded.result,exceptions=excluded.exceptions,evaluated_at=now(),evaluated_by=excluded.evaluated_by
+    `INSERT INTO three_way_matches(supplier_invoice_id,purchase_order_id,goods_receipt_id,goods_receipt_ids,po_amount,gr_amount,invoice_amount,qty_variance_pct,price_variance_pct,amount_variance,result,exceptions,line_variances,evaluated_by)
+     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     ON CONFLICT(supplier_invoice_id) DO UPDATE SET purchase_order_id=excluded.purchase_order_id,goods_receipt_id=excluded.goods_receipt_id,goods_receipt_ids=excluded.goods_receipt_ids,po_amount=excluded.po_amount,gr_amount=excluded.gr_amount,invoice_amount=excluded.invoice_amount,qty_variance_pct=excluded.qty_variance_pct,price_variance_pct=excluded.price_variance_pct,amount_variance=excluded.amount_variance,result=excluded.result,exceptions=excluded.exceptions,line_variances=excluded.line_variances,evaluated_at=now(),evaluated_by=excluded.evaluated_by
      RETURNING *`,
-    [supplierInvoiceId, po?.id || null, gr?.id || null, poAmt, grAmt, invAmt, priceVarPct, amountVar, result, JSON.stringify(exceptions), user.id])).rows[0];
-  await runtime.audit(client, { userId: user.id, action: 'POST', module: 'supplier_invoice', entityType: 'THREE_WAY_MATCH', entityId: supplierInvoiceId, documentNumber: inv.document_number, newValue: { result, exceptions }, requestId, branchId: inv.branch_id });
+    [supplierInvoiceId, po?.id || null, receipts[0]?.id || null, receipts.map((r) => r.id), poAmt, grAmt, invAmt, qtyVariancePct, priceVarPct, amountVar, result, JSON.stringify(exceptions), JSON.stringify(lineVariances), user.id])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: 'POST', module: 'supplier_invoice', entityType: 'THREE_WAY_MATCH', entityId: supplierInvoiceId, documentNumber: inv.document_number, newValue: { result, exceptions, lines: lineVariances.length }, requestId, branchId: inv.branch_id });
   return runtime.camel(row);
+}
+
+// P0-O — perbandingan tingkat baris. Kuantitas tagihan diadu dengan kuantitas
+// yang BENAR-BENAR diterima (bukan yang dipesan), dan tagihan terdahulu atas PO
+// yang sama ikut diperhitungkan supaya penagihan berulang tidak lolos satu per
+// satu. Harga satuan dibandingkan dengan harga PO.
+async function matchLines(client, { inv, po, receipts, tol, exceptions }) {
+  const lineVariances = [];
+  if (!po) return { lineVariances, qtyVariancePct: null, expectedAmount: null };
+  const qtyPct = Number(tol.qty_tolerance_pct || 0), qtyAbs = Number(tol.qty_tolerance_abs || 0), pricePct = Number(tol.price_tolerance_pct || 0);
+  const byProduct = async (documentIds) => {
+    if (!documentIds.length) return new Map();
+    const rows = (await client.query(`SELECT product_id,SUM(qty)::float qty,MAX(unit_price)::float unit_price
+      FROM document_lines WHERE document_id=ANY($1::uuid[]) AND product_id IS NOT NULL GROUP BY product_id`, [documentIds])).rows;
+    return new Map(rows.map((r) => [r.product_id, r]));
+  };
+  const ordered = await byProduct([po.id]);
+  const received = await byProduct(receipts.map((r) => r.id));
+  const invoiced = await byProduct([inv.id]);
+  if (!invoiced.size) return { lineVariances, qtyVariancePct: null, expectedAmount: null };
+
+  // Tagihan lain atas PO yang sama yang benar-benar mengklaim sisa PO. DRAFT
+  // dan REVISION_REQUIRED sengaja dikecualikan: draf yang telantar tidak boleh
+  // mengunci penagihan yang sah selamanya — klaim baru berlaku sejak diajukan.
+  const priorRows = (await client.query(`SELECT l.product_id,SUM(l.qty)::float qty
+    FROM document_relations r JOIN business_documents d ON d.id=r.child_document_id
+    JOIN document_lines l ON l.document_id=d.id
+    WHERE r.parent_document_id=$1 AND d.document_type='SUPPLIER_INVOICE' AND d.id<>$2
+      AND d.status NOT IN('DRAFT','REVISION_REQUIRED','CANCELLED','VOID','REJECTED') AND l.product_id IS NOT NULL
+    GROUP BY l.product_id`, [po.id, inv.id])).rows;
+  const prior = new Map(priorRows.map((r) => [r.product_id, Number(r.qty)]));
+
+  const names = new Map((await client.query('SELECT id,code FROM products WHERE id=ANY($1::uuid[])',
+    [[...invoiced.keys()]])).rows.map((r) => [r.id, r.code]));
+  let worstQtyPct = 0, expectedAmount = 0;
+  for (const [productId, line] of invoiced) {
+    const code = names.get(productId) || productId;
+    const invQty = Number(line.qty), invPrice = Number(line.unit_price || 0);
+    const recvQty = Number(received.get(productId)?.qty || 0);
+    const ordQty = Number(ordered.get(productId)?.qty || 0);
+    const poPrice = Number(ordered.get(productId)?.unit_price || 0);
+    const previously = Number(prior.get(productId) || 0);
+    const allowance = Math.max(recvQty * qtyPct / 100, qtyAbs);
+    const billable = recvQty + allowance - previously;
+    const overQty = Math.round((invQty - billable) * 1e6) / 1e6;
+    const qtyVarPct = recvQty > 0 ? Math.abs(invQty + previously - recvQty) / recvQty * 100 : (invQty > 0 ? 100 : 0);
+    worstQtyPct = Math.max(worstQtyPct, qtyVarPct);
+
+    if (!ordered.has(productId)) exceptions.push(`Baris ${code} tidak ada pada ${po.document_number}.`);
+    else if (overQty > 0) {
+      exceptions.push(previously > 0
+        ? `Baris ${code}: ditagih ${invQty} sedangkan sisa yang boleh ditagih ${Math.max(0, Math.round(billable * 1e6) / 1e6)} (diterima ${recvQty}, sudah ditagih ${previously}).`
+        : `Baris ${code}: ditagih ${invQty} melebihi yang diterima ${recvQty} di luar toleransi ${qtyPct}%.`);
+    }
+    if (poPrice > 0 && invPrice > poPrice) {
+      const varPct = (invPrice - poPrice) / poPrice * 100;
+      if (varPct > pricePct) exceptions.push(`Baris ${code}: harga satuan ${invPrice} melebihi harga PO ${poPrice} (${varPct.toFixed(1)}% > toleransi ${pricePct}%).`);
+    }
+    // Nilai yang SEHARUSNYA ditagih untuk baris ini: kuantitas tagihan pada
+    // harga PO. Baris di luar PO memakai harga tagihan sendiri agar selisih
+    // nilainya tidak dihitung dua kali — pelanggarannya sudah dicatat di atas.
+    expectedAmount += invQty * (poPrice > 0 ? poPrice : invPrice);
+    lineVariances.push({ productId, code, orderedQty: ordQty, receivedQty: recvQty, previouslyInvoicedQty: previously, invoicedQty: invQty, poUnitPrice: poPrice, invoiceUnitPrice: invPrice, qtyVariancePct: Math.round(qtyVarPct * 1000) / 1000 });
+  }
+  return { lineVariances, qtyVariancePct: Math.round(worstQtyPct * 1000) / 1000, expectedAmount: Math.round(expectedAmount * 100) / 100 };
 }
 
 // Dipanggil saat approve Supplier Invoice: blokir bila match EXCEPTION tanpa override.
