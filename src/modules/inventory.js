@@ -9,7 +9,7 @@
     onEvent() { this._table?.reload(); },
     render(main) {
       this._tab = this._tab || 'saldo';
-      const TABS = [['saldo', 'Saldo stok'], ['lots', 'Lot & Heat Number'], ['opname', 'Stock Opname'], ['valuasi', 'Valuasi']];
+      const TABS = [['saldo', 'Saldo stok'], ['lots', 'Lot & Heat Number'], ['bins', 'Rak & Bin'], ['opname', 'Stock Opname'], ['valuasi', 'Valuasi']];
       const actions = `<nav class="chip-tabs" aria-label="Tab inventori">${TABS.map(([id, label]) => `<button class="btn ${this._tab === id ? 'primary' : 'secondary'}" data-invtab="${id}">${esc(label)}</button>`).join('')}</nav>
         ${this._tab === 'opname' && can('stock_opname.create') ? `<button class="btn primary" id="startOpname">${ICONS.plus} Mulai opname</button>` : ''}`;
       main.innerHTML = pageHead({ eyebrow: 'GUDANG', title: 'Persediaan', sub: 'Saldo stok, traceability lot/heat number (mill certificate), stock opname, dan valuasi.', actions }) + '<section id="pgTable"></section><section id="pgDetail"></section>';
@@ -45,6 +45,41 @@
           empty: { icon: 'box', title: 'Belum ada lot', note: 'Lot tercipta otomatis dari penerimaan barang (heat number diisi pada baris GR).' },
           onRow: (row) => this.showLot(main, row.id)
         });
+      } else if (this._tab === 'bins') {
+        // Rak & bin: skema ini ada sejak migrasi 012 tetapi tidak pernah
+        // terhubung ke stok sampai migrasi 058 — sebelumnya tidak ada layar
+        // apa pun yang bisa menampilkannya.
+        // render() halaman ini SINKRON (tab lain memakai .then juga) — memakai
+        // await di sini memecah seluruh modul sehingga rutenya tidak pernah
+        // teregistrasi.
+        api('/api/inventory/bins', { signal }).then(({ items }) => {
+          mount.innerHTML = `<section class="panel table-panel">
+          <header><div><p class="eyebrow">GUDANG</p><h2>${items.length} rak terdaftar</h2></div>
+            <span class="chip ${items.some((b) => b.qtyOnHand > 0) ? 'mint' : 'gray'}">${items.filter((b) => b.qtyOnHand > 0).length} rak terisi</span></header>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Rak</th><th>Zona</th><th>Gudang</th><th>Tipe</th><th class="right">Qty</th><th class="right">SKU</th><th>Status</th></tr></thead>
+            <tbody>${items.length ? items.map((b) => `<tr data-bin="${b.binId}">
+              <td><b>${esc(b.code)}</b></td><td>${esc(b.storageLocation)}</td><td>${esc(b.warehouse)}</td>
+              <td><small>${esc(b.type || '—')}</small></td>
+              <td class="right money">${Number(b.qtyOnHand)}</td><td class="right">${Number(b.productCount)}</td>
+              <td>${b.active ? '<span class="chip mint">Aktif</span>' : '<span class="chip gray">Non-aktif</span>'}</td></tr>`).join('')
+    : '<tr><td colspan="7" class="table-loading">Belum ada rak. Tambahkan gudang dan zona penyimpanan lebih dulu di Struktur perusahaan.</td></tr>'}</tbody>
+          </table></div>
+          <div class="panel-body"><p class="muted">Isi rak diturunkan dari lot, bukan angka terpisah — saldo rak selalu mengikuti pergerakan lot. Penempatan dan pemindahan tercatat sebagai gerakan lot dengan alasannya.</p></div>
+          <div id="binDetail"></div>
+        </section>`;
+          mount.querySelectorAll('[data-bin]').forEach((row) => row.addEventListener('click', () => {
+            const detail = mount.querySelector('#binDetail');
+            api(`/api/inventory/bins/${row.dataset.bin}`).then((c) => {
+              detail.innerHTML = `<div class="panel-body"><h3>Isi rak ${esc(c.bin.code)} · ${Number(c.totalQty)} unit</h3>
+                ${c.items.length ? `<div class="table-wrap"><table><thead><tr><th>Produk</th><th>Lot</th><th>Heat number</th><th class="right">Qty</th></tr></thead>
+                  <tbody>${c.items.map((i) => `<tr><td><b>${esc(i.productCode)}</b><small>${esc(i.productName)}</small></td>
+                    <td>${esc(i.lotNumber)}</td><td>${esc(i.heatNumber || '—')}</td>
+                    <td class="right money">${Number(i.qtyOnHand)} ${esc(i.uom || '')}</td></tr>`).join('')}</tbody></table></div>`
+    : '<p class="muted">Rak ini kosong.</p>'}</div>`;
+            }).catch((error) => { detail.innerHTML = `<p class="error-text">${esc(error.message)}</p>`; });
+          }));
+        }).catch((error) => { mount.innerHTML = `<p class="error-text">${esc(error.message)}</p>`; });
       } else if (this._tab === 'opname') {
         this._table = dataTable(mount, {
           key: 'documents:opname', endpoint: '/api/documents', params: { type: 'STOCK_OPNAME' }, title: 'Sesi stock opname', eyebrow: 'OPNAME',
