@@ -3,6 +3,7 @@
 // ketentuan, blok tanda tangan, QR, dan warna aksen berasal dari konfigurasi
 // (§35), effective-dated & ber-versi. Dokumen menyimpan SNAPSHOT template
 // saat dicetak pertama kali sehingga cetak ulang selalu identik.
+const businessDate = require('../../../core/business-date');
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
 
@@ -13,7 +14,7 @@ const FALLBACK = {
 };
 
 async function resolveTemplate(client, documentType, onDate) {
-  const date = onDate || new Date().toISOString().slice(0, 10);
+  const date = onDate || businessDate.today();
   const row = (await client.query(`SELECT id,document_type,name,version,config FROM document_templates
     WHERE active AND document_type=$1 AND effective_from<=$2 AND (effective_until IS NULL OR effective_until>=$2)
     ORDER BY effective_from DESC, version DESC LIMIT 1`, [documentType, date])).rows[0];

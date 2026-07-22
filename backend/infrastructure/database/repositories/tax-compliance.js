@@ -3,6 +3,7 @@
 // Pajak keluaran, bukti potong PPh, dan ekspor format impor DJP (e-Faktur).
 // Tarif PPN TIDAK di-hardcode (§35) — diambil dari tax_pct baris dokumen;
 // kode transaksi berasal dari tabel konfigurasi tax_transaction_codes.
+const businessDate = require('../../../core/business-date');
 const { AppError } = require('../../../core/errors');
 const runtime = require('./runtime');
 
@@ -84,7 +85,7 @@ async function issueTaxInvoice(client, { documentId, transactionCode = '01', buy
 
   const org = (await client.query('SELECT legal_name,npwp FROM legal_entities ORDER BY active DESC,created_at LIMIT 1')).rows[0] || {};
   const { rangeId, prefix, serial } = await takeNextSerial(client);
-  const date = fpDate || new Date().toISOString().slice(0, 10);
+  const date = fpDate || businessDate.today();
   const fpNumber = formatFpNumber(code.code, 0, prefix, serial);
 
   const row = (await client.query(`INSERT INTO tax_invoices(document_id,range_id,transaction_code,replacement_ordinal,prefix,serial,fp_number,fp_date,period,
@@ -109,7 +110,7 @@ async function replaceTaxInvoice(client, { taxInvoiceId, reason, buyer = {}, use
   if (ordinal > 9) throw new AppError('VALIDATION_ERROR', 'Batas penggantian Faktur Pajak terlampaui.');
 
   const { dpp, ppn } = await invoiceTaxBase(client, prev.documentId);
-  const date = new Date().toISOString().slice(0, 10);
+  const date = businessDate.today();
   const fpNumber = formatFpNumber(prev.transactionCode, ordinal, prev.prefix, Number(prev.serial));
   await client.query(`UPDATE tax_invoices SET status='REPLACED' WHERE id=$1`, [prev.id]);
   const row = (await client.query(`INSERT INTO tax_invoices(document_id,range_id,transaction_code,replacement_ordinal,prefix,serial,fp_number,fp_date,period,
@@ -144,7 +145,7 @@ async function issueWithholding(client, { documentId, taxType, objectCode, partn
   if (!(gross > 0)) throw new AppError('VALIDATION_ERROR', 'Jumlah bruto harus lebih besar dari nol.');
   if (!Number.isFinite(rate) || rate < 0) throw new AppError('VALIDATION_ERROR', 'Tarif PPh tidak valid.');
   if (!partner.name) throw new AppError('VALIDATION_ERROR', 'Nama lawan transaksi wajib diisi.');
-  const date = certificateDate || new Date().toISOString().slice(0, 10), period = periodOf(date);
+  const date = certificateDate || businessDate.today(), period = periodOf(date);
   const tax = idr(gross * rate / 100);
   // Nomor bukti potong berurut per jenis & periode.
   const seq = Number((await client.query(`SELECT count(*)::int n FROM withholding_certificates WHERE tax_type=$1 AND period=$2`, [taxType, period])).rows[0].n) + 1;

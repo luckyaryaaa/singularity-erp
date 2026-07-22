@@ -1,4 +1,5 @@
 'use strict';
+const businessDate = require('../core/business-date');
 const { readBody } = require('../core/util');
 const { AppError } = require('../core/errors');
 const { assertPermission } = require('../core/permissions');
@@ -78,7 +79,7 @@ async function dispatch(client, req, url, ctx) {
     if(!body.roleKey||!body.accountCode)throw new AppError('VALIDATION_ERROR','roleKey dan accountCode wajib diisi.');
     const exists=(await client.query('SELECT 1 FROM chart_of_accounts WHERE code=$1 AND active',[body.accountCode])).rowCount;
     if(!exists)throw new AppError('VALIDATION_ERROR',`Akun ${body.accountCode} tidak ada/aktif pada bagan akun.`);
-    const from=body.effectiveFrom||new Date().toISOString().slice(0,10);
+    const from=body.effectiveFrom||businessDate.today();
     // Pemetaan lama ditutup pada H-1 agar histori laporan lampau tidak berubah.
     await client.query(`UPDATE account_roles SET effective_until=($2::date - interval '1 day')::date
       WHERE active AND role_key=$1 AND effective_until IS NULL AND effective_from<$2::date`,[body.roleKey,from]);

@@ -9,6 +9,7 @@
 //   3. RMA/garansi: validasi masa garansi dari products.warranty_months ×
 //      tanggal kirim sumber; disposisi RESTOCK menghidupkan stok + lot baru;
 //      nilai retur dijurnal via posting profile RMA-DEFAULT (kontra pendapatan).
+const businessDate = require('../../../core/business-date');
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
 const { assertBranchAccess, queryScope } = require('../../../core/data-scope');
@@ -55,7 +56,7 @@ async function listQuotationRevisions(client, docId, user) {
 async function activePolicies(client, onDate) {
   const rows = (await client.query(`SELECT DISTINCT ON (level) * FROM dunning_policies
     WHERE active AND effective_from<=$1 AND (effective_until IS NULL OR effective_until>=$1)
-    ORDER BY level, effective_from DESC`, [onDate || new Date().toISOString().slice(0, 10)])).rows;
+    ORDER BY level, effective_from DESC`, [onDate || businessDate.today()])).rows;
   if (!rows.length) throw new AppError('RESOURCE_NOT_FOUND', 'Kebijakan dunning belum dikonfigurasi.');
   return rows;
 }

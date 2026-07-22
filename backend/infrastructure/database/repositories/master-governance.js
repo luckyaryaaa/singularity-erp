@@ -1,5 +1,6 @@
 'use strict';
 
+const businessDate = require('../../../core/business-date');
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
 
@@ -168,7 +169,7 @@ async function findRate(client,from,to,date) {
 }
 
 async function resolveCurrency(client,{legalEntityId,transactionCurrency='IDR',date,amount}) {
-  const tx=String(transactionCurrency||'IDR').toUpperCase(),rateDate=date||new Date().toISOString().slice(0,10);
+  const tx=String(transactionCurrency||'IDR').toUpperCase(),rateDate=date||businessDate.today();
   const entity=legalEntityId?(await client.query('SELECT functional_currency,reporting_currency FROM legal_entities WHERE id=$1',[legalEntityId])).rows[0]:null;
   const functional=entity?.functional_currency||'IDR',reporting=entity?.reporting_currency||functional;
   const [functionalRate,reportingRate]=await Promise.all([findRate(client,tx,functional,rateDate),findRate(client,tx,reporting,rateDate)]);

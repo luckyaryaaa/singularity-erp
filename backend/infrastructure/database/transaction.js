@@ -1,10 +1,18 @@
 'use strict';
 const { getPool } = require('./pool');
 const { CROSS_BRANCH_ROLES } = require('../../core/permissions');
+const { TIMEZONE } = require('../../core/business-date');
 
 // Tanpa user (job internal, migrasi, boot) konteks disetel eksplisit ke mode
 // sistem, BUKAN dibiarkan kosong — policy harus dapat membedakan "sistem" dari
 // "pengguna yang cabangnya belum diketahui".
+// Zona waktu sesi disamakan dengan zona waktu bisnis aplikasi. Tanpa ini,
+// `current_date` di database mengikuti konfigurasi server — di VPS umumnya UTC —
+// sehingga berbeda tujuh jam dari tanggal bisnis yang dipakai aplikasi.
+async function setSessionTimezone(client) {
+  await client.query('SELECT set_config($1,$2,true)', ['TimeZone', TIMEZONE]);
+}
+
 async function setRlsContext(client, user) {
   const crossBranch = !user || CROSS_BRANCH_ROLES.includes(user.role) || user.branchScope === '*';
   await client.query('SELECT set_config($1,$2,true)', ['app.user_id', user?.id ? String(user.id) : '']);
@@ -26,6 +34,7 @@ async function withTransaction(work, options = {}) {
     // variabel ini sebagai lapisan pertahanan kedua di belakang pemeriksaan
     // aplikasi. SET LOCAL berarti nilainya hilang saat transaksi selesai, jadi
     // koneksi yang kembali ke pool tidak pernah membawa konteks pengguna lain.
+    await setSessionTimezone(client);
     await setRlsContext(client, options.user);
     const result = await work(client);
     await client.query('COMMIT');
@@ -46,4 +55,4 @@ async function withSerializableRetry(work, { attempts = 3, timeoutMs = 30_000 } 
   }
 }
 
-module.exports = { withTransaction, withSerializableRetry, setRlsContext };
+module.exports = { withTransaction, withSerializableRetry, setRlsContext, setSessionTimezone };

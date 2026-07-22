@@ -1,4 +1,5 @@
 'use strict';
+const businessDate = require('../core/business-date');
 const { randomUUID } = require('node:crypto');
 const { withTransaction } = require('../infrastructure/database/transaction');
 const jobs = require('../infrastructure/database/repositories/operations');
@@ -9,7 +10,7 @@ const businessOps = require('../infrastructure/database/repositories/business-op
 const reporting = require('../infrastructure/database/repositories/reporting');
 const { hasGlobalScope } = require('../core/data-scope');
 const {parse:parseCsv}=require('../core/csv');
-async function scheduleBackup(client){if(process.env.MAT_BACKUP_SCHEDULE_ENABLED==='0')return false;const active=Number((await client.query(`SELECT count(*) n FROM background_jobs WHERE job_type='BACKUP_RUN' AND status=ANY($1::varchar[])`,[jobs.activeStatuses])).rows[0].n);if(active)return false;const latest=(await client.query(`SELECT finished_at FROM backup_runs WHERE status='COMPLETED' ORDER BY finished_at DESC LIMIT 1`)).rows[0],hours=Math.min(Math.max(Number(process.env.MAT_BACKUP_INTERVAL_HOURS)||24,1),168);if(latest&&Date.now()-new Date(latest.finished_at).getTime()<hours*3600000)return false;const owner=(await client.query(`SELECT id,role,mfa_enabled "mfaEnabled",(mfa_enabled AND totp_secret_ciphertext IS NOT NULL) "mfaActive" FROM app_users WHERE role='owner' AND active ORDER BY created_at LIMIT 1`)).rows[0];if(!owner)return false;await jobs.enqueue(client,{type:'BACKUP_RUN',user:owner,params:{scheduled:true},executionKey:`scheduled:${new Date().toISOString().slice(0,10)}`,system:true});return true;}
+async function scheduleBackup(client){if(process.env.MAT_BACKUP_SCHEDULE_ENABLED==='0')return false;const active=Number((await client.query(`SELECT count(*) n FROM background_jobs WHERE job_type='BACKUP_RUN' AND status=ANY($1::varchar[])`,[jobs.activeStatuses])).rows[0].n);if(active)return false;const latest=(await client.query(`SELECT finished_at FROM backup_runs WHERE status='COMPLETED' ORDER BY finished_at DESC LIMIT 1`)).rows[0],hours=Math.min(Math.max(Number(process.env.MAT_BACKUP_INTERVAL_HOURS)||24,1),168);if(latest&&Date.now()-new Date(latest.finished_at).getTime()<hours*3600000)return false;const owner=(await client.query(`SELECT id,role,mfa_enabled "mfaEnabled",(mfa_enabled AND totp_secret_ciphertext IS NOT NULL) "mfaActive" FROM app_users WHERE role='owner' AND active ORDER BY created_at LIMIT 1`)).rows[0];if(!owner)return false;await jobs.enqueue(client,{type:'BACKUP_RUN',user:owner,params:{scheduled:true},executionKey:`scheduled:${businessDate.today()}`,system:true});return true;}
 
 async function recordDelivery(client,{notificationId,channel,destination,status,error}){
   const target=destination?String(destination).slice(0,240):null;

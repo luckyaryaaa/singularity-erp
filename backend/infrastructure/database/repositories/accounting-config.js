@@ -3,13 +3,14 @@
 // Menggantikan account mapping & tarif hardcoded dengan lookup effective-dated
 // dari posting_profiles dan payroll_rule_versions.
 
+const businessDate = require('../../../core/business-date');
 const { AppError } = require('../../../core/errors');
 
 // Pilih posting profile paling spesifik yang berlaku untuk dokumen.
 // Spesifisitas: item_category cocok > default '*'; branch cocok > null;
 // legal entity cocok > null; lalu priority terkecil; lalu versi tertinggi.
 async function resolvePostingProfile(client, { transactionType, itemCategory = '*', legalEntityId = null, branchId = null, onDate }) {
-  const date = onDate || new Date().toISOString().slice(0, 10);
+  const date = onDate || businessDate.today();
   const profile = (await client.query(
     `SELECT * FROM posting_profiles
      WHERE transaction_type=$1 AND active
@@ -35,7 +36,7 @@ async function resolvePostingProfile(client, { transactionType, itemCategory = '
 // Kumpulkan seluruh aturan payroll aktif yang berlaku pada tanggal periode,
 // beserta snapshot versi untuk disimpan di payroll_items.
 async function resolvePayrollRules(client, onDate) {
-  const date = onDate || new Date().toISOString().slice(0, 10);
+  const date = onDate || businessDate.today();
   const rows = (await client.query(
     `SELECT DISTINCT ON (rule_type) rule_type, version, config FROM payroll_rule_versions
      WHERE active AND effective_from<=$1 AND (effective_until IS NULL OR effective_until>=$1)
@@ -53,7 +54,7 @@ async function resolvePayrollRules(client, onDate) {
 // Menggantikan literal '1100'/'1300'/1.11 yang dulu tertanam di query laporan.
 // Effective-dated: laporan periode lampau memakai pemetaan/tarif saat itu.
 const asDate = (v) => {
-  if (!v) return new Date().toISOString().slice(0, 10);
+  if (!v) return businessDate.today();
   const s = v instanceof Date ? v.toISOString() : String(v);
   return /^\d{4}-\d{2}$/.test(s) ? `${s}-01` : s.slice(0, 10);
 };
