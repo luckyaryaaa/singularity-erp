@@ -4,11 +4,24 @@ const { hashPassword, verifyPassword, needsRehash } = require('../../../core/pas
 const { AppError } = require('../../../core/errors');
 const { grantsFor } = require('../../../core/permissions');
 const totp = require('../../../core/totp');
+const iamGrants = require('./iam-grants');
 
 const SESSION_IDLE_MS=60*60*1000,SESSION_ABSOLUTE_MS=8*60*60*1000,SESSION_TOUCH_MS=Math.min(Math.max(Number(process.env.MAT_SESSION_TOUCH_MS)||5*60*1000,60*1000),10*60*1000),LOCK_THRESHOLD=5,LOCK_WINDOW_MS=15*60*1000;
 const rawToken=(bytes=32)=>randomBytes(bytes).toString('hex');
 const digest=(value)=>createHash('sha256').update(String(value)).digest('hex');
-async function expireAssignments(client){const rows=(await client.query(`UPDATE user_role_assignments SET status='EXPIRED',revoked_at=COALESCE(revoked_at,now()),revoke_reason=COALESCE(revoke_reason,'Masa berlaku assignment berakhir') WHERE status='ACTIVE' AND effective_until<=now() RETURNING user_id`)).rows;if(rows.length)await client.query(`UPDATE user_sessions SET active=false,ended_at=now(),end_reason='access_expired' WHERE active AND user_id=ANY($1::uuid[])`,[[...new Set(rows.map(row=>row.user_id))]]);return rows.length;}
+// B2 — sejak peran tambahan berlaku, kedaluwarsanya peran SEKUNDER tidak boleh
+// mengusir pengguna dari sesinya: kewenangan tambahan hilang dengan sendirinya
+// karena grant di-resolve ulang tiap request. Sesi hanya diakhiri bila pengguna
+// kehilangan peran PRIMARY-nya — saat itu tidak ada lagi dasar akses.
+async function expireAssignments(client){
+  const rows=(await client.query(`UPDATE user_role_assignments SET status='EXPIRED',revoked_at=COALESCE(revoked_at,now()),
+    revoke_reason=COALESCE(revoke_reason,'Masa berlaku assignment berakhir')
+    WHERE status='ACTIVE' AND effective_until<=now() RETURNING user_id,is_primary`)).rows;
+  const lostPrimary=[...new Set(rows.filter(r=>r.is_primary).map(r=>r.user_id))];
+  if(lostPrimary.length)await client.query(`UPDATE user_sessions SET active=false,ended_at=now(),end_reason='access_expired'
+    WHERE active AND user_id=ANY($1::uuid[])`,[lostPrimary]);
+  return rows.length;
+}
 const cipherKey=()=>createHash('sha256').update(process.env.MAT_MFA_ENCRYPTION_KEY||process.env.DATABASE_URL||'mat-erp-v2-development').digest();
 function encryptSecret(value){const crypto=require('node:crypto'),iv=randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',cipherKey(),iv),body=Buffer.concat([cipher.update(value,'utf8'),cipher.final()]);return `${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${body.toString('base64url')}`;}
 function decryptSecret(value){const crypto=require('node:crypto'),[iv,tag,body]=String(value||'').split('.'),decipher=crypto.createDecipheriv('aes-256-gcm',cipherKey(),Buffer.from(iv,'base64url'));decipher.setAuthTag(Buffer.from(tag,'base64url'));return Buffer.concat([decipher.update(Buffer.from(body,'base64url')),decipher.final()]).toString('utf8');}
@@ -89,6 +102,14 @@ async function resolveSession(client,plainToken,{ip,device}={}){
   // tidak pernah berlaku. Hibah aktif dimuat ke objek user di sini (tempat
   // role & branch scope juga berasal) sehingga hasPermission tetap sinkron
   // dan hibah kedaluwarsa hilang sendiri pada request berikutnya.
+  // B1/B2 — kewenangan efektif dari DATABASE, union seluruh peran aktif.
+  // Fallback ke ROLE_GRANTS hanya bila role_permissions belum ter-seed,
+  // sehingga instalasi yang belum menjalankan sinkronisasi baseline tidak
+  // tiba-tiba kehilangan seluruh akses.
+  const dbGrants=await iamGrants.grantsForUser(client,row.app_user_id);
+  user.grants=dbGrants.length?dbGrants:[...grantsFor(row.role)];
+  user.grantSource=dbGrants.length?'DATABASE':'BASELINE';
+  user.roles=await iamGrants.rolesForUser(client,row.app_user_id);
   user.emergencyGrants=(await client.query(`SELECT permission_code,scope_type,scope_id,effective_until
     FROM emergency_access_overrides WHERE user_id=$1 AND status='ACTIVE'
       AND effective_from<=now() AND effective_until>now()`,[row.app_user_id])).rows

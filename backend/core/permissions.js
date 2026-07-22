@@ -55,9 +55,18 @@ function grantsFor(role) {
   return new Set(grants);
 }
 
+// B1/B2 — kewenangan efektif. `user.grants` diisi dari database saat sesi
+// di-resolve (union seluruh peran AKTIF, bukan hanya peran primary). Bila tidak
+// tersedia — adapter in-memory, unit test, jalur boot — ROLE_GRANTS di source
+// dipakai sebagai baseline yang sama persis dengan yang di-seed ke DB.
+function effectiveGrants(user) {
+  if (Array.isArray(user.grants) && user.grants.length) return new Set(user.grants);
+  return grantsFor(user.role);
+}
+
 function hasPermission(user, code) {
   if (!user) return false;
-  const grants = grantsFor(user.role);
+  const grants = effectiveGrants(user);
   if (grants.has('*') || grants.has(code)) return true;
   // B3 — hibah break-glass yang masih berlaku, dimuat dari
   // emergency_access_overrides saat sesi di-resolve. Hanya berlaku untuk
@@ -66,9 +75,12 @@ function hasPermission(user, code) {
 }
 
 // Aksi yang berjalan atas hibah darurat wajib dapat dibedakan di jejak audit.
-const emergencyGrantFor = (user, code) =>
-  (Array.isArray(user?.emergencyGrants) ? user.emergencyGrants : []).find((g) => g?.code === code
-    && !(grantsFor(user.role).has('*') || grantsFor(user.role).has(code))) || null;
+const emergencyGrantFor = (user, code) => {
+  if (!user) return null;
+  const grants = effectiveGrants(user);
+  if (grants.has('*') || grants.has(code)) return null;      // memang haknya, bukan darurat
+  return (Array.isArray(user.emergencyGrants) ? user.emergencyGrants : []).find((g) => g?.code === code) || null;
+};
 
 // Role yang secara desain melihat lintas cabang (owner/admin/pengawas).
 const CROSS_BRANCH_ROLES = ['owner', 'system_admin', 'security_admin', 'auditor', 'admin'];
@@ -120,4 +132,4 @@ const APPROVAL_LEVEL_BY_ROLE = Object.freeze({
   sales:'supervisor',procurement:'supervisor',warehouse:'supervisor',production:'supervisor',hrd:'supervisor'
 });
 
-module.exports = { MODULES, ACTIONS, ROLE_GRANTS, grantsFor, hasPermission, emergencyGrantFor, assertPermission, withinBranchScope, assertBranchScope, CROSS_BRANCH_ROLES, approvalLevelsFor, OWNER_PIN_ACTIONS, APPROVAL_MATRIX, APPROVAL_LEVEL_BY_ROLE };
+module.exports = { MODULES, ACTIONS, ROLE_GRANTS, grantsFor, hasPermission, effectiveGrants, emergencyGrantFor, assertPermission, withinBranchScope, assertBranchScope, CROSS_BRANCH_ROLES, approvalLevelsFor, OWNER_PIN_ACTIONS, APPROVAL_MATRIX, APPROVAL_LEVEL_BY_ROLE };
