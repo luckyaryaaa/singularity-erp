@@ -6,7 +6,7 @@
 const ROUTE_MATRIX = Object.freeze([
   { file:'auth.js', handlers:13, directGuards:0, strategy:'PUBLIC_OR_SESSION_SELF_SERVICE', evidence:['test/api.test.js','test/postgres-auth.integration.test.js'] },
   { file:'workspace.js', handlers:3, directGuards:3, strategy:'PERMISSION_AND_USER_SCOPE', evidence:['test/api.test.js'] },
-  { file:'documents.js', handlers:8, directGuards:8, strategy:'DYNAMIC_DOCUMENT_PERMISSION_AND_BRANCH', evidence:['test/api.test.js','test/branch-isolation.test.js'] },
+  { file:'documents.js', handlers:9, directGuards:9, strategy:'DYNAMIC_DOCUMENT_PERMISSION_AND_BRANCH', evidence:['test/api.test.js','test/branch-isolation.test.js'] },
   { file:'sales.js', handlers:6, directGuards:6, strategy:'PERMISSION_AND_REPOSITORY_BRANCH', evidence:['test/sprint9-o2c.test.js','test/branch-isolation.test.js'] },
   { file:'procurement.js', handlers:15, directGuards:2, strategy:'REPOSITORY_PERMISSION_BRANCH_AND_SOD', evidence:['test/sprint10-s2p.test.js','test/branch-isolation.test.js'] },
   { file:'operations.js', handlers:12, directGuards:12, strategy:'PERMISSION_OWNERSHIP_AND_BRANCH', evidence:['test/postgres.http.test.js','test/r012-hardening.test.js'] },

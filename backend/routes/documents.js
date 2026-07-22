@@ -31,8 +31,26 @@ async function dispatch(client, req, url, ctx) {
     const body=await readBody(req);assertPermission(ctx.user,`${documentCore.moduleOf(body.type)}.create`);ctx.status=201;
     const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:'documents.create',key:req.headers['idempotency-key'],body},async()=>({status:201,body:await runtime.createDocument(client,{...body,amount:Number(body.amount)||0,user:ctx.user,requestId:ctx.requestId})}));ctx.status=result.status;return result.body;
   }
+  // P1-4 — status pemenuhan per baris sales order: berapa dipesan, dikirim,
+  // ditagih, dan berapa sisanya. Sebelumnya pemenuhan parsial tidak terlihat
+  // sama sekali karena baris pengiriman tidak tertaut ke baris pesanan.
+  m=p.match(/^\/api\/documents\/([0-9a-f-]{36})\/fulfilment$/);
+  if(method==='GET'&&m){
+    const doc=await runtime.getDocument(client,m[1]);
+    if(!doc)throw new AppError('RESOURCE_NOT_FOUND');
+    assertPermission(ctx.user,`${documentCore.moduleOf(doc.documentType)}.view`,{branchId:doc.branchId});
+    if(doc.documentType!=='SALES_ORDER')throw new AppError('VALIDATION_ERROR','Status pemenuhan hanya berlaku untuk sales order.');
+    return posting.orderFulfilment(client,doc.id);
+  }
   m=p.match(/^\/api\/documents\/([^/]+)$/);
-  if(method==='GET'&&m){const doc=await runtime.getDocument(client,m[1]);if(!doc)throw new AppError('RESOURCE_NOT_FOUND');assertPermission(ctx.user,`${documentCore.moduleOf(doc.documentType)}.view`,{branchId:doc.branchId});const trail=await runtime.auditTrail(client,doc.id),relations=await runtime.documentRelations(client,doc.id);const levels=doc.requiredApprovalLevels||[];return{...doc,relations,auditTrail:trail,approvalChain:levels.map(level=>({level,done:(doc.approvals||[]).find(a=>a.level===level)||null}))};}
+  if(method==='GET'&&m){const doc=await runtime.getDocument(client,m[1]);if(!doc)throw new AppError('RESOURCE_NOT_FOUND');assertPermission(ctx.user,`${documentCore.moduleOf(doc.documentType)}.view`,{branchId:doc.branchId});const trail=await runtime.auditTrail(client,doc.id),relations=await runtime.documentRelations(client,doc.id);
+    // P1-4: baris dikirim dari document_lines yang OTORITATIF, bukan dari
+    // payload klien. Sejak P0-I server yang menentukan qty/harga/total, jadi
+    // menampilkan payload berisiko memperlihatkan angka yang berbeda dari yang
+    // benar-benar tersimpan.
+    const documentLines=(await client.query(`SELECT id,line_no,product_id,description,qty::float,uom,unit_price::float,discount_pct::float,tax_pct::float,line_total::float,source_line_id
+      FROM document_lines WHERE document_id=$1 ORDER BY line_no`,[doc.id])).rows.map(runtime.camel);
+    const levels=doc.requiredApprovalLevels||[];return{...doc,lines:documentLines,relations,auditTrail:trail,approvalChain:levels.map(level=>({level,done:(doc.approvals||[]).find(a=>a.level===level)||null}))};}
   if(method==='PATCH'&&m){const current=await runtime.getDocument(client,m[1]);if(!current)throw new AppError('RESOURCE_NOT_FOUND');assertPermission(ctx.user,`${documentCore.moduleOf(current.documentType)}.edit`,{branchId:current.branchId});const body=await readBody(req);return runtime.updateDocument(client,{id:m[1],expectedVersion:body.version,patch:body,user:ctx.user,requestId:ctx.requestId});}
   m=p.match(/^\/api\/documents\/([^/]+)\/action$/);
   if(method==='POST'&&m){

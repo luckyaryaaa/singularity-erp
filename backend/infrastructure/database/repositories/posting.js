@@ -11,7 +11,8 @@ function normalizeLines(lines){
     const qty=Number(line.qty),price=Number(line.unitPrice??line.price??0),discount=Number(line.discountPct||0),tax=Number(line.taxPct??0);
     if(!(qty>0)||price<0||discount<0||discount>100||tax<0||tax>100)throw new AppError('VALIDATION_ERROR',`Baris ${i+1} tidak valid.`);
     const base=qty*price*(1-discount/100);
-    return{lineNo:i+1,productId:line.productId||null,description:line.description||line.name||`Baris ${i+1}`,qty,uom:line.uom||null,price,discount,tax,total:Math.round((base+base*tax/100)*100)/100};
+    // P1-4: sourceLineId menautkan baris ini ke baris pesanan yang dipenuhinya.
+    return{lineNo:i+1,productId:line.productId||null,description:line.description||line.name||`Baris ${i+1}`,qty,uom:line.uom||null,price,discount,tax,sourceLineId:line.sourceLineId||null,total:Math.round((base+base*tax/100)*100)/100};
   });
 }
 const lineSubtotalOf=(normalized)=>Math.round(normalized.reduce((s,l)=>s+l.total,0)*100)/100;
@@ -20,8 +21,66 @@ async function syncDocumentLines(client,documentId,lines){
   const normalized=normalizeLines(lines);
   if(!normalized)return null;
   await client.query('DELETE FROM document_lines WHERE document_id=$1',[documentId]);
-  for(const l of normalized)await client.query(`INSERT INTO document_lines(id,document_id,line_no,product_id,description,qty,uom,unit_price,discount_pct,tax_pct,line_total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[randomUUID(),documentId,l.lineNo,l.productId,l.description,l.qty,l.uom,l.price,l.discount,l.tax,l.total]);
+  for(const l of normalized)await client.query(`INSERT INTO document_lines(id,document_id,line_no,product_id,description,qty,uom,unit_price,discount_pct,tax_pct,line_total,source_line_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,[randomUUID(),documentId,l.lineNo,l.productId,l.description,l.qty,l.uom,l.price,l.discount,l.tax,l.total,l.sourceLineId]);
   return lineSubtotalOf(normalized);
+}
+
+// P1-4 — pemenuhan tidak boleh melampaui yang dipesan.
+//
+// Tanpa pemeriksaan ini, tautan baris hanya menjadi hiasan: seseorang dapat
+// mengirim 100 unit atas baris pesanan 10 unit dan sistem tetap menganggapnya
+// sah. Aturannya sejajar dengan retur RMA (P0-L) dan three-way match (P0-O):
+// klaim terdahulu ikut diperhitungkan, dan draf tidak mengunci sisa pesanan.
+async function assertFulfilmentWithinOrder(client,{documentId,documentType,partyId,lines}){
+  const normalized=normalizeLines(lines);
+  if(!normalized)return null;
+  const linked=normalized.filter(l=>l.sourceLineId);
+  if(!linked.length)return null;
+  if(!['DELIVERY','INVOICE'].includes(documentType))
+    throw new AppError('VALIDATION_ERROR',`Dokumen ${documentType} tidak dapat memenuhi baris pesanan.`);
+
+  const checked=[];
+  for(const line of linked){
+    const source=(await client.query(`SELECT f.*,d.status order_status FROM sales_order_line_fulfilment f
+      JOIN business_documents d ON d.id=f.sales_order_id WHERE f.line_id=$1`,[line.sourceLineId])).rows[0];
+    if(!source)throw new AppError('RESOURCE_NOT_FOUND',`Baris pesanan ${line.sourceLineId} tidak ditemukan.`);
+    if(['DRAFT','REVISION_REQUIRED','CANCELLED','VOID','REJECTED'].includes(source.order_status))
+      throw new AppError('STATUS_INVALID',`Sales order ${source.sales_order_number} berstatus ${source.order_status} — belum dapat dipenuhi.`);
+    if(partyId&&source.party_id&&String(partyId)!==String(source.party_id))
+      throw new AppError('VALIDATION_ERROR',`Baris pesanan ${source.sales_order_number} milik pelanggan lain.`,{orderPartyId:source.party_id});
+    if(line.productId&&source.product_id&&String(line.productId)!==String(source.product_id))
+      throw new AppError('VALIDATION_ERROR',`Produk baris ${line.lineNo} tidak cocok dengan baris pesanan ${source.sales_order_number}.`);
+
+    // Saat dokumen ini disimpan ulang, barisnya sendiri masih terhitung pada
+    // view — kurangi supaya penyuntingan tidak dianggap penambahan.
+    const own=documentId?Number((await client.query(
+      `SELECT COALESCE(sum(qty),0)::float q FROM document_lines l JOIN business_documents d ON d.id=l.document_id
+       WHERE l.source_line_id=$1 AND l.document_id=$2
+         AND d.status NOT IN('DRAFT','REVISION_REQUIRED','CANCELLED','VOID','REJECTED')`,
+      [line.sourceLineId,documentId])).rows[0].q):0;
+    const already=documentType==='DELIVERY'?Number(source.delivered_qty)-own:Number(source.invoiced_qty)-own;
+    const cap=documentType==='DELIVERY'?Number(source.ordered_qty):Number(source.delivered_qty);
+    const available=Math.round((cap-already)*1e6)/1e6;
+    if(line.qty>available){
+      throw new AppError('VALIDATION_ERROR',
+        documentType==='DELIVERY'
+          ? `Baris ${line.lineNo}: pengiriman ${line.qty} melebihi sisa pesanan ${available} pada ${source.sales_order_number} (dipesan ${source.ordered_qty}, sudah dikirim ${already}).`
+          : `Baris ${line.lineNo}: tagihan ${line.qty} melebihi yang sudah dikirim ${available} pada ${source.sales_order_number}.`,
+        {salesOrderNumber:source.sales_order_number,orderedQty:Number(source.ordered_qty),alreadyFulfilled:already,availableQty:available});
+    }
+    checked.push({lineNo:line.lineNo,sourceLineId:line.sourceLineId,salesOrderId:source.sales_order_id,availableQty:available});
+  }
+  return checked;
+}
+
+// Ringkasan pemenuhan sebuah sales order — dasar layar dan ATP/CTP.
+async function orderFulfilment(client,salesOrderId){
+  const rows=(await client.query(`SELECT * FROM sales_order_line_fulfilment WHERE sales_order_id=$1 ORDER BY line_no`,[salesOrderId])).rows;
+  const totals=rows.reduce((acc,r)=>({ordered:acc.ordered+r.ordered_qty,delivered:acc.delivered+r.delivered_qty,invoiced:acc.invoiced+r.invoiced_qty,remaining:acc.remaining+r.remaining_qty}),
+    {ordered:0,delivered:0,invoiced:0,remaining:0});
+  const status=!rows.length?'NO_LINES':totals.remaining<=0?'FULFILLED':totals.delivered>0?'PARTIAL':'OPEN';
+  return {salesOrderId,status,totals,lines:rows.map(r=>({lineId:r.line_id,lineNo:r.line_no,productId:r.product_id,description:r.description,uom:r.uom,
+    orderedQty:r.ordered_qty,deliveredQty:r.delivered_qty,invoicedQty:r.invoiced_qty,remainingQty:r.remaining_qty}))};
 }
 
 // P0-I: total dokumen dihitung SERVER dari baris + diskon/pajak header.
@@ -133,4 +192,4 @@ async function postPayroll(client,doc,user){if(doc.status!=='APPROVED')return nu
   // Kaki payroll dari posting profile: NET, TAX, BPJS_COMPANY dipetakan ke akun.
   const posted=await postFromProfile(client,doc,user,{transactionType:'PAYROLL_RUN',amounts:{NET:net,TAX:tax,BPJS_COMPANY:bpjs},memoBase:'payroll'});await finishPosting(client,doc,'ACCOUNTING',{period,net,tax,bpjs,...posted});return{period,net,tax,bpjs,...posted};}
 async function postDocument(client,doc,user){return{inventory:await postInventory(client,doc,user),accounting:await postAccounting(client,doc,user)};}
-module.exports={syncDocumentLines,normalizeLines,lineSubtotalOf,authoritativeTotal,assertAmountMatchesLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod};
+module.exports={syncDocumentLines,normalizeLines,assertFulfilmentWithinOrder,orderFulfilment,lineSubtotalOf,authoritativeTotal,assertAmountMatchesLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod};

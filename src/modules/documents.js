@@ -9,7 +9,11 @@
       const doc = await query(`doc:${params.id}`, () => api(`/api/documents/${params.id}`, { signal }), { staleMs: 10_000, force: true });
       const moduleCode = MODULE_OF_TYPE[doc.documentType];
       const files = await api(`/api/files?documentId=${encodeURIComponent(doc.id)}`, { signal });
-      const lines = (doc.payload && doc.payload.lines) || [];
+      // Baris otoritatif dari document_lines. Sebelumnya halaman ini membaca
+      // doc.payload.lines dan mengharapkan {name, price} — padahal bentuk
+      // kanoniknya {description, unitPrice} — sehingga nama item kosong,
+      // harga tampil "—", dan total tampil "Rp NaN" pada SETIAP dokumen.
+      const lines = doc.lines || [];
       main.innerHTML = pageHead({
         eyebrow: (TYPE_LABEL[doc.documentType] || doc.documentType).toUpperCase(),
         title: doc.documentNumber,
@@ -31,7 +35,7 @@
             ${lines.length ? `<article class="panel"><header><div><p class="eyebrow">RINCIAN</p><h2>Baris item</h2></div></header>
               <div class="table-wrap"><table>
                 <thead><tr><th>Item</th><th class="right">Qty</th><th class="right">Harga satuan</th><th class="right">Total</th></tr></thead>
-                <tbody>${lines.map((l) => `<tr><td><b>${esc(l.name)}</b></td><td class="right">${l.qty} ${esc(l.uom || '')}</td><td class="right money">${fmtIDRFull(l.price)}</td><td class="right money">${fmtIDRFull(l.qty * l.price)}</td></tr>`).join('')}</tbody>
+                <tbody>${lines.map((l) => `<tr><td><b>${esc(l.description || l.name || '—')}</b></td><td class="right">${Number(l.qty)} ${esc(l.uom || '')}</td><td class="right money">${fmtIDRFull(l.unitPrice ?? l.price ?? 0)}</td><td class="right money">${fmtIDRFull(l.lineTotal ?? (Number(l.qty) * Number(l.unitPrice ?? l.price ?? 0)))}</td></tr>`).join('')}</tbody>
               </table></div></article>` : ''}
             ${(doc.relations || []).length ? `<article class="panel"><header><div><p class="eyebrow">ALUR</p><h2>Dokumen terkait</h2></div></header><div class="panel-body stack">${doc.relations.map((r) => { const other = r.parentId === doc.id ? { id:r.childId, no:r.childNumber, type:r.childType } : { id:r.parentId, no:r.parentNumber, type:r.parentType }; return `<a class="relation-link" href="#/doc/${esc(other.id)}"><span><b>${esc(other.no)}</b><small>${esc(TYPE_LABEL[other.type] || other.type)}</small></span>${ICONS.arrow}</a>`; }).join('')}</div></article>` : ''}
             <article class="panel"><header><div><p class="eyebrow">AUDIT</p><h2>Jejak lengkap</h2></div></header>
@@ -44,6 +48,7 @@
             ${(doc.approvalChain || []).length ? `<article class="panel"><header><div><p class="eyebrow">PERSETUJUAN</p><h2>Rantai keputusan</h2></div></header>
               <div class="panel-body chain">${doc.approvalChain.map((s) => `<div class="chain-step ${s.done ? 'done' : ''}"><span class="chain-dot">${s.done ? ICONS.check : ''}</span><span><b>${esc(s.level)}</b><small>${s.done ? `${esc(s.done.userName)} · ${fmtDateTime(s.done.at)}` : 'Menunggu keputusan'}</small></span></div>`).join('')}</div></article>` : ''}
             ${doc.documentType === 'SUPPLIER_INVOICE' ? `<article class="panel" id="matchPanel"><header><div><p class="eyebrow">PENGADAAN</p><h2>Three-way match</h2></div></header><div class="panel-body stack" id="matchBody"><span class="spinner"></span> Mengevaluasi…</div></article>` : ''}
+            ${doc.documentType === 'SALES_ORDER' ? `<article class="panel" id="fulfilPanel"><header><div><p class="eyebrow">PEMENUHAN</p><h2>Progres pengiriman</h2></div></header><div class="panel-body" id="fulfilBody"><span class="spinner"></span> Memuat…</div></article>` : ''}
             ${['INVOICE','SALES_ORDER'].includes(doc.documentType) && doc.partyId && can('credit.view') ? `<article class="panel" id="creditPanel"><header><div><p class="eyebrow">KREDIT</p><h2>Status kredit</h2></div></header><div class="panel-body stack" id="creditBody"><span class="spinner"></span> Memuat…</div></article>` : ''}
             <article class="panel"><header><div><p class="eyebrow">DOKUMEN</p><h2>Lampiran & cetak</h2></div></header>
               <div class="panel-body stack">
@@ -73,6 +78,23 @@
       main.querySelectorAll('[data-file-delete]').forEach(btn => btn.addEventListener('click', async () => { const answer = await actionDialog({ title: 'Hapus lampiran', description: 'File akan dihapus dari storage privat dan tindakan dicatat pada audit trail.', confirmLabel: 'Hapus', danger: true }); if (!answer) return; try { await api(`/api/files/${btn.dataset.fileDelete}`, { method: 'DELETE' }); toast('Lampiran dihapus'); this.render(main, params); } catch (error) { toast('Penghapusan gagal', error.message, 'coral'); } }));
 
       // Three-way match panel (tagihan supplier).
+      // P1-4 — progres pemenuhan per baris. Sebelumnya pemenuhan parsial tidak
+      // terlihat sama sekali: pengiriman tidak tertaut ke baris pesanan.
+      const fulfilBody = main.querySelector('#fulfilBody');
+      if (fulfilBody) {
+        api(`/api/documents/${doc.id}/fulfilment`).then((f) => {
+          const tone = { FULFILLED: 'mint', PARTIAL: 'amber', OPEN: 'blue', NO_LINES: 'gray' }[f.status] || 'gray';
+          const label = { FULFILLED: 'Terpenuhi', PARTIAL: 'Sebagian', OPEN: 'Belum dikirim', NO_LINES: 'Tanpa baris' }[f.status] || f.status;
+          fulfilBody.innerHTML = `<div class="stat-row"><span>Status</span><span class="chip ${tone}">${esc(label)}</span></div>
+            <div class="stat-row"><span>Dikirim</span><b>${Number(f.totals.delivered)} dari ${Number(f.totals.ordered)}</b></div>
+            <div class="stat-row"><span>Ditagih</span><b>${Number(f.totals.invoiced)}</b></div>
+            ${f.lines.length ? `<div class="table-wrap"><table><thead><tr><th>Baris</th><th class="right">Dipesan</th><th class="right">Dikirim</th><th class="right">Ditagih</th><th class="right">Sisa</th></tr></thead><tbody>${f.lines.map((l) => `
+              <tr><td><b>${esc(l.description)}</b></td><td class="right">${Number(l.orderedQty)}</td>
+                <td class="right">${Number(l.deliveredQty)}</td><td class="right">${Number(l.invoicedQty)}</td>
+                <td class="right ${Number(l.remainingQty) > 0 ? 'error-text' : ''}"><b>${Number(l.remainingQty)}</b></td></tr>`).join('')}</tbody></table></div>` : ''}`;
+        }).catch((e) => { fulfilBody.innerHTML = `<p class="error-text">${esc(e.message)}</p>`; });
+      }
+
       const matchBody = main.querySelector('#matchBody');
       if (matchBody) {
         api(`/api/supplier-invoices/${doc.id}/match`).then((match) => {
