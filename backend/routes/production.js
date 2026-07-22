@@ -5,6 +5,7 @@ const { readBody } = require('../core/util');
 const { assertPermission } = require('../core/permissions');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const production = require('../infrastructure/database/repositories/production');
+const capacity = require('../infrastructure/database/repositories/capacity');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -38,6 +39,21 @@ async function dispatch(client, req, url, ctx) {
     return { items: (await client.query(`SELECT wc.id,wc.code,wc.name,wc.work_center_type,wc.capacity_hours_per_day,wc.hourly_rate,p.name plant_name FROM work_centers wc JOIN plants p ON p.id=wc.plant_id WHERE wc.active AND ($1 OR p.branch_id=$2) ORDER BY wc.code`, [scopeAll, ctx.user.branchId])).rows.map(runtime.camel) };
   }
   if (method === 'POST' && pathname === '/api/mrp/run') { assertPermission(ctx.user, 'production.post'); const body = await readBody(req); return idempotent('mrp.run', body, 200, () => production.runMrp(client, { user: ctx.user, warehouseId: body.warehouseId || null, requestId: ctx.requestId })); }
+  // Kapasitas & WIP — capacity_hours_per_day ada sejak migrasi 012 tetapi tidak
+  // pernah diperiksa, dan operasi tidak punya tanggal sampai migrasi 060.
+  if (method === 'GET' && pathname === '/api/production/capacity')
+    return capacity.capacityBoard(client, { branchId: url.searchParams.get('branchId') || ctx.user.branchId,
+      from: url.searchParams.get('from'), to: url.searchParams.get('to'), user: ctx.user });
+  if (method === 'GET' && pathname === '/api/production/wip')
+    return capacity.wipSummary(client, { branchId: url.searchParams.get('branchId') || ctx.user.branchId, user: ctx.user });
+  match = pathname.match(/^\/api\/production\/operations\/([0-9a-f-]{36})\/schedule$/);
+  if (method === 'POST' && match) { const body = await readBody(req);
+    return capacity.scheduleOperation(client, { operationId: match[1], scheduledDate: body.scheduledDate,
+      allowOverload: body.allowOverload === true, reason: body.reason, user: ctx.user, requestId: ctx.requestId }); }
+  match = pathname.match(/^\/api\/production\/operations\/([0-9a-f-]{36})\/actual-hours$/);
+  if (method === 'POST' && match) { const body = await readBody(req);
+    return capacity.recordActualHours(client, { operationId: match[1], hours: body.hours, user: ctx.user, requestId: ctx.requestId }); }
+
   if (method === 'GET' && pathname === '/api/mrp/suggestions') { assertPermission(ctx.user, 'production.view'); return production.listMrp(client, ctx.user, { warehouseId: url.searchParams.get('warehouseId') || null }); }
   match = pathname.match(/^\/api\/mrp\/suggestions\/([0-9a-f-]{36})\/convert$/);
   if (method === 'POST' && match) { assertPermission(ctx.user, 'purchase_request.create'); const body = await readBody(req); return idempotent(`mrp.convert:${match[1]}`, body, 201, () => production.convertMrp(client, { suggestionId: match[1], user: ctx.user, requestId: ctx.requestId })); }
