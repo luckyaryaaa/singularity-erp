@@ -4,11 +4,31 @@ const { AppError } = require('../core/errors');
 const { assertPermission } = require('../core/permissions');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const procurement = require('../infrastructure/database/repositories/procurement');
+const purchaseContracts = require('../infrastructure/database/repositories/purchase-contracts');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
   const p=url.pathname, method=req.method;
   let m;
+  // ── Kontrak/blanket pembelian ─────────────────────────────────────────────
+  // Sisi penjualan punya kontrak kerangka sejak v0.34; sisi pembelian tidak
+  // punya sama sekali sehingga setiap PO berdiri sendiri tanpa komitmen harga
+  // maupun volume yang ditegakkan.
+  if(method==='GET'&&p==='/api/purchase-contracts')
+    return purchaseContracts.listContracts(client,ctx.user,Object.fromEntries(url.searchParams));
+  if(method==='POST'&&p==='/api/purchase-contracts'){const body=await readBody(req);ctx.status=201;
+    return purchaseContracts.createContract(client,body,ctx.user,ctx.requestId);}
+  m=p.match(/^\/api\/purchase-contracts\/([0-9a-f-]{36})$/);
+  if(method==='GET'&&m)return purchaseContracts.contractDetail(client,m[1],ctx.user);
+  m=p.match(/^\/api\/purchase-contracts\/([0-9a-f-]{36})\/(approve|reject)$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    return purchaseContracts.decideContract(client,{id:m[1],approve:m[2]==='approve',reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/purchase-contracts\/([0-9a-f-]{36})\/release$/);
+  if(method==='POST'&&m){const body=await readBody(req);ctx.status=201;
+    return purchaseContracts.releaseContract(client,{id:m[1],purchaseOrderId:body.purchaseOrderId,
+      contractLineId:body.contractLineId,purchaseOrderLineId:body.purchaseOrderLineId,
+      releasedQty:body.releasedQty,releasedAmount:body.releasedAmount,user:ctx.user,requestId:ctx.requestId});}
+
   // ── Wave 2: RFQ, three-way match, payment proposal, credit control ────────
   const idempotent=async(operation,body,status,execute)=>{const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation,key:req.headers['idempotency-key'],body},async()=>({status,body:await execute()}));ctx.status=result.status;return result.body;};
   // ── Sprint 10: budget pengadaan + PO change order ──────────────────────────

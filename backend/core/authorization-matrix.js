@@ -8,7 +8,7 @@ const ROUTE_MATRIX = Object.freeze([
   { file:'workspace.js', handlers:3, directGuards:3, strategy:'PERMISSION_AND_USER_SCOPE', evidence:['test/api.test.js'] },
   { file:'documents.js', handlers:9, directGuards:9, strategy:'DYNAMIC_DOCUMENT_PERMISSION_AND_BRANCH', evidence:['test/api.test.js','test/branch-isolation.test.js'] },
   { file:'sales.js', handlers:23, directGuards:23, strategy:'PERMISSION_REPOSITORY_BRANCH_RLS_SOD_AND_IDEMPOTENCY', evidence:['test/sprint9-o2c.test.js','test/branch-isolation.test.js','test/wave5-sales-commercial.test.js'] },
-  { file:'procurement.js', handlers:15, directGuards:2, strategy:'REPOSITORY_PERMISSION_BRANCH_AND_SOD', evidence:['test/sprint10-s2p.test.js','test/branch-isolation.test.js'] },
+  { file:'procurement.js', handlers:20, directGuards:2, strategy:'REPOSITORY_PERMISSION_BRANCH_AND_SOD', evidence:['test/sprint10-s2p.test.js','test/branch-isolation.test.js'] },
   { file:'operations.js', handlers:12, directGuards:12, strategy:'PERMISSION_OWNERSHIP_AND_BRANCH', evidence:['test/postgres.http.test.js','test/r012-hardening.test.js'] },
   { file:'masters.js', handlers:47, directGuards:30, strategy:'DYNAMIC_MASTER_PERMISSION_RLS_STAGING_AND_MAKER_CHECKER', evidence:['test/sprint8c-master-governance.test.js','test/sprint8c-wave2.test.js','test/wave3-business-partner-mdm.test.js'] },
   { file:'organization.js', handlers:30, directGuards:20, strategy:'REPOSITORY_SCOPE_VERSIONING_MAKER_CHECKER_OWNER_PIN_AND_MFA', evidence:['test/sprint7-organization-employee.test.js','test/sprint15-docs.test.js','test/wave4-organization-workforce.test.js'] },
