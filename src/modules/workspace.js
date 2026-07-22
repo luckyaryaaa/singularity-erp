@@ -33,7 +33,15 @@
       const monthName = today.toLocaleDateString('id-ID', { month: 'long' });
 
       // Hero eksekutif: satu angka utama + konteks, gaya cockpit enterprise.
-      const netFlow = Number(h.arTotal || 0) - Number(h.apTotal || 0);
+      // Kartu hanya dirender bila server memberi entitlement-nya — data yang
+      // tidak berhak memang TIDAK ADA di respons, jadi jangan pura-pura nol.
+      const grant = data.entitlements || {};
+      const netFlow = grant.revenue && grant.payable ? Number(h.arTotal || 0) - Number(h.apTotal || 0) : null;
+      // Pertumbuhan null berarti bulan lalu nihil — tidak ada dasar pembanding.
+      const growth = k.revenueGrowthPct == null
+        ? '<span class="hero-trend">Belum ada pembanding bulan lalu</span>'
+        : `<span class="hero-trend ${Number(k.revenueGrowthPct) >= 0 ? 'up' : 'down'}">${ICONS.trend} ${k.revenueGrowthPct}% dari bulan lalu</span>`;
+      const growthNote = k.revenueGrowthPct == null ? 'Belum ada pembanding bulan lalu' : `${Number(k.revenueGrowthPct) >= 0 ? '↑' : '↓'} ${Math.abs(k.revenueGrowthPct)}% dari bulan lalu`;
       main.innerHTML = `
         <section class="hero-exec">
           <div class="hero-glow" aria-hidden="true"></div>
@@ -47,12 +55,15 @@
             </div>
           </div>
           <div class="hero-stat">
-            <span class="hero-stat-label">Pendapatan ${monthName}</span>
+            ${grant.revenue ? `<span class="hero-stat-label">Pendapatan ${monthName}</span>
             <strong class="hero-stat-value">${fmtIDR(k.revenueMonth)}</strong>
-            <span class="hero-trend ${Number(k.revenueGrowthPct) >= 0 ? 'up' : 'down'}">${ICONS.trend} ${k.revenueGrowthPct}% dari bulan lalu</span>
+            ${growth}`
+        : `<span class="hero-stat-label">Pesanan aktif</span>
+            <strong class="hero-stat-value">${k.activeOrders}</strong>
+            <span class="hero-trend">${k.inProduction} dalam proses produksi</span>`}
             <div class="hero-divider"></div>
             <div class="hero-mini">
-              <span><small>Posisi kas bersih</small><b class="${netFlow >= 0 ? 'pos' : 'neg'}">${fmtIDR(netFlow)}</b></span>
+              ${netFlow == null ? '' : `<span><small>Posisi kas bersih</small><b class="${netFlow >= 0 ? 'pos' : 'neg'}">${fmtIDR(netFlow)}</b></span>`}
               <span><small>Pesanan aktif</small><b>${k.activeOrders}</b></span>
             </div>
           </div>
@@ -68,18 +79,19 @@
         <div id="dashAnalytics"></div>
         ${rich ? '' : `
         <section class="metrics">
-          ${kpiCard({ label: `Pendapatan ${monthName}`, value: fmtIDR(k.revenueMonth), note: `↑ ${k.revenueGrowthPct}% dari bulan lalu`, tone: 'up', orb: 'chart', orbTone: 'blue' })}
-          ${kpiCard({ label: 'Piutang jatuh tempo', value: fmtIDR(k.arOverdue), note: `${k.arOverdueCount} invoice perlu ditagih`, tone: 'warn', orb: 'doc', orbTone: 'amber' })}
+          ${grant.revenue ? kpiCard({ label: `Pendapatan ${monthName}`, value: fmtIDR(k.revenueMonth), note: growthNote, tone: 'up', orb: 'chart', orbTone: 'blue' }) : ''}
+          ${grant.revenue ? kpiCard({ label: 'Piutang jatuh tempo', value: fmtIDR(k.arOverdue), note: `${k.arOverdueCount} invoice perlu ditagih`, tone: 'warn', orb: 'doc', orbTone: 'amber' }) : ''}
           ${kpiCard({ label: 'Pesanan aktif', value: String(k.activeOrders), note: `${k.inProduction} dalam proses produksi`, orb: 'cart', orbTone: 'mint' })}
           ${kpiCard({ label: 'Progres produksi', value: `${k.utilizationPct}%`, note: `Target operasional ${k.utilizationTarget}%`, orb: 'factory', orbTone: 'lavender' })}
         </section>`}
         ${rich ? '' : `
         <section class="dashboard-grid">
+          ${!grant.revenue ? '' : `
           <article class="panel revenue-panel">
             <header><div><p class="eyebrow">KINERJA KEUANGAN</p><h2>Arus pendapatan</h2></div>
               <div class="legend"><span><i></i>Kumulatif ${monthName}</span></div></header>
             <div class="chart-summary"><div><span>Pendapatan bulan ini</span><strong>${fmtIDR(k.revenueMonth)}</strong>
-              <small class="up">${ICONS.trend} ${k.revenueGrowthPct}% dari bulan lalu</small></div></div>
+              <small class="up">${ICONS.trend} ${growthNote}</small></div></div>
             <div class="chart" role="img" aria-label="Grafik pendapatan kumulatif bulan berjalan.">
               <svg viewBox="0 0 ${w} ${hgt}" preserveAspectRatio="none">
                 <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8db9ff" stop-opacity=".28"/><stop offset="1" stop-color="#8db9ff" stop-opacity="0"/></linearGradient></defs>
@@ -90,17 +102,17 @@
                 <text x="${pad}" y="${hgt - 2}">1 ${monthName.slice(0, 3)}</text><text x="${w - 60}" y="${hgt - 2}">${today.getDate()} ${monthName.slice(0, 3)}</text>
               </svg>
             </div>
-          </article>
+          </article>`}
           <article class="panel health-panel">
             <header><div><p class="eyebrow">KESEHATAN BISNIS</p><h2>Posisi hari ini</h2></div>
               ${can('journal.view') ? `<a class="text-btn" href="#/accounting">Lihat laporan ${ICONS.arrow}</a>` : ''}</header>
             <div class="health-list">
-              <div class="health-row"><span class="health-icon blue">${ICONS.wallet}</span><span><b>Piutang usaha</b><small>${h.arCount} invoice terbuka</small></span><strong>${fmtIDR(h.arTotal)}</strong></div>
-              <div class="health-row"><span class="health-icon amber">${ICONS.doc}</span><span><b>Utang usaha</b><small>${h.apCount} tagihan supplier</small></span><strong>${fmtIDR(h.apTotal)}</strong></div>
-              <div class="health-row"><span class="health-icon mint">${ICONS.box}</span><span><b>Persediaan</b><small>${h.skuCount} SKU · ${h.criticalStock} stok kritis</small></span><strong>${fmtIDR(h.inventoryValue)}</strong></div>
+              ${grant.revenue ? `<div class="health-row"><span class="health-icon blue">${ICONS.wallet}</span><span><b>Piutang usaha</b><small>${h.arCount} invoice terbuka</small></span><strong>${fmtIDR(h.arTotal)}</strong></div>` : ''}
+              ${grant.payable ? `<div class="health-row"><span class="health-icon amber">${ICONS.doc}</span><span><b>Utang usaha</b><small>${h.apCount} tagihan supplier</small></span><strong>${fmtIDR(h.apTotal)}</strong></div>` : ''}
+              ${grant.inventory ? `<div class="health-row"><span class="health-icon mint">${ICONS.box}</span><span><b>Persediaan</b><small>${h.skuCount} SKU · ${h.criticalStock} stok kritis</small></span><strong>${fmtIDR(h.inventoryValue)}</strong></div>` : ''}
               <div class="health-row"><span class="health-icon lavender">${ICONS.project}</span><span><b>Order book</b><small>${h.orderCount} pekerjaan aktif</small></span><strong>${fmtIDR(h.orderBook)}</strong></div>
             </div>
-            <div class="cash-card"><span>Posisi kas & bank<small>Per ${fmtDateTime(data.asOf)}</small></span><strong>${fmtIDR(h.cashPosition)}</strong></div>
+            ${!grant.cash ? '' : `<div class="cash-card"><span>Posisi kas & bank<small>Per ${fmtDateTime(data.asOf)}</small></span><strong>${h.cashPosition == null ? 'Belum dikonfigurasi' : fmtIDR(h.cashPosition)}</strong></div>`}
           </article>
         </section>`}
         <section class="panel work-panel">

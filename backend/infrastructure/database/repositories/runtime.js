@@ -190,7 +190,10 @@ async function auditTrail(client,id,limit=15){return (await client.query(`SELECT
 async function pendingApprovals(client,user,{page=1,limit=25}={}){
   limit=Math.min(Math.max(Number(limit)||25,1),100);page=Math.max(Number(page)||1,1);const level=roleLevel[user.role];if(!level)return{items:[],page,limit,total:0,totalPages:1};
   // Kondisi memakai alias d. sejak awal agar query dengan LEFT JOIN customers aman.
-  const params=[];let scope="d.status='WAITING_APPROVAL'";if(user.role!=='owner'){params.push(level);scope+=" AND d.required_approval_levels ? $1 AND NOT d.approvals @> jsonb_build_array(jsonb_build_object('level',$1))";}
+  const params=[];let scope="d.status='WAITING_APPROVAL'";// required_approval_levels bertipe text[], jadi keanggotaan diuji dengan
+// ANY — operator jsonb `?` melempar "operator does not exist: text[] ?
+// unknown" dan membuat antrean approval gagal untuk SETIAP role non-owner.
+if(user.role!=='owner'){params.push(level);scope+=` AND $${params.length}=ANY(d.required_approval_levels) AND NOT d.approvals @> jsonb_build_array(jsonb_build_object('level',$${params.length}::text))`;}
   if(!['owner','admin'].includes(user.role)&&user.branchScope!=='*'){params.push(user.branchId);scope+=` AND d.branch_id=$${params.length}`;}
   const total=Number((await client.query(`SELECT count(*) n FROM business_documents d WHERE ${scope}`,params)).rows[0].n);params.push(limit,(page-1)*limit);
   // Approval Center 2.0 (§10.8): sertakan versi snapshot policy + eksposur kredit
