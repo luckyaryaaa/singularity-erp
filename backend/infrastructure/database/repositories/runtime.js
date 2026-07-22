@@ -46,11 +46,32 @@ async function nextNumber(client,{documentType,branchId,date=new Date()}) {
     .replace(/\{SEQ(?::\d+)?\}/,seq);
 }
 
+// D1 — redaksi terpusat sebelum audit trail. Jejak audit bersifat permanen
+// (partisi INSERT-only), jadi rahasia yang terlanjur masuk TIDAK bisa dicabut.
+// Nilai disaring di satu tempat ini, bukan diserahkan ke tiap pemanggil.
+const REDACTED='[REDACTED]';
+const SECRET_KEY=/(password|passwd|sandi|pin|secret|token|otp|mfa|totp|csrf|apikey|api_key|private_key|recovery|hash|salt|signature|cvv)/i;
+// Data pribadi/keuangan sensitif: disamarkan sebagian agar tetap berguna untuk
+// forensik (mencocokkan entitas) tanpa menyimpan nilai penuh.
+const MASK_KEY=/(npwp|nik|ktp|bank_account|bankaccount|account_number|accountnumber|base_salary|basesalary|net_pay|netpay|salary|gaji|nomor_rekening)/i;
+const maskValue=(value)=>{const s=String(value);return s.length<=4?REDACTED:`${REDACTED}${s.slice(-4)}`;};
+function redactAudit(value,depth=0){
+  if(value==null||depth>6)return value??null;
+  if(Array.isArray(value))return value.slice(0,200).map(v=>redactAudit(v,depth+1));
+  if(typeof value!=='object')return value;
+  const out={};
+  for(const [key,val] of Object.entries(value)){
+    if(SECRET_KEY.test(key))out[key]=REDACTED;
+    else if(MASK_KEY.test(key)&&val!=null&&typeof val!=='object')out[key]=maskValue(val);
+    else out[key]=redactAudit(val,depth+1);
+  }
+  return out;
+}
 async function audit(client,entry) {
   await client.query(`INSERT INTO audit_logs(user_id,action,module,entity_type,entity_id,document_number,old_value,new_value,reason,request_id,session_id,ip,branch_id)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,[
     entry.userId||null,entry.action,entry.module,entry.entityType,entry.entityId||null,entry.documentNumber||null,
-    entry.oldValue||null,entry.newValue||null,entry.reason||null,entry.requestId||randomUUID(),entry.sessionId||null,entry.ip||null,entry.branchId||null
+    redactAudit(entry.oldValue)||null,redactAudit(entry.newValue)||null,entry.reason||null,entry.requestId||randomUUID(),entry.sessionId||null,entry.ip||null,entry.branchId||null
   ]);
 }
 
@@ -272,4 +293,4 @@ async function withIdempotency(client,{userId,operation,key,body},execute){
   return response;
 }
 
-module.exports={PREFIXES,camel,nextNumber,audit,outbox,createDocument,assertCustomerPoValid,updateDocument,getDocument,documentRelations,convertDocument,listDocuments,auditTrail,pendingApprovals,transitionDocument,withIdempotency,approvalPolicy,APPROVAL_TIERS,CONVERSIONS};
+module.exports={PREFIXES,camel,nextNumber,audit,redactAudit,outbox,createDocument,assertCustomerPoValid,updateDocument,getDocument,documentRelations,convertDocument,listDocuments,auditTrail,pendingApprovals,transitionDocument,withIdempotency,approvalPolicy,APPROVAL_TIERS,CONVERSIONS};

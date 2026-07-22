@@ -40,7 +40,7 @@ async function dispatchPrivate(client,req,url,ctx){const p=url.pathname,method=r
   if(method==='POST'&&p==='/api/auth/change-password'){const body=await readBody(req);await auth.changeOwnPassword(client,ctx.user,body.currentPassword,body.newPassword);ctx.cookie='mat_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';return{ok:true,reauthenticationRequired:true};}
   if(method==='POST'&&p==='/api/auth/mfa/setup')return auth.startMfaSetup(client,ctx.user);
   if(method==='POST'&&p==='/api/auth/mfa/enable'){await auth.enableMfa(client,ctx.user,(await readBody(req)).code);return{ok:true};}
-  if(method==='POST'&&p==='/api/auth/mfa/disable'){await auth.disableMfa(client,ctx.user,(await readBody(req)).password);return{ok:true};}
+  if(method==='POST'&&p==='/api/auth/mfa/disable'){const body=await readBody(req);await auth.disableMfa(client,ctx.user,body.password,body.code);return{ok:true};}
   if(method==='POST'&&p==='/api/auth/logout'){await auth.logout(client,ctx.session.id);ctx.cookie='mat_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';return {ok:true};}
   if(method==='POST'&&p==='/api/auth/logout-all'){await auth.logoutAll(client,ctx.user.id);ctx.cookie='mat_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';return {ok:true};}
 return NO_MATCH;}

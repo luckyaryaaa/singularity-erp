@@ -93,10 +93,46 @@ async function changePasswordWithToken(client,{changeToken,newPassword,ip,device
 async function changeOwnPassword(client,user,currentPassword,newPassword){const row=(await client.query('SELECT password_hash FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];if(!verifyPassword(currentPassword||'',row?.password_hash))throw new AppError('AUTH_FAILED','Kata sandi saat ini salah.');assertPasswordPolicy(newPassword);await client.query('UPDATE app_users SET password_hash=$2,updated_at=now() WHERE id=$1',[user.id,hashPassword(newPassword)]);await client.query("UPDATE user_sessions SET active=false,ended_at=now(),end_reason='password_changed' WHERE user_id=$1 AND active",[user.id]);}
 async function startMfaSetup(client,user){const secret=totp.generateSecret();await createPending(client,'mfa_setup',user.id,{secretCiphertext:encryptSecret(secret)});return{secret,otpauthUrl:totp.otpauthUrl(secret,user.username)};}
 async function enableMfa(client,user,code){const pending=(await client.query("SELECT * FROM auth_pending WHERE user_id=$1 AND kind='mfa_setup' AND expires_at>now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE",[user.id])).rows[0];if(!pending)throw new AppError('VALIDATION_ERROR','Mulai pendaftaran MFA terlebih dahulu.');const secret=decryptSecret(pending.payload.secretCiphertext);if(!totp.verify(secret,code))throw new AppError('AUTH_FAILED','Kode autentikator tidak valid. Periksa jam perangkat.');await client.query('UPDATE app_users SET totp_secret_ciphertext=$2,mfa_enabled=true,updated_at=now() WHERE id=$1',[user.id,encryptSecret(secret)]);await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);}
-async function disableMfa(client,user,password){const row=(await client.query('SELECT password_hash FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];if(!verifyPassword(password||'',row?.password_hash))throw new AppError('AUTH_FAILED','Kata sandi salah.');await client.query('UPDATE app_users SET totp_secret_ciphertext=NULL,mfa_enabled=false,updated_at=now() WHERE id=$1',[user.id]);await client.query("DELETE FROM auth_pending WHERE user_id=$1 AND kind IN('mfa','mfa_setup')",[user.id]);}
+// B4 — MFA wajib untuk akun berkewenangan tinggi. Faktor kedua adalah kendali
+// utama terhadap pengambilalihan akun; mematikannya hanya dengan kata sandi
+// berarti pencuri sandi dapat sekaligus melucuti pertahanannya.
+const PRIVILEGED_ROLES=Object.freeze(['owner','admin','system_admin','security_admin','finance_manager','accounting']);
+const mfaMandatory=(role)=>PRIVILEGED_ROLES.includes(role);
+
+async function disableMfa(client,user,password,code){
+  if(mfaMandatory(user.role))throw new AppError('PERMISSION_DENIED',`MFA wajib untuk role ${user.role} dan tidak dapat dimatikan sendiri. Hubungi security admin untuk reset terkontrol.`);
+  const row=(await client.query('SELECT password_hash,totp_secret_ciphertext FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
+  if(!verifyPassword(password||'',row?.password_hash))throw new AppError('AUTH_FAILED','Kata sandi salah.');
+  // Kode TOTP berjalan membuktikan pemilik faktor kedua ADA saat ini —
+  // kata sandi saja tidak cukup untuk melucuti MFA.
+  if(row?.totp_secret_ciphertext){
+    if(!totp.verify(decryptSecret(row.totp_secret_ciphertext),String(code||'')))throw new AppError('AUTH_FAILED','Kode MFA berjalan wajib dimasukkan untuk mematikan MFA.');
+  }
+  await client.query('UPDATE app_users SET totp_secret_ciphertext=NULL,mfa_enabled=false,updated_at=now() WHERE id=$1',[user.id]);
+  await client.query("DELETE FROM auth_pending WHERE user_id=$1 AND kind IN('mfa','mfa_setup')",[user.id]);
+  // Sesi lain dihentikan: perubahan postur keamanan tidak boleh menyisakan
+  // sesi yang terbentuk di bawah jaminan lama.
+  await client.query("UPDATE user_sessions SET active=false,ended_at=now(),end_reason='mfa_disabled' WHERE user_id=$1 AND active",[user.id]);
+}
+
+// Step-up: aksi sensitif menuntut verifikasi MFA yang MASIH BARU pada sesi ini.
+// Sebelumnya mfa_verified_at hanya dicatat dan tidak pernah dibaca — selftest
+// governance mengklaim "MFA step-up" hanya karena kolomnya ada.
+const MFA_STEP_UP_MS=15*60*1000;
+async function assertRecentMfa(client,{user,session,action='Aksi ini'}){
+  const row=(await client.query('SELECT mfa_enabled FROM app_users WHERE id=$1',[user.id])).rows[0];
+  if(!row?.mfa_enabled){
+    if(mfaMandatory(user.role))throw new AppError('PERMISSION_DENIED',`${action} menuntut MFA aktif — role ${user.role} wajib mendaftarkan MFA terlebih dahulu.`);
+    return true;                                  // akun non-privileged tanpa MFA: kendali lain berlaku
+  }
+  const verifiedAt=(await client.query('SELECT mfa_verified_at FROM user_sessions WHERE id=$1',[session?.id||null])).rows[0]?.mfa_verified_at;
+  if(!verifiedAt||Date.now()-new Date(verifiedAt).getTime()>MFA_STEP_UP_MS)
+    throw new AppError('MFA_REQUIRED',`${action} menuntut verifikasi MFA ulang (maksimal ${MFA_STEP_UP_MS/60000} menit terakhir).`);
+  return true;
+}
 async function logout(client,sessionId){await client.query("UPDATE user_sessions SET active=false,ended_at=now(),end_reason='logout' WHERE id=$1",[sessionId]);}
 async function logoutAll(client,userId){return client.query("UPDATE user_sessions SET active=false,ended_at=now(),end_reason='logout_all' WHERE user_id=$1 AND active=true",[userId]);}
 async function devices(client,userId){return (await client.query(`SELECT id,created_at,last_seen_at,expires_at,ip,device,active,ended_at,end_reason
   FROM user_sessions WHERE user_id=$1 ORDER BY last_seen_at DESC LIMIT 20`,[userId])).rows;}
 
-module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,startMfaSetup,enableMfa,disableMfa,logout,logoutAll,devices,hashPassword};
+module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,startMfaSetup,enableMfa,disableMfa,assertRecentMfa,mfaMandatory,PRIVILEGED_ROLES,logout,logoutAll,devices,hashPassword};
