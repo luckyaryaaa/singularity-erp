@@ -3,8 +3,10 @@
 // Neraca memakai saldo KUMULATIF s/d akhir periode; laba rugi memakai mutasi
 // periode berjalan. Periode baris jurnal = COALESCE(payload.period,
 // created_at) — konsisten dengan ledger, closing, dan posting engine.
+const { createHash } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
 const { hasGlobalScope, queryScope } = require('../../../core/data-scope');
+const { assertPermission } = require('../../../core/permissions');
 const accountingConfig = require('./accounting-config');
 
 const idr = (v) => Math.round(Number(v || 0) * 100) / 100;
@@ -254,4 +256,75 @@ async function postInventoryOpeningBalance(client, { user, requestId }) {
   return { documentNumber: doc.documentNumber, subledger: sub, glBefore: gl, difference, glAfter: idr(gl + difference) };
 }
 
-module.exports = { financialStatements, subledger, taxReconciliation, closingCockpit, postInventoryOpeningBalance };
+// ── Wave D.3: laporan keuangan ber-versi (prepare → review → sign-off) ────────
+function reportView(r) {
+  return {
+    id: r.id, period: r.period, version: r.version, status: r.status,
+    netIncome: r.net_income != null ? Number(r.net_income) : null,
+    totalAssets: r.total_assets != null ? Number(r.total_assets) : null,
+    balanced: r.balanced, sha256: r.snapshot_sha256,
+    preparedBy: r.prepared_by, preparedAt: r.prepared_at,
+    reviewedBy: r.reviewed_by, reviewedAt: r.reviewed_at,
+    signedOffBy: r.signed_off_by, signedOffAt: r.signed_off_at,
+    decisionReason: r.decision_reason
+  };
+}
+
+async function prepareFinancialReport(client, { period: value, user, requestId }) {
+  assertPermission(user, 'report.create');
+  if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Laporan keuangan resmi disiapkan pada scope perusahaan.');
+  const period = assertPeriod(value);
+  const snapshot = await financialStatements(client, period, user);
+  if (snapshot.balanceSheet.publishBlocked) {
+    throw new AppError('VALIDATION_ERROR', 'Laporan tidak dapat disiapkan: ada akun tak terpetakan (UNMAPPED). Bereskan bagan akun dahulu.', { unmappedTotal: snapshot.balanceSheet.unmappedTotal });
+  }
+  const entityId = await accountingConfig.defaultLegalEntityId(client);
+  const sha = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
+  const version = Number((await client.query('SELECT COALESCE(MAX(version),0)+1 v FROM financial_reports WHERE legal_entity_id=$1 AND period=$2', [entityId, period])).rows[0].v);
+  const row = (await client.query(
+    `INSERT INTO financial_reports(legal_entity_id,period,version,status,snapshot,snapshot_sha256,net_income,total_assets,balanced,prepared_by)
+     VALUES($1,$2,$3,'PREPARED',$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [entityId, period, version, JSON.stringify(snapshot), sha, snapshot.incomeStatement.netIncome, snapshot.balanceSheet.totalAssets, snapshot.balanceSheet.balanced, user.id])).rows[0];
+  await require('./runtime').audit(client, { userId: user.id, action: 'PREPARE', module: 'report', entityType: 'FINANCIAL_REPORT', entityId: row.id, newValue: { period, version, sha256: sha, netIncome: Number(row.net_income) }, requestId });
+  return reportView(row);
+}
+
+// review → signoff → reject, dengan SoD (reviewer != preparer, signer != reviewer)
+// ditegakkan aplikasi DAN constraint database.
+async function decideFinancialReport(client, { id, action, reason, user, requestId }) {
+  const row = (await client.query('SELECT * FROM financial_reports WHERE id=$1 FOR UPDATE', [id])).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Laporan keuangan tidak ditemukan.');
+  if (action === 'review') {
+    assertPermission(user, 'report.submit');
+    if (row.status !== 'PREPARED') throw new AppError('STATUS_INVALID', `Laporan berstatus ${row.status} tidak dapat direview.`);
+    if (String(row.prepared_by) === String(user.id)) throw new AppError('SOD_CONFLICT', 'Reviewer tidak boleh sama dengan penyusun laporan.');
+    await client.query(`UPDATE financial_reports SET status='REVIEWED',reviewed_by=$2,reviewed_at=now() WHERE id=$1`, [id, user.id]);
+  } else if (action === 'signoff') {
+    assertPermission(user, 'report.approve');
+    if (row.status !== 'REVIEWED') throw new AppError('STATUS_INVALID', `Laporan berstatus ${row.status} belum dapat ditandatangani (wajib REVIEWED).`);
+    if (String(row.reviewed_by) === String(user.id)) throw new AppError('SOD_CONFLICT', 'Penandatangan tidak boleh sama dengan reviewer.');
+    await client.query(`UPDATE financial_reports SET status='SIGNED_OFF',signed_off_by=$2,signed_off_at=now() WHERE id=$1`, [id, user.id]);
+  } else if (action === 'reject') {
+    assertPermission(user, 'report.reject');
+    if (!['PREPARED', 'REVIEWED'].includes(row.status)) throw new AppError('STATUS_INVALID', `Laporan berstatus ${row.status} tidak dapat ditolak.`);
+    if (!reason) throw new AppError('REASON_REQUIRED', 'Penolakan laporan membutuhkan alasan.');
+    await client.query(`UPDATE financial_reports SET status='REJECTED',decision_reason=$2 WHERE id=$1`, [id, reason]);
+  } else throw new AppError('VALIDATION_ERROR', 'Aksi laporan tidak dikenal.');
+  await require('./runtime').audit(client, { userId: user.id, action: action.toUpperCase(), module: 'report', entityType: 'FINANCIAL_REPORT', entityId: id, reason: reason || null, newValue: { period: row.period, version: row.version }, requestId });
+  return reportView((await client.query('SELECT * FROM financial_reports WHERE id=$1', [id])).rows[0]);
+}
+
+async function listFinancialReports(client, { period, user }) {
+  if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Daftar laporan keuangan resmi membutuhkan scope perusahaan.');
+  const rows = (await client.query(`SELECT id,period,version,status,net_income,total_assets,balanced,snapshot_sha256,prepared_by,prepared_at,reviewed_by,reviewed_at,signed_off_by,signed_off_at,decision_reason
+    FROM financial_reports ${period ? 'WHERE period=$1' : ''} ORDER BY period DESC, version DESC`, period ? [assertPeriod(period)] : [])).rows;
+  return { items: rows.map(reportView) };
+}
+async function financialReportDetail(client, id, user) {
+  if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Detail laporan keuangan resmi membutuhkan scope perusahaan.');
+  const row = (await client.query('SELECT * FROM financial_reports WHERE id=$1', [id])).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Laporan keuangan tidak ditemukan.');
+  return { ...reportView(row), snapshot: row.snapshot };
+}
+
+module.exports = { financialStatements, subledger, taxReconciliation, closingCockpit, postInventoryOpeningBalance, prepareFinancialReport, decideFinancialReport, listFinancialReports, financialReportDetail };

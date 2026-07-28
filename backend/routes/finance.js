@@ -51,6 +51,12 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&p==='/api/accounting/closing-cockpit'){assertPermission(ctx.user,'closing.view');return financeReports.closingCockpit(client,url.searchParams.get('period'),ctx.user);}
   if(method==='GET'&&p==='/api/accounting/subledger'){assertPermission(ctx.user,'ledger.view');return financeReports.subledger(client,{type:url.searchParams.get('type')||'AR',period:url.searchParams.get('period'),user:ctx.user});}
   if(method==='GET'&&p==='/api/accounting/tax-reconciliation'){assertPermission(ctx.user,'ledger.view');return financeReports.taxReconciliation(client,{period:url.searchParams.get('period'),user:ctx.user});}
+  if(method==='GET'&&p==='/api/accounting/financial-reports'){assertPermission(ctx.user,'report.view');return financeReports.listFinancialReports(client,{period:url.searchParams.get('period'),user:ctx.user});}
+  m=p.match(/^\/api\/accounting\/financial-reports\/([0-9a-f-]{36})$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,'report.view');return financeReports.financialReportDetail(client,m[1],ctx.user);}
+  if(method==='POST'&&p==='/api/accounting/financial-reports'){assertPermission(ctx.user,'report.create');const body=await readBody(req);ctx.status=201;return financeReports.prepareFinancialReport(client,{period:body.period,user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/accounting\/financial-reports\/([0-9a-f-]{36})\/(review|signoff|reject)$/);
+  if(method==='POST'&&m){const body=await readBody(req);return financeReports.decideFinancialReport(client,{id:m[1],action:m[2],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
   // Sprint 10: payment reversal — kontrol kritis setara void pembayaran:
   // hanya Owner + PIN + alasan; jurnal pembalik, alokasi ditandai reversed.
   m=p.match(/^\/api\/payments\/([0-9a-f-]{36})\/reverse$/);
