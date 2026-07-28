@@ -32,7 +32,7 @@
   WAREHOUSE, DEPARTMENT, PROJECT, dan OWN_RECORD. Snapshot scope ikut disimpan
   pada policy job; report/export/file difilter kembali di worker/repository.
 - Matriks endpoint terversi di `docs/security/endpoint-authorization-matrix.md`
-  memetakan 14 router dan 281 handler ke public/session/permission control.
+  memetakan 14 router dan 282 handler ke public/session/permission control.
   Automated negative test memverifikasi allow/deny dan menjaga endpoint publik
   tetap menggunakan allowlist eksplisit.
 

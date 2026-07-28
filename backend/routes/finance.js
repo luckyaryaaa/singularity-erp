@@ -50,6 +50,7 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&p==='/api/accounting/financial-statements'){assertPermission(ctx.user,'ledger.view');return financeReports.financialStatements(client,url.searchParams.get('period'),ctx.user);}
   if(method==='GET'&&p==='/api/accounting/closing-cockpit'){assertPermission(ctx.user,'closing.view');return financeReports.closingCockpit(client,url.searchParams.get('period'),ctx.user);}
   if(method==='GET'&&p==='/api/accounting/subledger'){assertPermission(ctx.user,'ledger.view');return financeReports.subledger(client,{type:url.searchParams.get('type')||'AR',period:url.searchParams.get('period'),user:ctx.user});}
+  if(method==='GET'&&p==='/api/accounting/tax-reconciliation'){assertPermission(ctx.user,'ledger.view');return financeReports.taxReconciliation(client,{period:url.searchParams.get('period'),user:ctx.user});}
   // Sprint 10: payment reversal — kontrol kritis setara void pembayaran:
   // hanya Owner + PIN + alasan; jurnal pembalik, alokasi ditandai reversed.
   m=p.match(/^\/api\/payments\/([0-9a-f-]{36})\/reverse$/);

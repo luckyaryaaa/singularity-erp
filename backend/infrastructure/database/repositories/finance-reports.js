@@ -114,6 +114,33 @@ async function subledger(client, { type, period: value, user }) {
   };
 }
 
+// ── Rekonsiliasi pajak: subledger tax_records vs GL akun pajak (Wave D.2) ─────
+// Membandingkan akrual pajak yang diakui subledger (tax_records per jenis) dengan
+// akrual pada akun GL pajak (TAX_PAYABLE, mis. 2300) untuk periode. Selisih
+// menandakan pajak terakrual di subledger tetapi belum terposting ke GL (atau
+// sebaliknya) — dipaparkan untuk investigasi, BUKAN disembunyikan sebagai PASS.
+async function taxReconciliation(client, { period: value, user }) {
+  const period = assertPeriod(value);
+  if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Rekonsiliasi pajak membutuhkan scope perusahaan.');
+  const glCode = await accountingConfig.accountCode(client, 'TAX_PAYABLE', period);
+  const byType = (await client.query(
+    `SELECT tax_type, COALESCE(SUM(tax_amount),0)::float amount, COUNT(*)::int records
+     FROM tax_records WHERE period=$1 GROUP BY tax_type ORDER BY tax_type`, [period])).rows
+    .map((r) => ({ taxType: r.tax_type, amount: idr(r.amount), records: r.records }));
+  const subledgerTotal = idr(byType.reduce((n, r) => n + r.amount, 0));
+  // Akun pajak normal kredit: akrual = kredit periode; setoran = debit periode.
+  const gl = (await client.query(
+    `SELECT COALESCE(SUM(j.credit),0)::float accrued, COALESCE(SUM(j.debit),0)::float settled
+     FROM journal_lines j JOIN chart_of_accounts a ON a.id=j.account_id JOIN business_documents d ON d.id=j.journal_document_id
+     WHERE a.code=$2 AND ${PERIOD_EXPR}=$1`, [period, glCode])).rows[0];
+  const glAccrued = idr(gl.accrued), glSettled = idr(gl.settled);
+  return {
+    period, taxAccount: glCode, byType, subledgerTotal,
+    glAccrued, glSettled, glNet: idr(glAccrued - glSettled),
+    difference: idr(subledgerTotal - glAccrued)
+  };
+}
+
 // ── Closing cockpit: checklist siap-tutup ────────────────────────────────────
 async function closingCockpit(client, value, user) {
   if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Closing cockpit global membutuhkan scope perusahaan.');
@@ -156,10 +183,11 @@ async function closingCockpit(client, value, user) {
     payrollDocs === 0 && glPayroll === 0 ? 'PASS' : Math.abs(glPayroll - payrollDocs) < 1 ? 'PASS' : 'WARN',
     `GL ${idr(glPayroll).toLocaleString('id-ID')} vs payroll ${idr(payrollDocs).toLocaleString('id-ID')}`);
 
-  // Rekonsiliasi pajak: tax_records periode vs GL 2300 mutasi periode.
-  const taxRecords = Number((await client.query(`SELECT COALESCE(SUM(tax_amount),0)::float n FROM tax_records WHERE period=$1 AND tax_type IN ('PPN_OUTPUT','PPH21')`, [period])).rows[0].n);
-  add('tax_reconciliation', 'Sinkronisasi pajak periode', taxRecords > 0 || unposted === 0 ? 'PASS' : 'WARN',
-    taxRecords > 0 ? `Tax records ${idr(taxRecords).toLocaleString('id-ID')}` : 'Belum ada tax record — jalankan sinkron pajak bila ada transaksi');
+  // Rekonsiliasi pajak nyata (Wave D.2): subledger tax_records vs GL akun pajak.
+  const taxRecon = await taxReconciliation(client, { period, user });
+  add('tax_reconciliation', `Rekonsiliasi pajak (subledger vs GL ${taxRecon.taxAccount})`,
+    Math.abs(taxRecon.difference) < 1 ? 'PASS' : 'WARN',
+    `Subledger ${idr(taxRecon.subledgerTotal).toLocaleString('id-ID')} vs GL akrual ${idr(taxRecon.glAccrued).toLocaleString('id-ID')} (selisih ${idr(taxRecon.difference).toLocaleString('id-ID')})`);
 
   const depreciation = Number((await client.query('SELECT count(*)::int n FROM asset_depreciation_entries WHERE period=$1', [period])).rows[0].n);
   const activeAssets = Number((await client.query(`SELECT count(*)::int n FROM fixed_assets WHERE status='ACTIVE'`)).rows[0].n);
@@ -226,4 +254,4 @@ async function postInventoryOpeningBalance(client, { user, requestId }) {
   return { documentNumber: doc.documentNumber, subledger: sub, glBefore: gl, difference, glAfter: idr(gl + difference) };
 }
 
-module.exports = { financialStatements, subledger, closingCockpit, postInventoryOpeningBalance };
+module.exports = { financialStatements, subledger, taxReconciliation, closingCockpit, postInventoryOpeningBalance };
