@@ -46,6 +46,7 @@ function run(label, args) {
   try {
     run('Provision test database', ['run', 'db:provision']);
     run('Migration test database', ['run', 'db:migrate']);
+    run('Field encryption backfill test database', ['run', 'security:rotate-fields']);
     run('Least-privilege test database', ['run', 'db:grant-runtime']);
     run('Seed test database', ['run', 'db:seed:uat']);
     run('Seed HR/Finance test database', ['run', 'db:seed:uat:sprint4']);

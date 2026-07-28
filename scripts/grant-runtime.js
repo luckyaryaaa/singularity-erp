@@ -26,6 +26,7 @@ const q = `"${appUser}"`;
     if (!auditTables.length) throw new Error('Tabel audit_logs tidak ditemukan — hardening tidak dapat diterapkan.');
     await client.query(`REVOKE UPDATE,DELETE,TRUNCATE ON ${auditTables.join(',')} FROM ${q}`);
     await client.query(`REVOKE UPDATE,DELETE,TRUNCATE ON schema_migrations FROM ${q}`);
+    await client.query(`REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON field_encryption_rotations FROM ${q}`);
     // Selalu terapkan ulang deny-list setelah broad grant. Ini menjaga script
     // idempotent tanpa membatalkan hardening tabel append-only/controlled flow.
     await client.query(`REVOKE UPDATE,DELETE ON work_order_time_logs FROM ${q}`);
@@ -37,6 +38,7 @@ const q = `"${appUser}"`;
     await client.query(`GRANT SELECT ON mv_executive_monthly_kpis TO ${q}`);
     await client.query(`GRANT EXECUTE ON FUNCTION refresh_executive_reporting() TO ${q}`);
     await client.query(`GRANT EXECUTE ON FUNCTION inventory_partition_maintenance(integer) TO ${q}`);
+    await client.query(`GRANT EXECUTE ON FUNCTION execute_data_retention(varchar,timestamptz,integer) TO ${q}`);
 
     // Verifikasi, bukan asumsi: pastikan tidak ada partisi audit yang masih
     // dapat diubah/dihapus oleh runtime user setelah seluruh grant diterapkan.

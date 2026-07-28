@@ -32,7 +32,7 @@ chmod -R go-w "${TARGET}"
 # Jangan source file secret lewat shell. Parser aplikasi membaca KEY=VALUE
 # secara literal melalui MAT_ENV_FILE sehingga $, #, !, dan simbol lain aman.
 runuser -u "${APP_USER}" -- env MAT_ENV_FILE="${ENV_FILE}" bash -c "cd '${TARGET}' && node scripts/backup-postgres.js run"
-runuser -u "${APP_USER}" -- env MAT_ENV_FILE="${ENV_FILE}" bash -c "cd '${TARGET}' && node scripts/db.js migrate && node scripts/db.js validate"
+runuser -u "${APP_USER}" -- env MAT_ENV_FILE="${ENV_FILE}" bash -c "cd '${TARGET}' && node scripts/db.js migrate && node scripts/rotate-field-encryption.js --apply && node scripts/db.js validate"
 env MAT_ENV_FILE="${ENV_FILE}" node "${TARGET}/scripts/grant-runtime.js"
 
 PREVIOUS="$(readlink -f "${APP_ROOT}/current" 2>/dev/null || true)"

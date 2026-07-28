@@ -25,6 +25,7 @@ if (!npmCli) throw new Error('npm_execpath tidak tersedia; jalankan melalui npm 
 const steps = [
   ['Provision database UAT', ['run','db:provision']],
   ['Migration UAT', ['run','db:migrate']],
+  ['Field encryption backfill UAT', ['run','security:rotate-fields']],
   ['Least-privilege grant UAT', ['run','db:grant-runtime']],
   ['Seed lintas role UAT', ['run','db:seed:uat']],
   ['Seed HR/Finance UAT', ['run','db:seed:uat:sprint4']],

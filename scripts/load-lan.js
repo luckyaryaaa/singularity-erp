@@ -6,6 +6,8 @@ require('../backend/core/env').loadEnv();
 const {spawn}=require('node:child_process');
 const path=require('node:path');
 const {randomUUID}=require('node:crypto');
+const {Client}=require('pg');
+const {loginHttp}=require('../test/helpers/mfa-login');
 
 const ROOT=path.join(__dirname,'..');
 const USERNAME=process.env.MAT_LOAD_USERNAME||process.env.MAT_BOOTSTRAP_OWNER_USERNAME;
@@ -20,21 +22,26 @@ async function main(){
   const child=spawn(process.execPath,['server.js'],{cwd:ROOT,env:{...process.env,PORT:String(port),MAT_BACKUP_SCHEDULE_ENABLED:'0',MAT_REPORT_REFRESH_MINUTES:'60',MAT_RATE_LOGIN_PER_15MIN:'100000',MAT_RATE_READ_PER_MIN:'100000',MAT_RATE_WRITE_PER_MIN:'100000'},stdio:['ignore','ignore','pipe']});
   let bootError='';child.stderr.on('data',d=>{bootError+=d});
   const allSessions=[];
+  const db=new Client({connectionString:process.env.MIGRATION_DATABASE_URL||process.env.DATABASE_URL});
   const request=async(session,url,options={})=>{
     const started=performance.now(),res=await fetch(base+url,{...options,headers:{cookie:session.cookie,...(options.body?{'content-type':'application/json','x-csrf-token':session.csrf,origin:base}:{}),...(options.headers||{})}}),ms=performance.now()-started;
     let body={};try{body=await res.json();}catch{}
     return{status:res.status,body,ms};
   };
   try{
+    await db.connect();
     let healthy=false;for(let i=0;i<30&&!healthy;i++){await new Promise(r=>setTimeout(r,400));healthy=await fetch(`${base}/api/health`).then(r=>r.ok).catch(()=>false);}
     if(!healthy)throw new Error(`Server load tidak sehat. ${bootError.split('\n').filter(Boolean).slice(-2).join(' ')}`);
     const results=[];
     for(const stage of STAGES){
-      const sessions=await Promise.all(Array.from({length:stage.users},async(_,index)=>{
-        const res=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:USERNAME,password:PASSWORD})}),body=await res.json();
-        if(res.status!==200||!body.csrfToken)throw new Error(`Login VU-${index+1} gagal (${res.status}): ${body.code||body.message||'unknown'}`);
-        return{index,cookie:res.headers.get('set-cookie').split(';')[0],csrf:body.csrfToken,filterId:null};
-      }));
+      // Satu username tidak boleh memiliki challenge MFA paralel: setiap
+      // challenge baru sengaja mencabut challenge lama. Siapkan sesi secara
+      // berurutan, lalu jalankan traffic read/write secara konkuren.
+      const sessions=[];
+      for(let index=0;index<stage.users;index+=1){
+        const session=await loginHttp(base,USERNAME,PASSWORD,db);
+        sessions.push({index,cookie:session.cookie,csrf:session.csrf,filterId:null});
+      }
       allSessions.push(...sessions);
       const readLatency=[],writeLatency=[],failures=[];
       const write=async session=>{
@@ -55,9 +62,13 @@ async function main(){
     const output={profile:'LAN-10-25-MIXED',targetMs:TARGET,stages:results,passed:results.every(x=>x.passed)};
     console.log(JSON.stringify(output,null,2));
     if(!output.passed)process.exitCode=1;
+  }catch(error){
+    const diagnostic=bootError.split('\n').filter(Boolean).slice(-4).join(' ');
+    throw new Error(`${error.message}${diagnostic?` | server: ${diagnostic}`:''}`);
   }finally{
     for(const session of allSessions){if(session.filterId)await request(session,`/api/reports/saved-filters/${session.filterId}`,{method:'DELETE',body:'{}'}).catch(()=>{});}
     child.stderr.destroy();child.kill('SIGTERM');await new Promise(r=>setTimeout(r,400));if(child.exitCode===null)child.kill('SIGKILL');
+    await db.end().catch(()=>{});
   }
 }
 main().catch(error=>{console.error('LAN load test gagal:',error.message);process.exitCode=1;});

@@ -4,7 +4,9 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const { spawn } = require('node:child_process');
+const { Client } = require('pg');
 const { DEMO_PASSWORD } = require('../backend/modules/seed');
+const { currentTotp } = require('../test/helpers/mfa-login');
 
 // Gerbang visual dapat berjalan terhadap PostgreSQL (backend produksi, ratusan
 // handler) atau adapter in-memory lama yang hanya melayani sembilan endpoint.
@@ -105,7 +107,19 @@ async function run() {
     const credentialsJson = JSON.stringify(credentials);
     await evaluate(`(()=>{const c=${credentialsJson},f=document.getElementById('loginForm');f.username.value=c.username;f.password.value=c.password;f.requestSubmit();return true})()`);
     await delay(1500);
-    const session = await evaluate(`({url:location.href,ready:document.readyState,appVisible:!document.getElementById('app')?.hidden,loginVisible:!document.getElementById('loginLayer')?.hidden,loginError:document.getElementById('loginError')?.textContent||'',challengeVisible:!document.getElementById('loginChallenge')?.hidden})`);
+    let session = await evaluate(`({url:location.href,ready:document.readyState,appVisible:!document.getElementById('app')?.hidden,loginVisible:!document.getElementById('loginLayer')?.hidden,loginError:document.getElementById('loginError')?.textContent||'',challengeVisible:!document.getElementById('loginChallenge')?.hidden,challengeLabel:document.getElementById('challengeLabel')?.textContent||''})`);
+    if(!session.appVisible&&session.challengeVisible&&usePostgres){
+      if(!session.challengeLabel.toLowerCase().includes('autentikator'))
+        throw new Error(`Visual smoke berhenti pada tantangan non-MFA: ${JSON.stringify(session)}`);
+      const client=new Client({connectionString:process.env.MIGRATION_DATABASE_URL||process.env.DATABASE_URL});
+      await client.connect();
+      let code;
+      try{code=await currentTotp(client,credentials.username);}finally{await client.end();}
+      if(!code)throw new Error('Kode TOTP visual smoke tidak dapat dibuat.');
+      await evaluate(`(()=>{const f=document.getElementById('loginForm');f.challenge.value=${JSON.stringify(code)};f.requestSubmit();return true})()`);
+      await delay(1200);
+      session=await evaluate(`({url:location.href,ready:document.readyState,appVisible:!document.getElementById('app')?.hidden,loginVisible:!document.getElementById('loginLayer')?.hidden,loginError:document.getElementById('loginError')?.textContent||'',challengeVisible:!document.getElementById('loginChallenge')?.hidden})`);
+    }
     if (!session.appVisible) throw new Error(`Login UI gagal: ${JSON.stringify(session)}`);
 
     const results = [];

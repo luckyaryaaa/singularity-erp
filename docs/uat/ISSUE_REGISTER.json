@@ -1,5 +1,23 @@
 {
   "allowedSeverity": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
   "allowedStatus": ["OPEN", "IN_PROGRESS", "READY_FOR_RETEST", "CLOSED", "ACCEPTED_RISK"],
-  "issues": []
+  "issues": [
+    {
+      "id": "SEC-UAT-001",
+      "scenario": "UAT-SYS-01",
+      "severity": "CRITICAL",
+      "status": "READY_FOR_RETEST",
+      "title": "Privilege escalation: system_admin dapat mereset kata sandi akun Owner via endpoint aplikasi",
+      "description": "POST /api/system/users/{OWNER_USER_ID}/reset-password oleh role system_admin mengembalikan 200 dengan kata sandi sementara dan mencabut sesi Owner (account takeover). Diharapkan 403.",
+      "rootCause": "Endpoint reset hanya memeriksa izin dan MFA AKTOR; tidak pernah mengklasifikasi TARGET. Tidak ada kebijakan yang melindungi akun Owner atau akun administrator lain, dan tidak ada larangan reset-diri lewat jalur admin.",
+      "fixSummary": "Layanan kebijakan reset tunggal mengklasifikasi target berdasarkan peran efektif. Akun Owner tetap server-only dan tidak dapat direset dari aplikasi. Reset-diri melalui jalur admin ditolak. Reset administrator non-Owner memakai request maker-checker: Security Admin atau Owner dapat mengajukan, hanya Owner berbeda dengan recent MFA yang dapat menyetujui atau menolak, dan request kedaluwarsa dalam 30 menit. Reset user standar tetap membutuhkan alasan dan recent MFA. Reset yang berhasil mencabut seluruh sesi serta menerbitkan tautan sekali pakai 30 menit; password sementara tidak lagi dikirim. Semua denial/success diaudit tanpa secret dan response memakai no-store/no-cache/nosniff.",
+      "automatedEvidence": "test/sec-uat-001-password-reset.test.js — maker-checker, SoD, token sekali pakai, old-password denial, dan audit redaction PASS; HTTP denied-reset audit persistence PASS; isolated UAT regression v0.36.0 326/326 PASS; migration 001–064 dan rollback 64→63→64 PASS; visual 42/42 tanpa overflow PASS; secret scan 604/0; dependency audit 0 vulnerability; release manifest v0.36.0/migration 064 dan DLP artifact verifier PASS; consolidated LOCAL predeploy 12/12 PASS.",
+      "foundDuring": "UAT-SYS-01 (System Administration)",
+      "foundBy": "(operator UAT)",
+      "foundAt": "2026-07-23",
+      "retestEvidence": "",
+      "closedBy": "",
+      "note": "Status READY_FOR_RETEST: perbaikan rekayasa selesai dan terbukti oleh regression otomatis. Penutupan formal tetap menunggu operator menguji bahwa system_admin ditolak saat mereset Owner, menguji alur maker-checker administrator non-Owner, lalu mengisi retestEvidence dan closedBy. Automation tidak menutup issue manusia."
+    }
+  ]
 }

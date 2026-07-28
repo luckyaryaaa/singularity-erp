@@ -15,6 +15,40 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.36.0 — Execution Control Workbenches
+
+- PostgreSQL source of truth berada pada migration 001–064.
+- Reservation, Purchase Contract 360, Capacity & WIP, serta CAPA & Calibration
+  kini memiliki workbench operator lengkap dan state desktop/mobile tervalidasi.
+- Tabel execution dilindungi RLS, view memakai `security_invoker`, aggregate
+  mutable memakai optimistic version, dan mutasi kritis replay-safe/idempoten.
+- Finite-capacity scheduling memakai advisory lock; contract release memakai
+  business-key guard; CAPA menegakkan SoD penerbit–penutup.
+- Evidence teknis ada di
+  `docs/operations/v0.36-execution-control-workbenches.md`.
+
+Regression 326/326, visual 42/42, dan rollback 64→63→64 lulus. Status ini
+menutup Wave B/C engineering, bukan go-live: field encryption/data-retention,
+Finance/Operations tier berikutnya, UAT manusia, DR, Owner sign-off, serta VPS
+tetap mengikuti gate blueprint.
+
+## Status v0.35.0 — Enterprise Execution & Identity Controls
+
+- Source of truth PostgreSQL berada pada migration 001–063.
+- Engine reservation/bin, purchase contract, capacity/WIP, CAPA/calibration,
+  serta perpetual inventory/COGS sudah masuk release line resmi.
+- Reset administrator memakai maker-checker Security Admin/Owner → Owner,
+  recent MFA, expiry 30 menit, SoD, audit, dan tautan reset sekali pakai.
+- MFA memiliki recovery code sekali pakai, regenerasi terkontrol, factor-change
+  notification, serta halaman Keamanan Akun.
+- Workbench Pengguna & Keamanan Akses menggantikan modal master kosong.
+- Evidence ada di
+  `docs/operations/v0.35-enterprise-execution-identity.md`.
+
+Release ini belum berarti go-live. UAT 13 role, training, rekonsiliasi, retest
+SEC-UAT-001, Owner sign-off, offsite backup target, dan VPS tetap merupakan
+gate manusia/infrastruktur.
+
 ## Status v0.34.0 — Sales Commercial Controls
 
 - Commercial Control Center mengelola ATP/CTP line promise, margin exception,

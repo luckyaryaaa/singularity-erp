@@ -3,6 +3,64 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.36.0] — 2026-07-27
+
+### Execution Control Workbenches
+
+- Inventory Reservation Workbench menyediakan pencarian, status, trace pemilik,
+  sisa kuantitas, expiry, serta controlled release beralasan.
+- Purchase Contract 360 menyediakan portofolio kontrak, pagu dan sisa nilai,
+  line commitment, maker-checker, release history, serta release ke PO.
+- Capacity & WIP Control Tower menyajikan finite-capacity harian, overload,
+  utilisasi, penjadwalan operasi, progres, dan nilai WIP dari fakta transaksi.
+- CAPA & Calibration Workbench menegakkan lifecycle berurutan, bukti minimum,
+  SoD penerbit–penutup, register alat ukur, due date, dan kalibrasi fail-closed.
+
+### Defense in Depth
+
+- Migration 064 menambah RLS pada seluruh tabel execution, `security_invoker`
+  untuk view, optimistic version, dan business-key replay guard kontrak.
+- Mutasi kritis reservation, contract release, scheduling, CAPA, dan calibration
+  memakai branch scope, idempotency key, row/advisory lock, version conflict,
+  audit trail, dan validasi input server-side.
+- Authorization matrix mencakup 274 handler dan OpenAPI execution naik ke API
+  version 1.1.
+
+### Verified
+
+- Migration 001–064 valid dan rollback disposable 64→63→64 lulus.
+- Regression 326/326 lulus; visual 42/42 desktop/mobile tanpa overflow,
+  console error, atau tombol tak berlabel.
+- Status tetap local/LAN-UAT engineering candidate. Retest SEC-UAT-001, UAT 13
+  role, training, rekonsiliasi, DR evidence, dan Owner sign-off tetap gate
+  manusia sebelum VPS.
+
+## [0.35.0] — 2026-07-27
+
+### Enterprise Execution & Identity Controls
+
+- Stock reservation, bin execution, purchase contract, capacity/WIP,
+  CAPA/calibration, dan perpetual inventory/COGS yang berada pada migration
+  057–062 kini resmi masuk release line dan tidak lagi tersembunyi di versi
+  0.34.0.
+- Migration 063 menambah reset administrator maker-checker, expiry, SoD,
+  permission granular, serta MFA recovery code sekali pakai.
+- Reset user memakai tautan 30 menit; password lama langsung tidak berlaku,
+  token hanya disimpan sebagai hash, dan tidak ada `tempPassword` pada runtime
+  PostgreSQL.
+- Workbench Pengguna & Keamanan Akses serta halaman Keamanan Akun menyediakan
+  kontrol akun, queue approval, enrollment MFA, recovery code, dan sesi
+  perangkat dengan secure handoff tanpa toast/log rahasia.
+- Visual regression dan LAN load login kini menyelesaikan MFA privileged;
+  helper yang membaca secret test tidak dimasukkan ke artefak production.
+
+### Governance
+
+- Dokumen kebijakan reset, insiden SEC-UAT-001, security model, backlog, README,
+  dan evidence release diselaraskan dengan migration 063.
+- Status SEC-UAT-001 tetap `READY_FOR_RETEST`; automation tidak memalsukan
+  retest operator atau Owner sign-off.
+
 ## [0.34.0] — 2026-07-22
 
 ### Sales Commercial Controls

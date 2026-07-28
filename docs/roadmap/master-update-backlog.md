@@ -1,5 +1,17 @@
 # Backlog Resmi — MAT ERP V2
 
+> **Execution Control Workbenches v0.36.0: WAVE B/C ENGINEERING SELESAI —
+> 27 Juli 2026.** Migration 064 menambahkan RLS execution, security-invoker
+> view, optimistic version, dan replay guard. Reservation, Purchase Contract
+> 360, Capacity & WIP, serta CAPA & Calibration kini memiliki workbench
+> desktop/mobile. Regression 326/326, visual 42/42 tanpa overflow, dan rollback
+> 64→63→64 lulus.
+>
+> Tahap aktif berikutnya: selesaikan sisa Wave B berupa field encryption/key
+> rotation dan data-retention lifecycle, lalu Wave D Finance enterprise.
+> SEC-UAT-001 tetap `READY_FOR_RETEST`; UAT manusia dan Owner sign-off tidak
+> boleh ditandai selesai oleh automation.
+
 > **Wave Sales Commercial Controls v0.34.0: SELESAI — 22 Juli 2026.** ATP/CTP
 > line promise, effective-dated margin policy dan Finance exception approval,
 > customer contract/blanket release, milestone billing idempoten, backorder
@@ -214,9 +226,9 @@
 | Release | Ruang lingkup | Status |
 |---|---|---|
 | R016 Sales & Order-to-Cash | inquiry→quotation revisi→PO→SO/proyek→credit control→delivery→invoice→collection→warranty | ✅ v0.34.0 — alur dasar, quotation revision, credit/dunning/RMA, ATP/CTP line promise, margin exception maker-checker, customer contract/blanket release, milestone billing idempoten, dan backorder worklist selesai; UAT bisnis tetap gate terpisah |
-| R017 Procurement Source-to-Pay | PR→budget→RFQ→comparison→PO→GR→three-way match→payment proposal | ◐ PR/PO/GR/invoice/payment + RFQ landed cost + three-way match + payment proposal ✅ Wave 2 + **budget check per periode/cabang (409 + override finance teraudit), RFQ multi-baris (total server-side + termurah per item + salin baris ke PO), PO change order maker-checker (SoD DB, terkunci pasca-GR), service receipt tanpa mutasi stok, payment reversal Owner+PIN (jurnal pembalik + alokasi reversed + invoice pulih)** ✅ Sprint 10; kontrak/blanket PO ⬜ |
-| R018 Warehouse & Inventory | hierarchy, bin, lot/serial/heat, reservation, opname, valuation policy | ◐ movement ledger+balance ✅ + **lot/serial/heat-number traceability (mill certificate, FIFO, blokir QC, lineage transfer) + stock opname maker-checker (dokumen OPN, selisih dijurnal via posting profile OPNAME-DEFAULT) + valuasi per lapisan lot** ✅ Sprint 11; bin-level & reservation policy formal ⬜ |
-| R019 Production, BOM, MRP & QC | routing, work center, MRP, capacity, WIP, job costing, inspection plan, NCR/CAPA, kalibrasi | ◐ **foundation transaksi selesai v0.12.0**: routing+rate snapshot, BOM explosion, reservasi, FIFO issue, actual time, costing, FG lot, QC+NCR/CAPA+karantina, MRP→PR, completion/security gate ✅; capacity planning, WIP accounting formal, inspection plan, kalibrasi ⬜ |
+| R017 Procurement Source-to-Pay | PR→budget→RFQ→comparison→PO→GR→three-way match→payment proposal | ◐ engine purchase contract/blanket + controlled release migration 059 dan Contract 360/release history v0.36.0 ✅; supplier portal/EDI dan advanced sourcing analytics tetap pengembangan lanjutan |
+| R018 Warehouse & Inventory | hierarchy, bin, lot/serial/heat, reservation, opname, valuation policy | ◐ reservation engine 057, bin execution 058, lot/opname, perpetual inventory/COGS 062, serta Reservation Workbench v0.36.0 ✅; mobile barcode/handling-unit task engine tetap Wave E |
+| R019 Production, BOM, MRP & QC | routing, work center, MRP, capacity, WIP, job costing, inspection plan, NCR/CAPA, kalibrasi | ◐ engine capacity/WIP 060 dan CAPA/calibration 061 beserta Control Tower/Calibration Register v0.36.0 ✅; inspection-plan sampling dan maintenance/EAM tetap Wave E |
 | R020 Finance, Accounting & Fixed Asset | posting profile, segmented COA, subledger, closing cockpit, fixed asset, budgeting | ◐ posting profile config-driven + budget pengadaan ✅ + **fixed asset registry (FA-*, kategori configuration-driven umur+akun), depresiasi garis lurus otomatis (idempoten per periode, jurnal sistem JRN-*), disposal ber-jurnal nilai buku, laporan keuangan formal (neraca balance dgn akun kontra bertanda benar + laba rugi), closing cockpit 10 checklist rekonsiliasi (bank/inventori/payroll/pajak/subledger/penyusutan) → readiness, subledger AR/AP vs GL ber-selisih terukur** ✅ Sprint 13; failed posting queue, project profitability, segmented COA formal ⬜ |
 | R021 HRD, Payroll & Tax | shift/roster, koreksi absensi, leave accrual, rule engine payroll/BPJS/PPh21 versioned | ◐ payroll rule engine ber-versi ✅ + **shift/roster (jam lembur payroll dari shift roster — hardcode 8 jam dihapus, default NORMAL parity), work calendar + aturan akhir pekan, koreksi absensi maker-checker (snapshot lama immutable, SoD DB, source CORRECTION), leave accrual engine (kebijakan effective-dated, akrual bulanan idempoten, masa kerja minimum), LEAVE_REQUEST tervalidasi saldo & durasi hari kerja + pemotongan otomatis saat approve** ✅ Sprint 14; payslip PDF per karyawan, multi-shift per hari ⬜ |
 | R022 Document, Notification & Integration | template dokumen resmi, SMTP, webhook, API versioning, OpenAPI, event catalog | ◐ **template resmi immutable + QR grafis + HMAC key rotation + watermark/pagination/audit reprint, PDF attachment SMTP dan retry idempotent, OpenAPI 3.0.3 + X-API-Version, event catalog** ✅ v0.22.0; logo binary terkelola dan webhook outbound allowlisted masih ⬜ |
