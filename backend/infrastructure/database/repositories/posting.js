@@ -226,23 +226,57 @@ async function postPerpetualInventory(client,doc,user){
 // P0-H: status periode per Legal Entity (bukan satu status global aplikasi).
 async function ensureOpenPeriod(client,doc){const stamp=/^\d{4}-\d{2}$/.test(String(doc.payload?.period||''))?`${doc.payload.period}-01`:doc.createdAt instanceof Date?doc.createdAt.toISOString():String(doc.createdAt||new Date().toISOString()),period=stamp.slice(0,7);const entityId=doc.legal_entity_id||doc.legalEntityId||await accountingConfig.defaultLegalEntityId(client);await client.query(`INSERT INTO accounting_periods(id,legal_entity_id,period,status) VALUES($1,$2,$3,'OPEN') ON CONFLICT(legal_entity_id,period) DO NOTHING`,[randomUUID(),entityId,period]);const p=(await client.query('SELECT status FROM accounting_periods WHERE legal_entity_id=$1 AND period=$2 FOR UPDATE',[entityId,period])).rows[0];if(p.status!=='OPEN')throw new AppError('STATUS_INVALID',`Periode ${period} sudah ditutup.`);return period;}
 async function accountMap(client,codes){return(await client.query('SELECT id,code FROM chart_of_accounts WHERE code=ANY($1) AND active',[codes])).rows.reduce((o,r)=>(o[r.code]=r.id,o),{});}
+
+// Wave D.1 — coding block dimensi. loadAccounts membawa kategori akun agar
+// kebijakan dimensi dapat diterapkan; accountMap lama tetap ada untuk pemanggil
+// yang tidak butuh kategori.
+async function loadAccounts(client,codes){
+  return(await client.query('SELECT id,code,category FROM chart_of_accounts WHERE code=ANY($1) AND active',[codes]))
+    .rows.reduce((o,r)=>(o[r.code]={id:r.id,category:r.category},o),{});
+}
+async function dimensionPolicy(client){
+  return(await client.query('SELECT category,requires_cost_center,requires_profit_center,requires_project FROM account_dimension_policy'))
+    .rows.reduce((o,r)=>(o[r.category]=r,o),{});
+}
+// Mode penegakan: OFF (abaikan dimensi), SOFT (validasi FK yang dikirim, wajib
+// tidak dipaksa), HARD (paksa dimensi wajib per kebijakan). Default SOFT.
+function dimensionEnforcement(){const m=String(process.env.MAT_JOURNAL_DIMENSION_ENFORCEMENT||'SOFT').toUpperCase();return['OFF','SOFT','HARD'].includes(m)?m:'SOFT';}
+// Validasi dimensi satu baris jurnal. `dims` hanya diterapkan bila kebijakan
+// akunnya memang mengenal dimensi (P&L); baris neraca tetap NULL.
+async function resolveLineDimensions(client,{category,dims={},policy,enforcement,label}){
+  const rule=policy[category]||{};
+  const engaged=!!(rule.requires_cost_center||rule.requires_profit_center||rule.requires_project);
+  if(enforcement==='OFF'||!engaged)return{costCenterId:null,profitCenterId:null,projectWbsId:null};
+  const cc=dims.costCenterId||null,pc=dims.profitCenterId||null,pj=dims.projectWbsId||null;
+  const check=async(table,id,name)=>{if(!id)return;if(!(await client.query(`SELECT 1 FROM ${table} WHERE id=$1`,[id])).rows[0])throw new AppError('VALIDATION_ERROR',`${label}: ${name} tidak ditemukan.`);};
+  await check('cost_centers',cc,'Cost center');await check('profit_centers',pc,'Profit center');await check('project_wbs',pj,'Project WBS');
+  if(enforcement==='HARD'){
+    if(rule.requires_cost_center&&!cc)throw new AppError('VALIDATION_ERROR',`${label}: akun ${category} wajib cost center.`);
+    if(rule.requires_profit_center&&!pc)throw new AppError('VALIDATION_ERROR',`${label}: akun ${category} wajib profit center.`);
+    if(rule.requires_project&&!pj)throw new AppError('VALIDATION_ERROR',`${label}: akun ${category} wajib project.`);
+  }
+  return{costCenterId:cc,profitCenterId:pc,projectWbsId:pj};
+}
 // Bangun & simpan jurnal dari posting profile (configuration-driven §18.2).
 // amounts = peta amount_source → nilai (mis. {AMOUNT, NET, TAX, BPJS_COMPANY}).
 async function postFromProfile(client,doc,user,{transactionType,amounts,memoBase}){
   const profile=await accountingConfig.resolvePostingProfile(client,{transactionType,legalEntityId:doc.legal_entity_id||null,branchId:doc.branch_id||null,onDate:(doc.createdAt instanceof Date?doc.createdAt.toISOString():String(doc.createdAt||'')).slice(0,10)||undefined});
   if(!profile)throw new AppError('RESOURCE_NOT_FOUND',`Posting profile untuk ${transactionType} belum dikonfigurasi.`);
-  const codes=[...new Set(profile.legs.map(l=>l.account_code))],accounts=await accountMap(client,codes);
+  const codes=[...new Set(profile.legs.map(l=>l.account_code))],accounts=await loadAccounts(client,codes);
   const missing=codes.filter(c=>!accounts[c]);if(missing.length)throw new AppError('RESOURCE_NOT_FOUND',`Akun posting belum ada di COA: ${missing.join(', ')}.`);
+  // Wave D.1 — dimensi diturunkan dari dokumen (payload) untuk kaki P&L.
+  const policy=await dimensionPolicy(client),enforcement=dimensionEnforcement();
+  const docDims={costCenterId:doc.payload?.costCenterId||null,profitCenterId:doc.payload?.profitCenterId||null,projectWbsId:doc.payload?.projectWbsId||null};
   let debitTotal=0,creditTotal=0;
-  for(const leg of profile.legs){const value=Math.round(Number(amounts[leg.amount_source]||0)*100)/100;if(!value)continue;const debit=leg.side==='D'?value:0,credit=leg.side==='C'?value:0;debitTotal+=debit;creditTotal+=credit;await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,$4,$5,$6)`,[randomUUID(),doc.id,accounts[leg.account_code],debit,credit,`${doc.documentNumber} · ${memoBase}${leg.memo_suffix?' '+leg.memo_suffix:''}`]);}
+  for(const leg of profile.legs){const value=Math.round(Number(amounts[leg.amount_source]||0)*100)/100;if(!value)continue;const acct=accounts[leg.account_code],debit=leg.side==='D'?value:0,credit=leg.side==='C'?value:0;debitTotal+=debit;creditTotal+=credit;const dim=await resolveLineDimensions(client,{category:acct.category,dims:docDims,policy,enforcement,label:`${doc.documentNumber} · ${leg.account_code}`});await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo,cost_center_id,profit_center_id,project_wbs_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[randomUUID(),doc.id,acct.id,debit,credit,`${doc.documentNumber} · ${memoBase}${leg.memo_suffix?' '+leg.memo_suffix:''}`,dim.costCenterId,dim.profitCenterId,dim.projectWbsId]);}
   if(Math.abs(debitTotal-creditTotal)>.01)throw new AppError('VALIDATION_ERROR',`Jurnal ${transactionType} tidak seimbang (D ${debitTotal} vs C ${creditTotal}).`);
   await client.query(`UPDATE business_documents SET posting_profile_snapshot=$2 WHERE id=$1`,[doc.id,profile.snapshot]);
   return{profileCode:profile.code,profileVersion:profile.version,debit:debitTotal,credit:creditTotal};
 }
 async function postAccounting(client,doc,user){if(doc.documentType==='JOURNAL')return postManualJournal(client,doc,user);if(doc.documentType==='PAYROLL_RUN')return postPayroll(client,doc,user);if(PERPETUAL_TRIGGER[doc.documentType])return postPerpetualInventory(client,doc,user);const trigger=POSTING_TRIGGER[doc.documentType];if(!trigger||doc.status!==trigger)return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const amount=Number(doc.amount);if(!(amount>0))throw new AppError('VALIDATION_ERROR','Nilai posting jurnal harus lebih dari nol.');const period=await ensureOpenPeriod(client,doc);const posted=await postFromProfile(client,doc,user,{transactionType:doc.documentType,amounts:{AMOUNT:amount},memoBase:'auto posting'});await finishPosting(client,doc,'ACCOUNTING',{period,...posted,amount});return{period,...posted,amount};}
-async function postManualJournal(client,doc,user){if(doc.status!=='APPROVED')return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const lines=doc.payload?.journalLines;if(!Array.isArray(lines)||lines.length<2)throw new AppError('VALIDATION_ERROR','Jurnal manual membutuhkan minimal dua baris.');const debit=lines.reduce((n,x)=>n+Number(x.debit||0),0),credit=lines.reduce((n,x)=>n+Number(x.credit||0),0);if(!(debit>0)||Math.abs(debit-credit)>.01)throw new AppError('VALIDATION_ERROR','Total debit dan kredit jurnal harus seimbang.');const period=await ensureOpenPeriod(client,doc),codes=[...new Set(lines.map(x=>String(x.accountCode||'')))],accounts=await accountMap(client,codes);if(codes.some(code=>!accounts[code]))throw new AppError('RESOURCE_NOT_FOUND','Salah satu akun jurnal tidak ditemukan.');for(const line of lines){const d=Number(line.debit||0),c=Number(line.credit||0);if(d<0||c<0||d&&c||!d&&!c)throw new AppError('VALIDATION_ERROR','Baris jurnal harus memiliki tepat satu sisi debit/kredit.');await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo) VALUES($1,$2,$3,$4,$5,$6)`,[randomUUID(),doc.id,accounts[line.accountCode],d,c,String(line.memo||doc.title).slice(0,500)]);}await finishPosting(client,doc,'ACCOUNTING',{period,debit,credit,manual:true});return{period,debit,credit,manual:true};}
+async function postManualJournal(client,doc,user){if(doc.status!=='APPROVED')return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const lines=doc.payload?.journalLines;if(!Array.isArray(lines)||lines.length<2)throw new AppError('VALIDATION_ERROR','Jurnal manual membutuhkan minimal dua baris.');const debit=lines.reduce((n,x)=>n+Number(x.debit||0),0),credit=lines.reduce((n,x)=>n+Number(x.credit||0),0);if(!(debit>0)||Math.abs(debit-credit)>.01)throw new AppError('VALIDATION_ERROR','Total debit dan kredit jurnal harus seimbang.');const period=await ensureOpenPeriod(client,doc),codes=[...new Set(lines.map(x=>String(x.accountCode||'')))],accounts=await loadAccounts(client,codes);if(codes.some(code=>!accounts[code]))throw new AppError('RESOURCE_NOT_FOUND','Salah satu akun jurnal tidak ditemukan.');const policy=await dimensionPolicy(client),enforcement=dimensionEnforcement();for(const line of lines){const d=Number(line.debit||0),c=Number(line.credit||0);if(d<0||c<0||d&&c||!d&&!c)throw new AppError('VALIDATION_ERROR','Baris jurnal harus memiliki tepat satu sisi debit/kredit.');const acct=accounts[line.accountCode],dim=await resolveLineDimensions(client,{category:acct.category,dims:{costCenterId:line.costCenterId,profitCenterId:line.profitCenterId,projectWbsId:line.projectWbsId},policy,enforcement,label:`Jurnal ${doc.documentNumber} · ${line.accountCode}`});await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo,cost_center_id,profit_center_id,project_wbs_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[randomUUID(),doc.id,acct.id,d,c,String(line.memo||doc.title).slice(0,500),dim.costCenterId,dim.profitCenterId,dim.projectWbsId]);}await finishPosting(client,doc,'ACCOUNTING',{period,debit,credit,manual:true});return{period,debit,credit,manual:true};}
 async function postPayroll(client,doc,user){if(doc.status!=='APPROVED')return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const net=Number(doc.amount),tax=Number(doc.payload?.pph21||0),bpjs=Number(doc.payload?.bpjs||0),period=await ensureOpenPeriod(client,doc);
   // Kaki payroll dari posting profile: NET, TAX, BPJS_COMPANY dipetakan ke akun.
   const posted=await postFromProfile(client,doc,user,{transactionType:'PAYROLL_RUN',amounts:{NET:net,TAX:tax,BPJS_COMPANY:bpjs},memoBase:'payroll'});await finishPosting(client,doc,'ACCOUNTING',{period,net,tax,bpjs,...posted});return{period,net,tax,bpjs,...posted};}
 async function postDocument(client,doc,user){return{inventory:await postInventory(client,doc,user),accounting:await postAccounting(client,doc,user)};}
-module.exports={syncDocumentLines,normalizeLines,postPerpetualInventory,movementValue,assertFulfilmentWithinOrder,orderFulfilment,lineSubtotalOf,authoritativeTotal,assertAmountMatchesLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod};
+module.exports={syncDocumentLines,normalizeLines,postPerpetualInventory,movementValue,assertFulfilmentWithinOrder,orderFulfilment,lineSubtotalOf,authoritativeTotal,assertAmountMatchesLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod,loadAccounts,dimensionPolicy,resolveLineDimensions,dimensionEnforcement};
