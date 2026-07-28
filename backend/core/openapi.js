@@ -3,7 +3,7 @@
 // Dihasilkan dari daftar endpoint terkurasi (bukan refleksi otomatis) agar
 // kontrak API stabil dan terdokumentasi. API_VERSION dikirim pada header
 // X-API-Version setiap respons.
-const API_VERSION = '1.0';
+const API_VERSION = '1.2';
 
 // Ringkas: [method, path, tag, summary, {auth?}]. Path memakai {id} OpenAPI.
 const ENDPOINTS = [
@@ -12,8 +12,10 @@ const ENDPOINTS = [
   ['GET', '/api/openapi.json', 'System', 'Spesifikasi OpenAPI ini', { public: true }],
   ['GET', '/api/system/events-catalog', 'System', 'Katalog event domain', { public: true }],
   ['GET', '/api/verify', 'System', 'Verifikasi keaslian dokumen (kode)', { public: true }],
+  ['GET', '/api/runtime', 'System', 'Metadata runtime (mode & database)', { public: true }],
   ['POST', '/api/auth/login', 'Auth', 'Login (mengeluarkan cookie sesi)', { public: true }],
   ['POST', '/api/auth/mfa', 'Auth', 'Selesaikan tantangan MFA TOTP', { public: true }],
+  ['POST', '/api/auth/change-password-required', 'Auth', 'Ganti sandi wajib saat login challenge', { public: true }],
   ['POST', '/api/auth/logout', 'Auth', 'Logout sesi berjalan'],
   ['GET', '/api/auth/session', 'Auth', 'Sesi + CSRF token + permission'],
   ['GET', '/api/dashboard', 'Workspace', 'KPI ringkas dashboard'],
@@ -36,12 +38,27 @@ const ENDPOINTS = [
   ['GET', '/api/rfq/{id}/quotes', 'Procurement', 'Kuota supplier RFQ + perbandingan'],
   ['POST', '/api/rfq/{id}/create-po', 'Procurement', 'Konversi RFQ terpilih → PO'],
   ['POST', '/api/purchase-orders/{id}/change-orders', 'Procurement', 'Ajukan amendemen PO'],
+  ['GET', '/api/purchase-contracts', 'Procurement', 'Portfolio kontrak pembelian berhalaman'],
+  ['POST', '/api/purchase-contracts', 'Procurement', 'Buat draft kontrak (Idempotency-Key)'],
+  ['GET', '/api/purchase-contracts/{id}', 'Procurement', 'Contract 360 + baris + release'],
+  ['POST', '/api/purchase-contracts/{id}/approve', 'Procurement', 'Setujui kontrak (version + SoD)'],
+  ['POST', '/api/purchase-contracts/{id}/release', 'Procurement', 'Release kontrak ke PO (version + idempotency)'],
   ['GET', '/api/inventory', 'Inventory', 'Saldo stok'],
+  ['GET', '/api/inventory/reservations', 'Inventory', 'Reservation workbench berhalaman'],
+  ['POST', '/api/inventory/reservations/{id}/release', 'Inventory', 'Lepas reservasi beralasan (version + idempotency)'],
   ['GET', '/api/inventory/lots', 'Inventory', 'Lot + heat number (traceability)'],
   ['GET', '/api/inventory/valuation', 'Inventory', 'Valuasi persediaan'],
   ['POST', '/api/inventory/opname', 'Inventory', 'Mulai stock opname'],
   ['GET', '/api/work-orders/{id}/production', 'Production', 'Cockpit produksi WO'],
   ['POST', '/api/work-orders/{id}/plan', 'Production', 'Rencanakan produksi (BOM + reservasi)'],
+  ['GET', '/api/production/capacity', 'Production', 'Capacity board per work center dan tanggal'],
+  ['GET', '/api/production/wip', 'Production', 'Nilai work in process dari fakta transaksi'],
+  ['POST', '/api/production/operations/{id}/schedule', 'Production', 'Jadwalkan operasi dengan finite capacity'],
+  ['GET', '/api/quality/capa', 'Quality', 'Daftar CAPA berhalaman'],
+  ['POST', '/api/quality/capa', 'Quality', 'Buka CAPA (Idempotency-Key)'],
+  ['POST', '/api/quality/capa/{id}/advance', 'Quality', 'Transisi CAPA berurutan (version)'],
+  ['GET', '/api/quality/instruments', 'Quality', 'Calibration register'],
+  ['POST', '/api/quality/instruments/{id}/calibrations', 'Quality', 'Catat kalibrasi alat (version)'],
   ['POST', '/api/mrp/run', 'Production', 'Jalankan MRP'],
   ['GET', '/api/accounting/financial-statements', 'Finance', 'Neraca + laba rugi'],
   ['GET', '/api/accounting/closing-cockpit', 'Finance', 'Checklist tutup buku'],
@@ -63,6 +80,13 @@ const ENDPOINTS = [
   ['POST', '/api/reports/saved-filters', 'Reporting', 'Simpan filter Executive Cockpit'],
   ['GET', '/api/audit', 'Governance', 'Audit trail (append-only)'],
   ['GET', '/api/governance/sod', 'Governance', 'Konflik Segregation of Duties'],
+  ['GET', '/api/governance/retention/policies', 'Governance', 'Policy retention teknis aktif'],
+  ['GET', '/api/governance/retention/runs', 'Governance', 'Ledger preview dan eksekusi retention'],
+  ['POST', '/api/governance/retention/preview', 'Governance', 'Preview kandidat retention tanpa menghapus'],
+  ['POST', '/api/governance/retention/execute', 'Governance', 'Eksekusi preview retention (MFA + idempotency)'],
+  ['GET', '/api/governance/retention/holds', 'Governance', 'Daftar legal hold retention'],
+  ['POST', '/api/governance/retention/holds', 'Governance', 'Tempatkan legal hold pada record/resource'],
+  ['POST', '/api/governance/retention/holds/{id}/release', 'Governance', 'Lepaskan legal hold beralasan'],
   ['GET', '/api/events', 'Realtime', 'Server-Sent Events terautentikasi']
 ];
 

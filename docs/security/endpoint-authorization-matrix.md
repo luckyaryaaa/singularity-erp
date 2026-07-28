@@ -1,25 +1,25 @@
 # Endpoint Authorization Matrix
 
-Baseline Sprint 17/R024 mencakup 14 bounded router dan 183 handler HTTP.
+Baseline v0.36.0 mencakup 14 bounded router dan 281 handler HTTP.
 Seluruh domain router hanya dipanggil setelah validasi session terpusat di
 `backend/api-postgres.js`. Endpoint publik dibatasi oleh allowlist eksplisit.
 
 | Domain router | Handler | Enforcement utama | Negative evidence |
 |---|---:|---|---|
-| Auth | 13 | public allowlist atau own authenticated session | login, lockout, MFA, session expiry |
+| Auth | 15 | public allowlist atau own authenticated session | login, lockout, MFA, recovery code sekali pakai, session expiry |
 | Workspace | 3 | permission + user scope | employee/role denial |
-| Documents | 8 | permission dinamis per tipe + branch | cross-branch read/mutation |
-| Sales | 6 | permission + repository branch | quotation, dunning, RMA IDOR |
-| Procurement | 15 | repository permission/branch + SoD | RFQ, PO, proposal IDOR |
+| Documents | 9 | permission dinamis per tipe + branch | cross-branch read/mutation |
+| Sales | 23 | permission + repository branch | quotation, commercial control, dunning, RMA IDOR |
+| Procurement | 20 | permission + RLS + branch + SoD + version + idempotency | RFQ, kontrak/release replay, PO, proposal IDOR |
 | Operations | 12 | permission + ownership + branch | job, file, artifact isolation |
-| Masters | 30 | permission dinamis + repository scope | sensitive bank/employee/master |
-| Organization | 8 | scope + Owner PIN + recent MFA | bank maker-checker |
-| Inventory | 8 | permission + warehouse branch | lot/opname scope |
-| Production | 14 | permission + work-order branch | WO/QC/MRP isolation |
-| Finance | 21 | permission + branch + PIN/SoD | asset, ledger, payroll, tax IDOR |
+| Masters | 47 | permission dinamis + repository scope | sensitive bank/employee/master |
+| Organization | 30 | scope + Owner PIN + recent MFA | bank, hierarchy, workforce maker-checker |
+| Inventory | 14 | permission + RLS + warehouse branch + version + idempotency | lot, bin, reservation release, opname scope |
+| Production | 24 | permission + RLS + work-order branch + version + idempotency | WO, capacity/WIP, QC/CAPA/calibration, MRP isolation |
+| Finance | 30 | permission + branch + PIN/SoD | asset, ledger, payroll, tax IDOR |
 | HR | 15 | permission + branch/own record | roster, correction, payroll scope |
 | Reporting | 9 | permission + branch + ownership | filter/schedule/report scope |
-| Governance | 21 | permission + SoD/PIN/MFA | IAM, review, audit append-only |
+| Governance | 30 | permission + SoD/PIN/MFA | IAM, review, reset privileged maker-checker, audit append-only |
 
 ## Gate otomatis
 

@@ -27,6 +27,12 @@ async function dispatch(client,req,url,ctx){
   const publicResult=await authRoutes.dispatchPublic(client,req,url,ctx);if(publicResult!==NO_MATCH)return publicResult;
   const resolved=await auth.resolveSession(client,parseCookies(req).mat_session,{ip:ctx.ip,device:ctx.device});
   if(!resolved)throw new AppError('SESSION_EXPIRED');ctx.user=resolved.user;ctx.session=resolved.session;
+  // G1 — konteks RLS ditanam withTransaction saat BEGIN dengan user UNDEFINED
+  // (sesi baru di-resolve DI DALAM transaksi ini), sehingga tanpa baris ini setiap
+  // request domain berjalan sebagai app.is_system=on / app.cross_branch=on dan
+  // lapisan pertahanan kedua di database mati. Tanam ulang dengan identitas nyata
+  // sebelum router privat/domain mana pun menyentuh data.
+  await setRlsContext(client,resolved.user);
   const p=url.pathname,method=req.method;ratelimit.consume(method==='GET'?'read':p==='/api/jobs'?'export':'write',ctx.user.id);
   if(method!=='GET'&&(!originAllowed(req,ctx)||!await auth.verifyCsrf(client,ctx.session.id,req.headers['x-csrf-token'])))throw new AppError('CSRF_REJECTED');
   const privateResult=await authRoutes.dispatchPrivate(client,req,url,ctx);if(privateResult!==NO_MATCH)return privateResult;
@@ -64,8 +70,14 @@ async function handle(req,res){const started=Date.now(),requestId=randomUUID(),u
     const body=durableAuth?await loginTransaction(c=>dispatch(c,req,url,ctx)):await withTransaction(c=>dispatch(c,req,url,ctx),{user:ctx.user});
     apiMetrics.requests++;apiMetrics.latencies.push(Date.now()-started);if(apiMetrics.latencies.length>500)apiMetrics.latencies.shift();
     if(ctx.download){const {item,buffer}=ctx.download,filename=item.originalFilename||item.fileName||'download',disposition=item.disposition==='inline'?'inline':'attachment';res.writeHead(200,{'Content-Type':item.mimeType,'Content-Length':buffer.length,'Content-Disposition':`${disposition}; filename="${privateStorage.safeName(filename).replace(/"/g,'')}"`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Request-Id':requestId});return res.end(buffer);}
-    json(res,ctx.status||200,body,{'X-Request-Id':requestId,...(ctx.cookie?{'Set-Cookie':ctx.cookie}:{})});
-  }catch(error){apiMetrics.requests++;apiMetrics.errors++;apiMetrics.latencies.push(Date.now()-started);if(apiMetrics.latencies.length>500)apiMetrics.latencies.shift();let e=error instanceof AppError?error:null;if(!e&&['23502','23503','23505','23514','22P02'].includes(error.code))e=new AppError('VALIDATION_ERROR',error.code==='23505'?'Kode atau data unik sudah digunakan.':'Data melanggar aturan validasi database.');if(!e&&['BODY_INVALID_JSON','BODY_TOO_LARGE'].includes(error.message))e=new AppError('VALIDATION_ERROR','Format atau ukuran body tidak valid.');if(!e)e=new AppError('INTERNAL');if(!(error instanceof AppError)&&e.code==='INTERNAL')console.error(JSON.stringify({level:'error',requestId,error:error.message}));json(res,e.status,e.toBody(),{'X-Request-Id':requestId});}
+    json(res,ctx.status||200,body,{'X-Request-Id':requestId,...(ctx.headers||{}),...(ctx.cookie?{'Set-Cookie':ctx.cookie}:{})});
+  }catch(error){apiMetrics.requests++;apiMetrics.errors++;apiMetrics.latencies.push(Date.now()-started);if(apiMetrics.latencies.length>500)apiMetrics.latencies.shift();let e=error instanceof AppError?error:null;if(!e&&['23502','23503','23505','23514','22P02'].includes(error.code))e=new AppError('VALIDATION_ERROR',error.code==='23505'?'Kode atau data unik sudah digunakan.':'Data melanggar aturan validasi database.');if(!e&&['BODY_INVALID_JSON','BODY_TOO_LARGE'].includes(error.message))e=new AppError('VALIDATION_ERROR','Format atau ukuran body tidak valid.');if(!e)e=new AppError('INTERNAL');if(!(error instanceof AppError)&&e.code==='INTERNAL')console.error(JSON.stringify({level:'error',requestId,error:error.message}));
+    // G4 — jejak penolakan otorisasi ke log terstruktur (untuk SIEM/deteksi
+    // penyusupan). Sengaja log, BUKAN tulis DB: menulis audit per-403 di jalur
+    // error yang panas membuka amplifikasi DoS. Audit DB penolakan ber-rate-limit
+    // adalah tindak lanjut terpisah.
+    if(e.code==='PERMISSION_DENIED')console.warn(JSON.stringify({level:'warn',event:'authz_denied',requestId,userId:ctx.user?.id||null,method:req.method,path:url.pathname,code:e.code}));
+    json(res,e.status,e.toBody(),{'X-Request-Id':requestId});}
 }
 module.exports={handle};
 setInterval(()=>ratelimit.sweep(),60_000).unref();

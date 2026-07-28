@@ -7,12 +7,17 @@
 - Token session dan CSRF hanya disimpan sebagai SHA-256.
 - Idle timeout 60 menit; absolute timeout 8 jam; logout seluruh perangkat.
 - Lockout 5 kegagalan selama 15 menit dan login rate limit terpisah.
-- Password-change dan MFA challenge persisten, berlaku 5 menit, sekali pakai.
-- TOTP RFC 6238; secret terenkripsi AES-256-GCM.
+- Password-change login challenge berlaku 5 menit; tautan reset terkontrol
+  berlaku 30 menit. Keduanya sekali pakai dan hanya disimpan sebagai hash.
+- TOTP RFC 6238; secret terenkripsi AES-256-GCM. Sepuluh recovery code
+  diterbitkan saat enrollment/regenerasi, disimpan SHA-256, dan sekali pakai.
 - `last_seen_at` ditulis maksimal sekali per 5 menit; perubahan IP/perangkat
   disimpan sebagai risk flag. Rotasi CSRF mempertahankan hash sebelumnya selama
   10 menit agar beberapa tab aktif tidak menghasilkan false 403.
-- Perubahan password, role, atau status akun mencabut seluruh sesi pengguna.
+- Perubahan password, role, status akun, atau postur MFA mencabut sesi sesuai
+  policy. Perubahan faktor mengirim notifikasi keamanan.
+- Reset Owner server-only. Reset administrator memakai maker-checker
+  Security Admin/Owner → Owner dengan MFA terbaru dan SoD maker ≠ checker.
 
 ## Authorization dan proteksi request
 
@@ -27,7 +32,7 @@
   WAREHOUSE, DEPARTMENT, PROJECT, dan OWN_RECORD. Snapshot scope ikut disimpan
   pada policy job; report/export/file difilter kembali di worker/repository.
 - Matriks endpoint terversi di `docs/security/endpoint-authorization-matrix.md`
-  memetakan 14 router dan 183 handler ke public/session/permission control.
+  memetakan 14 router dan 281 handler ke public/session/permission control.
   Automated negative test memverifikasi allow/deny dan menjaga endpoint publik
   tetap menggunakan allowlist eksplisit.
 

@@ -131,3 +131,62 @@ dbTest('B5: withTransaction memasang konteks dari pengguna pemanggil', async () 
   const system = await withTransaction(async (c) => (await c.query(`SELECT current_setting('app.is_system',true) system`)).rows[0]);
   assert.equal(system.system, 'on', 'transaksi tanpa pengguna berjalan sebagai sistem');
 });
+
+// ── G1 tranche: cakupan tambahan untuk perbaikan setRlsContext(resolved.user) ──
+// Skenario g bersifat murni (tanpa DB) sehingga selalu berjalan; h/i/j menuntut
+// DATABASE_URL (dbTest) karena menguji perilaku transaction-local sungguhan.
+
+test('G1(g): pengguna cabang tidak dapat eskalasi lewat branchId cabang lain (app-layer)', () => {
+  const { assertBranchAccess, resolveBranch, hasGlobalScope, queryScope } = require('../backend/core/data-scope');
+  const branchUser = { id: 'u-a', role: 'sales', branchId: 'branch-A' };
+  const globalUser = { id: 'u-g', role: 'owner', branchId: 'branch-A', branchScope: '*' };
+  const denied = (e) => e.code === 'PERMISSION_DENIED';
+  // Menembak cabang lain lewat request → ditolak, tidak boleh naik scope.
+  assert.throws(() => assertBranchAccess(branchUser, 'branch-B'), denied, 'akses cabang lain wajib ditolak');
+  assert.throws(() => resolveBranch(branchUser, 'branch-B'), denied, 'resolveBranch tidak boleh menaikkan scope dari request');
+  assert.equal(resolveBranch(branchUser, undefined), 'branch-A', 'tanpa branchId jatuh ke cabang akun');
+  assert.equal(queryScope(branchUser).global, false, 'pengguna cabang bukan global');
+  assert.equal(queryScope(branchUser).branchId, 'branch-A');
+  // Pengguna global sah boleh memilih cabang mana pun.
+  assert.equal(hasGlobalScope(globalUser), true);
+  assert.equal(resolveBranch(globalUser, 'branch-B'), 'branch-B', 'pengguna global boleh memilih cabang');
+});
+
+dbTest('G1(h): koneksi pool bekas pengguna sistem/global tidak bocor ke pengguna normal berikutnya', async () => {
+  const { withTransaction } = require('../backend/infrastructure/database/transaction');
+  const branch = await withTransaction(async (c) => (await c.query('SELECT id FROM branches WHERE active LIMIT 1')).rows[0].id);
+  // Transaksi sistem lebih dulu memakai pool (is_system=on).
+  const sys = await withTransaction(async (c) => (await c.query("SELECT current_setting('app.is_system',true) s")).rows[0].s);
+  assert.equal(sys, 'on');
+  // Transaksi pengguna cabang berikutnya (koneksi yang sama dari pool) WAJIB bersih.
+  const scoped = await withTransaction(async (c) => (await c.query(
+    "SELECT current_setting('app.is_system',true) sys,current_setting('app.cross_branch',true) x,current_setting('app.branch_id',true) b")).rows[0],
+  { user: { id: randomUUID(), role: 'sales', branchId: branch, branchScope: branch } });
+  assert.equal(scoped.sys, 'off', 'is_system bocor dari transaksi sistem sebelumnya');
+  assert.equal(scoped.x, 'off', 'cross_branch bocor dari transaksi sistem sebelumnya');
+  assert.equal(scoped.b, branch, 'branch_id wajib milik pengguna sekarang');
+});
+
+dbTest('G1(i): konteks RLS tidak bertahan setelah COMMIT', async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT set_config('app.is_system','on',true)");
+    await client.query('COMMIT');
+    const after = (await client.query("SELECT current_setting('app.is_system',true) v")).rows[0].v;
+    assert.ok(after === null || after === '', `konteks bertahan setelah commit: ${after}`);
+  } finally { await client.end(); }
+});
+
+dbTest('G1(j): konteks RLS tidak bertahan setelah exception + rollback withTransaction', async () => {
+  const { withTransaction } = require('../backend/infrastructure/database/transaction');
+  const branch = await withTransaction(async (c) => (await c.query('SELECT id FROM branches WHERE active LIMIT 1')).rows[0].id);
+  await assert.rejects(() => withTransaction(async () => { throw new Error('boom'); },
+    { user: { id: randomUUID(), role: 'sales', branchId: branch, branchScope: branch } }), /boom/);
+  // Transaksi berikutnya tanpa pengguna wajib kembali ke default sistem, bukan mewarisi cabang.
+  const next = await withTransaction(async (c) => (await c.query(
+    "SELECT current_setting('app.branch_id',true) b,current_setting('app.is_system',true) sys")).rows[0]);
+  assert.ok(next.b === null || next.b === '', `branch_id bocor setelah exception: ${next.b}`);
+  assert.equal(next.sys, 'on', 'transaksi tanpa pengguna kembali ke mode sistem');
+});
