@@ -25,7 +25,11 @@ async function expireAssignments(client){
 const cipherKey=()=>createHash('sha256').update(process.env.MAT_MFA_ENCRYPTION_KEY||process.env.DATABASE_URL||'mat-erp-v2-development').digest();
 function encryptSecret(value){const crypto=require('node:crypto'),iv=randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',cipherKey(),iv),body=Buffer.concat([cipher.update(value,'utf8'),cipher.final()]);return `${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${body.toString('base64url')}`;}
 function decryptSecret(value){const crypto=require('node:crypto'),[iv,tag,body]=String(value||'').split('.'),decipher=crypto.createDecipheriv('aes-256-gcm',cipherKey(),Buffer.from(iv,'base64url'));decipher.setAuthTag(Buffer.from(tag,'base64url'));return Buffer.concat([decipher.update(Buffer.from(body,'base64url')),decipher.final()]).toString('utf8');}
-async function createPending(client,kind,userId,payload={}){const token=rawToken(24);await client.query('DELETE FROM auth_pending WHERE user_id=$1 AND kind=$2',[userId,kind]);await client.query(`INSERT INTO auth_pending(id,kind,user_id,token_hash,expires_at,payload) VALUES($1,$2,$3,$4,now()+interval '5 minutes',$5)`,[randomUUID(),kind,userId,digest(token),payload]);return token;}
+async function createPending(client,kind,userId,payload={},ttlMinutes=5){const token=rawToken(24);await client.query('DELETE FROM auth_pending WHERE user_id=$1 AND kind=$2',[userId,kind]);await client.query(`INSERT INTO auth_pending(id,kind,user_id,token_hash,expires_at,payload) VALUES($1,$2,$3,$4,now()+($6::int*interval '1 minute'),$5)`,[randomUUID(),kind,userId,digest(token),payload,ttlMinutes]);return token;}
+async function issuePasswordReset(client,userId){
+  const resetToken=await createPending(client,'password_change',userId,{source:'admin_reset'},30);
+  return{resetToken,expiresAt:new Date(Date.now()+30*60*1000).toISOString()};
+}
 async function findPending(client,kind,token){const row=(await client.query('SELECT * FROM auth_pending WHERE kind=$1 AND token_hash=$2 FOR UPDATE',[kind,digest(token||'')])).rows[0];if(!row)return null;if(new Date(row.expires_at).getTime()<Date.now()){await client.query('DELETE FROM auth_pending WHERE id=$1',[row.id]);return null;}return row;}
 function assertPasswordPolicy(value){if(typeof value!=='string'||value.length<12||!/[A-Z]/.test(value)||!/[a-z]/.test(value)||!/[0-9]/.test(value)||!/[\W_]/.test(value))throw new AppError('VALIDATION_ERROR','Kata sandi minimal 12 karakter dan memuat huruf besar, kecil, angka, serta simbol.');}
 
@@ -140,11 +144,116 @@ async function verifyCsrf(client,sessionId,plainToken){
   return !!row&&(row.csrf_token_hash===value||(row.previous_csrf_token_hash===value&&row.previous_csrf_valid_until&&new Date(row.previous_csrf_valid_until)>new Date()));
 }
 async function rotateCsrf(client,sessionId){const csrfToken=rawToken(16);await client.query(`UPDATE user_sessions SET previous_csrf_token_hash=csrf_token_hash,previous_csrf_valid_until=now()+interval '10 minutes',csrf_token_hash=$2 WHERE id=$1 AND active=true`,[sessionId,digest(csrfToken)]);return csrfToken;}
-async function completeMfa(client,{mfaToken,code,ip,device}){const pending=await findPending(client,'mfa',mfaToken);if(!pending)throw new AppError('SESSION_EXPIRED','Sesi MFA kedaluwarsa. Masuk ulang.');const row=(await client.query(`SELECT u.*,b.name branch_name,EXISTS(SELECT 1 FROM user_role_assignments a WHERE a.user_id=u.id AND a.role_code=u.role AND a.is_primary AND a.status='ACTIVE' AND a.effective_from<=now() AND (a.effective_until IS NULL OR a.effective_until>now())) access_valid FROM app_users u LEFT JOIN branches b ON b.id=u.branch_id WHERE u.id=$1`,[pending.user_id])).rows[0];if(!row?.active||!row.access_valid)throw new AppError('SESSION_EXPIRED','Assignment akses sudah tidak aktif.');let valid=false;try{valid=!!row?.totp_secret_ciphertext&&totp.verify(decryptSecret(row.totp_secret_ciphertext),code);}catch{}if(!valid){const attempts=Number(pending.attempts)+1;if(attempts>=5)await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);else await client.query('UPDATE auth_pending SET attempts=$2 WHERE id=$1',[pending.id,attempts]);throw new AppError('AUTH_FAILED','Kode autentikator tidak valid.');}await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);const user=publicUser(row),session=await createSession(client,user,{ip,device,mfaVerified:true});return{session,user,permissions:await permissionsForUser(client,user)};}
+const normalizeRecoveryCode=(value)=>String(value||'').trim().toUpperCase().replace(/\s+/g,'');
+function createRecoveryCode(){
+  const value=randomBytes(5).toString('hex').toUpperCase();
+  return `MAT-${value.slice(0,5)}-${value.slice(5)}`;
+}
+async function replaceRecoveryCodes(client,userId){
+  const batchId=randomUUID(),codes=Array.from({length:10},createRecoveryCode);
+  await client.query('DELETE FROM mfa_recovery_codes WHERE user_id=$1',[userId]);
+  for(const code of codes)await client.query(
+    `INSERT INTO mfa_recovery_codes(id,user_id,batch_id,code_hash)
+     VALUES($1,$2,$3,$4)`,[randomUUID(),userId,batchId,digest(normalizeRecoveryCode(code))]);
+  return codes;
+}
+async function securityNotification(client,user,{title,body,dedupeKey}){
+  const operations=require('./operations');
+  return operations.notify(client,{userId:user.id,category:'SYSTEM_ALERT',title,body,
+    link:'#/account/security',dedupeKey:`security:${user.id}:${dedupeKey}`});
+}
+async function verifyMfaOrRecovery(client,row,code,ip){
+  let valid=false;
+  try{valid=!!row?.totp_secret_ciphertext&&totp.verify(decryptSecret(row.totp_secret_ciphertext),String(code||''));}catch{}
+  if(valid)return'TOTP';
+  const normalized=normalizeRecoveryCode(code);
+  if(!/^MAT-[A-F0-9]{5}-[A-F0-9]{5}$/.test(normalized))return null;
+  const used=(await client.query(
+    `UPDATE mfa_recovery_codes SET used_at=now(),used_ip=$3
+     WHERE user_id=$1 AND code_hash=$2 AND used_at IS NULL RETURNING id`,
+    [row.id,digest(normalized),ip||null])).rowCount;
+  return used?'RECOVERY_CODE':null;
+}
+async function completeMfa(client,{mfaToken,code,ip,device}){
+  const pending=await findPending(client,'mfa',mfaToken);
+  if(!pending)throw new AppError('SESSION_EXPIRED','Sesi MFA kedaluwarsa. Masuk ulang.');
+  const row=(await client.query(`SELECT u.*,b.name branch_name,
+    EXISTS(SELECT 1 FROM user_role_assignments a WHERE a.user_id=u.id AND a.role_code=u.role
+      AND a.is_primary AND a.status='ACTIVE' AND a.effective_from<=now()
+      AND (a.effective_until IS NULL OR a.effective_until>now())) access_valid
+    FROM app_users u LEFT JOIN branches b ON b.id=u.branch_id WHERE u.id=$1`,
+  [pending.user_id])).rows[0];
+  if(!row?.active||!row.access_valid)throw new AppError('SESSION_EXPIRED','Assignment akses sudah tidak aktif.');
+  const method=await verifyMfaOrRecovery(client,row,code,ip);
+  if(!method){
+    const attempts=Number(pending.attempts)+1;
+    if(attempts>=5)await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);
+    else await client.query('UPDATE auth_pending SET attempts=$2 WHERE id=$1',[pending.id,attempts]);
+    throw new AppError('AUTH_FAILED','Kode autentikator atau recovery code tidak valid.');
+  }
+  await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);
+  const user=publicUser(row),session=await createSession(client,user,{ip,device,mfaVerified:true});
+  if(method==='RECOVERY_CODE')await securityNotification(client,user,{
+    title:'Recovery code MFA digunakan',
+    body:'Satu recovery code telah dipakai untuk masuk. Periksa perangkat aktif dan buat set kode baru bila bukan Anda.',
+    dedupeKey:`recovery-used:${Date.now()}`
+  });
+  return{session,user,permissions:await permissionsForUser(client,user),mfaMethod:method};
+}
 async function changePasswordWithToken(client,{changeToken,newPassword,ip,device}){const pending=await findPending(client,'password_change',changeToken);if(!pending)throw new AppError('SESSION_EXPIRED','Sesi ganti sandi kedaluwarsa. Masuk ulang.');const valid=(await client.query(`SELECT 1 FROM app_users u WHERE u.id=$1 AND u.active AND EXISTS(SELECT 1 FROM user_role_assignments a WHERE a.user_id=u.id AND a.role_code=u.role AND a.is_primary AND a.status='ACTIVE' AND a.effective_from<=now() AND (a.effective_until IS NULL OR a.effective_until>now()))`,[pending.user_id])).rowCount;if(!valid)throw new AppError('SESSION_EXPIRED','Assignment akses sudah tidak aktif.');assertPasswordPolicy(newPassword);await client.query('UPDATE app_users SET password_hash=$2,must_change_password=false,updated_at=now() WHERE id=$1',[pending.user_id,hashPassword(newPassword)]);await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);const row=(await client.query(`SELECT u.*,b.name branch_name FROM app_users u LEFT JOIN branches b ON b.id=u.branch_id WHERE u.id=$1`,[pending.user_id])).rows[0];if(row.mfa_enabled&&row.totp_secret_ciphertext)return{mfaRequired:true,mfaToken:await createPending(client,'mfa',row.id)};const user=publicUser(row),session=await createSession(client,user,{ip,device});return{session,user,permissions:await permissionsForUser(client,user)};}
 async function changeOwnPassword(client,user,currentPassword,newPassword){const row=(await client.query('SELECT password_hash FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];if(!verifyPassword(currentPassword||'',row?.password_hash))throw new AppError('AUTH_FAILED','Kata sandi saat ini salah.');assertPasswordPolicy(newPassword);await client.query('UPDATE app_users SET password_hash=$2,updated_at=now() WHERE id=$1',[user.id,hashPassword(newPassword)]);await client.query("UPDATE user_sessions SET active=false,ended_at=now(),end_reason='password_changed' WHERE user_id=$1 AND active",[user.id]);}
-async function startMfaSetup(client,user){const secret=totp.generateSecret();await createPending(client,'mfa_setup',user.id,{secretCiphertext:encryptSecret(secret)});return{secret,otpauthUrl:totp.otpauthUrl(secret,user.username)};}
-async function enableMfa(client,user,code){const pending=(await client.query("SELECT * FROM auth_pending WHERE user_id=$1 AND kind='mfa_setup' AND expires_at>now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE",[user.id])).rows[0];if(!pending)throw new AppError('VALIDATION_ERROR','Mulai pendaftaran MFA terlebih dahulu.');const secret=decryptSecret(pending.payload.secretCiphertext);if(!totp.verify(secret,code))throw new AppError('AUTH_FAILED','Kode autentikator tidak valid. Periksa jam perangkat.');await client.query('UPDATE app_users SET totp_secret_ciphertext=$2,mfa_enabled=true,updated_at=now() WHERE id=$1',[user.id,encryptSecret(secret)]);await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);}
+async function startMfaSetup(client,user,currentCode){
+  const current=(await client.query(
+    'SELECT mfa_enabled,totp_secret_ciphertext FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
+  if(current?.mfa_enabled&&current.totp_secret_ciphertext){
+    let valid=false;
+    try{valid=totp.verify(decryptSecret(current.totp_secret_ciphertext),String(currentCode||''));}catch{}
+    if(!valid)throw new AppError('AUTH_FAILED','Kode MFA aktif wajib dimasukkan sebelum mengganti faktor.');
+  }
+  const secret=totp.generateSecret();
+  await createPending(client,'mfa_setup',user.id,{secretCiphertext:encryptSecret(secret)});
+  return{secret,otpauthUrl:totp.otpauthUrl(secret,user.username),replacing:!!current?.mfa_enabled};
+}
+async function enableMfa(client,user,code){
+  const pending=(await client.query(
+    "SELECT * FROM auth_pending WHERE user_id=$1 AND kind='mfa_setup' AND expires_at>now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE",
+    [user.id])).rows[0];
+  if(!pending)throw new AppError('VALIDATION_ERROR','Mulai pendaftaran MFA terlebih dahulu.');
+  const secret=decryptSecret(pending.payload.secretCiphertext);
+  if(!totp.verify(secret,String(code||'')))throw new AppError('AUTH_FAILED','Kode autentikator tidak valid. Periksa jam perangkat.');
+  await client.query(
+    'UPDATE app_users SET totp_secret_ciphertext=$2,mfa_enabled=true,updated_at=now() WHERE id=$1',
+    [user.id,encryptSecret(secret)]);
+  await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);
+  const recoveryCodes=await replaceRecoveryCodes(client,user.id);
+  await securityNotification(client,user,{
+    title:'MFA berhasil diaktifkan',
+    body:'Faktor autentikasi berubah dan set recovery code baru diterbitkan. Simpan kode di tempat aman.',
+    dedupeKey:`mfa-enabled:${Date.now()}`
+  });
+  return{ok:true,recoveryCodes,remaining:recoveryCodes.length};
+}
+async function recoveryCodeStatus(client,userId){
+  const row=(await client.query(
+    `SELECT count(*) FILTER(WHERE used_at IS NULL)::int remaining,
+      count(*)::int total,max(created_at) generated_at
+     FROM mfa_recovery_codes WHERE user_id=$1`,[userId])).rows[0];
+  return{remaining:Number(row.remaining||0),total:Number(row.total||0),generatedAt:row.generated_at||null};
+}
+async function regenerateRecoveryCodes(client,user,code){
+  const row=(await client.query(
+    'SELECT id,totp_secret_ciphertext,mfa_enabled FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
+  let valid=false;
+  try{valid=!!row?.mfa_enabled&&!!row.totp_secret_ciphertext&&totp.verify(decryptSecret(row.totp_secret_ciphertext),String(code||''));}catch{}
+  if(!valid)throw new AppError('AUTH_FAILED','Kode MFA aktif wajib dimasukkan untuk membuat recovery code baru.');
+  const recoveryCodes=await replaceRecoveryCodes(client,user.id);
+  await securityNotification(client,user,{
+    title:'Recovery code MFA diperbarui',
+    body:'Set recovery code lama sudah dicabut dan set baru diterbitkan.',
+    dedupeKey:`recovery-regenerated:${Date.now()}`
+  });
+  return{ok:true,recoveryCodes,remaining:recoveryCodes.length};
+}
 // B4 — MFA wajib untuk akun berkewenangan tinggi. Faktor kedua adalah kendali
 // utama terhadap pengambilalihan akun; mematikannya hanya dengan kata sandi
 // berarti pencuri sandi dapat sekaligus melucuti pertahanannya.
@@ -162,6 +271,12 @@ async function disableMfa(client,user,password,code){
   }
   await client.query('UPDATE app_users SET totp_secret_ciphertext=NULL,mfa_enabled=false,updated_at=now() WHERE id=$1',[user.id]);
   await client.query("DELETE FROM auth_pending WHERE user_id=$1 AND kind IN('mfa','mfa_setup')",[user.id]);
+  await client.query('DELETE FROM mfa_recovery_codes WHERE user_id=$1',[user.id]);
+  await securityNotification(client,user,{
+    title:'MFA dinonaktifkan',
+    body:'Faktor autentikasi dan seluruh recovery code telah dicabut. Semua sesi aktif dihentikan.',
+    dedupeKey:`mfa-disabled:${Date.now()}`
+  });
   // Sesi lain dihentikan: perubahan postur keamanan tidak boleh menyisakan
   // sesi yang terbentuk di bawah jaminan lama.
   await client.query("UPDATE user_sessions SET active=false,ended_at=now(),end_reason='mfa_disabled' WHERE user_id=$1 AND active",[user.id]);
@@ -187,4 +302,4 @@ async function logoutAll(client,userId){return client.query("UPDATE user_session
 async function devices(client,userId){return (await client.query(`SELECT id,created_at,last_seen_at,expires_at,ip,device,active,ended_at,end_reason
   FROM user_sessions WHERE user_id=$1 ORDER BY last_seen_at DESC LIMIT 20`,[userId])).rows;}
 
-module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,delegatedGrantsForUser,permissionsForUser,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,startMfaSetup,enableMfa,disableMfa,assertRecentMfa,mfaMandatory,PRIVILEGED_ROLES,logout,logoutAll,devices,hashPassword};
+module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,delegatedGrantsForUser,permissionsForUser,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,issuePasswordReset,startMfaSetup,enableMfa,recoveryCodeStatus,regenerateRecoveryCodes,disableMfa,assertRecentMfa,mfaMandatory,PRIVILEGED_ROLES,logout,logoutAll,devices,hashPassword};

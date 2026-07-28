@@ -351,7 +351,7 @@ route('GET', '/api/system/users', { permission: 'user.view' }, (ctx) => ({
   status: 200,
   body: paginate(store.collection('users').all().map(auth.publicUser), { ...ctx.query, sort: ctx.query.sort || 'displayName:asc' })
 }));
-route('POST', '/api/system/users/:id/reset-password', { policy: 'write', permission: 'user.edit' }, (ctx) => {
+route('POST', '/api/system/users/:id/reset-password', { policy: 'write', permission: 'user.reset_password' }, (ctx) => {
   if (!['owner', 'admin'].includes(ctx.user.role)) throw new AppError('PERMISSION_DENIED', 'Reset sandi hanya oleh Owner atau Administrator.');
   const tempPassword = auth.adminResetPassword(ctx.user, ctx.params.id, ctx.body.reason);
   return { status: 200, body: { tempPassword, note: 'Sandi sementara hanya ditampilkan sekali. Pengguna wajib menggantinya saat masuk.' } };

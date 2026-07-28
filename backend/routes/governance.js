@@ -9,6 +9,8 @@ const { verifyPassword } = require('../core/password');
 const auth = require('../infrastructure/database/repositories/auth');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const governance = require('../infrastructure/database/repositories/governance');
+const retention = require('../infrastructure/database/repositories/retention');
+const passwordReset = require('../infrastructure/database/repositories/password-reset');
 const assurance = require('../infrastructure/database/repositories/assurance');
 const { healthCheck, stats } = require('../infrastructure/database/pool');
 const { migrationFiles } = require('../infrastructure/database/migrations');
@@ -38,12 +40,115 @@ async function dispatch(client, req, url, ctx) {
   m=p.match(/^\/api\/governance\/access-reviews\/([^/]+)$/);if(method==='GET'&&m){assertPermission(ctx.user,'access_review.view');return governance.reviewDetail(client,m[1]);}
   m=p.match(/^\/api\/governance\/access-reviews\/items\/([^/]+)\/decide$/);if(method==='POST'&&m){assertPermission(ctx.user,'access_review.approve');const body=await readBody(req),item=await governance.decideReviewItem(client,m[1],{decision:body.decision,reason:body.reason,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:`ACCESS_${body.decision}`,module:'access_review',entityType:'ACCESS_REVIEW_ITEM',entityId:m[1],newValue:item,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return item;}
   m=p.match(/^\/api\/governance\/access-reviews\/([^/]+)\/complete$/);if(method==='POST'&&m){assertPermission(ctx.user,'access_review.approve');const item=await governance.completeReview(client,m[1],{user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:'COMPLETE_ACCESS_REVIEW',module:'access_review',entityType:'ACCESS_REVIEW',entityId:m[1],newValue:item,reason:'Semua assignment telah diputuskan',requestId:ctx.requestId,branchId:ctx.user.branchId});return item;}
+  if(method==='GET'&&p==='/api/governance/retention/policies'){
+    assertPermission(ctx.user,'retention.view');
+    return{items:await retention.listPolicies(client)};
+  }
+  if(method==='GET'&&p==='/api/governance/retention/runs'){
+    assertPermission(ctx.user,'retention.view');
+    return{items:await retention.listRuns(client,{policyId:url.searchParams.get('policyId')||undefined})};
+  }
+  if(method==='POST'&&p==='/api/governance/retention/preview'){
+    assertPermission(ctx.user,'retention.create');
+    const body=await readBody(req),item=await retention.preview(client,{policyId:body.policyId,user:ctx.user});
+    ctx.status=201;return item;
+  }
+  if(method==='POST'&&p==='/api/governance/retention/execute'){
+    assertPermission(ctx.user,'retention.approve');
+    const body=await readBody(req);
+    await auth.assertRecentMfa(client,{user:ctx.user,session:ctx.session,action:'Eksekusi data retention'});
+    const item=await retention.execute(client,{...body,
+      idempotencyKey:req.headers['x-idempotency-key']||body.idempotencyKey,user:ctx.user});
+    if(!item.duplicate)await runtime.audit(client,{userId:ctx.user.id,action:'RETENTION_EXECUTE',
+      module:'retention',entityType:'RETENTION_RUN',entityId:item.id,
+      newValue:{policyId:item.policyId,previewId:item.previewId,candidateCount:item.candidateCount,
+        affectedCount:item.affectedCount,cutoffAt:item.cutoffAt},
+      reason:body.reason,requestId:ctx.requestId,sessionId:ctx.session.id,ip:ctx.ip,
+      branchId:ctx.user.branchId});
+    return item;
+  }
+  if(method==='GET'&&p==='/api/governance/retention/holds'){
+    assertPermission(ctx.user,'retention.view');
+    return{items:await retention.listHolds(client,{
+      resourceType:url.searchParams.get('resourceType')||undefined,
+      status:url.searchParams.get('status')||undefined})};
+  }
+  if(method==='POST'&&p==='/api/governance/retention/holds'){
+    assertPermission(ctx.user,'retention.create');
+    const body=await readBody(req),item=await retention.createHold(client,{...body,user:ctx.user});
+    await runtime.audit(client,{userId:ctx.user.id,action:'LEGAL_HOLD_CREATE',
+      module:'retention',entityType:'RETENTION_HOLD',entityId:item.id,
+      newValue:{resourceType:item.resourceType,resourceId:item.resourceId,
+        referenceNumber:item.referenceNumber,expiresAt:item.expiresAt},
+      reason:body.reason,requestId:ctx.requestId,sessionId:ctx.session.id,ip:ctx.ip,
+      branchId:ctx.user.branchId});
+    ctx.status=201;return item;
+  }
+  m=p.match(/^\/api\/governance\/retention\/holds\/([^/]+)\/release$/);if(method==='POST'&&m){
+    assertPermission(ctx.user,'retention.create');
+    const body=await readBody(req),item=await retention.releaseHold(client,m[1],{reason:body.reason,user:ctx.user});
+    await runtime.audit(client,{userId:ctx.user.id,action:'LEGAL_HOLD_RELEASE',
+      module:'retention',entityType:'RETENTION_HOLD',entityId:item.id,
+      newValue:{status:item.status,releasedAt:item.releasedAt},reason:body.reason,
+      requestId:ctx.requestId,sessionId:ctx.session.id,ip:ctx.ip,branchId:ctx.user.branchId});
+    return item;
+  }
   if(method==='GET'&&p==='/api/system/users'){assertPermission(ctx.user,'user.view');const items=(await client.query(`SELECT u.*,b.name branch_name FROM app_users u LEFT JOIN branches b ON b.id=u.branch_id ORDER BY display_name`)).rows.map(auth.publicUser);return{items,page:1,limit:items.length,total:items.length,totalPages:1};}
-  m=p.match(/^\/api\/system\/users\/([^/]+)\/reset-password$/);if(method==='POST'&&m){assertPermission(ctx.user,'user.edit');if(!['owner','system_admin','security_admin'].includes(ctx.user.role))throw new AppError('PERMISSION_DENIED');const body=await readBody(req);if(!body.reason)throw new AppError('REASON_REQUIRED');
-    // B4: reset kredensial orang lain adalah pengambilalihan akun yang sah —
-    // menuntut bukti faktor kedua yang masih baru pada sesi ini.
-    await auth.assertRecentMfa(client,{user:ctx.user,session:ctx.session,action:'Reset kata sandi pengguna'});
-    const tempPassword=`Mat!${randomBytes(12).toString('base64url')}9a`;const changed=await client.query('UPDATE app_users SET password_hash=$2,must_change_password=true,failed_login_count=0,locked_until=NULL,updated_at=now() WHERE id=$1 RETURNING id',[m[1],auth.hashPassword(tempPassword)]);if(!changed.rowCount)throw new AppError('RESOURCE_NOT_FOUND');await auth.logoutAll(client,m[1]);await runtime.audit(client,{userId:ctx.user.id,action:'RESET_PASSWORD',module:'user',entityType:'USER',entityId:m[1],reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return{tempPassword,note:'Sandi sementara hanya ditampilkan sekali. Pengguna wajib menggantinya saat masuk.'};}
+  if(method==='GET'&&p==='/api/system/password-reset-requests'){
+    assertPermission(ctx.user,'user.reset_password');
+    return{items:await passwordReset.listRequests(client,{status:url.searchParams.get('status')||undefined})};
+  }
+  m=p.match(/^\/api\/system\/password-reset-requests\/([^/]+)\/(approve|reject)$/);if(method==='POST'&&m){
+    assertPermission(ctx.user,'user.approve_password_reset');
+    const body=await readBody(req);
+    await auth.assertRecentMfa(client,{user:ctx.user,session:ctx.session,action:'Keputusan reset kata sandi administrator'});
+    if(m[2]==='reject')return passwordReset.rejectRequest(client,{actor:ctx.user,id:m[1],reason:body.reason,requestId:ctx.requestId});
+    const result=await passwordReset.approveRequest(client,{actor:ctx.user,id:m[1],reason:body.reason,requestId:ctx.requestId});
+    ctx.headers={'Cache-Control':'no-store','Pragma':'no-cache','X-Content-Type-Options':'nosniff'};
+    return{ok:true,request:result.request,resetOperationId:result.resetOperationId,
+      resetUrl:`${ctx.protocol}://${ctx.host}/#/reset-password?token=${encodeURIComponent(result.resetToken)}`,
+      expiresAt:result.expiresAt,mustChangePassword:true,
+      note:'Tautan reset hanya ditampilkan sekali, berlaku 30 menit, dan tidak menyimpan token plaintext di server.'};
+  }
+  m=p.match(/^\/api\/system\/users\/([^/]+)\/reset-password$/);if(method==='POST'&&m){
+    // SEC-UAT-001: reset dijalankan lewat layanan kebijakan tunggal yang
+    // mengklasifikasi TARGET (Owner server-only, admin lain hanya oleh Owner,
+    // self dilarang) — bukan sekadar memeriksa izin & MFA aktor.
+    // Izin granular: mereset butuh 'user.reset_password', bukan sekadar 'user.edit'.
+    assertPermission(ctx.user,'user.reset_password');
+    const body=await readBody(req);
+    // Kebijakan dievaluasi lebih dulu; MFA terbaru hanya dituntut bila keputusan
+    // mengizinkan reset. Owner/self ditolak SEBELUM prompt MFA yang sia-sia.
+    const evalResult=await passwordReset.evaluate(client,{actor:ctx.user,targetId:m[1]});
+    if(!evalResult.decision.allowed){
+      await passwordReset.recordDenied(client,{actor:ctx.user,target:evalResult.target,targetClass:evalResult.targetClass,
+        code:evalResult.decision.code,reason:body.reason,requestId:ctx.requestId});
+      ctx.status=403;
+      return{code:'PERMISSION_DENIED',message:'Anda tidak memiliki izin untuk tindakan ini.',
+        detail:evalResult.decision.message,reasonCode:evalResult.decision.code};
+    }
+    if(!String(body.reason||'').trim()){
+      await passwordReset.recordDenied(client,{actor:ctx.user,target:evalResult.target,targetClass:evalResult.targetClass,
+        code:'REASON_REQUIRED',reason:null,requestId:ctx.requestId});
+      ctx.status=422;
+      return{code:'REASON_REQUIRED',message:'Tindakan sensitif ini membutuhkan alasan tertulis.',
+        detail:'Alasan reset wajib diisi.'};
+    }
+    if(evalResult.decision.requiresRecentMfa)
+      await auth.assertRecentMfa(client,{user:ctx.user,session:ctx.session,action:'Reset kata sandi pengguna'});
+    if(evalResult.decision.requiresMakerChecker){
+      const request=await passwordReset.requestPrivileged(client,{actor:ctx.user,targetId:m[1],reason:body.reason,requestId:ctx.requestId});
+      ctx.status=202;
+      return{ok:true,approvalRequired:true,request,
+        note:'Permintaan menunggu persetujuan Owner lain. Kata sandi belum diubah.'};
+    }
+    const result=await passwordReset.reset(client,{actor:ctx.user,targetId:m[1],reason:body.reason,requestId:ctx.requestId});
+    // Kata sandi sementara tidak boleh di-cache di mana pun.
+    ctx.headers={'Cache-Control':'no-store','Pragma':'no-cache','X-Content-Type-Options':'nosniff'};
+    return{ok:true,resetOperationId:result.resetOperationId,
+      resetUrl:`${ctx.protocol}://${ctx.host}/#/reset-password?token=${encodeURIComponent(result.resetToken)}`,
+      expiresAt:result.expiresAt,mustChangePassword:true,
+      note:'Tautan reset hanya ditampilkan sekali, berlaku 30 menit, dan tidak menyimpan token plaintext di server.'};}
   m=p.match(/^\/api\/system\/users\/([^/]+)$/);if(method==='PATCH'&&m){assertPermission(ctx.user,'user.edit');const body=await readBody(req);if(!body.reason)throw new AppError('REASON_REQUIRED');if(body.role!==undefined||body.branchScope!==undefined)throw new AppError('VALIDATION_ERROR','Perubahan role/scope wajib melalui workflow Role Assignment.');const current=(await client.query('SELECT id,role,active,branch_id,branch_scope FROM app_users WHERE id=$1 FOR UPDATE',[m[1]])).rows[0];if(!current)throw new AppError('RESOURCE_NOT_FOUND');const next=(await client.query(`UPDATE app_users SET active=COALESCE($2,active),branch_id=COALESCE($3,branch_id),updated_at=now() WHERE id=$1 RETURNING id,role,active,branch_id,branch_scope`,[m[1],body.active??null,body.branchId??null])).rows[0];await auth.logoutAll(client,m[1]);await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE_ACCESS',module:'user',entityType:'USER',entityId:m[1],oldValue:current,newValue:next,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return auth.publicUser(next);}
   if(method==='GET'&&p==='/api/system/monitoring'){assertPermission(ctx.user,'monitoring.view');const db=await healthCheck(),memory=process.memoryUsage(),counts=(await client.query(`SELECT (SELECT count(*) FROM information_schema.tables WHERE table_schema='public') tables,(SELECT count(*) FROM user_sessions WHERE active AND expires_at>now()) active_sessions,(SELECT count(*) FROM login_history WHERE NOT succeeded) failed_logins,(SELECT count(*) FROM background_jobs WHERE status IN('CLAIMED','RUNNING')) jobs_running,(SELECT count(*) FROM background_jobs WHERE status='QUEUED') jobs_queued,(SELECT count(*) FROM background_jobs WHERE status IN('FAILED','DEAD_LETTER')) jobs_failed,(SELECT count(*) FROM file_metadata WHERE scan_status IN('PENDING_SCAN','QUARANTINED','SCANNING') AND NOT is_deleted) files_quarantined`)).rows[0],backup=(await client.query('SELECT * FROM backup_runs ORDER BY started_at DESC LIMIT 1')).rows[0]||null,sorted=[...apiMetrics.latencies].sort((a,b)=>a-b),pct=p=>sorted.length?sorted[Math.min(sorted.length-1,Math.floor(sorted.length*p))]:0,pool=stats();return{uptimeSeconds:Math.round(process.uptime()),memory:{rssMb:Math.round(memory.rss/1048576),heapMb:Math.round(memory.heapUsed/1048576)},database:{engine:`PostgreSQL ${String(db.version).match(/PostgreSQL\s+([\d.]+)/)?.[1]||''}`,rows:Number(counts.tables),pool:{min:Number(process.env.DB_POOL_MIN||2),max:Number(process.env.DB_POOL_MAX||15),active:pool.total-pool.idle,idle:pool.idle},latencyMs:db.latencyMs},api:{requests:apiMetrics.requests,errors:apiMetrics.errors,errorRatePct:apiMetrics.requests?Math.round(apiMetrics.errors/apiMetrics.requests*1000)/10:0,p50Ms:pct(.5),p95Ms:pct(.95)},jobs:{running:Number(counts.jobs_running),queued:Number(counts.jobs_queued),failed:Number(counts.jobs_failed)},files:{quarantined:Number(counts.files_quarantined)},sse:events.stats(),rateLimit:ratelimit.stats(),alerts:alerts.stats(),storage:await storageMetrics(),security:{failedLogins:Number(counts.failed_logins),activeSessions:Number(counts.active_sessions)},backup:backup?{at:backup.started_at,sizeMb:backup.size_mb,checksum:backup.checksum,target:backup.target,restoreTested:backup.restore_tested}:null};}
   if(method==='GET'&&p==='/api/system/self-test'){
@@ -70,6 +175,12 @@ async function dispatch(client, req, url, ctx) {
       to_regclass('public.mv_executive_monthly_kpis') IS NOT NULL reporting_summary,
       to_regclass('public.report_schedules') IS NOT NULL report_schedules,
       to_regclass('public.report_saved_filters') IS NOT NULL report_filters,
+      to_regclass('public.data_retention_policies') IS NOT NULL retention_policies,
+      to_regclass('public.data_retention_holds') IS NOT NULL retention_holds,
+      to_regclass('public.data_retention_runs') IS NOT NULL retention_runs,
+      to_regprocedure('public.execute_data_retention(character varying,timestamp with time zone,integer)') IS NOT NULL retention_executor,
+      (SELECT count(*)::int FROM data_retention_policies WHERE status='ACTIVE'
+        AND effective_from<=now()) active_retention_policies,
       EXISTS(SELECT 1 FROM reporting_refresh_runs WHERE status='SUCCEEDED') reporting_fresh,
       NOT has_table_privilege(current_user,'attendance_corrections','DELETE')
         AND NOT has_table_privilege(current_user,'dunning_notices','DELETE')
@@ -107,6 +218,7 @@ async function dispatch(client, req, url, ctx) {
         detail:enterprise.mfa_enrolled?'Minimal satu akun privileged sudah mendaftarkan MFA.':'BELUM ada akun privileged yang mendaftarkan MFA. Reset kata sandi pengguna dan aksi kritis lain akan ditolak sampai MFA didaftarkan — wajib diselesaikan sebelum go-live.'},
       {name:'Official document governance',status:enterprise.official_governance&&enterprise.delivery_idempotency?'pass':'fail',critical:true,detail:'Issued snapshot, versioned signature, dan delivery retry idempotent siap.'},
       {name:'Executive reporting semantic layer',status:enterprise.reporting_summary&&enterprise.report_schedules&&enterprise.report_filters&&enterprise.reporting_fresh?'pass':'fail',critical:true,detail:'Materialized KPI, saved filter, scheduled report, dan freshness evidence siap.'},
+      {name:'Data retention & legal hold',status:enterprise.retention_policies&&enterprise.retention_holds&&enterprise.retention_runs&&enterprise.retention_executor&&Number(enterprise.active_retention_policies)===6?'pass':'fail',critical:true,detail:`${Number(enterprise.active_retention_policies)||0}/6 policy teknis aktif; preview ledger, legal hold, dan executor allowlist tersedia.`},
       {name:'Runtime history least privilege',status:enterprise.history_least_privilege?'pass':'fail',critical:true,detail:'Runtime tidak dapat menghapus tabel workflow/history kritis.'},
       {name:'Backup restore drill',status:backup?.status==='COMPLETED'&&backup?.restore_tested&&Date.now()-new Date(backup.started_at).getTime()<=48*3600000?'pass':'blocked',critical:true,detail:backup?.restore_tested_at?`Backup terbaru ${new Date(backup.started_at).toISOString()}; restore teruji ${new Date(backup.restore_tested_at).toISOString()}.`:'Belum ada restore drill berhasil.'},
       ...finalAssurance.checks

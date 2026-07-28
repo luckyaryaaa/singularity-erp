@@ -2,11 +2,17 @@
 require('../backend/core/env').loadEnv();
 const test=require('node:test');const assert=require('node:assert/strict');const {Client}=require('pg');
 const auth=require('../backend/infrastructure/database/repositories/auth');
+const {currentTotp}=require('./helpers/mfa-login');
 
 test('PostgreSQL auth: hashed session bertahan lintas koneksi dan dapat dicabut',async()=>{
   const app=()=>new Client({connectionString:process.env.DATABASE_URL});
   const first=app();await first.connect();let login;
-  try{await first.query('BEGIN');login=await auth.login(first,{username:process.env.MAT_BOOTSTRAP_OWNER_USERNAME,password:process.env.MAT_BOOTSTRAP_OWNER_PASSWORD,ip:'127.0.0.1',device:'integration'});await first.query('COMMIT');}
+  try{await first.query('BEGIN');
+    login=await auth.login(first,{username:process.env.MAT_BOOTSTRAP_OWNER_USERNAME,password:process.env.MAT_BOOTSTRAP_OWNER_PASSWORD,ip:'127.0.0.1',device:'integration'});
+    // Owner ber-MFA (penegakan B4): selesaikan langkah TOTP untuk memperoleh sesi.
+    if(login.mfaRequired){const code=await currentTotp(first,process.env.MAT_BOOTSTRAP_OWNER_USERNAME);
+      login=await auth.completeMfa(first,{mfaToken:login.mfaToken,code,ip:'127.0.0.1',device:'integration'});}
+    await first.query('COMMIT');}
   catch(error){await first.query('ROLLBACK');throw error;}finally{await first.end();}
   assert.ok(login.session.token);assert.ok(login.session.csrfToken);assert.equal(login.user.role,'owner');
 

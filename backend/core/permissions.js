@@ -4,18 +4,26 @@
 
 const { AppError } = require('./errors');
 
-const MODULES = ['dashboard','approval','notification','organization','business_partner','customer','supplier','product','inquiry','quotation','customer_po','sales_order','project','work_order','production','quality','purchase_request','rfq','purchase_order','goods_receipt','inventory','material_issue','stock_transfer','stock_adjustment','stock_opname','delivery','rma','invoice','payment','payment_proposal','supplier_invoice','supplier_payment','expense','asset','budget','journal','ledger','closing','credit','payroll','employee','attendance','leave','tax','report','audit','user','iam','sod','access_review','approval_policy','settings','monitoring','job','selftest','backup'];
+const MODULES = ['dashboard','approval','notification','organization','business_partner','customer','supplier','product','inquiry','quotation','customer_po','sales_order','project','work_order','production','quality','purchase_request','rfq','purchase_order','goods_receipt','inventory','material_issue','stock_transfer','stock_adjustment','stock_opname','delivery','rma','invoice','payment','payment_proposal','supplier_invoice','supplier_payment','expense','asset','budget','journal','ledger','closing','credit','payroll','employee','attendance','leave','tax','report','audit','user','iam','sod','access_review','approval_policy','settings','monitoring','job','selftest','backup','retention'];
 
 const ACTIONS = ['view','create','edit','submit','approve','reject','post','void','cancel','export','import'];
 
 // Peta role → daftar permission code. '*' berarti seluruh modul/aksi (Owner/Admin).
+//
+// SEC-UAT-001 — `user.reset_password` adalah izin GRANULAR terpisah dari
+// `user.edit`. Melihat/menyunting profil pengguna tidak lagi menyiratkan
+// wewenang mereset kata sandi. Diberikan eksplisit ke peran admin di bawah
+// (Owner tercakup lewat '*'). Kelas target tetap ditegakkan password-reset.js.
 const ROLE_GRANTS = {
   owner: ['*'],
-  system_admin: expand(['dashboard','notification','business_partner','user','settings','monitoring','job','selftest','backup'], ACTIONS)
-    .concat(expand(['organization','audit','iam','sod','access_review','approval_policy'], ['view','export'])),
+  system_admin: expand(['dashboard','notification','business_partner','user','settings','monitoring','job','selftest','backup','retention'], ACTIONS)
+    .concat(expand(['organization','audit','iam','sod','access_review','approval_policy'], ['view','export']))
+    .concat(['user.reset_password']),
   security_admin: expand(['dashboard','notification','user','iam','sod','access_review','monitoring','selftest'], ACTIONS)
     .concat(expand(['business_partner'], ['view','export']))
-    .concat(expand(['audit','job','approval_policy'], ['view','export'])),
+    .concat(expand(['audit','job','approval_policy'], ['view','export']))
+    .concat(expand(['retention'], ['view','create','export']))
+    .concat(['user.reset_password']),
   finance_manager: expand(['dashboard','approval','notification','business_partner','customer','invoice','payment','payment_proposal','supplier_invoice','supplier_payment','expense','asset','budget','report','job','approval_policy','credit'], ACTIONS)
     .concat(expand(['organization'], ['view','create','edit','submit','export']))
     .concat(expand(['quotation','sales_order','purchase_order','rfq','journal','ledger','tax','inventory','delivery','rma','audit'], ['view','export'])),
@@ -44,7 +52,8 @@ const ROLE_GRANTS = {
     .concat(['payroll.view_self','employee.view_self']),
   // Alias hanya untuk adapter legacy/in-memory; database migration 016
   // memindahkan seluruh akun ke role enterprise di atas.
-  admin: expand(['dashboard','notification','user','settings','monitoring','job','selftest','backup'], ACTIONS),
+  admin: expand(['dashboard','notification','user','settings','monitoring','job','selftest','backup','retention'], ACTIONS)
+    .concat(['user.reset_password']),
   finance: expand(['dashboard','approval','notification','customer','invoice','payment','supplier_invoice','supplier_payment','expense','asset','report','job'], ACTIONS)
 };
 

@@ -132,6 +132,12 @@ function adminResetPassword(admin, targetUserId, reason) {
   const users = store.collection('users');
   const target = users.get(targetUserId);
   if (!target) throw new AppError('RESOURCE_NOT_FOUND', 'Pengguna tidak ditemukan.');
+  // SEC-UAT-001: adapter in-memory tidak boleh menjadi jalan pintas kebijakan.
+  // Owner server-only, dan reset diri sendiri lewat endpoint admin dilarang —
+  // aturan yang sama dengan jalur PostgreSQL (password-reset.js).
+  if (target.role === 'owner') throw new AppError('PERMISSION_DENIED', 'Akun Owner tidak dapat direset melalui aplikasi. Gunakan prosedur pemulihan server.', { reasonCode: 'OWNER_PASSWORD_RESET_SERVER_ONLY' });
+  if (String(admin.id) === String(target.id)) throw new AppError('PERMISSION_DENIED', 'Reset akun sendiri lewat endpoint admin tidak diizinkan.', { reasonCode: 'USE_SELF_SERVICE_PASSWORD_CHANGE' });
+  if (['system_admin', 'security_admin', 'admin'].includes(target.role) && admin.role !== 'owner') throw new AppError('PERMISSION_DENIED', 'Reset akun administrator lain hanya dapat dilakukan Owner.', { reasonCode: 'PRIVILEGED_RESET_REQUIRES_OWNER' });
   const tempPassword = `MAT-${crypto.randomBytes(4).toString('hex')}`;
   users.update(target.id, { passwordHash: hashPassword(tempPassword), mustChangePassword: true, failedLoginCount: 0, lockedUntil: null });
   const sessions = store.collection('sessions');

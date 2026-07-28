@@ -3,6 +3,7 @@ require('../backend/core/env').loadEnv();
 const test=require('node:test');const assert=require('node:assert/strict');const {spawn}=require('node:child_process');const {Client}=require('pg');
 const {randomUUID}=require('node:crypto');const {hashPassword}=require('../backend/core/auth');
 const totp=require('../backend/core/totp');
+const {loginHttp}=require('./helpers/mfa-login');
 const enabled=!!process.env.DATABASE_URL&&!!process.env.MIGRATION_DATABASE_URL&&!!process.env.MAT_BOOTSTRAP_OWNER_PASSWORD&&!!process.env.MAT_BOOTSTRAP_OWNER_PIN;
 const httpTest=enabled?test:test.skip;
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
@@ -15,7 +16,9 @@ httpTest('PostgreSQL HTTP E2E: transaksi dan sesi bertahan setelah restart serve
     await waitReady(base,proc);
     // Sprint 8B: liveness terpisah dari readiness — tanpa auth, tanpa detail sensitif.
     let response=await fetch(`${base}/api/live`);assert.equal(response.status,200);let body=await response.json();assert.equal(body.ok,true);assert.deepEqual(Object.keys(body).sort(),['at','ok','uptimeSeconds']);
-    response=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:process.env.MAT_BOOTSTRAP_OWNER_USERNAME,password:process.env.MAT_BOOTSTRAP_OWNER_PASSWORD})});assert.equal(response.status,200);cookie=response.headers.get('set-cookie').split(';')[0];body=await response.json();csrf=body.csrfToken;
+    // Owner kini ber-MFA (penegakan B4): login helper menyelesaikan langkah TOTP.
+    {const dbc=new Client({connectionString:process.env.DATABASE_URL});await dbc.connect();await dbc.query("SELECT set_config('app.is_system','on',false)");
+     try{const s=await loginHttp(base,process.env.MAT_BOOTSTRAP_OWNER_USERNAME,process.env.MAT_BOOTSTRAP_OWNER_PASSWORD,dbc);cookie=s.cookie;csrf=s.csrf;}finally{await dbc.end();}}
     const contracts=[
       ['/api/dashboard',x=>x.kpi&&x.health&&x.attention&&Array.isArray(x.activeJobs)],['/api/approvals',x=>Array.isArray(x.items)],['/api/notifications',x=>Array.isArray(x.items)],
       ['/api/my-work',x=>x.waitingForMe&&x.createdByMe&&x.returnedForRevision&&x.overdue&&x.failedJobs&&x.actionRequired&&Array.isArray(x.waitingForMe.items)],
@@ -43,16 +46,58 @@ httpTest('PostgreSQL HTTP auth: kegagalan login di-commit untuk lockout',async()
   try{const branch=(await admin.query('SELECT id FROM branches ORDER BY created_at LIMIT 1')).rows[0];await admin.query(`INSERT INTO app_users(id,username,password_hash,display_name,branch_id,role,branch_scope,must_change_password) VALUES($1,$2,$3,'Lockout Test',$4,'employee',NULL,false)`,[id,username,hashPassword(password),branch.id]);await admin.query(`INSERT INTO user_role_assignments(user_id,role_code,scope_type,scope_id,status,is_primary,reason,requested_by,approved_by,approved_at) VALUES($1,'employee','BRANCH',$2,'ACTIVE',true,'HTTP auth fixture',$1,$1,now())`,[id,branch.id]);const port=46000+Math.floor(Math.random()*1000),base=`http://127.0.0.1:${port}`;proc=startServer(port);await waitReady(base,proc);for(let i=0;i<2;i++){const r=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password:'wrong-password'})});assert.equal(r.status,401);}const row=(await admin.query('SELECT failed_login_count FROM app_users WHERE id=$1',[id])).rows[0];assert.equal(row.failed_login_count,2);
   }finally{if(proc)await stop(proc);await admin.query('DELETE FROM login_history WHERE user_id=$1',[id]).catch(()=>{});await admin.query('DELETE FROM user_role_assignments WHERE user_id=$1',[id]).catch(()=>{});await admin.query('DELETE FROM app_users WHERE id=$1',[id]).catch(()=>{});await admin.end();}
 });
+httpTest('SEC-UAT-001 HTTP: penolakan reset Owner tetap tersimpan di audit',async()=>{
+  const admin=new Client({connectionString:process.env.MIGRATION_DATABASE_URL});await admin.connect();
+  const id=randomUUID(),username=`reset_guard_${Date.now()}`,password='Valid!Reset-Guard-Password-9281';
+  let proc;
+  try{
+    const branch=(await admin.query('SELECT id FROM branches ORDER BY created_at LIMIT 1')).rows[0];
+    const owner=(await admin.query("SELECT id FROM app_users WHERE role='owner' AND active ORDER BY created_at LIMIT 1")).rows[0];
+    await admin.query(`INSERT INTO app_users(id,username,password_hash,display_name,branch_id,role,branch_scope,must_change_password,mfa_enabled)
+      VALUES($1,$2,$3,'Reset Guard HTTP',$4,'system_admin','*',false,false)`,[id,username,hashPassword(password),branch.id]);
+    await admin.query(`INSERT INTO user_role_assignments(user_id,role_code,scope_type,status,is_primary,reason,requested_by,approved_by,approved_at)
+      VALUES($1,'system_admin','GLOBAL','ACTIVE',true,'SEC-UAT-001 HTTP fixture',$1,$1,now())`,[id]);
+    const port=46500+Math.floor(Math.random()*400),base=`http://127.0.0.1:${port}`;
+    proc=startServer(port);await waitReady(base,proc);
+    const session=await loginHttp(base,username,password,admin);
+    const response=await fetch(`${base}/api/system/users/${owner.id}/reset-password`,{
+      method:'POST',
+      headers:{cookie:session.cookie,'content-type':'application/json','x-csrf-token':session.csrf},
+      body:JSON.stringify({reason:'Uji penolakan reset Owner dari kontrak HTTP.'})
+    });
+    const body=await response.json();
+    assert.equal(response.status,403);
+    assert.equal(body.reasonCode,'OWNER_PASSWORD_RESET_SERVER_ONLY');
+    const audit=(await admin.query(`SELECT new_value FROM audit_logs
+      WHERE user_id=$1 AND entity_id=$2 AND action='PASSWORD_RESET_DENIED'
+      ORDER BY occurred_at DESC LIMIT 1`,[id,owner.id])).rows[0];
+    assert.equal(audit.new_value.reasonCode,'OWNER_PASSWORD_RESET_SERVER_ONLY');
+  }finally{
+    if(proc)await stop(proc);
+    await admin.query('DELETE FROM audit_logs WHERE user_id=$1',[id]).catch(()=>{});
+    await admin.query('DELETE FROM login_history WHERE user_id=$1',[id]).catch(()=>{});
+    await admin.query('DELETE FROM user_sessions WHERE user_id=$1',[id]).catch(()=>{});
+    await admin.query('DELETE FROM user_role_assignments WHERE user_id=$1',[id]).catch(()=>{});
+    await admin.query('DELETE FROM app_users WHERE id=$1',[id]).catch(()=>{});
+    await admin.end();
+  }
+});
 httpTest('PostgreSQL HTTP auth: ganti sandi wajib dan MFA TOTP lengkap',async()=>{
   const admin=new Client({connectionString:process.env.MIGRATION_DATABASE_URL});await admin.connect();const id=randomUUID(),username=`mfa_${Date.now()}`,temporary='Temporary!Password-9281',fresh='Fresh!Password-For-MFA-9281';let proc;
   try{const branch=(await admin.query('SELECT id FROM branches ORDER BY created_at LIMIT 1')).rows[0];await admin.query(`INSERT INTO app_users(id,username,password_hash,display_name,branch_id,role,branch_scope,must_change_password) VALUES($1,$2,$3,'MFA Test',$4,'employee',NULL,true)`,[id,username,hashPassword(temporary),branch.id]);await admin.query(`INSERT INTO user_role_assignments(user_id,role_code,scope_type,scope_id,status,is_primary,reason,requested_by,approved_by,approved_at) VALUES($1,'employee','BRANCH',$2,'ACTIVE',true,'HTTP MFA fixture',$1,$1,now())`,[id,branch.id]);const port=47000+Math.floor(Math.random()*1000),base=`http://127.0.0.1:${port}`;proc=startServer(port);await waitReady(base,proc);
     let response=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password:temporary})}),body=await response.json();assert.equal(response.status,200);assert.equal(body.passwordChangeRequired,true);assert.ok(body.changeToken);
     response=await fetch(`${base}/api/auth/change-password-required`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({changeToken:body.changeToken,newPassword:fresh})});body=await response.json();assert.equal(response.status,200);assert.ok(body.user);let cookie=response.headers.get('set-cookie').split(';')[0],csrf=body.csrfToken;
     response=await fetch(`${base}/api/auth/mfa/setup`,{method:'POST',headers:{cookie,'x-csrf-token':csrf}});body=await response.json();assert.equal(response.status,200);assert.ok(body.secret);const secret=body.secret,code=totp.hotp(secret,Math.floor(Date.now()/1000/30));
-    response=await fetch(`${base}/api/auth/mfa/enable`,{method:'POST',headers:{cookie,'content-type':'application/json','x-csrf-token':csrf},body:JSON.stringify({code})});assert.equal(response.status,200);
+    response=await fetch(`${base}/api/auth/mfa/enable`,{method:'POST',headers:{cookie,'content-type':'application/json','x-csrf-token':csrf},body:JSON.stringify({code})});body=await response.json();assert.equal(response.status,200);assert.equal(body.recoveryCodes.length,10);const recoveryCode=body.recoveryCodes[0];
+    response=await fetch(`${base}/api/auth/mfa/recovery-codes`,{headers:{cookie}});body=await response.json();assert.equal(response.status,200);assert.equal(body.remaining,10);
     response=await fetch(`${base}/api/auth/logout`,{method:'POST',headers:{cookie,'x-csrf-token':csrf}});assert.equal(response.status,200);
     response=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password:fresh})});body=await response.json();assert.equal(body.mfaRequired,true);assert.ok(body.mfaToken);
-    response=await fetch(`${base}/api/auth/mfa`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mfaToken:body.mfaToken,code:totp.hotp(secret,Math.floor(Date.now()/1000/30))})});body=await response.json();assert.equal(response.status,200);assert.ok(body.user);assert.ok(response.headers.get('set-cookie'));
+    response=await fetch(`${base}/api/auth/mfa`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mfaToken:body.mfaToken,code:recoveryCode})});body=await response.json();assert.equal(response.status,200);assert.ok(body.user);cookie=response.headers.get('set-cookie').split(';')[0];csrf=body.csrfToken;
+    response=await fetch(`${base}/api/auth/mfa/recovery-codes`,{headers:{cookie}});body=await response.json();assert.equal(body.remaining,9,'recovery code sekali pakai harus langsung dikonsumsi');
+    response=await fetch(`${base}/api/auth/logout`,{method:'POST',headers:{cookie,'x-csrf-token':csrf}});assert.equal(response.status,200);
+    response=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password:fresh})});body=await response.json();const reusedToken=body.mfaToken;
+    response=await fetch(`${base}/api/auth/mfa`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mfaToken:reusedToken,code:recoveryCode})});assert.equal(response.status,401,'recovery code bekas wajib ditolak');
+    response=await fetch(`${base}/api/auth/mfa`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mfaToken:reusedToken,code:totp.hotp(secret,Math.floor(Date.now()/1000/30))})});body=await response.json();assert.equal(response.status,200);assert.ok(body.user);assert.ok(response.headers.get('set-cookie'));
   }finally{if(proc)await stop(proc);await admin.query('DELETE FROM user_sessions WHERE user_id=$1',[id]).catch(()=>{});await admin.query('DELETE FROM auth_pending WHERE user_id=$1',[id]).catch(()=>{});await admin.query('DELETE FROM login_history WHERE user_id=$1',[id]).catch(()=>{});await admin.query('DELETE FROM user_role_assignments WHERE user_id=$1',[id]).catch(()=>{});await admin.query('DELETE FROM app_users WHERE id=$1',[id]).catch(()=>{});await admin.end();}
 });
 httpTest('PostgreSQL HTTP master data enterprise: sub-resource, maker-checker bank, aktivasi HPP, masking, lifecycle',async()=>{
@@ -61,7 +106,9 @@ httpTest('PostgreSQL HTTP master data enterprise: sub-resource, maker-checker ba
   let supplierId,productId,employeeId;
   try{
     await waitReady(base,proc);
-    const login=async(u,p)=>{const r=await fetch(`${base}/api/auth/login`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:u,password:p})});const b=await r.json();if(r.status!==200)throw new Error(`login ${u}: ${b.message}`);return{cookie:r.headers.get('set-cookie').split(';')[0],csrf:b.csrfToken,role:b.user.role};};
+    // MFA-aware: akun privileged (owner) menyelesaikan TOTP; akun tanpa MFA
+    // (UAT standar) langsung mendapat sesi. Rahasia TOTP dibaca via admin client.
+    const login=(u,p)=>loginHttp(base,u,p,admin);
     const owner=await login(process.env.MAT_BOOTSTRAP_OWNER_USERNAME,process.env.MAT_BOOTSTRAP_OWNER_PASSWORD);
     const call=(path,sess,method='GET',body)=>fetch(`${base}${path}`,{method,headers:{cookie:sess.cookie,'content-type':'application/json',...(method!=='GET'?{'x-csrf-token':sess.csrf,'idempotency-key':randomUUID()}:{})},body:body?JSON.stringify(body):undefined});
 

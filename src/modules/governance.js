@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const { esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, api, uploadFile, query, invalidate, router, can, state, newIdemKey , asList } = window.MAT;
-  const { ICONS, chip, toast, formDialog, actionDialog, openDrawer, dataTable, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL, STATUS_META } = window.UI;
+  const { ICONS, chip, toast, formDialog, actionDialog, secureValueDialog, openDrawer, dataTable, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL, STATUS_META } = window.UI;
   const { progressBar, docCell, docListPage, masterPage } = window.PageKit;
 
   const reports = {
@@ -34,17 +34,155 @@
   };
 
   // ── Sistem: pengguna, audit, monitoring, job, self-test, pengaturan ──────
-  const systemUsers = masterPage({
-    endpoint: '/api/system/users', key: 'users', permission: 'user.view', title: 'Pengguna & peran', eyebrow: 'SISTEM',
-    columns: [
-      { label: 'Pengguna', render: (r) => `<b>${esc(r.displayName)}</b><small>@${esc(r.username)} · ${esc(r.jobTitle || '')}</small>` },
-      { label: 'Peran', render: (r) => `<span class="chip blue">${esc(r.role)}</span>` },
-      { label: 'Cabang', render: (r) => esc(r.branchName || '—') },
-      { label: 'MFA', render: (r) => r.mfaEnabled ? '<span class="chip mint">Aktif</span>' : '<span class="chip gray">Nonaktif</span>' },
-      { label: 'Login terakhir', render: (r) => r.lastLoginAt ? relTime(r.lastLoginAt) : 'Belum pernah' },
-      { label: 'Status', render: (r) => r.active ? '<span class="chip mint">Aktif</span>' : '<span class="chip coral">Nonaktif</span>' }
-    ]
-  });
+  const systemUsers = {
+    permission:'user.view',
+    async render(main,_p,signal){
+      const [users,branches,resetQueue]=await Promise.all([
+        api('/api/system/users',{signal}),
+        api('/api/branches',{signal}).catch(()=>({items:[]})),
+        can('user.reset_password')?api('/api/system/password-reset-requests',{signal}):Promise.resolve({items:[]})
+      ]);
+      const pending=resetQueue.items.filter(x=>x.status==='PENDING');
+      const privileged=new Set(['owner','admin','system_admin','security_admin']);
+      main.innerHTML=pageHead({
+        eyebrow:'IDENTITY CONTROL',
+        title:'Pengguna & keamanan akses',
+        sub:'Administrasi akun, MFA, reset kata sandi terkontrol, dan maker–checker dalam satu workbench.',
+        actions:`<a class="btn secondary" href="#/account/security">${ICONS.shield} Keamanan akun saya</a>`
+      })+`
+        <section class="metrics security-metrics">
+          ${kpiCard({label:'Pengguna aktif',value:String(users.items.filter(x=>x.active).length),note:`${users.items.length} akun terdaftar`,orb:'people',orbTone:'blue'})}
+          ${kpiCard({label:'MFA aktif',value:String(users.items.filter(x=>x.mfaEnabled).length),note:'Akun privileged wajib MFA',orb:'shield',orbTone:'mint'})}
+          ${kpiCard({label:'Reset menunggu',value:String(pending.length),note:'Maker dan checker harus berbeda',orb:'approval',orbTone:pending.length?'amber':'mint'})}
+        </section>
+        <section class="panel">
+          <header><div><p class="eyebrow">USER DIRECTORY</p><h2>Kontrol akun</h2></div><span class="chip blue">${users.items.length} pengguna</span></header>
+          <div class="table-wrap"><table><thead><tr><th>Pengguna</th><th>Peran</th><th>Cabang</th><th>Postur keamanan</th><th>Login terakhir</th><th>Status</th><th><span class="sr-only">Aksi</span></th></tr></thead>
+          <tbody>${users.items.map(user=>`<tr>
+            <td><b>${esc(user.displayName)}</b><small>@${esc(user.username)}${user.jobTitle?` · ${esc(user.jobTitle)}`:''}</small></td>
+            <td><span class="chip ${privileged.has(user.role)?'coral':'blue'}">${esc(user.role)}</span></td>
+            <td>${esc(user.branchName||'Global')}</td>
+            <td>${user.mfaEnabled?'<span class="chip mint">MFA aktif</span>':'<span class="chip gray">Tanpa MFA</span>'}${user.mustChangePassword?' <span class="chip amber">Wajib ganti sandi</span>':''}</td>
+            <td>${user.lastLoginAt?relTime(user.lastLoginAt):'Belum pernah'}</td>
+            <td>${user.active?'<span class="chip mint">Aktif</span>':'<span class="chip coral">Nonaktif</span>'}</td>
+            <td><span class="row-actions">
+              ${can('user.edit')?`<button class="btn secondary sm" data-user-edit="${user.id}">Kelola</button>`:''}
+              ${can('user.reset_password')&&user.id!==state.user.id&&user.role!=='owner'&&(!privileged.has(user.role)||['owner','security_admin'].includes(state.user.role))?`<button class="btn secondary sm" data-user-reset="${user.id}">Reset sandi</button>`:''}
+            </span></td>
+          </tr>`).join('')}</tbody></table></div>
+        </section>
+        ${can('user.reset_password')?`<section class="panel security-queue">
+          <header><div><p class="eyebrow">PRIVILEGED RESET QUEUE</p><h2>Persetujuan reset administrator</h2></div><span class="chip ${pending.length?'amber':'mint'}">${pending.length} menunggu</span></header>
+          <div class="panel-body stack">${resetQueue.items.slice(0,30).map(item=>`<div class="security-request">
+            <span><b>${esc(item.targetName)} · ${esc(item.targetRole)}</b><small>${esc(item.reason)} · diajukan ${esc(item.requestedByName)} · ${fmtDateTime(item.requestedAt)}</small></span>
+            <span>${chip(item.status)}${item.status==='PENDING'&&can('user.approve_password_reset')?` <span class="row-actions"><button class="btn primary sm" data-reset-decision="approve" data-request-id="${item.id}">Setujui</button><button class="btn danger-outline sm" data-reset-decision="reject" data-request-id="${item.id}">Tolak</button></span>`:''}</span>
+          </div>`).join('')||'<div class="empty-state"><h3>Belum ada permintaan reset</h3><p>Reset akun administrator akan muncul di sini dan kedaluwarsa otomatis.</p></div>'}</div>
+        </section>`:''}`;
+
+      main.querySelectorAll('[data-user-edit]').forEach(button=>button.addEventListener('click',async()=>{
+        const user=users.items.find(x=>x.id===button.dataset.userEdit);
+        const value=await formDialog({title:`Kelola ${user.displayName}`,description:'Peran dan scope tidak dapat diubah di sini; gunakan workflow IAM agar approval dan histori tetap utuh.',initial:{active:user.active,branchId:user.branchId||''},fields:[
+          {name:'active',label:'Akun aktif',type:'checkbox'},
+          {name:'branchId',label:'Cabang utama',type:'select',options:[['','Tidak diubah'],...branches.items.map(x=>[x.id,x.name])]},
+          {name:'reason',label:'Alasan perubahan',type:'textarea',required:true}
+        ],submitLabel:'Simpan kontrol akun'});
+        if(!value)return;
+        if(!value.branchId)delete value.branchId;
+        try{await api(`/api/system/users/${user.id}`,{method:'PATCH',body:value});toast('Kontrol akun diperbarui','Seluruh sesi lama pengguna telah dicabut.');this.render(main);}
+        catch(error){toast('Perubahan gagal',error.message,'coral');}
+      }));
+      main.querySelectorAll('[data-user-reset]').forEach(button=>button.addEventListener('click',async()=>{
+        const user=users.items.find(x=>x.id===button.dataset.userReset);
+        const answer=await actionDialog({title:`Reset kata sandi ${user.displayName}`,description:privileged.has(user.role)?'Akun administrator: permintaan tidak langsung mengubah sandi dan harus disetujui Owner lain.':'Sesi pengguna akan dicabut dan tautan reset sekali pakai hanya ditampilkan satu kali.',requireReason:true,confirmLabel:privileged.has(user.role)?'Ajukan reset':'Buat tautan reset',danger:true});
+        if(!answer)return;
+        try{
+          const result=await api(`/api/system/users/${user.id}/reset-password`,{method:'POST',body:answer});
+          if(result.approvalRequired)toast('Permintaan reset dibuat','Menunggu persetujuan Owner lain.');
+          else await secureValueDialog({title:'Tautan reset sekali pakai',description:`Serahkan langsung kepada ${user.displayName} melalui kanal terverifikasi. Tautan berlaku 30 menit.`,value:result.resetUrl,label:'Tautan reset kata sandi'});
+          this.render(main);
+        }catch(error){toast('Reset gagal',error.message,'coral');}
+      }));
+      main.querySelectorAll('[data-reset-decision]').forEach(button=>button.addEventListener('click',async()=>{
+        const approve=button.dataset.resetDecision==='approve';
+        const answer=await actionDialog({title:approve?'Setujui reset administrator':'Tolak reset administrator',description:'Maker dan checker wajib berbeda. Keputusan dan alasan dicatat permanen pada audit trail.',requireReason:true,confirmLabel:approve?'Setujui dan reset':'Tolak',danger:!approve});
+        if(!answer)return;
+        try{
+          const result=await api(`/api/system/password-reset-requests/${button.dataset.requestId}/${button.dataset.resetDecision}`,{method:'POST',body:answer});
+          if(approve)await secureValueDialog({title:'Tautan reset administrator',description:'Salurkan melalui kanal terpisah yang sudah diverifikasi. Tautan berlaku 30 menit dan tidak dapat ditampilkan ulang.',value:result.resetUrl,label:'Tautan reset sekali pakai'});
+          else toast('Permintaan ditolak','Kata sandi pengguna tidak berubah.');
+          this.render(main);
+        }catch(error){toast('Keputusan gagal',error.message,'coral');}
+      }));
+    }
+  };
+
+  const accountSecurity={
+    permission:'dashboard.view',
+    async render(main,_p,signal){
+      const [devices,recovery]=await Promise.all([
+        api('/api/auth/devices',{signal}),
+        state.user.mfaEnabled?api('/api/auth/mfa/recovery-codes',{signal}):Promise.resolve({remaining:0,total:0,generatedAt:null})
+      ]);
+      const privileged=['owner','admin','system_admin','security_admin','finance_manager','accounting'].includes(state.user.role);
+      main.innerHTML=pageHead({eyebrow:'MY SECURITY',title:'Keamanan akun',sub:'Kelola faktor autentikasi, recovery code, kata sandi, dan sesi perangkat Anda.'})+`
+        <section class="security-hero ${state.user.mfaEnabled?'secure':'attention'}">
+          ${clayOrb(state.user.mfaEnabled?'mint':'amber','shield')}
+          <div><p class="eyebrow">AUTHENTICATION POSTURE</p><h2>${state.user.mfaEnabled?'MFA aktif dan terlindungi':'MFA belum aktif'}</h2>
+          <p>${state.user.mfaEnabled?`${recovery.remaining} dari ${recovery.total} recovery code masih tersedia.`:(privileged?'Role Anda wajib mengaktifkan MFA sebelum tindakan sensitif dapat dijalankan.':'Aktifkan MFA untuk melindungi akun di luar kata sandi.')}</p></div>
+          <div class="security-hero-actions">
+            <button class="btn primary" id="mfaSetup">${state.user.mfaEnabled?'Ganti authenticator':'Aktifkan MFA'}</button>
+            ${state.user.mfaEnabled?'<button class="btn secondary" id="mfaRecovery">Buat recovery code baru</button>':''}
+          </div>
+        </section>
+        <section class="dashboard-grid">
+          <article class="panel"><header><div><p class="eyebrow">RECOVERY</p><h2>Kesiapan pemulihan</h2></div></header><div class="panel-body stack">
+            <div class="stat-row"><span><b>Recovery code tersedia</b><small>Setiap kode hanya berlaku satu kali</small></span><strong>${recovery.remaining||0}</strong></div>
+            <div class="stat-row"><span><b>Faktor wajib</b><small>Kebijakan berdasarkan kelas role</small></span><span class="chip ${privileged?'coral':'blue'}">${privileged?'Wajib':'Disarankan'}</span></div>
+            ${state.user.mfaEnabled&&!privileged?'<button class="btn danger-outline" id="mfaDisable">Nonaktifkan MFA</button>':''}
+          </div></article>
+          <article class="panel"><header><div><p class="eyebrow">ACTIVE SESSIONS</p><h2>Perangkat terbaru</h2></div></header><div class="panel-body stack">
+            ${devices.items.slice(0,6).map(device=>`<div class="stat-row"><span><b>${esc(device.device||'Perangkat tidak dikenal')}</b><small>${esc(device.ip||'IP tidak tersedia')} · ${relTime(device.last_seen_at||device.lastSeenAt)}</small></span>${device.active?'<span class="chip mint">Aktif</span>':'<span class="chip gray">Berakhir</span>'}</div>`).join('')||'<p class="muted">Belum ada histori perangkat.</p>'}
+            <button class="btn secondary" id="logoutAll">Keluar dari semua perangkat</button>
+          </div></article>
+        </section>`;
+      main.querySelector('#mfaSetup')?.addEventListener('click',async()=>{
+        let currentCode;
+        if(state.user.mfaEnabled){
+          const proof=await formDialog({title:'Verifikasi faktor aktif',description:'Masukkan kode dari authenticator yang sedang aktif sebelum mengganti faktor.',fields:[{name:'currentCode',label:'Kode MFA aktif',required:true}],submitLabel:'Lanjutkan'});
+          if(!proof)return;currentCode=proof.currentCode;
+        }
+        try{
+          const setup=await api('/api/auth/mfa/setup',{method:'POST',body:{currentCode}});
+          await secureValueDialog({title:'Daftarkan authenticator',description:'Tambahkan akun secara manual menggunakan secret atau buka URI pada aplikasi authenticator tepercaya.',value:`SECRET: ${setup.secret}\n\nURI: ${setup.otpauthUrl}`,label:'Data enrollment MFA'});
+          const verify=await formDialog({title:'Verifikasi authenticator',description:'Masukkan kode 6 digit yang tampil pada aplikasi authenticator.',fields:[{name:'code',label:'Kode verifikasi',required:true}],submitLabel:'Aktifkan MFA'});
+          if(!verify)return;
+          const result=await api('/api/auth/mfa/enable',{method:'POST',body:verify});
+          state.user.mfaEnabled=true;state.user.mfaActive=true;
+          await secureValueDialog({title:'Simpan recovery code',description:'Simpan offline di lokasi aman. Set ini menggantikan seluruh recovery code sebelumnya.',value:result.recoveryCodes.join('\n'),label:'10 recovery code sekali pakai'});
+          toast('MFA aktif','Perubahan faktor dan penerbitan recovery code sudah diberitahukan.');
+          this.render(main);
+        }catch(error){toast('Pendaftaran MFA gagal',error.message,'coral');}
+      });
+      main.querySelector('#mfaRecovery')?.addEventListener('click',async()=>{
+        const proof=await formDialog({title:'Buat recovery code baru',description:'Seluruh recovery code lama langsung dicabut setelah set baru diterbitkan.',fields:[{name:'code',label:'Kode MFA aktif',required:true}],submitLabel:'Terbitkan set baru'});
+        if(!proof)return;
+        try{const result=await api('/api/auth/mfa/recovery-codes/regenerate',{method:'POST',body:proof});await secureValueDialog({title:'Recovery code baru',description:'Simpan offline. Kode lama sudah tidak berlaku.',value:result.recoveryCodes.join('\n'),label:'10 recovery code sekali pakai'});this.render(main);}
+        catch(error){toast('Regenerasi gagal',error.message,'coral');}
+      });
+      main.querySelector('#mfaDisable')?.addEventListener('click',async()=>{
+        const proof=await formDialog({title:'Nonaktifkan MFA',description:'Semua recovery code dan sesi aktif akan dicabut.',fields:[{name:'password',label:'Kata sandi saat ini',type:'password',required:true},{name:'code',label:'Kode MFA aktif',required:true}],submitLabel:'Nonaktifkan MFA'});
+        if(!proof)return;
+        try{await api('/api/auth/mfa/disable',{method:'POST',body:proof});location.reload();}
+        catch(error){toast('MFA tidak dinonaktifkan',error.message,'coral');}
+      });
+      main.querySelector('#logoutAll')?.addEventListener('click',async()=>{
+        const answer=await actionDialog({title:'Keluar dari semua perangkat?',description:'Seluruh sesi termasuk perangkat ini akan dihentikan.',confirmLabel:'Keluar semua',danger:true});
+        if(answer===null)return;
+        try{await api('/api/auth/logout-all',{method:'POST',body:{}});location.reload();}
+        catch(error){toast('Gagal mengakhiri sesi',error.message,'coral');}
+      });
+    }
+  };
 
   const iamGovernance = {
     permission: 'iam.view',
@@ -87,6 +225,104 @@
       main.innerHTML=pageHead({eyebrow:'ACCESS REVIEW WORKBENCH',title:review.title,sub:`${review.scopeType} · jatuh tempo ${fmtDate(review.dueAt)} · ${pending} assignment belum diputuskan.`,actions:`<a class="btn secondary" href="#/system/access-reviews">Kembali</a>${can('access_review.approve')&&review.status==='OPEN'&&!pending?'<button class="btn primary" id="reviewComplete">Selesaikan review</button>':''}`})+`<section class="panel"><div class="table-wrap"><table><thead><tr><th>Pengguna</th><th>Role</th><th>Scope</th><th>Keputusan</th><th>Aksi</th></tr></thead><tbody>${review.items.map(item=>`<tr><td><b>${esc(item.userName)}</b></td><td>${esc(item.roleCode)}</td><td>${esc(item.scopeType)}${item.scopeId?` · ${esc(item.scopeId)}`:''}</td><td>${chip(item.decision)}</td><td>${can('access_review.approve')&&item.decision==='PENDING'?`<div class="row-actions"><button class="btn secondary small" data-review-decision="RETAIN" data-id="${item.id}">Retain</button><button class="btn danger small" data-review-decision="REVOKE" data-id="${item.id}">Revoke</button></div>`:`<small>${esc(item.reason||'Sudah diputuskan')}</small>`}</td></tr>`).join('')||'<tr><td colspan="5">Tidak ada assignment dalam scope ini.</td></tr>'}</tbody></table></div></section>`;
       main.querySelectorAll('[data-review-decision]').forEach(button=>button.addEventListener('click',async()=>{const decision=button.dataset.reviewDecision,confirm=await actionDialog({title:decision==='REVOKE'?'Cabut assignment':'Pertahankan assignment',description:decision==='REVOKE'?'Akses pengguna dan sesi aktifnya akan dicabut sesuai hasil review.':'Assignment tetap aktif dan keputusan dicatat permanen.',requireReason:true,confirmLabel:decision==='REVOKE'?'Revoke':'Retain'});if(!confirm)return;try{await api(`/api/governance/access-reviews/items/${button.dataset.id}/decide`,{method:'POST',body:{decision,reason:confirm.reason}});toast(`Assignment ${decision.toLowerCase()} berhasil dicatat`);router.render();}catch(error){toast('Keputusan gagal',error.message,'coral');}}));
       main.querySelector('#reviewComplete')?.addEventListener('click',async()=>{const confirm=await actionDialog({title:'Selesaikan access review',description:'Review yang selesai tidak dapat menerima keputusan baru.',confirmLabel:'Selesaikan'});if(!confirm)return;try{await api(`/api/governance/access-reviews/${params.id}/complete`,{method:'POST',body:{}});toast('Access review selesai');router.go('#/system/access-reviews');}catch(error){toast('Review belum dapat diselesaikan',error.message,'coral');}});
+    }
+  };
+
+  const RETENTION_LABEL={
+    AUTH_CHALLENGE:'Tantangan autentikasi',IDEMPOTENCY:'Replay idempotency',
+    USER_SESSION:'Sesi pengguna',EVENT_OUTBOX:'Event terpublikasi',
+    NOTIFICATION_DELIVERY:'Delivery notifikasi',BACKGROUND_JOB:'Job selesai'
+  };
+  const retentionWorkbench={
+    permission:'retention.view',
+    async render(main,_p,signal){
+      const [policies,holds,runs]=await Promise.all([
+        api('/api/governance/retention/policies',{signal}),
+        api('/api/governance/retention/holds?status=ACTIVE',{signal}),
+        api('/api/governance/retention/runs',{signal})
+      ]);
+      const totalHolds=holds.items.filter(x=>!x.expiresAt||new Date(x.expiresAt)>new Date()).length;
+      const lastRun=runs.items.find(x=>x.mode==='EXECUTE'&&x.status==='SUCCEEDED');
+      const resourceOptions=policies.items.map(x=>[x.resourceType,RETENTION_LABEL[x.resourceType]||x.resourceType]);
+      main.innerHTML=pageHead({
+        eyebrow:'INFORMATION LIFECYCLE',
+        title:'Data retention & legal hold',
+        sub:'Bersihkan data teknis yang melewati masa simpan tanpa menyentuh dokumen bisnis atau audit trail.',
+        actions:can('retention.create')?`<button class="btn secondary" id="retentionHold">${ICONS.lock} Tempatkan legal hold</button>`:''
+      })+`
+        <section class="retention-boundary">
+          <div class="retention-boundary-mark">${ICONS.shield}</div>
+          <div><p class="eyebrow">IMMUTABLE BUSINESS BOUNDARY</p><h2>Catatan bisnis tetap dilindungi</h2>
+          <p>Dokumen, jurnal, payroll, mutasi persediaan, master data, dan audit log tidak tersedia dalam mesin penghapusan.</p></div>
+          <span class="chip mint">Closed allowlist</span>
+        </section>
+        <section class="metrics">
+          ${kpiCard({label:'Policy aktif',value:String(policies.items.filter(x=>x.status==='ACTIVE').length),note:'Hanya data teknis sementara',orb:'shield',orbTone:'blue'})}
+          ${kpiCard({label:'Legal hold aktif',value:String(totalHolds),note:'Record dilindungi dari eksekusi',orb:'lock',orbTone:totalHolds?'amber':'mint'})}
+          ${kpiCard({label:'Batch terakhir',value:lastRun?String(lastRun.affectedCount):'—',note:lastRun?fmtDateTime(lastRun.finishedAt):'Belum ada eksekusi',orb:'job',orbTone:'lavender'})}
+        </section>
+        <section class="panel retention-policy-panel">
+          <header><div><p class="eyebrow">RETENTION RAIL</p><h2>Batas simpan & eksekusi</h2></div>
+            <span class="chip blue">${policies.items.length} resource terkunci</span></header>
+          <div class="retention-rail">${policies.items.map(policy=>`
+            <article class="retention-policy">
+              <div class="retention-policy-icon">${ICONS.shield}</div>
+              <div class="retention-policy-copy"><b>${esc(RETENTION_LABEL[policy.resourceType]||policy.resourceType)}</b>
+                <small>${esc(policy.description)}</small>
+                <span>${policy.retentionDays} hari · batch maks. ${Number(policy.batchSize).toLocaleString('id-ID')} · v${policy.version}</span></div>
+              <div class="retention-policy-state">
+                ${policy.activeHoldCount?`<span class="chip amber">${policy.activeHoldCount} hold</span>`:'<span class="chip mint">Tanpa hold</span>'}
+                ${can('retention.create')?`<button class="btn secondary sm" data-retention-preview="${policy.id}">Preview</button>`:''}
+              </div>
+            </article>`).join('')}</div>
+        </section>
+        <section class="dashboard-grid retention-evidence-grid">
+          <article class="panel"><header><div><p class="eyebrow">LEGAL HOLD</p><h2>Perlindungan aktif</h2></div></header>
+            <div class="panel-body stack">${holds.items.map(item=>`<div class="security-request">
+              <span><b>${esc(RETENTION_LABEL[item.resourceType]||item.resourceType)}</b>
+                <small>${item.resourceId==='*'?'Seluruh resource':esc(item.resourceId)} · ${esc(item.reason)}${item.referenceNumber?` · ${esc(item.referenceNumber)}`:''}</small></span>
+              <span><span class="chip amber">Ditahan</span>${can('retention.create')?` <button class="btn secondary sm" data-hold-release="${item.id}">Lepaskan</button>`:''}</span>
+            </div>`).join('')||'<div class="empty-state"><h3>Tidak ada legal hold aktif</h3><p>Record yang memenuhi policy dapat masuk preview retention.</p></div>'}</div>
+          </article>
+          <article class="panel"><header><div><p class="eyebrow">EXECUTION LEDGER</p><h2>Bukti terbaru</h2></div></header>
+            <div class="panel-body stack">${runs.items.slice(0,8).map(item=>`<div class="stat-row">
+              <span><b>${esc(item.mode==='PREVIEW'?'Preview':'Eksekusi')} · ${esc(RETENTION_LABEL[item.resourceType]||item.resourceType)}</b>
+                <small>${fmtDateTime(item.finishedAt)} · cutoff ${fmtDate(item.cutoffAt)}</small></span>
+              <span class="chip ${item.mode==='EXECUTE'?'mint':'blue'}">${item.mode==='EXECUTE'?`${item.affectedCount} dihapus`:`${item.candidateCount} kandidat`}</span>
+            </div>`).join('')||'<div class="empty-state"><h3>Belum ada bukti eksekusi</h3><p>Mulai dari Preview untuk menghitung kandidat tanpa mengubah data.</p></div>'}</div>
+          </article>
+        </section>`;
+
+      main.querySelector('#retentionHold')?.addEventListener('click',async()=>{
+        const value=await formDialog({title:'Tempatkan legal hold',description:'Gunakan * pada Resource ID untuk menahan seluruh resource. Hold selalu mengalahkan policy retention.',fields:[
+          {name:'resourceType',label:'Jenis data',type:'select',options:resourceOptions,required:true},
+          {name:'resourceId',label:'Resource ID',placeholder:'UUID atau *',required:true},
+          {name:'referenceNumber',label:'Nomor referensi perkara/kebijakan'},
+          {name:'expiresAt',label:'Berakhir otomatis (opsional)',type:'datetime-local'},
+          {name:'reason',label:'Alasan legal hold',type:'textarea',required:true}
+        ],submitLabel:'Aktifkan legal hold'});
+        if(!value)return;
+        if(!value.expiresAt)delete value.expiresAt;
+        try{await api('/api/governance/retention/holds',{method:'POST',body:value});toast('Legal hold aktif','Record dikecualikan dari seluruh preview dan eksekusi.');this.render(main);}
+        catch(error){toast('Legal hold gagal',error.message,'coral');}
+      });
+      main.querySelectorAll('[data-retention-preview]').forEach(button=>button.addEventListener('click',async()=>{
+        try{
+          const preview=await api('/api/governance/retention/preview',{method:'POST',body:{policyId:button.dataset.retentionPreview}});
+          const label=RETENTION_LABEL[preview.policySnapshot.resourceType]||preview.policySnapshot.resourceType;
+          if(!can('retention.approve')){toast('Preview tersimpan',`${preview.candidateCount} kandidat ${label}; eksekusi membutuhkan retention.approve.`);this.render(main);return;}
+          const answer=await actionDialog({title:`Eksekusi ${preview.plannedCount} record?`,description:`Preview menemukan ${preview.candidateCount} kandidat ${label}. Batch ini menghapus maksimal ${preview.plannedCount}; legal hold tetap dilindungi. Preview berlaku 30 menit dan jumlah harus tetap sama.`,requireReason:true,confirmLabel:'Hapus batch sesuai preview',danger:true});
+          if(!answer){this.render(main);return;}
+          const result=await api('/api/governance/retention/execute',{method:'POST',idempotencyKey:newIdemKey(),body:{previewId:preview.id,expectedCandidateCount:preview.candidateCount,reason:answer.reason}});
+          toast('Retention selesai',`${result.affectedCount} record teknis dihapus; estimasi tersisa ${result.remainingEstimate}.`);this.render(main);
+        }catch(error){toast('Retention tidak dijalankan',error.message,'coral');}
+      }));
+      main.querySelectorAll('[data-hold-release]').forEach(button=>button.addEventListener('click',async()=>{
+        const answer=await actionDialog({title:'Lepaskan legal hold',description:'Record dapat kembali menjadi kandidat pada preview berikutnya.',requireReason:true,confirmLabel:'Lepaskan hold',danger:true});
+        if(!answer)return;
+        try{await api(`/api/governance/retention/holds/${button.dataset.holdRelease}/release`,{method:'POST',body:answer});toast('Legal hold dilepaskan');this.render(main);}
+        catch(error){toast('Hold belum dilepaskan',error.message,'coral');}
+      }));
     }
   };
 
@@ -201,12 +437,14 @@
 
 
   const R = router.register.bind(router);
+  R('/account/security', accountSecurity);
   R('/system/users', systemUsers);
   R('/system/iam', iamGovernance);
   R('/system/sod', sodCenter);
   R('/system/approval-policies', approvalPolicies);
   R('/system/access-reviews', accessReviews);
   R('/system/access-reviews/:id', accessReviewDetail);
+  R('/system/retention', retentionWorkbench);
   R('/system/audit', auditPage);
   R('/system/monitoring', monitoring);
   R('/system/jobs', jobsPage);
