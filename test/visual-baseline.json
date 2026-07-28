@@ -1,6 +1,6 @@
 {
-  "version": 3,
-  "_note": "v3 menjalankan gerbang visual terhadap PostgreSQL — backend yang sebenarnya dipakai produksi — dan memperluas cakupan dari 5 menjadi 14 halaman lintas modul.",
+  "version": 5,
+  "_note": "v5 menambahkan reservation, purchase contract, capacity/WIP, dan CAPA/calibration workbench; login visual menyelesaikan MFA privileged sebelum memeriksa 21 halaman pada dua viewport.",
   "_riwayat": "v2 menyesuaikan arsitektur menu v0.29.0 (Executive Cockpit melebur ke Dashboard, #/reports menjadi Report Factory). Sebelum v3, gerbang ini berjalan dengan MAT_DB_MODE=memory yaitu adapter lama backend/api.js yang hanya melayani sembilan endpoint, sementara produksi memakai PostgreSQL dengan ratusan handler. Akibatnya mayoritas halaman tidak pernah dirender oleh pemeriksaan otomatis apa pun, dan sejumlah cacat lama — hitungan organisasi selalu nol, total dokumen tampil Rp NaN, rute persediaan yang hilang — baru ketahuan lewat pemeriksaan browser manual.",
   "_memorySafe": "Halaman bertanda memorySafe:false menuntut endpoint di luar sembilan milik adapter in-memory dan hanya diuji pada mode postgres (MAT_UI_SMOKE_DB=postgres, default). Jalankan MAT_UI_SMOKE_DB=memory hanya untuk pemeriksaan cepat tanpa database.",
   "maxHorizontalOverflow": 1,
@@ -17,6 +17,7 @@
     { "name": "my-work", "hash": "#/my-work", "selector": "main" },
     { "name": "approvals", "hash": "#/approvals", "selector": ".table-panel" },
     { "name": "notifications", "hash": "#/notifications", "selector": "main" },
+    { "name": "account-security", "hash": "#/account/security", "selector": ".security-hero", "memorySafe": false },
     { "name": "quotations", "hash": "#/sales/quotations", "selector": ".table-panel" },
     { "name": "sales-orders", "hash": "#/sales/orders", "selector": ".table-panel" },
     { "name": "work-orders", "hash": "#/production/work-orders", "selector": ".table-panel" },
@@ -24,10 +25,15 @@
 
     { "name": "organization", "hash": "#/organization", "selector": "#orgStructure", "memorySafe": false },
     { "name": "inventory", "hash": "#/warehouse/inventory", "selector": ".chip-tabs", "memorySafe": false },
+    { "name": "inventory-reservations", "hash": "#/warehouse/inventory?tab=reservations", "selector": ".enterprise-table", "memorySafe": false },
     { "name": "customers", "hash": "#/masters/customers", "selector": ".table-panel", "memorySafe": false },
     { "name": "products", "hash": "#/masters/products", "selector": ".table-panel", "memorySafe": false },
     { "name": "business-partners", "hash": "#/masters/business-partners", "selector": "main", "memorySafe": false },
+    { "name": "system-users", "hash": "#/system/users", "selector": ".security-metrics", "memorySafe": false },
     { "name": "purchase-requests", "hash": "#/procurement/requests", "selector": ".table-panel", "memorySafe": false },
+    { "name": "purchase-contracts", "hash": "#/procurement/contracts", "selector": ".enterprise-table", "memorySafe": false },
+    { "name": "capacity-wip", "hash": "#/production/capacity", "selector": ".capacity-grid", "memorySafe": false },
+    { "name": "quality-management", "hash": "#/production/quality-management", "selector": ".calibration-register", "memorySafe": false },
     { "name": "mrp", "hash": "#/production/mrp", "selector": ".table-wrap", "memorySafe": false }
   ]
 }

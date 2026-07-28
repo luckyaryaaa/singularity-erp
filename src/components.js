@@ -110,6 +110,34 @@
     });
   }
   function formDialog({title,description='',fields=[],submitLabel='Simpan',initial={}}){return new Promise(resolve=>{const dialog=document.getElementById('actionDialog'),control=f=>{const value=initial[f.name]??f.value??'',required=f.required?'required':'',hint=f.hint?`<small>${esc(f.hint)}</small>`:'';if(f.type==='select')return`<label class="field"><span>${esc(f.label)}${f.required?' <b>*</b>':''}</span><select name="${esc(f.name)}" ${required}>${(f.options||[]).map(o=>{const pair=Array.isArray(o)?o:[o,o];return`<option value="${esc(pair[0])}" ${String(value)===String(pair[0])?'selected':''}>${esc(pair[1])}</option>`;}).join('')}</select>${hint}</label>`;if(f.type==='textarea')return`<label class="field"><span>${esc(f.label)}${f.required?' <b>*</b>':''}</span><textarea name="${esc(f.name)}" rows="${f.rows||3}" ${required}>${esc(value)}</textarea>${hint}</label>`;if(f.type==='checkbox')return`<label class="check-field"><input type="checkbox" name="${esc(f.name)}" ${value!==false?'checked':''}><span>${esc(f.label)}</span></label>`;return`<label class="field"><span>${esc(f.label)}${f.required?' <b>*</b>':''}</span><input name="${esc(f.name)}" type="${esc(f.type||'text')}" value="${esc(value)}" ${required} ${f.min!==undefined?`min="${esc(f.min)}"`:''} ${f.max!==undefined?`max="${esc(f.max)}"`:''} ${f.step?`step="${esc(f.step)}"`:''}>${hint}</label>`;};dialog.innerHTML=`<form method="dialog" class="action-form form-dialog"><h2>${esc(title)}</h2>${description?`<p>${esc(description)}</p>`:''}<div class="form-grid">${fields.map(control).join('')}</div><div class="dialog-actions"><button type="button" class="btn secondary" data-cancel>Batal</button><button type="submit" class="btn primary">${esc(submitLabel)}</button></div></form>`;const form=dialog.querySelector('form');dialog.querySelector('[data-cancel]').onclick=()=>{dialog.close();resolve(null);};form.onsubmit=e=>{e.preventDefault();if(!form.reportValidity())return;const fd=new FormData(form),out={};for(const f of fields){if(f.type==='checkbox')out[f.name]=form.elements[f.name].checked;else{const raw=fd.get(f.name);out[f.name]=f.type==='number'&&raw!==''?Number(raw):raw;}}dialog.close();resolve(out);};dialog.oncancel=()=>resolve(null);dialog.showModal();form.querySelector('input,select,textarea')?.focus();});}
+  function secureValueDialog({title,description,value,label='Rahasia sekali tampil'}){
+    return new Promise(resolve=>{
+      const dialog=document.getElementById('actionDialog');
+      dialog.innerHTML=`<section class="action-form secure-value-dialog" aria-labelledby="secureValueTitle">
+        <p class="eyebrow">SECURE HANDOFF</p>
+        <h2 id="secureValueTitle">${esc(title)}</h2>
+        <p>${esc(description)}</p>
+        <label class="field"><span>${esc(label)}</span>
+          <textarea readonly rows="${String(value).includes('\n')?10:3}" spellcheck="false" autocomplete="off">${esc(value)}</textarea>
+          <small>Nilai ini tidak disimpan di browser, toast, maupun audit trail.</small>
+        </label>
+        <p class="secure-copy-status" aria-live="polite"></p>
+        <div class="dialog-actions">
+          <button type="button" class="btn secondary" data-copy>${ICONS.copy||ICONS.doc} Salin</button>
+          <button type="button" class="btn primary" data-done>Saya sudah simpan</button>
+        </div>
+      </section>`;
+      const field=dialog.querySelector('textarea'),status=dialog.querySelector('.secure-copy-status');
+      dialog.querySelector('[data-copy]').onclick=async()=>{
+        try{await navigator.clipboard.writeText(String(value));status.textContent='Berhasil disalin ke clipboard.';}
+        catch{field.focus();field.select();status.textContent='Pilih teks lalu salin manual.';}
+      };
+      dialog.querySelector('[data-done]').onclick=()=>{field.value='';dialog.close();resolve(true);};
+      dialog.oncancel=(event)=>event.preventDefault();
+      dialog.showModal();
+      dialog.querySelector('[data-done]').focus();
+    });
+  }
 
   // ── Aksi dokumen (dipakai drawer, halaman detail, approval center) ────────
   const DOC_ACTIONS = {
@@ -282,5 +310,5 @@
       <div class="head-actions">${actions}</div>
     </section>`;
 
-  window.UI = { ICONS, chip, STATUS_META, toast, actionDialog, formDialog, openDrawer, closeLayers, rememberLayerFocus, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL };
+  window.UI = { ICONS, chip, STATUS_META, toast, actionDialog, formDialog, secureValueDialog, openDrawer, closeLayers, rememberLayerFocus, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL };
 })();

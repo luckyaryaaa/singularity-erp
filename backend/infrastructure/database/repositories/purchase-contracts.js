@@ -24,7 +24,9 @@ const requireReason = (reason) => {
 
 async function getContract(client, id, user, { forUpdate = false } = {}) {
   const row = (await client.query(
-    `SELECT * FROM purchase_contracts WHERE id=$1${forUpdate ? ' FOR UPDATE' : ''}`, [id])).rows[0];
+    `SELECT c.*,s.name supplier_name,s.code supplier_code
+     FROM purchase_contracts c JOIN suppliers s ON s.id=c.supplier_id
+     WHERE c.id=$1${forUpdate ? ' FOR UPDATE OF c' : ''}`, [id])).rows[0];
   if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Kontrak pembelian tidak ditemukan.');
   permissions.assertBranchScope(user, row.branch_id, 'Kontrak pembelian');
   return row;
@@ -89,6 +91,8 @@ async function createContract(client, input, user, requestId) {
 }
 
 async function nextContractNumber(client, branchId) {
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+    [`purchase-contract-number:${branchId}:${businessDate.periodOf(businessDate.today())}`]);
   const branch = (await client.query('SELECT code FROM branches WHERE id=$1', [branchId])).rows[0];
   const period = businessDate.today().slice(2, 7).replace('-', '');
   const seq = (await client.query(
@@ -98,10 +102,15 @@ async function nextContractNumber(client, branchId) {
 }
 
 // Maker-checker: kontrak baru berlaku setelah disetujui orang lain.
-async function decideContract(client, { id, approve, reason, user, requestId }) {
+async function decideContract(client, { id, approve, reason, expectedVersion, user, requestId }) {
   permissions.assertPermission(user, 'purchase_order.approve');
   reason = requireReason(reason);
   const contract = await getContract(client, id, user, { forUpdate: true });
+  if (expectedVersion != null && Number(expectedVersion) !== Number(contract.version)) {
+    throw new AppError('DOCUMENT_CONFLICT',
+      `Versi kontrak Anda ${expectedVersion}, versi terbaru ${contract.version}. Muat ulang sebelum memutuskan.`,
+      { currentVersion: Number(contract.version) });
+  }
   if (!['DRAFT', 'PENDING_APPROVAL'].includes(contract.status)) {
     throw new AppError('STATUS_INVALID', `Kontrak berstatus ${contract.status} tidak dapat diputuskan.`);
   }
@@ -111,8 +120,10 @@ async function decideContract(client, { id, approve, reason, user, requestId }) 
   const status = approve ? 'ACTIVE' : 'REJECTED';
   const row = (await client.query(
     `UPDATE purchase_contracts SET status=$2,approved_at=now(),approved_by=$3,decision_reason=$4,
-       version=version+1,updated_at=now() WHERE id=$1 RETURNING *`,
-    [id, status, user.id, reason])).rows[0];
+       version=version+1,updated_at=now() WHERE id=$1 AND version=$5 RETURNING *`,
+    [id, status, user.id, reason, contract.version])).rows[0];
+  if (!row) throw new AppError('DOCUMENT_CONFLICT',
+    'Kontrak berubah saat keputusan diproses. Muat ulang versi terbaru.');
   await runtime.audit(client, { userId: user.id, action: approve ? 'APPROVE' : 'REJECT', module: 'purchase_order',
     entityType: 'PURCHASE_CONTRACT', entityId: id, documentNumber: contract.contract_number,
     oldValue: { status: contract.status }, newValue: { status }, reason, requestId, branchId: contract.branch_id });
@@ -123,9 +134,14 @@ async function decideContract(client, { id, approve, reason, user, requestId }) 
 // kontrak berarti: tanpa penegakan di sini, pagu dan komitmen volume hanya
 // catatan yang tidak pernah membatasi apa pun.
 async function releaseContract(client, { id, purchaseOrderId, contractLineId, purchaseOrderLineId,
-  releasedQty, releasedAmount, user, requestId }) {
+  releasedQty, releasedAmount, expectedVersion, user, requestId }) {
   permissions.assertPermission(user, 'purchase_order.create');
   const contract = await getContract(client, id, user, { forUpdate: true });
+  if (expectedVersion != null && Number(expectedVersion) !== Number(contract.version)) {
+    throw new AppError('DOCUMENT_CONFLICT',
+      `Versi kontrak Anda ${expectedVersion}, versi terbaru ${contract.version}. Muat ulang sebelum release.`,
+      { currentVersion: Number(contract.version) });
+  }
   const today = businessDate.today();
   if (contract.status !== 'ACTIVE' || contract.valid_from > today || contract.valid_to < today) {
     throw new AppError('STATUS_INVALID',
@@ -135,9 +151,26 @@ async function releaseContract(client, { id, purchaseOrderId, contractLineId, pu
     `SELECT * FROM business_documents WHERE id=$1 AND document_type='PURCHASE_ORDER'`, [purchaseOrderId])).rows[0];
   if (!po) throw new AppError('RESOURCE_NOT_FOUND', 'Purchase Order tidak ditemukan.');
   permissions.assertBranchScope(user, po.branch_id, 'Purchase Order');
+  if (String(po.branch_id) !== String(contract.branch_id)) {
+    throw new AppError('VALIDATION_ERROR',
+      'Purchase Order dan kontrak wajib berada pada cabang yang sama.');
+  }
   if (String(po.party_id) !== String(contract.supplier_id)) {
     throw new AppError('VALIDATION_ERROR', 'Pemasok Purchase Order tidak cocok dengan kontrak.',
       { contractSupplierId: contract.supplier_id, poSupplierId: po.party_id });
+  }
+
+  const replay = (await client.query(
+    `SELECT * FROM purchase_contract_releases
+     WHERE contract_id=$1 AND purchase_order_id=$2
+       AND contract_line_id IS NOT DISTINCT FROM $3::uuid
+       AND purchase_order_line_id IS NOT DISTINCT FROM $4::uuid
+     LIMIT 1`,
+    [id, purchaseOrderId, contractLineId || null, purchaseOrderLineId || null])).rows[0];
+  if (replay) {
+    throw new AppError('DUPLICATE_REQUEST',
+      'Purchase Order/baris ini sudah pernah direlease terhadap kontrak yang sama.',
+      { releaseId: replay.id });
   }
 
   const amount = round(releasedAmount);
@@ -155,6 +188,9 @@ async function releaseContract(client, { id, purchaseOrderId, contractLineId, pu
       'SELECT * FROM purchase_contract_lines WHERE id=$1 AND contract_id=$2 FOR UPDATE', [contractLineId, id])).rows[0];
     if (!line) throw new AppError('RESOURCE_NOT_FOUND', 'Baris kontrak tidak ditemukan.');
     const qty = releasedQty == null ? null : Number(releasedQty);
+    if (qty != null && !(qty > 0)) {
+      throw new AppError('VALIDATION_ERROR', 'Qty release harus lebih dari nol.');
+    }
     const lineRemaining = round(Number(line.ceiling_amount) - Number(line.released_amount));
     if (amount > lineRemaining) {
       throw new AppError('VALIDATION_ERROR', `Release ${amount} melampaui sisa pagu baris ${lineRemaining}.`,
@@ -169,7 +205,11 @@ async function releaseContract(client, { id, purchaseOrderId, contractLineId, pu
       }
     }
     await client.query(
-      'UPDATE purchase_contract_lines SET released_amount=released_amount+$2,released_qty=released_qty+COALESCE($3,0) WHERE id=$1',
+      `UPDATE purchase_contract_lines
+       SET released_amount=released_amount+$2,
+           released_qty=released_qty+COALESCE($3,0),
+           version=version+1
+       WHERE id=$1`,
       [line.id, amount, qty]);
   }
 
@@ -196,8 +236,10 @@ async function releaseContract(client, { id, purchaseOrderId, contractLineId, pu
     [randomUUID(), id, contractLineId || null, purchaseOrderId, purchaseOrderLineId || null,
       releasedQty == null ? null : Number(releasedQty), amount, user.id])).rows[0];
   await client.query(
-    'UPDATE purchase_contracts SET consumed_amount=consumed_amount+$2,version=version+1,updated_at=now() WHERE id=$1',
-    [id, amount]);
+    `UPDATE purchase_contracts
+     SET consumed_amount=consumed_amount+$2,version=version+1,updated_at=now()
+     WHERE id=$1 AND version=$3`,
+    [id, amount, contract.version]);
   await runtime.audit(client, { userId: user.id, action: 'RELEASE', module: 'purchase_order',
     entityType: 'PURCHASE_CONTRACT', entityId: id, documentNumber: contract.contract_number,
     newValue: { purchaseOrderId, contractLineId, releasedQty, releasedAmount: amount },
@@ -205,18 +247,32 @@ async function releaseContract(client, { id, purchaseOrderId, contractLineId, pu
   return camel(row);
 }
 
-async function listContracts(client, user, { supplierId = null, status = null } = {}) {
+async function listContracts(client, user, { supplierId = null, status = null, q = null,
+  page = 1, limit = 25 } = {}) {
   permissions.assertPermission(user, 'purchase_order.view');
   const params = []; let where = 'TRUE';
   if (supplierId) { params.push(supplierId); where += ` AND c.supplier_id=$${params.length}`; }
   if (status) { params.push(String(status).toUpperCase()); where += ` AND c.status=$${params.length}`; }
+  if (q) {
+    params.push(`%${String(q).trim().slice(0, 120)}%`);
+    where += ` AND (c.contract_number ILIKE $${params.length}
+      OR c.title ILIKE $${params.length} OR s.name ILIKE $${params.length})`;
+  }
+  page = Math.max(Number(page) || 1, 1);
+  limit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+  const total = Number((await client.query(
+    `SELECT count(*) n FROM purchase_contracts c
+     JOIN suppliers s ON s.id=c.supplier_id WHERE ${where}`, params)).rows[0].n);
+  params.push(limit, (page - 1) * limit);
   const rows = (await client.query(
     `SELECT c.*,s.name supplier_name,
        (c.ceiling_amount-c.consumed_amount)::float remaining_amount,
        (SELECT count(*)::int FROM purchase_contract_lines l WHERE l.contract_id=c.id) line_count
      FROM purchase_contracts c JOIN suppliers s ON s.id=c.supplier_id
-     WHERE ${where} ORDER BY c.created_at DESC LIMIT 200`, params)).rows;
-  return { items: rows.map(camel) };
+     WHERE ${where} ORDER BY c.created_at DESC
+     LIMIT $${params.length - 1} OFFSET $${params.length}`, params)).rows;
+  return { items: rows.map(camel), page, limit, total,
+    totalPages: Math.max(Math.ceil(total / limit), 1) };
 }
 
 async function contractDetail(client, id, user) {

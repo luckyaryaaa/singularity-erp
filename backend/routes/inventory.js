@@ -4,6 +4,8 @@ const { assertPermission } = require('../core/permissions');
 const operations = require('../infrastructure/database/repositories/operations');
 const inventoryLots = require('../infrastructure/database/repositories/inventory');
 const binExecution = require('../infrastructure/database/repositories/bin-execution');
+const stockReservations = require('../infrastructure/database/repositories/stock-reservations');
+const runtime = require('../infrastructure/database/repositories/runtime');
 const { AppError } = require('../core/errors');
 const { NO_MATCH } = require('./shared');
 
@@ -11,6 +13,18 @@ async function dispatch(client, req, url, ctx) {
   const p=url.pathname, method=req.method;
   let m;
   if(method==='GET'&&p==='/api/inventory'){assertPermission(ctx.user,'inventory.view');return operations.listInventory(client,ctx.user,Object.fromEntries(url.searchParams));}
+  if(method==='GET'&&p==='/api/inventory/reservations')
+    return stockReservations.listReservations(client,ctx.user,Object.fromEntries(url.searchParams));
+  m=p.match(/^\/api\/inventory\/reservations\/([0-9a-f-]{36})\/release$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    const version=Number(body.version);
+    if(!Number.isInteger(version)||version<1)throw new AppError('VALIDATION_ERROR','Field version wajib dikirim.');
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,
+      operation:`inventory.reservation.release:${m[1]}`,key:req.headers['idempotency-key'],body},
+    async()=>({status:200,body:await stockReservations.releaseReservation(client,{
+      id:m[1],expectedVersion:version,reason:body.reason,user:ctx.user,requestId:ctx.requestId})}));
+    ctx.status=result.status;return result.body;
+  }
   // Sprint 11 (R018) — lot/heat traceability, valuasi, dan stock opname.
   // Eksekusi bin — storage_locations/warehouse_bins ada sejak migrasi 012
   // tetapi tidak pernah dirujuk kode apa pun sampai migrasi 058.

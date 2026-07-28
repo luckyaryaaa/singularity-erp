@@ -8,12 +8,20 @@
     permission: 'inventory.view',
     onEvent() { this._table?.reload(); },
     render(main) {
-      this._tab = this._tab || 'saldo';
-      const TABS = [['saldo', 'Saldo stok'], ['lots', 'Lot & Heat Number'], ['bins', 'Rak & Bin'], ['opname', 'Stock Opname'], ['valuasi', 'Valuasi']];
+      const TABS = [['saldo', 'Saldo stok'], ['reservations', 'Reservasi'], ['lots', 'Lot & Heat Number'], ['bins', 'Rak & Bin'], ['opname', 'Stock Opname'], ['valuasi', 'Valuasi']];
+      const requestedTab = state.routeQuery?.get?.('tab');
+      this._tab = TABS.some(([id]) => id === requestedTab) ? requestedTab : (this._tab || 'saldo');
       const actions = `<nav class="chip-tabs" aria-label="Tab inventori">${TABS.map(([id, label]) => `<button class="btn ${this._tab === id ? 'primary' : 'secondary'}" data-invtab="${id}">${esc(label)}</button>`).join('')}</nav>
         ${this._tab === 'opname' && can('stock_opname.create') ? `<button class="btn primary" id="startOpname">${ICONS.plus} Mulai opname</button>` : ''}`;
       main.innerHTML = pageHead({ eyebrow: 'GUDANG', title: 'Persediaan', sub: 'Saldo stok, traceability lot/heat number (mill certificate), stock opname, dan valuasi.', actions }) + '<section id="pgTable"></section><section id="pgDetail"></section>';
-      main.querySelectorAll('[data-invtab]').forEach((b) => b.addEventListener('click', () => { this._tab = b.dataset.invtab; this.render(main); }));
+      main.querySelectorAll('[data-invtab]').forEach((b) => b.addEventListener('click', () => {
+        this._tab = b.dataset.invtab;
+        const params = new URLSearchParams();
+        if (this._tab !== 'saldo') params.set('tab', this._tab);
+        state.routeQuery = params;
+        history.replaceState(null, '', `#/warehouse/inventory${params.size ? `?${params}` : ''}`);
+        this.render(main);
+      }));
       const mount = main.querySelector('#pgTable');
       if (this._tab === 'saldo') {
         this._table = dataTable(mount, {
@@ -28,6 +36,25 @@
             { label: 'Status', render: (r) => r.qtyOnHand < r.minQty ? '<span class="chip coral">Stok kritis</span>' : '<span class="chip mint">Aman</span>' }
           ],
           empty: { icon: 'box', title: 'Belum ada stok tercatat' }
+        });
+      } else if (this._tab === 'reservations') {
+        const RESERVATION_CHIP = { ACTIVE: 'blue', CONSUMED: 'mint', RELEASED: 'gray', EXPIRED: 'amber' };
+        this._table = dataTable(mount, {
+          key: 'inventory:reservations', endpoint: '/api/inventory/reservations', params: {},
+          title: 'Reservation workbench', eyebrow: 'ATP · ALOKASI', staleMs: 15_000,
+          statusFilter: ['ACTIVE', 'CONSUMED', 'RELEASED', 'EXPIRED'],
+          columns: [
+            { label: 'Produk', key: 'product', render: (r) => `<b>${esc(r.productCode)}</b><small>${esc(r.productName)}</small>` },
+            { label: 'Dokumen pemilik', key: 'document', render: (r) => `<b>${esc(r.documentNumber)}</b><small>${esc(r.documentType)} · ${esc(r.documentTitle || '')}</small>` },
+            { label: 'Gudang', render: (r) => esc(r.warehouseName) },
+            { label: 'Ditahan', right: true, render: (r) => `<span class="money">${Number(r.qty)}</span><small>terpakai ${Number(r.consumedQty)}</small>` },
+            { label: 'Sisa', right: true, render: (r) => `<b class="money">${Number(r.remainingQty)}</b>` },
+            { label: 'Kedaluwarsa', render: (r) => r.expiresAt ? fmtDateTime(r.expiresAt) : '<span class="muted">Tanpa batas</span>' },
+            { label: 'Status', render: (r) => `<span class="chip ${RESERVATION_CHIP[r.status] || 'gray'}">${esc(r.status)}</span>` }
+          ],
+          empty: { icon: 'lock', title: 'Belum ada reservasi stok',
+            hint: 'Reservasi tercipta dari janji penjualan dan rencana produksi.' },
+          onRow: (row, reload) => this.showReservation(main, row, reload)
         });
       } else if (this._tab === 'lots') {
         const LOT_CHIP = { ACTIVE: 'mint', BLOCKED: 'coral', QUARANTINE: 'amber', CONSUMED: 'gray' };
@@ -129,6 +156,42 @@
             <div class="panel-body"><p class="muted">Nilai saldo memakai biaya standar (HPP aktif); lapisan lot mencatat biaya saat penerimaan untuk telusur FIFO.</p></div></section>`;
         }).catch((e) => { mount.innerHTML = `<section class="panel"><div class="panel-body"><p class="muted">Gagal memuat valuasi: ${esc(e.message)}</p></div></section>`; });
       }
+    },
+    showReservation(main, row, reload) {
+      const box = main.querySelector('#pgDetail');
+      box.innerHTML = `<section class="panel reservation-detail"><header><div>
+          <p class="eyebrow">RESERVATION TRACE</p><h2>${esc(row.documentNumber)} · ${esc(row.productCode)}</h2>
+        </div>${can('inventory.edit') && row.status === 'ACTIVE'
+    ? `<button class="btn danger-outline" id="releaseReservation">Lepas reservasi</button>` : ''}</header>
+        <div class="panel-body stack">
+          <div class="stat-row"><span>Dokumen pemilik</span><b>${esc(row.documentType)} · ${esc(row.documentTitle || row.documentNumber)}</b></div>
+          <div class="stat-row"><span>Produk / gudang</span><b>${esc(row.productCode)} · ${esc(row.productName)} / ${esc(row.warehouseName)}</b></div>
+          <div class="stat-row"><span>Qty ditahan / terpakai / tersisa</span><b>${Number(row.qty)} / ${Number(row.consumedQty)} / ${Number(row.remainingQty)}</b></div>
+          <div class="stat-row"><span>Dibuat oleh</span><b>${esc(row.createdByName || 'Sistem')} · ${fmtDateTime(row.createdAt)}</b></div>
+          <div class="stat-row"><span>Alasan</span><b>${esc(row.reason || 'Dibuat oleh workflow sumber')}</b></div>
+        </div></section>`;
+      box.querySelector('#releaseReservation')?.addEventListener('click', async () => {
+        const answer = await actionDialog({
+          title: `Lepas reservasi ${row.documentNumber}`,
+          description: 'Stok kembali tersedia untuk dokumen lain. Tindakan ini tidak dapat dibatalkan dan tercatat di audit trail.',
+          requireReason: true, confirmLabel: 'Lepas reservasi', danger: true
+        });
+        if (!answer) return;
+        if (String(answer.reason || '').trim().length < 10) {
+          toast('Alasan terlalu singkat', 'Isi minimal 10 karakter.', 'coral'); return;
+        }
+        try {
+          await api(`/api/inventory/reservations/${row.id}/release`, {
+            method: 'POST', idempotencyKey: newIdemKey(),
+            body: { version: row.version, reason: answer.reason }
+          });
+          invalidate('inventory'); invalidate('inventory:reservations');
+          toast('Reservasi dilepas', `${row.documentNumber} · ${row.productCode}`);
+          box.innerHTML = '';
+          reload();
+        } catch (error) { toast('Gagal melepas reservasi', error.message, 'coral'); }
+      });
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     },
     async showLot(main, lotId) {
       const box = main.querySelector('#pgDetail');

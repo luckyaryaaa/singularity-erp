@@ -222,7 +222,7 @@ main>*{max-width:1480px;margin-left:auto;margin-right:auto}
 .panel .eyebrow{margin-bottom:4px}
 .panel-body{padding:18px 20px}
 .dashboard-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,.9fr);gap:18px;align-items:start}
-.dashboard-grid .panel{margin-bottom:0}
+.dashboard-grid .panel{min-width:0;margin-bottom:0}
 .dashboard-grid{margin-bottom:18px}
 
 /* Grafik */
@@ -539,7 +539,10 @@ dialog::backdrop{background:rgba(15,24,39,.55);backdrop-filter:blur(3px)}
   .command kbd{display:none}
   .page-head{flex-direction:column;align-items:flex-start;gap:12px}
   .page-head h1{font-size:22px}
-  .head-actions{width:100%}
+  .head-actions{width:100%;flex-wrap:wrap}
+  .head-actions .period-picker{flex:1 1 145px;width:auto;min-width:0}
+  .head-actions .period-picker input{min-width:0}
+  #capacityApply{flex:1 1 100%}
   .head-actions .btn{flex:1}
   .attention{grid-template-columns:auto 1fr;padding:16px}
   .attention .btn{grid-column:1/-1}
@@ -699,3 +702,81 @@ table tfoot th{border-top:2px solid var(--border);background:var(--surface-soft)
 .kpi>strong .chip{font-size:12.5px;vertical-align:baseline}
 .kpi>small{font-size:11px;color:var(--muted);line-height:1.4}
 @media(max-width:640px){.kpi-grid{grid-template-columns:1fr 1fr}}
+
+/* ── Identity & account security workbench ─────────────────────────────── */
+.security-hero{
+  position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;gap:18px;margin-bottom:20px;padding:22px 24px;
+  border:1px solid var(--border);border-radius:20px;background:#fff;
+  box-shadow:var(--shadow);overflow:hidden;
+}
+.security-hero::after{
+  content:"";position:absolute;right:-48px;top:-72px;width:190px;height:190px;
+  border-radius:50%;background:radial-gradient(circle,rgba(109,159,234,.18),rgba(109,159,234,0) 68%);
+  pointer-events:none;
+}
+.security-hero.secure{border-color:#ccebdd;background:linear-gradient(125deg,#fff 42%,#f2fbf7)}
+.security-hero.attention{border-color:#f0dfb2;background:linear-gradient(125deg,#fff 42%,#fffaf0)}
+.security-hero .clay-orb{position:relative;z-index:1}
+.security-hero h2{margin:2px 0 5px;font-size:20px}
+.security-hero p{margin:0;color:var(--muted);line-height:1.5}
+.security-hero-actions{position:relative;z-index:1;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.security-request{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 0;border-bottom:1px solid var(--border)}
+.security-request:last-child{border-bottom:0}
+.security-request>span:first-child{min-width:0}
+.security-request b,.security-request small{display:block}
+.security-request small{margin-top:4px;color:var(--muted);line-height:1.45}
+.retention-boundary{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:16px;margin-bottom:20px;padding:20px 22px;overflow:hidden;border:1px solid #cde6dc;border-radius:20px;background:linear-gradient(118deg,#fff 40%,#f1faf6);box-shadow:var(--shadow)}
+.retention-boundary::after{content:"";position:absolute;inset:auto -42px -72px auto;width:180px;height:180px;border:1px solid rgba(50,153,115,.14);border-radius:50%;box-shadow:0 0 0 24px rgba(50,153,115,.04),0 0 0 48px rgba(50,153,115,.025);pointer-events:none}
+.retention-boundary-mark{display:grid;place-items:center;width:48px;height:48px;color:#248462;border:1px solid #bce2d4;border-radius:15px;background:linear-gradient(145deg,#effbf6,#d9f1e8);box-shadow:inset 0 1px 0 #fff,0 8px 18px rgba(45,122,93,.14)}
+.retention-boundary h2{margin:2px 0 5px;font-size:19px}.retention-boundary p{margin:0;color:var(--muted);line-height:1.48}.retention-boundary>.chip{position:relative;z-index:1}
+.retention-rail{display:grid}.retention-policy{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:14px;padding:15px 20px;border-top:1px solid var(--border)}
+.retention-policy:first-child{border-top:0}.retention-policy::before{content:"";position:absolute;left:37px;top:0;bottom:0;width:1px;background:#d8e4f1}.retention-policy:first-child::before{top:50%}.retention-policy:last-child::before{bottom:50%}
+.retention-policy-icon{position:relative;z-index:1;display:grid;place-items:center;width:34px;height:34px;color:var(--blue);border:1px solid #d0def0;border-radius:12px;background:linear-gradient(145deg,#fff,#e9f1fc);box-shadow:0 5px 12px rgba(54,92,145,.1)}
+.retention-policy-copy{display:grid;gap:3px}.retention-policy-copy b{font-size:13px}.retention-policy-copy small{color:var(--muted);line-height:1.4}.retention-policy-copy span{color:#66809d;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.retention-policy-state{display:flex;align-items:center;justify-content:flex-end;gap:8px}.retention-evidence-grid{align-items:start}
+@media(max-width:720px){.retention-boundary{grid-template-columns:auto 1fr}.retention-boundary>.chip{grid-column:1/-1;width:max-content}.retention-policy{grid-template-columns:auto 1fr}.retention-policy-state{grid-column:2;justify-content:flex-start;flex-wrap:wrap}}
+@media(max-width:520px){.retention-boundary{grid-template-columns:1fr}.retention-policy{padding:14px;grid-template-columns:auto 1fr}.retention-policy::before{left:31px}}
+.secure-value-dialog textarea{
+  min-height:74px;padding:14px;font:650 13px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;
+  color:#132340;background:#f4f7fb;border:1px solid #cdd9e8;resize:vertical;
+}
+.secure-value-dialog .eyebrow{margin-bottom:4px}
+.secure-copy-status{min-height:18px;margin:0;color:#16744a;font-size:12px;font-weight:650}
+@media(max-width:820px){
+  .security-hero{grid-template-columns:auto minmax(0,1fr)}
+  .security-hero-actions{grid-column:1/-1;justify-content:flex-start}
+}
+@media(max-width:640px){
+  .security-hero{grid-template-columns:1fr;padding:18px}
+  .security-request{align-items:flex-start;flex-direction:column}
+  .security-request>span:last-child{width:100%}
+}
+
+/* ── Enterprise execution workbenches ─────────────────────────────────── */
+.contract-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--border);border-block:1px solid var(--border)}
+.contract-summary-grid>div{display:grid;gap:5px;padding:18px 20px;background:linear-gradient(145deg,#fff,#f8fbff)}
+.contract-summary-grid span{color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.contract-summary-grid b{color:var(--ink);font-size:17px}
+.timeline-list{display:grid;gap:0;margin-top:10px}
+.timeline-list>div{position:relative;display:grid;grid-template-columns:18px 1fr;gap:10px;min-height:54px}
+.timeline-list>div:not(:last-child)::before{content:"";position:absolute;left:5px;top:17px;bottom:-4px;width:2px;background:#d9e5f6}
+.timeline-list .dot{width:12px;height:12px;margin-top:4px;border:3px solid #cfe0fa;border-radius:50%;background:var(--blue);box-shadow:0 3px 8px rgba(62,119,211,.2)}
+.timeline-list p{margin:0}.timeline-list small{display:block;margin-top:3px;color:var(--muted)}
+.capacity-grid{grid-template-columns:minmax(0,1.12fr) minmax(0,.88fr)}
+.utilization-cell{display:grid;grid-template-columns:auto minmax(64px,1fr);align-items:center;gap:8px}
+.mini-meter{height:7px;overflow:hidden;border-radius:99px;background:#e9eef6}
+.mini-meter i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#72a8f2,#527ed5)}
+.row-risk{background:rgba(255,235,224,.42)}.row-risk .mini-meter i{background:linear-gradient(90deg,#f0ad75,#df765e)}
+.reservation-detail,.contract-360,.capa-detail,.calibration-register{margin-top:18px;border-color:#d7e3f2;box-shadow:0 18px 42px rgba(35,55,83,.08),inset 0 1px 0 #fff}
+.capa-detail .stat-row b,.reservation-detail .stat-row b{max-width:72%;text-align:right;font-weight:600}
+@media(max-width:1050px){
+  .contract-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .capacity-grid{grid-template-columns:1fr}
+}
+@media(max-width:680px){
+  .contract-summary-grid{grid-template-columns:1fr}
+  .capa-detail .stat-row,.reservation-detail .stat-row{align-items:flex-start;flex-direction:column}
+  .capa-detail .stat-row b,.reservation-detail .stat-row b{max-width:none;text-align:left}
+  .utilization-cell{min-width:140px}
+}

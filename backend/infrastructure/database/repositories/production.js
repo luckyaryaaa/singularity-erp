@@ -212,7 +212,11 @@ async function logTime(client, { operationId, hours, note, user }) {
   if (!h || Math.abs(h) > 24) throw new AppError('VALIDATION_ERROR', 'Jam kerja harus ≠0 dan ≤24 per pencatatan (koreksi memakai nilai negatif).');
   if (h < 0 && !note) throw new AppError('REASON_REQUIRED', 'Koreksi jam (negatif) wajib disertai alasan.');
   await client.query(`INSERT INTO work_order_time_logs(operation_id,hours,note,logged_by) VALUES($1,$2,$3,$4)`, [operationId, h, note || null, user.id]);
-  if (op.status === 'PENDING') await client.query(`UPDATE work_order_operations SET status='IN_PROGRESS',started_at=COALESCE(started_at,now()) WHERE id=$1`, [operationId]);
+  await client.query(`UPDATE work_order_operations
+    SET status=CASE WHEN status='PENDING' THEN 'IN_PROGRESS' ELSE status END,
+        started_at=CASE WHEN status='PENDING' THEN COALESCE(started_at,now()) ELSE started_at END,
+        version=version+1
+    WHERE id=$1`, [operationId]);
   const total = (await client.query('SELECT COALESCE(SUM(hours),0)::float t FROM work_order_time_logs WHERE operation_id=$1', [operationId])).rows[0].t;
   if (total < 0) throw new AppError('VALIDATION_ERROR', 'Total jam operasi tidak boleh negatif setelah koreksi.');
   return { operationId, totalHours: total, cost: idr(total * Number(op.hourly_rate_snapshot)) };
@@ -232,7 +236,10 @@ async function completeOperation(client, { operationId, user }) {
     `SELECT op_no,name FROM work_order_operations WHERE work_order_id=$1 AND op_no<$2 AND status<>'DONE' ORDER BY op_no LIMIT 1`,
     [op.work_order_id, op.op_no])).rows[0];
   if (predecessor) throw new AppError('STATUS_INVALID', `Operasi ${predecessor.op_no} (${predecessor.name}) belum selesai — operasi wajib berurutan.`, { blockingOperation: predecessor.op_no });
-  const updated = (await client.query(`UPDATE work_order_operations SET status='DONE',started_at=COALESCE(started_at,now()),finished_at=now() WHERE id=$1 RETURNING *`, [operationId])).rows[0];
+  const updated = (await client.query(`UPDATE work_order_operations
+    SET status='DONE',started_at=COALESCE(started_at,now()),finished_at=now(),
+        version=version+1
+    WHERE id=$1 RETURNING *`, [operationId])).rows[0];
   return { opNo: updated.op_no, status: updated.status };
 }
 

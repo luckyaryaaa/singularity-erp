@@ -3,6 +3,7 @@
 // dari dispatcher utama tanpa mengubah URL/response contract yang sudah aktif.
 const { readBody } = require('../core/util');
 const { assertPermission } = require('../core/permissions');
+const { AppError } = require('../core/errors');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const production = require('../infrastructure/database/repositories/production');
 const capacity = require('../infrastructure/database/repositories/capacity');
@@ -16,6 +17,14 @@ async function dispatch(client, req, url, ctx) {
     const result = await runtime.withIdempotency(client, { userId: ctx.user.id, operation, key: req.headers['idempotency-key'], body }, async () => ({ status, body: await execute() }));
     ctx.status = result.status;
     return result.body;
+  };
+  const versionOf = (body) => {
+    const value = Number(body.version);
+    if (!Number.isInteger(value) || value < 1) {
+      throw new AppError('VALIDATION_ERROR',
+        'Field version wajib dikirim untuk mencegah overwrite perubahan pengguna lain.');
+    }
+    return value;
   };
   let match = pathname.match(/^\/api\/work-orders\/([0-9a-f-]{36})\/production$/);
   if (method === 'GET' && match) { assertPermission(ctx.user, 'production.view'); return production.productionPanel(client, match[1], ctx.user); }
@@ -42,21 +51,29 @@ async function dispatch(client, req, url, ctx) {
   if (method === 'POST' && pathname === '/api/mrp/run') { assertPermission(ctx.user, 'production.post'); const body = await readBody(req); return idempotent('mrp.run', body, 200, () => production.runMrp(client, { user: ctx.user, warehouseId: body.warehouseId || null, requestId: ctx.requestId })); }
   // CAPA & kalibrasi — NCR sebelumnya hanya sebuah nomor tanpa siklus, dan
   // kalibrasi alat ukur tidak ada sama sekali.
-  if (method === 'GET' && pathname === '/api/quality/capa')
-    return qualityCapa.listCases(client, ctx.user, { branchId: url.searchParams.get('branchId'), status: url.searchParams.get('status') || 'OPEN_ONLY' });
-  if (method === 'POST' && pathname === '/api/quality/capa') { const body = await readBody(req); ctx.status = 201;
-    return qualityCapa.openCase(client, { ...body, user: ctx.user, requestId: ctx.requestId }); }
+  if (method === 'GET' && pathname === '/api/quality/capa') {
+    const filters = Object.fromEntries(url.searchParams);
+    if (!filters.status) filters.status = 'OPEN_ONLY';
+    return qualityCapa.listCases(client, ctx.user, filters);
+  }
+  if (method === 'POST' && pathname === '/api/quality/capa') { const body = await readBody(req);
+    return idempotent('quality.capa.create', body, 201,
+      () => qualityCapa.openCase(client, { ...body, user: ctx.user, requestId: ctx.requestId })); }
   match = pathname.match(/^\/api\/quality\/capa\/([0-9a-f-]{36})\/advance$/);
   if (method === 'POST' && match) { const body = await readBody(req);
-    return qualityCapa.advanceCase(client, { id: match[1], toStatus: body.toStatus, payload: body,
-      reason: body.reason, user: ctx.user, requestId: ctx.requestId }); }
+    return idempotent(`quality.capa.advance:${match[1]}`, body, 200,
+      () => qualityCapa.advanceCase(client, { id: match[1], toStatus: body.toStatus, payload: body,
+        reason: body.reason, expectedVersion: versionOf(body), user: ctx.user, requestId: ctx.requestId })); }
   if (method === 'GET' && pathname === '/api/quality/instruments')
     return qualityCapa.listInstruments(client, ctx.user, { branchId: url.searchParams.get('branchId') });
-  if (method === 'POST' && pathname === '/api/quality/instruments') { const body = await readBody(req); ctx.status = 201;
-    return qualityCapa.registerInstrument(client, { ...body, user: ctx.user, requestId: ctx.requestId }); }
+  if (method === 'POST' && pathname === '/api/quality/instruments') { const body = await readBody(req);
+    return idempotent('quality.instrument.create', body, 201,
+      () => qualityCapa.registerInstrument(client, { ...body, user: ctx.user, requestId: ctx.requestId })); }
   match = pathname.match(/^\/api\/quality\/instruments\/([0-9a-f-]{36})\/calibrations$/);
-  if (method === 'POST' && match) { const body = await readBody(req); ctx.status = 201;
-    return qualityCapa.recordCalibration(client, { instrumentId: match[1], ...body, user: ctx.user, requestId: ctx.requestId }); }
+  if (method === 'POST' && match) { const body = await readBody(req);
+    return idempotent(`quality.instrument.calibrate:${match[1]}`, body, 201,
+      () => qualityCapa.recordCalibration(client, { instrumentId: match[1], ...body,
+        expectedVersion: versionOf(body), user: ctx.user, requestId: ctx.requestId })); }
 
   // Kapasitas & WIP — capacity_hours_per_day ada sejak migrasi 012 tetapi tidak
   // pernah diperiksa, dan operasi tidak punya tanggal sampai migrasi 060.
@@ -67,11 +84,15 @@ async function dispatch(client, req, url, ctx) {
     return capacity.wipSummary(client, { branchId: url.searchParams.get('branchId') || ctx.user.branchId, user: ctx.user });
   match = pathname.match(/^\/api\/production\/operations\/([0-9a-f-]{36})\/schedule$/);
   if (method === 'POST' && match) { const body = await readBody(req);
-    return capacity.scheduleOperation(client, { operationId: match[1], scheduledDate: body.scheduledDate,
-      allowOverload: body.allowOverload === true, reason: body.reason, user: ctx.user, requestId: ctx.requestId }); }
+    return idempotent(`production.schedule:${match[1]}`, body, 200,
+      () => capacity.scheduleOperation(client, { operationId: match[1], scheduledDate: body.scheduledDate,
+        expectedVersion: versionOf(body), allowOverload: body.allowOverload === true,
+        reason: body.reason, user: ctx.user, requestId: ctx.requestId })); }
   match = pathname.match(/^\/api\/production\/operations\/([0-9a-f-]{36})\/actual-hours$/);
   if (method === 'POST' && match) { const body = await readBody(req);
-    return capacity.recordActualHours(client, { operationId: match[1], hours: body.hours, user: ctx.user, requestId: ctx.requestId }); }
+    return idempotent(`production.actual-hours:${match[1]}`, body, 200,
+      () => capacity.recordActualHours(client, { operationId: match[1], hours: body.hours,
+        expectedVersion: versionOf(body), user: ctx.user, requestId: ctx.requestId })); }
 
   if (method === 'GET' && pathname === '/api/mrp/suggestions') { assertPermission(ctx.user, 'production.view'); return production.listMrp(client, ctx.user, { warehouseId: url.searchParams.get('warehouseId') || null }); }
   match = pathname.match(/^\/api\/mrp\/suggestions\/([0-9a-f-]{36})\/convert$/);

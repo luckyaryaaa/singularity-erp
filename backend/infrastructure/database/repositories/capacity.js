@@ -42,16 +42,26 @@ async function loadOn(client, workCenterId, date, { excludeOperationId = null } 
 // Menjadwalkan operasi pada satu tanggal. Kapasitas ditegakkan di sini —
 // menjadwalkan melebihi kapasitas berarti menjanjikan sesuatu yang tidak dapat
 // dikerjakan, dan janji itu akan terlihat sebagai keterlambatan di kemudian hari.
-async function scheduleOperation(client, { operationId, scheduledDate, user, reason, requestId, allowOverload = false }) {
+async function scheduleOperation(client, { operationId, scheduledDate, expectedVersion, user, reason,
+  requestId, allowOverload = false }) {
   permissions.assertPermission(user, 'production.edit');
   const op = await operationWithScope(client, operationId, { forUpdate: true });
   permissions.assertBranchScope(user, op.branch_id, 'Operasi produksi');
+  if (expectedVersion != null && Number(expectedVersion) !== Number(op.version)) {
+    throw new AppError('DOCUMENT_CONFLICT',
+      `Versi operasi Anda ${expectedVersion}, versi terbaru ${op.version}.`,
+      { currentVersion: Number(op.version) });
+  }
   if (op.status === 'DONE') throw new AppError('STATUS_INVALID', 'Operasi yang sudah selesai tidak dapat dijadwalkan ulang.');
   if (['CANCELLED', 'VOID', 'REJECTED', 'COMPLETED', 'CLOSED'].includes(op.work_order_status)) {
     throw new AppError('STATUS_INVALID', `Work order ${op.document_number} berstatus ${op.work_order_status}.`);
   }
   const date = businessDate.toBusinessDate(scheduledDate);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AppError('VALIDATION_ERROR', 'Tanggal jadwal tidak valid.');
+  // Dua operasi berbeda pada work center/tanggal yang sama harus menghitung
+  // kapasitas secara serial; row lock operasi saja tidak menutup race ini.
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+    [`capacity:${op.work_center_id}:${date}`]);
 
   const capacity = round(op.capacity_hours_per_day);
   const planned = round(op.planned_hours);
@@ -72,7 +82,13 @@ async function scheduleOperation(client, { operationId, scheduledDate, user, rea
     }
   }
 
-  await client.query('UPDATE work_order_operations SET scheduled_date=$2 WHERE id=$1', [operationId, date]);
+  const updated = await client.query(
+    `UPDATE work_order_operations
+     SET scheduled_date=$2,version=version+1
+     WHERE id=$1 AND version=$3`,
+    [operationId, date, op.version]);
+  if (!updated.rowCount) throw new AppError('DOCUMENT_CONFLICT',
+    'Operasi berubah saat penjadwalan diproses.');
   await runtime.audit(client, { userId: user.id, action: 'SCHEDULE', module: 'production',
     entityType: 'WORK_ORDER_OPERATION', entityId: operationId, documentNumber: op.document_number, reason,
     oldValue: op.scheduled_date ? { scheduledDate: op.scheduled_date } : null,
@@ -80,7 +96,8 @@ async function scheduleOperation(client, { operationId, scheduledDate, user, rea
       projectedHours: projected, capacityHours: capacity, overloaded: projected > capacity },
     requestId, branchId: op.branch_id });
   return { operationId, scheduledDate: date, workCenter: op.work_center_code,
-    capacityHours: capacity, projectedHours: projected, overloaded: projected > capacity };
+    capacityHours: capacity, projectedHours: projected, overloaded: projected > capacity,
+    version: Number(op.version) + 1 };
 }
 
 // Papan kapasitas: beban vs kapasitas per hari untuk satu rentang.
@@ -136,18 +153,29 @@ async function wipSummary(client, { branchId, user }) {
 
 // Jam aktual dicatat saat operasi selesai; tanpa ini biaya tenaga kerja WIP
 // selalu nol dan job costing hanya memakai angka rencana.
-async function recordActualHours(client, { operationId, hours, user, requestId }) {
+async function recordActualHours(client, { operationId, hours, expectedVersion, user, requestId }) {
   permissions.assertPermission(user, 'production.edit');
   const op = await operationWithScope(client, operationId, { forUpdate: true });
   permissions.assertBranchScope(user, op.branch_id, 'Operasi produksi');
+  if (expectedVersion != null && Number(expectedVersion) !== Number(op.version)) {
+    throw new AppError('DOCUMENT_CONFLICT',
+      `Versi operasi Anda ${expectedVersion}, versi terbaru ${op.version}.`,
+      { currentVersion: Number(op.version) });
+  }
   const value = round(hours);
   if (!(value >= 0)) throw new AppError('VALIDATION_ERROR', 'Jam aktual tidak boleh negatif.');
-  await client.query('UPDATE work_order_operations SET actual_hours=$2 WHERE id=$1', [operationId, value]);
+  const updated = await client.query(
+    `UPDATE work_order_operations SET actual_hours=$2,version=version+1
+     WHERE id=$1 AND version=$3`, [operationId, value, op.version]);
+  if (!updated.rowCount) throw new AppError('DOCUMENT_CONFLICT',
+    'Operasi berubah saat jam aktual disimpan.');
   await runtime.audit(client, { userId: user.id, action: 'UPDATE', module: 'production',
     entityType: 'WORK_ORDER_OPERATION', entityId: operationId, documentNumber: op.document_number,
     oldValue: { actualHours: Number(op.actual_hours) }, newValue: { actualHours: value },
     requestId, branchId: op.branch_id });
-  return { operationId, actualHours: value, laborCost: round(value * Number(op.hourly_rate_snapshot)) };
+  return { operationId, actualHours: value,
+    laborCost: round(value * Number(op.hourly_rate_snapshot)),
+    version: Number(op.version) + 1 };
 }
 
 module.exports = { scheduleOperation, capacityBoard, wipSummary, recordActualHours, loadOn };

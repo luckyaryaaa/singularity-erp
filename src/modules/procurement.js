@@ -190,6 +190,159 @@
     }
   };
 
+  const purchaseContractsPage = {
+    permission: 'purchase_order.view',
+    onEvent() { this._table?.reload(); },
+    render(main) {
+      main.innerHTML = pageHead({
+        eyebrow: 'PENGADAAN · CONTRACT 360', title: 'Kontrak pembelian',
+        sub: 'Blanket, framework, dan price agreement dengan maker-checker, pagu real-time, komitmen volume, serta riwayat release.',
+        actions: can('purchase_order.create')
+          ? `<button class="btn primary" id="contractCreate">${ICONS.plus} Buat kontrak</button>` : ''
+      }) + '<section id="contractTable"></section><section id="contractDetail"></section>';
+      this._table = dataTable(main.querySelector('#contractTable'), {
+        key: 'purchase-contracts', endpoint: '/api/purchase-contracts', params: {},
+        title: 'Portfolio kontrak', eyebrow: 'SOURCE-TO-PAY', staleMs: 15_000,
+        statusFilter: ['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'REJECTED', 'EXPIRED', 'CLOSED', 'CANCELLED'],
+        columns: [
+          { label: 'Kontrak', key: 'contract', render: (r) => `<b>${esc(r.contractNumber)}</b><small>${esc(r.title)}</small>` },
+          { label: 'Supplier', render: (r) => esc(r.supplierName) },
+          { label: 'Berlaku', render: (r) => `${fmtDate(r.validFrom)}<small>s.d. ${fmtDate(r.validTo)}</small>` },
+          { label: 'Pagu', right: true, render: (r) => `<span class="money">${fmtIDR(r.ceilingAmount)}</span><small>terpakai ${fmtIDR(r.consumedAmount)}</small>` },
+          { label: 'Sisa', right: true, render: (r) => `<b class="money">${fmtIDR(r.remainingAmount)}</b>` },
+          { label: 'Baris', right: true, render: (r) => Number(r.lineCount) },
+          { label: 'Status', render: (r) => `<span class="chip ${r.status === 'ACTIVE' ? 'mint' : r.status === 'REJECTED' ? 'coral' : r.status === 'DRAFT' ? 'gray' : 'amber'}">${esc(r.status)}</span>` }
+        ],
+        empty: { icon: 'doc', title: 'Belum ada kontrak pembelian',
+          hint: 'Buat kontrak untuk mengendalikan harga, volume, dan pagu pembelian.' },
+        onRow: (row, reload) => this.showDetail(main, row.id, reload)
+      });
+      main.querySelector('#contractCreate')?.addEventListener('click', () => this.create(main));
+    },
+    async create(main) {
+      try {
+        const suppliers = await api('/api/suppliers?limit=100');
+        if (!suppliers.items.length) {
+          toast('Supplier belum tersedia', 'Lengkapi supplier aktif terlebih dahulu.', 'coral'); return;
+        }
+        const today = new Date().toISOString().slice(0, 10);
+        const nextYear = new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10);
+        const value = await formDialog({
+          title: 'Buat kontrak pembelian',
+          description: 'Satu baris per komitmen: deskripsi | qty | UOM | harga unit | pagu baris. Jumlah pagu baris tidak boleh melebihi pagu header.',
+          fields: [
+            { name: 'supplierId', label: 'Supplier', type: 'select',
+              options: suppliers.items.map((s) => [s.id, `${s.code} · ${s.name}`]), required: true },
+            { name: 'title', label: 'Judul kontrak', required: true },
+            { name: 'contractType', label: 'Tipe', type: 'select',
+              options: [['BLANKET', 'Blanket'], ['FRAMEWORK', 'Framework'], ['PRICE_AGREEMENT', 'Price agreement']], required: true },
+            { name: 'validFrom', label: 'Berlaku mulai', type: 'date', value: today, required: true },
+            { name: 'validTo', label: 'Berlaku sampai', type: 'date', value: nextYear, required: true },
+            { name: 'currency', label: 'Mata uang', value: 'IDR', required: true },
+            { name: 'ceilingAmount', label: 'Pagu kontrak', type: 'number', min: 1, required: true },
+            { name: 'linesText', label: 'Baris komitmen', type: 'textarea', rows: 5, required: true }
+          ], submitLabel: 'Simpan draft kontrak'
+        });
+        if (!value) return;
+        const lines = String(value.linesText || '').split('\n').map((line) => line.trim())
+          .filter(Boolean).map((line, index) => {
+            const [description, qty, uom, unitPrice, ceilingAmount] = line.split('|').map((part) => part.trim());
+            if (!description || !(Number(ceilingAmount) >= 0)) throw new Error(`Format baris ${index + 1} tidak valid.`);
+            return { description, committedQty: qty ? Number(qty) : null, uom: uom || null,
+              unitPrice: unitPrice ? Number(unitPrice) : null, ceilingAmount: Number(ceilingAmount) };
+          });
+        const created = await api('/api/purchase-contracts', {
+          method: 'POST', idempotencyKey: newIdemKey(), body: {
+            supplierId: value.supplierId, title: value.title, contractType: value.contractType,
+            validFrom: value.validFrom, validTo: value.validTo,
+            currency: String(value.currency || 'IDR').toUpperCase(),
+            ceilingAmount: Number(value.ceilingAmount), lines
+          }
+        });
+        toast('Draft kontrak dibuat', created.contractNumber);
+        invalidate('purchase-contracts'); this._table.reload();
+        this.showDetail(main, created.id, () => this._table.reload());
+      } catch (error) { toast('Gagal membuat kontrak', error.message, 'coral'); }
+    },
+    async showDetail(main, id, reload) {
+      const mount = main.querySelector('#contractDetail');
+      try {
+        const detail = await api(`/api/purchase-contracts/${id}`);
+        const canDecide = can('purchase_order.approve')
+          && ['DRAFT', 'PENDING_APPROVAL'].includes(detail.status)
+          && String(detail.createdBy) !== String(state.user.id);
+        const canRelease = can('purchase_order.create') && detail.status === 'ACTIVE';
+        mount.innerHTML = `<section class="panel contract-360"><header><div>
+            <p class="eyebrow">CONTRACT 360</p><h2>${esc(detail.contractNumber)} · ${esc(detail.supplierName || '')}</h2>
+          </div><div class="row-actions">
+            ${canDecide ? `<button class="btn primary" data-contract-decision="approve">Setujui</button><button class="btn danger-outline" data-contract-decision="reject">Tolak</button>` : ''}
+            ${canRelease ? `<button class="btn secondary" id="contractRelease">${ICONS.plus} Release ke PO</button>` : ''}
+          </div></header>
+          <div class="contract-summary-grid">
+            <div><span>Pagu</span><b>${fmtIDRFull(detail.ceilingAmount)}</b></div>
+            <div><span>Terpakai</span><b>${fmtIDRFull(detail.consumedAmount)}</b></div>
+            <div><span>Sisa</span><b>${fmtIDRFull(detail.remainingAmount)}</b></div>
+            <div><span>Masa berlaku</span><b>${fmtDate(detail.validFrom)} – ${fmtDate(detail.validTo)}</b></div>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>#</th><th>Komitmen</th><th class="right">Qty / sisa</th><th class="right">Harga</th><th class="right">Pagu / sisa</th></tr></thead>
+            <tbody>${detail.lines.map((line) => `<tr><td>${line.lineNo}</td><td><b>${esc(line.productCode || line.description)}</b><small>${esc(line.description)}</small></td>
+              <td class="right">${line.committedQty == null ? '—' : `${Number(line.committedQty)} / ${Number(line.remainingQty)}`} ${esc(line.uom || '')}</td>
+              <td class="right money">${line.unitPrice == null ? '—' : fmtIDRFull(line.unitPrice)}</td>
+              <td class="right"><span class="money">${fmtIDRFull(line.ceilingAmount)}</span><small>sisa ${fmtIDRFull(line.remainingAmount)}</small></td></tr>`).join('')}</tbody></table></div>
+          <div class="panel-body"><p class="eyebrow">RIWAYAT RELEASE</p>
+            ${detail.releases.length ? `<div class="timeline-list">${detail.releases.map((release) => `<div><span class="dot"></span><p><b>${esc(release.purchaseOrderNumber)}</b> · ${fmtIDRFull(release.releasedAmount)}<small>${fmtDateTime(release.releasedAt)} · ${esc(release.purchaseOrderStatus)}</small></p></div>`).join('')}</div>`
+    : '<p class="muted">Belum ada Purchase Order yang menarik kontrak ini.</p>'}</div>
+        </section>`;
+        mount.querySelectorAll('[data-contract-decision]').forEach((button) => button.addEventListener('click', async () => {
+          const approve = button.dataset.contractDecision === 'approve';
+          const answer = await actionDialog({ title: `${approve ? 'Setujui' : 'Tolak'} ${detail.contractNumber}`,
+            description: approve ? 'Kontrak menjadi aktif dan dapat dipakai untuk release PO.' : 'Kontrak ditolak dan tidak dapat dipakai.',
+            requireReason: true, confirmLabel: approve ? 'Setujui kontrak' : 'Tolak kontrak', danger: !approve });
+          if (!answer) return;
+          try {
+            await api(`/api/purchase-contracts/${detail.id}/${approve ? 'approve' : 'reject'}`, {
+              method: 'POST', idempotencyKey: newIdemKey(),
+              body: { version: detail.version, reason: answer.reason }
+            });
+            toast(approve ? 'Kontrak aktif' : 'Kontrak ditolak', detail.contractNumber);
+            invalidate('purchase-contracts'); reload(); this.showDetail(main, id, reload);
+          } catch (error) { toast('Keputusan gagal', error.message, 'coral'); }
+        }));
+        mount.querySelector('#contractRelease')?.addEventListener('click', async () => {
+          try {
+            const orders = await api('/api/documents?type=PURCHASE_ORDER&limit=100');
+            const usable = orders.items.filter((order) => String(order.partyId) === String(detail.supplierId)
+              && !['CANCELLED', 'VOID', 'REJECTED', 'CLOSED'].includes(order.status));
+            if (!usable.length) throw new Error('Tidak ada Purchase Order aktif untuk supplier kontrak ini.');
+            const value = await formDialog({ title: `Release ${detail.contractNumber}`,
+              description: 'Pagu dan volume diperiksa ulang di server dalam transaksi terkunci.',
+              fields: [
+                { name: 'purchaseOrderId', label: 'Purchase Order', type: 'select',
+                  options: usable.map((order) => [order.id, `${order.documentNumber} · ${fmtIDR(order.amount)}`]), required: true },
+                { name: 'contractLineId', label: 'Baris kontrak', type: 'select',
+                  options: detail.lines.map((line) => [line.id, `${line.lineNo} · ${line.productCode || line.description} · sisa ${fmtIDR(line.remainingAmount)}`]), required: true },
+                { name: 'releasedQty', label: 'Qty release', type: 'number', min: 0.0001 },
+                { name: 'releasedAmount', label: 'Nilai release', type: 'number', min: 1, required: true }
+              ], submitLabel: 'Catat release'
+            });
+            if (!value) return;
+            await api(`/api/purchase-contracts/${detail.id}/release`, {
+              method: 'POST', idempotencyKey: newIdemKey(), body: {
+                version: detail.version, purchaseOrderId: value.purchaseOrderId,
+                contractLineId: value.contractLineId,
+                releasedQty: value.releasedQty === '' ? null : Number(value.releasedQty),
+                releasedAmount: Number(value.releasedAmount)
+              }
+            });
+            toast('Release kontrak tercatat', detail.contractNumber);
+            invalidate('purchase-contracts'); reload(); this.showDetail(main, id, reload);
+          } catch (error) { toast('Release gagal', error.message, 'coral'); }
+        });
+        mount.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (error) { mount.innerHTML = `<section class="panel"><div class="panel-body"><p class="error-text">${esc(error.message)}</p></div></section>`; }
+    }
+  };
+
   const R = router.register.bind(router);
   R('/procurement/requests', docListPage({ type: 'PURCHASE_REQUEST', module: 'purchase_request', title: 'Purchase request', eyebrow: 'PENGADAAN' }));
   R('/procurement/rfq', docListPage({ type: 'RFQ', module: 'rfq', title: 'RFQ & perbandingan supplier', eyebrow: 'PENGADAAN', createLabel: 'Buat RFQ',
@@ -214,6 +367,7 @@
     rowRoute: (row) => `#/procurement/orders/${row.id}/changes`
   }));
   R('/procurement/orders/:id/changes', poChangeOrders);
+  R('/procurement/contracts', purchaseContractsPage);
   R('/procurement/budgets', budgetsPage);
   R('/procurement/payment-proposals', paymentProposalPage);
 })();

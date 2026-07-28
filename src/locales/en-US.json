@@ -50,7 +50,7 @@
   "login.username": "Username",
   "login.password": "Password",
   "login.submit": "Sign in",
-  "login.help": "Forgot your password? Contact the system administrator for a reset — temporary passwords must be changed at sign-in.",
+  "login.help": "Forgot your password? Contact the system administrator for a one-time reset link valid for 30 minutes.",
   "mywork.title": "My Work",
   "mywork.sub": "Everything that needs your attention across modules, in one inbox.",
   "mywork.waiting": "Waiting for my approval",

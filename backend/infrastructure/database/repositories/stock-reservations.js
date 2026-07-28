@@ -13,6 +13,8 @@
 // diturunkan dari catatan reservasi, bukan sebaliknya.
 const { randomUUID } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
+const permissions = require('../../../core/permissions');
+const runtime = require('./runtime');
 
 const num = (v) => Math.round(Number(v || 0) * 10000) / 10000;
 const lock = (client, productId, warehouseId) =>
@@ -92,7 +94,8 @@ async function consume(client, { documentId, productId, warehouseId, qty, user }
       `UPDATE stock_reservations SET consumed_qty=$2,
          status=CASE WHEN $2>=qty THEN 'CONSUMED' ELSE status END,
          released_at=CASE WHEN $2>=qty THEN now() ELSE released_at END,
-         released_by=CASE WHEN $2>=qty THEN $3 ELSE released_by END
+         released_by=CASE WHEN $2>=qty THEN $3 ELSE released_by END,
+         version=version+1
        WHERE id=$1`, [r.id, nowConsumed, user?.id || null]);
     remaining = num(remaining - take); consumed = num(consumed + take);
   }
@@ -113,7 +116,8 @@ async function releaseDocument(client, { documentId, reason, user, productId = n
   if (!String(reason || '').trim()) throw new AppError('REASON_REQUIRED', 'Alasan pelepasan reservasi wajib diisi.');
 
   const result = await client.query(
-    `UPDATE stock_reservations SET status='RELEASED',released_at=now(),released_by=$${params.length + 1},release_reason=$${params.length + 2}
+    `UPDATE stock_reservations SET status='RELEASED',released_at=now(),released_by=$${params.length + 1},
+       release_reason=$${params.length + 2},version=version+1
      WHERE ${where}`, [...params, user?.id || null, String(reason).slice(0, 500)]);
   for (const s of affected) await syncBalance(client, s.product_id, s.warehouse_id);
   return { released: result.rowCount, stocks: affected.length };
@@ -128,7 +132,7 @@ async function expireStale(client) {
   if (!affected.length) return { expired: 0 };
   const result = await client.query(
     `UPDATE stock_reservations SET status='EXPIRED',released_at=now(),
-       release_reason='Reservasi kedaluwarsa dilepas otomatis'
+       release_reason='Reservasi kedaluwarsa dilepas otomatis',version=version+1
      WHERE status='ACTIVE' AND expires_at IS NOT NULL AND expires_at<=now()`);
   for (const s of affected) await syncBalance(client, s.product_id, s.warehouse_id);
   return { expired: result.rowCount, stocks: affected.length };
@@ -160,4 +164,80 @@ async function listForDocument(client, documentId) {
     remainingQty: num(r.qty - r.consumed_qty), status: r.status })) };
 }
 
-module.exports = { reserve, consume, releaseDocument, expireStale, availability, syncBalance, listForStock, listForDocument };
+async function listReservations(client, user, { branchId = null, status = null,
+  q = null, page = 1, limit = 25 } = {}) {
+  permissions.assertPermission(user, 'inventory.view');
+  const scope = branchId || user.branchId;
+  permissions.assertBranchScope(user, scope, 'Reservasi stok');
+  page = Math.max(Number(page) || 1, 1);
+  limit = Math.min(Math.max(Number(limit) || 25, 1), 100);
+  const params = [scope];
+  let where = 'r.warehouse_id=$1';
+  if (status && status !== 'ALL') {
+    params.push(String(status).toUpperCase());
+    where += ` AND r.status=$${params.length}`;
+  }
+  if (q) {
+    params.push(`%${String(q).trim().slice(0, 120)}%`);
+    where += ` AND (p.code ILIKE $${params.length} OR p.name ILIKE $${params.length}
+      OR d.document_number ILIKE $${params.length} OR d.title ILIKE $${params.length})`;
+  }
+  const joins = `FROM stock_reservations r
+    JOIN products p ON p.id=r.product_id
+    JOIN business_documents d ON d.id=r.document_id
+    LEFT JOIN branches b ON b.id=r.warehouse_id
+    LEFT JOIN app_users u ON u.id=r.created_by`;
+  const total = Number((await client.query(
+    `SELECT count(*) n ${joins} WHERE ${where}`, params)).rows[0].n);
+  params.push(limit, (page - 1) * limit);
+  const rows = (await client.query(
+    `SELECT r.*,p.code product_code,p.name product_name,d.document_number,
+       d.document_type,d.title document_title,d.status document_status,
+       b.name warehouse_name,u.display_name created_by_name,
+       (r.qty-r.consumed_qty)::float remaining_qty
+     ${joins} WHERE ${where}
+     ORDER BY CASE WHEN r.status='ACTIVE' THEN 0 ELSE 1 END,r.created_at DESC
+     LIMIT $${params.length - 1} OFFSET $${params.length}`, params)).rows;
+  return { items: rows.map(runtime.camel), page, limit, total,
+    totalPages: Math.max(Math.ceil(total / limit), 1) };
+}
+
+async function releaseReservation(client, { id, expectedVersion, reason, user, requestId }) {
+  permissions.assertPermission(user, 'inventory.edit');
+  const row = (await client.query(
+    'SELECT * FROM stock_reservations WHERE id=$1 FOR UPDATE', [id])).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Reservasi stok tidak ditemukan.');
+  permissions.assertBranchScope(user, row.warehouse_id, 'Reservasi stok');
+  if (Number(expectedVersion) !== Number(row.version)) {
+    throw new AppError('DOCUMENT_CONFLICT',
+      `Versi reservasi Anda ${expectedVersion}, versi terbaru ${row.version}.`,
+      { currentVersion: Number(row.version) });
+  }
+  const explanation = String(reason || '').trim();
+  if (explanation.length < 10) {
+    throw new AppError('REASON_REQUIRED',
+      'Alasan pelepasan reservasi minimal 10 karakter.');
+  }
+  if (row.status !== 'ACTIVE') {
+    throw new AppError('STATUS_INVALID',
+      `Reservasi berstatus ${row.status} tidak dapat dilepas.`);
+  }
+  const updated = (await client.query(
+    `UPDATE stock_reservations
+     SET status='RELEASED',released_at=now(),released_by=$2,
+         release_reason=$3,version=version+1
+     WHERE id=$1 AND version=$4 RETURNING *`,
+    [id, user.id, explanation.slice(0, 500), row.version])).rows[0];
+  if (!updated) throw new AppError('DOCUMENT_CONFLICT',
+    'Reservasi berubah saat pelepasan diproses.');
+  await syncBalance(client, row.product_id, row.warehouse_id);
+  await runtime.audit(client, { userId: user.id, action: 'RELEASE',
+    module: 'inventory', entityType: 'STOCK_RESERVATION', entityId: id,
+    oldValue: { status: row.status, version: row.version },
+    newValue: { status: updated.status, version: updated.version },
+    reason: explanation, requestId, branchId: row.warehouse_id });
+  return runtime.camel(updated);
+}
+
+module.exports = { reserve, consume, releaseDocument, expireStale, availability,
+  syncBalance, listForStock, listForDocument, listReservations, releaseReservation };

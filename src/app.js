@@ -12,6 +12,7 @@
   const NAV = [
     ['RUANG KERJA', [
       ['#/dashboard', 'Dashboard', 'grid', 'dashboard.view', false, 'nav.dashboard'],
+      ['#/account/security', 'Keamanan akun', 'shield', 'dashboard.view'],
       ['#/my-work', 'My Work', 'inbox', 'dashboard.view', false, 'nav.mywork'],
       ['#/approvals', 'Persetujuan saya', 'checkCircle', 'approval.view', false, 'nav.approvals'],
       // Report Factory lintas-modul (penjualan, keuangan, produksi, HR) —
@@ -31,11 +32,14 @@
     ]],
     ['OPERASIONAL', [
       ['#/production/work-orders', 'Work order', 'factory', 'work_order.view'],
+      ['#/production/capacity', 'Capacity & WIP', 'chart', 'production.view'],
       ['#/production/quality', 'Quality control', 'shield', 'quality.view'],
+      ['#/production/quality-management', 'CAPA & kalibrasi', 'audit', 'quality.view'],
       ['#/production/mrp', 'MRP & kebutuhan', 'chart', 'production.view'],
       ['#/procurement/requests', 'Purchase request', 'doc', 'purchase_request.view'],
       ['#/procurement/rfq', 'RFQ & perbandingan', 'filter', 'rfq.view'],
       ['#/procurement/orders', 'Purchase order', 'cart', 'purchase_order.view'],
+      ['#/procurement/contracts', 'Kontrak pembelian', 'doc', 'purchase_order.view'],
       ['#/procurement/payment-proposals', 'Usulan pembayaran', 'wallet', 'payment_proposal.view'],
       ['#/procurement/budgets', 'Anggaran pengadaan', 'ledger', 'budget.view'],
       ['#/warehouse/inventory', 'Persediaan', 'box', 'inventory.view'],
@@ -78,6 +82,7 @@
       ['#/system/sod', 'SoD conflict center', 'shield', 'sod.view'],
       ['#/system/approval-policies', 'Approval policy', 'approval', 'approval_policy.view'],
       ['#/system/access-reviews', 'Access review', 'audit', 'access_review.view'],
+      ['#/system/retention', 'Data retention', 'shield', 'retention.view'],
       ['#/system/audit', 'Log audit', 'audit', 'audit.view'],
       ['#/system/monitoring', 'Monitoring', 'monitor', 'monitoring.view'],
       ['#/system/jobs', 'Job latar belakang', 'job', 'job.view'],
@@ -150,7 +155,7 @@
 
   // ── Login form ────────────────────────────────────────────────────────────
   // Tidak ada kredensial demo di klien: akun dikelola administrator via seed
-  // UAT/produksi, dan reset sandi berjalan lewat alur sandi sementara.
+  // UAT/produksi, dan reset sandi berjalan lewat tautan sekali pakai.
   const loginForm = document.getElementById('loginForm');
   const loginCredentials = document.getElementById('loginCredentials');
   const loginChallenge = document.getElementById('loginChallenge');
@@ -159,10 +164,10 @@
   function showLoginChallenge(data) {
     pendingChallenge = data.passwordChangeRequired ? { type: 'password', token: data.changeToken } : { type: 'mfa', token: data.mfaToken };
     loginCredentials.hidden = true; loginChallenge.hidden = false;
-    document.getElementById('challengeLabel').textContent = pendingChallenge.type === 'password' ? 'Kata sandi baru' : 'Kode autentikator';
-    document.getElementById('challengeDescription').textContent = pendingChallenge.type === 'password' ? 'Buat kata sandi baru minimal 12 karakter dengan huruf besar, kecil, angka, dan simbol.' : 'Masukkan kode 6 digit dari aplikasi autentikator Anda.';
+    document.getElementById('challengeLabel').textContent = pendingChallenge.type === 'password' ? 'Kata sandi baru' : 'Kode autentikator atau recovery code';
+    document.getElementById('challengeDescription').textContent = pendingChallenge.type === 'password' ? 'Buat kata sandi baru minimal 12 karakter dengan huruf besar, kecil, angka, dan simbol.' : 'Masukkan kode 6 digit dari authenticator atau satu recovery code sekali pakai.';
     loginForm.challenge.type = pendingChallenge.type === 'password' ? 'password' : 'text';
-    loginForm.challenge.inputMode = pendingChallenge.type === 'password' ? 'text' : 'numeric';
+    loginForm.challenge.inputMode = 'text';
     loginForm.challenge.autocomplete = pendingChallenge.type === 'password' ? 'new-password' : 'one-time-code';
     document.getElementById('loginBtn').textContent = pendingChallenge.type === 'password' ? 'Simpan & masuk' : 'Verifikasi kode';loginForm.challenge.focus();
   }
@@ -174,7 +179,7 @@
     errorEl.textContent = '';
     if (!pendingChallenge && !loginForm.username.value.trim()) { errorEl.textContent = 'Isi nama pengguna terlebih dahulu.'; loginForm.username.focus(); return; }
     if (!pendingChallenge && !loginForm.password.value) { errorEl.textContent = 'Isi kata sandi terlebih dahulu.'; loginForm.password.focus(); return; }
-    if (pendingChallenge && !loginForm.challenge.value) { errorEl.textContent = pendingChallenge.type === 'password' ? 'Isi kata sandi baru.' : 'Isi kode autentikator.'; loginForm.challenge.focus(); return; }
+    if (pendingChallenge && !loginForm.challenge.value) { errorEl.textContent = pendingChallenge.type === 'password' ? 'Isi kata sandi baru.' : 'Isi kode autentikator atau recovery code.'; loginForm.challenge.focus(); return; }
     btn.disabled = true; btn.textContent = 'Memverifikasi…';
     try {
       const data = pendingChallenge
@@ -283,6 +288,14 @@
       applySession(data);
     } catch {
       showLogin();
+      const resetMatch=location.hash.match(/^#\/reset-password\?(.+)$/);
+      const resetToken=resetMatch?new URLSearchParams(resetMatch[1]).get('token'):null;
+      if(resetToken){
+        // Token dipindahkan ke memori lalu segera dihapus dari address bar agar
+        // tidak tertinggal pada screenshot, copy URL berikutnya, atau referrer.
+        history.replaceState(null,'',`${location.pathname}${location.search}#/dashboard`);
+        showLoginChallenge({passwordChangeRequired:true,changeToken:resetToken});
+      }
     }
   })();
 })();

@@ -30,11 +30,12 @@
         ${prod?.shortage?.length ? `<section class="panel"><div class="panel-body"><p><span class="chip coral">Kekurangan stok</span> ${prod.shortage.map((s) => `${esc(s.code)} kurang ${s.shortQty}`).join(' · ')} — jalankan MRP untuk saran pembelian.</p></div></section>` : ''}
         <section class="dashboard-grid">
           <article class="panel"><header><div><p class="eyebrow">ROUTING</p><h2>Operasi & jam kerja</h2></div></header>
-            <div class="table-wrap"><table><thead><tr><th>#</th><th>Operasi</th><th>Work center</th><th class="right">Rencana</th><th class="right">Aktual</th><th class="right">Biaya</th><th>Status</th><th></th></tr></thead>
+            <div class="table-wrap"><table><thead><tr><th>#</th><th>Operasi</th><th>Work center</th><th>Jadwal</th><th class="right">Rencana</th><th class="right">Aktual</th><th class="right">Biaya</th><th>Status</th><th></th></tr></thead>
             <tbody>${d.operations.map((o) => `<tr><td>${o.opNo}</td><td><b>${esc(o.name)}</b></td><td>${esc(o.workCenterName)}<small>${fmtIDRFull(o.hourlyRateSnapshot)}/jam</small></td>
+              <td>${o.scheduledDate ? fmtDate(o.scheduledDate) : '<span class="chip amber">Belum dijadwalkan</span>'}</td>
               <td class="right">${o.plannedHours} j</td><td class="right"><b>${o.actualHours} j</b></td><td class="right money">${fmtIDRFull(o.actualHours * o.hourlyRateSnapshot)}</td>
               <td><span class="chip ${OP_CHIP[o.status]}">${esc(o.status)}</span></td>
-              <td>${can('production.edit') && o.status !== 'DONE' && ['APPROVED', 'IN_PROCESS'].includes(doc.status) ? `<div class="row-actions"><button class="btn secondary sm" data-optime="${o.id}">+ Jam</button><button class="btn primary sm" data-opdone="${o.id}">Selesai</button></div>` : ''}</td></tr>`).join('') || '<tr><td colspan="8" class="table-loading">Belum ada routing — rencanakan produksi dahulu.</td></tr>'}</tbody></table></div>
+              <td>${can('production.edit') && o.status !== 'DONE' && ['APPROVED', 'IN_PROCESS'].includes(doc.status) ? `<div class="row-actions"><button class="btn secondary sm" data-opschedule="${o.id}">Jadwal</button><button class="btn secondary sm" data-optime="${o.id}">+ Jam</button><button class="btn primary sm" data-opdone="${o.id}">Selesai</button></div>` : ''}</td></tr>`).join('') || '<tr><td colspan="9" class="table-loading">Belum ada routing — rencanakan produksi dahulu.</td></tr>'}</tbody></table></div>
           </article>
           <article class="panel"><header><div><p class="eyebrow">MATERIAL (BOM)</p><h2>Rencana vs realisasi</h2></div></header>
             <div class="table-wrap"><table><thead><tr><th>Komponen</th><th class="right">Rencana</th><th class="right">Reservasi</th><th class="right">Terpakai</th><th class="right">Biaya</th></tr></thead>
@@ -82,6 +83,29 @@
         if (!value) return;
         try { const r = await api(`/api/production/operations/${b.dataset.optime}/time`, { method: 'POST', idempotencyKey: newIdemKey(), body: { hours: Number(value.hours), note: value.note } }); toast('Jam dicatat', `Total ${r.totalHours} jam · ${fmtIDR(r.cost)}`); this.render(main, params); }
         catch (error) { toast('Gagal mencatat jam', error.message, 'coral'); }
+      }));
+      main.querySelectorAll('[data-opschedule]').forEach((b) => b.addEventListener('click', async () => {
+        const operation = d.operations.find((item) => item.id === b.dataset.opschedule);
+        const value = await formDialog({ title: `Jadwalkan ${operation.name}`,
+          description: 'Beban work center dihitung ulang di server. Overload hanya boleh dengan override eksplisit dan alasan.',
+          fields: [
+            { name: 'scheduledDate', label: 'Tanggal produksi', type: 'date',
+              value: operation.scheduledDate ? String(operation.scheduledDate).slice(0, 10) : new Date().toISOString().slice(0, 10), required: true },
+            { name: 'allowOverload', label: 'Izinkan overload kapasitas', type: 'checkbox', value: false },
+            { name: 'reason', label: 'Alasan override (wajib bila overload)', type: 'textarea' }
+          ], submitLabel: 'Simpan jadwal' });
+        if (!value) return;
+        try {
+          const result = await api(`/api/production/operations/${operation.id}/schedule`, {
+            method: 'POST', idempotencyKey: newIdemKey(),
+            body: { version: operation.version, scheduledDate: value.scheduledDate,
+              allowOverload: value.allowOverload, reason: value.reason }
+          });
+          toast(result.overloaded ? 'Jadwal overload disimpan' : 'Operasi dijadwalkan',
+            `${result.workCenter} · ${fmtDate(result.scheduledDate)}`,
+            result.overloaded ? 'coral' : 'mint');
+          this.render(main, params);
+        } catch (error) { toast('Penjadwalan gagal', error.message, 'coral'); }
       }));
       main.querySelectorAll('[data-opdone]').forEach((b) => b.addEventListener('click', async () => {
         try { await api(`/api/production/operations/${b.dataset.opdone}/complete`, { method: 'POST', idempotencyKey: newIdemKey(), body: {} }); toast('Operasi selesai', ''); this.render(main, params); }
@@ -166,7 +190,215 @@
     }
   };
 
-  // ── Akuntansi ─────────────────────────────────────────────────────────────
+  const capacityWorkbench = {
+    permission: 'production.view',
+    async render(main) {
+      const queryState = state.routeQuery || new URLSearchParams();
+      const today = new Date().toISOString().slice(0, 10);
+      const plus13 = new Date(Date.now() + 13 * 86400000).toISOString().slice(0, 10);
+      const from = queryState.get('from') || today;
+      const to = queryState.get('to') || plus13;
+      const [capacity, wip] = await Promise.all([
+        api(`/api/production/capacity?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+        api('/api/production/wip')
+      ]);
+      const overloaded = capacity.items.filter((item) => item.overloaded).length;
+      const avgUtilization = capacity.items.length
+        ? Math.round(capacity.items.reduce((sum, item) => sum + item.utilizationPct, 0) / capacity.items.length) : 0;
+      main.innerHTML = pageHead({
+        eyebrow: 'PRODUKSI · CONTROL TOWER', title: 'Capacity & WIP workbench',
+        sub: 'Beban work center, overload, progres operasi, dan nilai barang dalam proses dari fakta transaksi.',
+        actions: `<label class="period-picker"><span>Dari</span><input id="capacityFrom" type="date" value="${esc(from)}"></label>
+          <label class="period-picker"><span>Sampai</span><input id="capacityTo" type="date" value="${esc(to)}"></label>
+          <button class="btn secondary" id="capacityApply">${ICONS.refresh} Terapkan</button>`
+      }) + `<section class="metrics">
+          ${kpiCard({ label: 'Beban terjadwal', value: String(capacity.items.length), note: `${capacity.from} – ${capacity.to}`, orb: 'clock', orbTone: 'blue' })}
+          ${kpiCard({ label: 'Utilisasi rata-rata', value: `${avgUtilization}%`, note: 'Dari slot yang memiliki beban', orb: 'chart', orbTone: 'lavender' })}
+          ${kpiCard({ label: 'Overload', value: String(overloaded), note: overloaded ? 'Perlu keputusan planner' : 'Tidak ada overload', orb: 'alert', orbTone: overloaded ? 'amber' : 'mint' })}
+          ${kpiCard({ label: 'Nilai WIP', value: fmtIDR(wip.totals.wipValue), note: `${wip.openWorkOrders} work order terbuka`, orb: 'wallet', orbTone: 'mint' })}
+        </section>
+        <section class="dashboard-grid capacity-grid">
+          <article class="panel"><header><div><p class="eyebrow">FINITE CAPACITY</p><h2>Beban harian work center</h2></div></header>
+            <div class="table-wrap"><table><thead><tr><th>Work center</th><th>Tanggal</th><th class="right">Kapasitas</th><th class="right">Beban</th><th class="right">Sisa</th><th>Utilisasi</th></tr></thead>
+              <tbody>${capacity.items.map((item) => `<tr class="${item.overloaded ? 'row-risk' : ''}"><td><b>${esc(item.workCenterCode)}</b><small>${esc(item.workCenterName)} · ${item.operationCount} operasi</small></td>
+                <td>${fmtDate(item.date)}</td><td class="right">${item.capacityHours} j</td><td class="right"><b>${item.plannedHours} j</b></td>
+                <td class="right ${item.overloaded ? 'error-text' : ''}">${item.availableHours} j</td>
+                <td><div class="utilization-cell"><span class="chip ${item.overloaded ? 'coral' : item.utilizationPct >= 85 ? 'amber' : 'mint'}">${item.utilizationPct}%</span><div class="mini-meter"><i style="width:${Math.min(item.utilizationPct, 100)}%"></i></div></div></td></tr>`).join('')
+    || '<tr><td colspan="6" class="table-loading">Belum ada operasi terjadwal pada rentang ini.</td></tr>'}</tbody></table></div>
+          </article>
+          <article class="panel"><header><div><p class="eyebrow">WORK IN PROCESS</p><h2>Nilai pada lantai produksi</h2></div><span class="chip blue">${fmtIDR(wip.totals.materialCost)} material</span></header>
+            <div class="table-wrap"><table><thead><tr><th>Work order</th><th>Progres</th><th class="right">Material</th><th class="right">Tenaga kerja</th><th class="right">WIP</th></tr></thead>
+              <tbody>${wip.items.map((item) => `<tr><td><button class="table-row-action" data-open-wip="${item.workOrderId}"><b>${esc(item.documentNumber)}</b><small>${esc(item.title)}</small></button></td>
+                <td>${progressBar(item.progressPct)}<small>${item.doneOperations}/${item.totalOperations} operasi</small></td>
+                <td class="right money">${fmtIDR(item.materialCost)}</td><td class="right money">${fmtIDR(item.laborCost)}</td><td class="right"><b class="money">${fmtIDR(item.wipValue)}</b></td></tr>`).join('')
+    || '<tr><td colspan="5" class="table-loading">Tidak ada work order aktif dengan nilai WIP.</td></tr>'}</tbody></table></div>
+          </article>
+        </section>`;
+      main.querySelector('#capacityApply').addEventListener('click', () => {
+        const params = new URLSearchParams();
+        params.set('from', main.querySelector('#capacityFrom').value);
+        params.set('to', main.querySelector('#capacityTo').value);
+        state.routeQuery = params;
+        history.replaceState(null, '', `#/production/capacity?${params}`);
+        this.render(main);
+      });
+      main.querySelectorAll('[data-open-wip]').forEach((button) => button.addEventListener('click',
+        () => router.go(`#/production/work-orders/${button.dataset.openWip}`)));
+    }
+  };
+
+  const qualityWorkbench = {
+    permission: 'quality.view',
+    async render(main) {
+      const instruments = await api('/api/quality/instruments');
+      main.innerHTML = pageHead({
+        eyebrow: 'QUALITY · ISO 9001', title: 'CAPA & calibration workbench',
+        sub: 'Temuan mutu sampai verifikasi efektivitas, serta kesiapan alat ukur dan sertifikat kalibrasi.',
+        actions: can('quality.create')
+          ? `<button class="btn primary" id="capaCreate">${ICONS.plus} Buka CAPA</button><button class="btn secondary" id="instrumentCreate">${ICONS.plus} Daftarkan alat</button>` : ''
+      }) + `<section class="metrics">
+          ${kpiCard({ label: 'Alat aktif', value: String(instruments.items.filter((item) => item.status === 'ACTIVE').length), note: `${instruments.items.length} alat terdaftar`, orb: 'gear', orbTone: 'blue' })}
+          ${kpiCard({ label: 'Kalibrasi overdue', value: String(instruments.overdueCount), note: instruments.overdueCount ? 'Tidak boleh dipakai inspeksi' : 'Seluruh due date aman', orb: 'alert', orbTone: instruments.overdueCount ? 'amber' : 'mint' })}
+          ${kpiCard({ label: 'Belum dikalibrasi', value: String(instruments.items.filter((item) => !item.lastCalibratedOn).length), note: 'Wajib kalibrasi sebelum digunakan', orb: 'clock', orbTone: 'lavender' })}
+        </section>
+        <section id="capaTable"></section><section id="capaDetail"></section>
+        <section class="panel calibration-register"><header><div><p class="eyebrow">CALIBRATION REGISTER</p><h2>Alat ukur & status kalibrasi</h2></div><span class="chip ${instruments.overdueCount ? 'coral' : 'mint'}">${instruments.overdueCount} overdue</span></header>
+          <div class="table-wrap"><table><thead><tr><th>Alat</th><th>Tipe / serial</th><th>Terakhir</th><th>Jatuh tempo</th><th>Riwayat</th><th>Status</th><th></th></tr></thead>
+            <tbody>${instruments.items.map((item) => `<tr><td><b>${esc(item.code)}</b><small>${esc(item.name)}</small></td>
+              <td>${esc(item.instrumentType)}<small>${esc(item.serialNumber || 'Tanpa serial')}</small></td>
+              <td>${item.lastCalibratedOn ? fmtDate(item.lastCalibratedOn) : '<span class="chip amber">Belum pernah</span>'}</td>
+              <td class="${item.overdue ? 'error-text' : ''}">${item.calibrationDueDate ? fmtDate(item.calibrationDueDate) : '—'}</td>
+              <td>${item.calibrationCount} kalibrasi</td><td><span class="chip ${item.status === 'ACTIVE' && !item.overdue ? 'mint' : 'coral'}">${esc(item.status)}</span></td>
+              <td>${can('quality.edit') ? `<button class="btn secondary sm" data-calibrate="${item.id}">Kalibrasi</button>` : ''}</td></tr>`).join('')
+    || '<tr><td colspan="7" class="table-loading">Belum ada alat ukur terdaftar.</td></tr>'}</tbody></table></div>
+        </section>`;
+      this._table = dataTable(main.querySelector('#capaTable'), {
+        key: 'quality:capa', endpoint: '/api/quality/capa', params: {},
+        title: 'Corrective & preventive action', eyebrow: 'CAPA LIFECYCLE',
+        statusFilter: ['OPEN', 'ANALYSIS', 'ACTION', 'VERIFICATION', 'CLOSED', 'CANCELLED'],
+        columns: [
+          { label: 'Kasus', key: 'case', render: (row) => `<b>${esc(row.caseNumber)}</b><small>${esc(row.title)}</small>` },
+          { label: 'Sumber', render: (row) => `${esc(row.source)}<small>${esc(row.ncrNumber || row.severity)}</small>` },
+          { label: 'Owner', render: (row) => esc(row.ownerName || 'Belum ditetapkan') },
+          { label: 'Tenggat', render: (row) => row.dueDate ? `<span class="${row.overdue ? 'error-text' : ''}">${fmtDate(row.dueDate)}</span>` : '—' },
+          { label: 'Status', render: (row) => `<span class="chip ${row.overdue ? 'coral' : row.status === 'CLOSED' ? 'mint' : row.status === 'VERIFICATION' ? 'blue' : 'amber'}">${esc(row.status)}</span>` }
+        ],
+        empty: { icon: 'shield', title: 'Tidak ada CAPA pada filter ini',
+          hint: 'Temuan NCR, audit, complaint, dan internal akan tampil di sini.' },
+        onRow: (row, reload) => this.showCapa(main, row, reload)
+      });
+      main.querySelector('#capaCreate')?.addEventListener('click', () => this.createCapa());
+      main.querySelector('#instrumentCreate')?.addEventListener('click', () => this.createInstrument(main));
+      main.querySelectorAll('[data-calibrate]').forEach((button) => button.addEventListener('click',
+        () => this.calibrate(main, instruments.items.find((item) => item.id === button.dataset.calibrate))));
+    },
+    async createCapa() {
+      const value = await formDialog({ title: 'Buka kasus CAPA',
+        description: 'Kasus bergerak berurutan: temuan → analisis → tindakan → verifikasi → tutup.',
+        fields: [
+          { name: 'source', label: 'Sumber', type: 'select', options: ['NCR', 'AUDIT', 'COMPLAINT', 'INTERNAL'], required: true },
+          { name: 'severity', label: 'Severity', type: 'select', options: ['MINOR', 'MAJOR', 'CRITICAL'], required: true },
+          { name: 'title', label: 'Judul temuan', required: true },
+          { name: 'description', label: 'Uraian temuan', type: 'textarea', rows: 4, required: true },
+          { name: 'dueDate', label: 'Target selesai', type: 'date' }
+        ], submitLabel: 'Buka CAPA' });
+      if (!value) return;
+      try {
+        const created = await api('/api/quality/capa', { method: 'POST',
+          idempotencyKey: newIdemKey(), body: value });
+        toast('CAPA dibuka', created.caseNumber); this._table.reload();
+      } catch (error) { toast('Gagal membuka CAPA', error.message, 'coral'); }
+    },
+    async createInstrument(main) {
+      const value = await formDialog({ title: 'Daftarkan alat ukur',
+        description: 'Alat baru belum dapat dipakai inspeksi sebelum kalibrasi pertama dinyatakan PASS/ADJUSTED.',
+        fields: [
+          { name: 'code', label: 'Kode alat', required: true },
+          { name: 'name', label: 'Nama alat', required: true },
+          { name: 'instrumentType', label: 'Tipe', type: 'select',
+            options: ['CALIPER', 'MICROMETER', 'GAUGE', 'SCALE', 'TORQUE_WRENCH', 'THICKNESS_METER', 'HARDNESS_TESTER', 'OTHER'], required: true },
+          { name: 'serialNumber', label: 'Nomor serial' },
+          { name: 'calibrationIntervalDays', label: 'Interval (hari)', type: 'number', min: 1, value: 365, required: true }
+        ], submitLabel: 'Daftarkan alat' });
+      if (!value) return;
+      try {
+        const created = await api('/api/quality/instruments', { method: 'POST',
+          idempotencyKey: newIdemKey(), body: value });
+        toast('Alat terdaftar', created.code); this.render(main);
+      } catch (error) { toast('Gagal mendaftarkan alat', error.message, 'coral'); }
+    },
+    async calibrate(main, instrument) {
+      const value = await formDialog({ title: `Kalibrasi ${instrument.code}`,
+        description: 'Hasil FAIL langsung menarik alat dari layanan. PASS/ADJUSTED memperbarui due date.',
+        fields: [
+          { name: 'calibratedOn', label: 'Tanggal', type: 'date', value: new Date().toISOString().slice(0, 10), required: true },
+          { name: 'result', label: 'Hasil', type: 'select', options: ['PASS', 'ADJUSTED', 'FAIL'], required: true },
+          { name: 'certificateNumber', label: 'Nomor sertifikat' },
+          { name: 'performedBy', label: 'Pelaksana / laboratorium', required: true },
+          { name: 'notes', label: 'Catatan', type: 'textarea' }
+        ], submitLabel: 'Simpan kalibrasi' });
+      if (!value) return;
+      try {
+        await api(`/api/quality/instruments/${instrument.id}/calibrations`, {
+          method: 'POST', idempotencyKey: newIdemKey(), body: { ...value, version: instrument.version }
+        });
+        toast(value.result === 'FAIL' ? 'Alat ditarik dari layanan' : 'Kalibrasi tersimpan',
+          instrument.code, value.result === 'FAIL' ? 'coral' : 'mint');
+        this.render(main);
+      } catch (error) { toast('Kalibrasi gagal', error.message, 'coral'); }
+    },
+    showCapa(main, row, reload) {
+      const next = { OPEN: 'ANALYSIS', ANALYSIS: 'ACTION', ACTION: 'VERIFICATION', VERIFICATION: 'CLOSED' }[row.status];
+      const canAdvance = can('quality.edit') && next
+        && !(next === 'CLOSED' && String(row.raisedBy) === String(state.user.id));
+      const mount = main.querySelector('#capaDetail');
+      mount.innerHTML = `<section class="panel capa-detail"><header><div><p class="eyebrow">${esc(row.severity)} · ${esc(row.source)}</p><h2>${esc(row.caseNumber)} · ${esc(row.title)}</h2></div>
+          <div class="row-actions">${canAdvance ? `<button class="btn primary" id="capaAdvance">Lanjut ke ${esc(next)}</button>` : ''}${can('quality.edit') && !['CLOSED', 'CANCELLED'].includes(row.status) ? '<button class="btn danger-outline" id="capaCancel">Batalkan</button>' : ''}</div></header>
+        <div class="panel-body stack">
+          <div class="stat-row"><span>Temuan</span><b>${esc(row.description)}</b></div>
+          <div class="stat-row"><span>Containment</span><b>${esc(row.containmentAction || 'Belum diisi')}</b></div>
+          <div class="stat-row"><span>Root cause</span><b>${esc(row.rootCause || 'Belum diisi')}</b></div>
+          <div class="stat-row"><span>Korektif / preventif</span><b>${esc(row.correctiveAction || 'Belum diisi')} / ${esc(row.preventiveAction || 'Belum diisi')}</b></div>
+          <div class="stat-row"><span>Efektivitas</span><b>${esc(row.effectivenessNote || 'Belum diverifikasi')}</b></div>
+        </div></section>`;
+      mount.querySelector('#capaAdvance')?.addEventListener('click', async () => {
+        const fields = next === 'ANALYSIS' ? [{ name: 'containmentAction', label: 'Tindakan penahanan', type: 'textarea', required: true }]
+          : next === 'ACTION' ? [{ name: 'rootCause', label: 'Akar masalah', type: 'textarea', required: true }]
+            : next === 'VERIFICATION' ? [
+              { name: 'correctiveAction', label: 'Tindakan korektif', type: 'textarea', required: true },
+              { name: 'preventiveAction', label: 'Tindakan preventif', type: 'textarea', required: true }]
+              : [
+                { name: 'effectivenessNote', label: 'Bukti efektivitas', type: 'textarea', required: true },
+                { name: 'reason', label: 'Alasan penutupan', type: 'textarea', required: true }];
+        const value = await formDialog({ title: `${row.caseNumber} → ${next}`,
+          description: 'Setiap tahap membutuhkan bukti minimum dan dicatat pada audit trail.',
+          fields, submitLabel: `Pindah ke ${next}` });
+        if (!value) return;
+        try {
+          await api(`/api/quality/capa/${row.id}/advance`, { method: 'POST',
+            idempotencyKey: newIdemKey(), body: { ...value, version: row.version,
+              toStatus: next, effectivenessVerified: next === 'CLOSED' ? true : undefined } });
+          toast('Tahap CAPA diperbarui', `${row.caseNumber} · ${next}`);
+          mount.innerHTML = ''; reload();
+        } catch (error) { toast('Transisi CAPA gagal', error.message, 'coral'); }
+      });
+      mount.querySelector('#capaCancel')?.addEventListener('click', async () => {
+        const answer = await actionDialog({ title: `Batalkan ${row.caseNumber}`,
+          description: 'Pembatalan menghentikan lifecycle CAPA dan wajib memiliki alasan audit.',
+          requireReason: true, confirmLabel: 'Batalkan CAPA', danger: true });
+        if (!answer) return;
+        try {
+          await api(`/api/quality/capa/${row.id}/advance`, { method: 'POST',
+            idempotencyKey: newIdemKey(),
+            body: { version: row.version, toStatus: 'CANCELLED', reason: answer.reason } });
+          toast('CAPA dibatalkan', row.caseNumber); mount.innerHTML = ''; reload();
+        } catch (error) { toast('Pembatalan gagal', error.message, 'coral'); }
+      });
+      mount.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  };
+
+  // ── Route registration ────────────────────────────────────────────────────
 
   const R = router.register.bind(router);
   R('/production/work-orders', docListPage({
@@ -184,5 +416,7 @@
   R('/production/work-orders/:id', productionCockpit);
   R('/production/quality', docListPage({ type: 'QC_INSPECTION', module: 'quality', title: 'Quality control', eyebrow: 'PRODUKSI', rowRoute: (row) => `#/production/quality/${row.id}` }));
   R('/production/quality/:id', qcInspectionDetail);
+  R('/production/quality-management', qualityWorkbench);
+  R('/production/capacity', capacityWorkbench);
   R('/production/mrp', mrpPage);
 })();
