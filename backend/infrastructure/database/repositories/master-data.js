@@ -4,6 +4,7 @@
 
 const { AppError } = require('../../../core/errors');
 const { assertPermission, hasPermission } = require('../../../core/permissions');
+const fieldEncryption = require('../../../core/field-encryption');
 const runtime = require('./runtime');
 const masterGovernance = require('./master-governance');
 
@@ -41,6 +42,7 @@ const REGISTRY = {
         cols: ['insurance_profile_id','claim_number','claim_date','claim_type','amount','status','notes'] },
       'bank-accounts': { table: 'employee_bank_accounts', fk: 'employee_id', order: 'created_at DESC',
         cols: ['bank_name','account_number','account_holder','currency','effective_from','effective_to','is_primary','change_reason'],
+        encrypted: { field: 'account_number', purpose: 'employee_bank.account_number', blind: true },
         reason: true, makerChecker: true, workflow: 'employeeBank',
         mask: (row, u) => canSeeBank(u) ? row : { ...row, accountNumber: maskAccount(row.accountNumber) } },
       'documents': { table: 'employee_documents', fk: 'employee_id', order: 'created_at DESC',
@@ -49,9 +51,11 @@ const REGISTRY = {
         cols: ['name','issuer','certificate_number','issued_date','expiry_date','file_id','skill_tags'] },
       'emergency-contacts': { table: 'employee_emergency_contacts', fk: 'employee_id', order: 'name',
         cols: ['name','relationship','phone','address','restricted_notes','confidentiality'],
+        encrypted: { field: 'restricted_notes', purpose: 'employee_emergency.restricted_notes' },
         viewGuard: (u) => assertPermission(u, 'employee.edit') },
       'restricted-records': { table: 'employee_restricted_records', fk: 'employee_id', order: 'created_at DESC',
         cols: ['record_type','title','restricted_notes','file_id','effective_from','effective_to'],
+        encrypted: { field: 'restricted_notes', purpose: 'employee_restricted.restricted_notes' },
         guard: (u) => assertPermission(u,'employee.edit'), viewGuard: (u) => assertPermission(u,'employee.edit') },
       'access': { table: 'employee_access_assignments', fk: 'employee_id', order: 'access_start DESC',
         cols: ['user_id','role','org_scope','access_start','access_end','review_note'] }
@@ -77,6 +81,7 @@ const REGISTRY = {
         cols: ['address_type','address','city','province','is_default','active'] },
       'bank-accounts': { table: 'supplier_bank_accounts', fk: 'supplier_id', order: 'proposed_at DESC',
         cols: ['bank_name','account_number','account_holder','currency','effective_from','change_reason'],
+        encrypted: { field: 'account_number', purpose: 'supplier_bank.account_number', blind: true },
         reason: true, makerChecker: true,
         mask: (row, u) => canSeeBank(u) ? row : { ...row, accountNumber: maskAccount(row.accountNumber) } },
       'materials': { table: 'supplier_materials', fk: 'supplier_id', order: 'category',
@@ -126,6 +131,33 @@ function spec(master, sub) {
   return { m, s };
 }
 
+function decryptSensitive(s, row, parentId) {
+  if (!row || !s.encrypted) return row;
+  const field = s.encrypted.field;
+  const cipher = row[`${field}_ciphertext`];
+  if (cipher) {
+    row[field] = fieldEncryption.decrypt(cipher,
+      { purpose: s.encrypted.purpose, scope: parentId });
+  }
+  delete row[`${field}_ciphertext`];
+  delete row[`${field}_key_id`];
+  delete row[`${field}_blind_index`];
+  return row;
+}
+
+function encryptSensitive(s, payload, parentId) {
+  if (!s.encrypted || payload[s.encrypted.field] === undefined) return null;
+  const field = s.encrypted.field;
+  const plaintext = String(payload[field]);
+  const protectedValue = fieldEncryption.protect(plaintext,
+    { purpose: s.encrypted.purpose, scope: parentId, blind: Boolean(s.encrypted.blind) });
+  payload[field] = protectedValue.legacyToken;
+  payload[`${field}_ciphertext`] = protectedValue.ciphertext;
+  payload[`${field}_key_id`] = protectedValue.keyId;
+  if (s.encrypted.blind) payload[`${field}_blind_index`] = protectedValue.blindIndex;
+  return plaintext;
+}
+
 async function parentRow(client, master, id) {
   const { m } = spec(master);
   const row = (await client.query(`SELECT * FROM ${m.parent} WHERE id=$1`, [id])).rows[0];
@@ -150,13 +182,16 @@ async function overview(client, master, id, user) {
       (SELECT row_to_json(x) FROM (SELECT ptkp_status,ter_category,ter_rate,tax_scheme,tax_method,effective_from FROM employee_tax_profiles WHERE employee_id=$1 AND effective_from<=current_date AND (effective_to IS NULL OR effective_to>=current_date) ORDER BY effective_from DESC LIMIT 1)x) tax,
       (SELECT count(*)::int FROM employee_bpjs_profiles WHERE employee_id=$1 AND active_from<=current_date AND (active_to IS NULL OR active_to>=current_date)) bpjs_programs,
       (SELECT count(*)::int FROM employee_insurance_profiles WHERE employee_id=$1 AND COALESCE(effective_from,current_date)<=current_date AND (expiry_date IS NULL OR expiry_date>=current_date)) insurance_policies,
-      (SELECT row_to_json(x) FROM (SELECT bank_name,account_number,account_holder,currency,verification_status FROM employee_bank_accounts WHERE employee_id=$1 ORDER BY is_primary DESC,created_at DESC LIMIT 1)x) payroll_bank,
+      (SELECT row_to_json(x) FROM (SELECT bank_name,account_number,account_number_ciphertext,account_number_key_id,account_holder,currency,verification_status FROM employee_bank_accounts WHERE employee_id=$1 ORDER BY is_primary DESC,created_at DESC LIMIT 1)x) payroll_bank,
       (SELECT count(*)::int FROM employee_documents WHERE employee_id=$1 AND expiry_date BETWEEN current_date AND current_date+interval '90 days') expiring_documents,
       (SELECT count(*)::int FROM attendance_records WHERE employee_id=$1 AND work_date>=date_trunc('month',current_date)) attendance_days,
       (SELECT jsonb_build_object('entitlement',entitlement,'used',used,'remaining',entitlement-used) FROM leave_balances WHERE employee_id=$1 AND year=extract(year from current_date)) leave_balance,
       (SELECT count(*)::int FROM app_users WHERE employee_id=$1 AND active) active_user_accounts`,[id])).rows[0];
     const required=[parent.nik,parent.name,parent.department,parent.branchId,parent.joinDate,summary.current_position,summary.employment,summary.tax,summary.payroll_bank];
     parent.completeness={score:Math.round(required.filter(Boolean).length/required.length*100),completed:required.filter(Boolean).length,total:required.length};
+    if (summary.payroll_bank) decryptSensitive(
+      { encrypted: { field: 'account_number', purpose: 'employee_bank.account_number' } },
+      summary.payroll_bank, id);
     const enterprise=runtime.camel(summary);
     if(!canSeeSalary(user)){parent.baseSalary=maskMoney();if(enterprise.compensation){enterprise.compensation.baseSalary=maskMoney();enterprise.compensation.fixedAllowance=maskMoney();enterprise.compensation.variableAllowance=maskMoney();}}
     if(enterprise.payrollBank&&!canSeeBank(user))enterprise.payrollBank.accountNumber=maskAccount(enterprise.payrollBank.accountNumber);
@@ -172,7 +207,7 @@ async function listSub(client, master, id, sub, user) {
   await parentRow(client, master, id);
   const rows = (await client.query(
     `SELECT * FROM ${s.table} WHERE ${s.fk}=$1 ORDER BY ${s.order || 'id'} LIMIT 200`, [id]
-  )).rows.map(runtime.camel);
+  )).rows.map((row) => runtime.camel(decryptSensitive(s, row, id)));
   return s.mask ? rows.map((row) => s.mask(row, user)) : rows;
 }
 
@@ -190,6 +225,7 @@ async function createSub(client, master, id, sub, body, user, requestId) {
     if (s.cols.includes(col) && value !== undefined && value !== '') payload[col] = value;
   }
   if (!Object.keys(payload).length) throw new AppError('VALIDATION_ERROR', 'Tidak ada kolom valid untuk disimpan.');
+  const sensitivePlaintext = encryptSensitive(s, payload, id);
 
   if (s.overlap && payload[s.overlap.from]) {
     const { from, to, key, activeOnly } = s.overlap;
@@ -227,11 +263,21 @@ async function createSub(client, master, id, sub, body, user, requestId) {
 
   await runtime.audit(client, {
     userId: user.id, action: 'CREATE', module: m.module, entityType: `${master}.${sub}`.toUpperCase(),
-    entityId: inserted.id, newValue: { parent: id, ...payload, account_number: payload.account_number ? maskAccount(payload.account_number) : undefined, base_salary: payload.base_salary ? 'REDACTED' : undefined },
+    entityId: inserted.id, newValue: {
+      parent: id, ...payload,
+      account_number_ciphertext: undefined, account_number_key_id: undefined,
+      account_number_blind_index: undefined, restricted_notes_ciphertext: undefined,
+      restricted_notes_key_id: undefined,
+      account_number: sensitivePlaintext && s.encrypted?.field === 'account_number'
+        ? maskAccount(sensitivePlaintext) : undefined,
+      restricted_notes: sensitivePlaintext && s.encrypted?.field === 'restricted_notes'
+        ? 'REDACTED' : payload.restricted_notes,
+      base_salary: payload.base_salary ? 'REDACTED' : undefined
+    },
     reason: body.change_reason || body.changeReason || null, requestId, branchId: user.branchId
   });
   await masterGovernance.refreshQuality(client, master, id);
-  return runtime.camel(inserted);
+  return runtime.camel(decryptSensitive(s, inserted, id));
 }
 
 // Approve bank supplier: checker ≠ maker (SoD juga ditegakkan constraint DB).
@@ -242,16 +288,17 @@ async function approveSupplierBank(client, supplierId, bankId, user, requestId) 
   if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Rekening supplier tidak ditemukan.');
   if (row.proposed_by === user.id) throw new AppError('PERMISSION_DENIED', 'SoD: pengusul tidak boleh menyetujui rekening yang sama (maker ≠ checker).');
   if (row.verification_status === 'VERIFIED') throw new AppError('VALIDATION_ERROR', 'Rekening sudah terverifikasi.');
+  const account = decryptSensitive(spec('suppliers', 'bank-accounts').s, { ...row }, supplierId).account_number;
   const updated = (await client.query(
     `UPDATE supplier_bank_accounts SET verification_status='VERIFIED', payment_hold=false, approved_by=$3, approved_at=now()
      WHERE id=$1 AND supplier_id=$2 RETURNING *`, [bankId, supplierId, user.id])).rows[0];
   await runtime.audit(client, {
     userId: user.id, action: 'APPROVE', module: 'supplier', entityType: 'SUPPLIER_BANK', entityId: bankId,
     oldValue: { verificationStatus: row.verification_status, paymentHold: row.payment_hold },
-    newValue: { verificationStatus: 'VERIFIED', paymentHold: false, account: maskAccount(row.account_number) },
+    newValue: { verificationStatus: 'VERIFIED', paymentHold: false, account: maskAccount(account) },
     requestId, branchId: user.branchId
   });
-  return runtime.camel(updated);
+  return runtime.camel(decryptSensitive(spec('suppliers', 'bank-accounts').s, updated, supplierId));
 }
 
 async function decideSupplierDocument(client,supplierId,documentId,decision,user,requestId){
@@ -293,7 +340,8 @@ async function decideEmployeeSensitive(client,{employeeId,kind,rowId,decision,re
     :`UPDATE ${config.table} SET ${config.statusCol}=$2,rejected_by=$3,rejected_at=now(),rejection_reason=$4 WHERE id=$1 RETURNING *`;
   const updated=(await client.query(sql,decision==='approve'?[rowId,config.approved,user.id]:[rowId,config.rejected,user.id,reason])).rows[0];
   await runtime.audit(client,{userId:user.id,action:decision==='approve'?'APPROVE':'REJECT',module:'employee',entityType:`EMPLOYEE_${kind.toUpperCase()}`,entityId:rowId,oldValue:{status:row[config.statusCol]},newValue:{status:updated[config.statusCol]},reason:reason||row.change_reason||row.approval_reason,requestId,branchId:user.branchId});
-  return runtime.camel(updated);
+  const sensitiveSpec = kind === 'bank-accounts' ? spec('employees', 'bank-accounts').s : null;
+  return runtime.camel(sensitiveSpec ? decryptSensitive(sensitiveSpec, updated, employeeId) : updated);
 }
 
 async function employeeAudit(client,employeeId,user){

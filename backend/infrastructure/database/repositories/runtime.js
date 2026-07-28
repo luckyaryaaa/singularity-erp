@@ -5,6 +5,7 @@ const { createHash } = require('node:crypto');
 const posting = require('./posting');
 const masterGovernance = require('./master-governance');
 const businessDate = require('../../../core/business-date');
+const fieldEncryption = require('../../../core/field-encryption');
 
 const PREFIXES = {
   CUSTOMER_INQUIRY:'INQ',QUOTATION:'QUO',CUSTOMER_PO:'CPO',SALES_ORDER:'SO',PROJECT:'PRJ',WORK_ORDER:'WO',
@@ -141,14 +142,23 @@ async function createDocument(client,{type,user,title,amount=0,partyId,partyName
   if(type==='CUSTOMER_PO') await assertCustomerPoValid(client,{partyId,amount,payload});
   const id=randomUUID(); const documentNumber=await nextNumber(client,{documentType:type,branchId:user.branchId});
   const org=(await client.query(`SELECT le.id legal_entity_id,le.code,le.legal_name,le.trade_name,le.npwp,le.legal_address,le.operational_address,le.phone,le.whatsapp,le.email,le.website,le.document_footer,
-    (SELECT jsonb_build_object('bankName',b.bank_name,'accountNumber',b.account_number,'accountHolder',b.account_holder,'currency',b.currency,'usagePurpose',b.usage_purpose)
+    (SELECT jsonb_build_object('bankName',b.bank_name,'accountNumber',b.account_number,
+      'accountNumberCiphertext',b.account_number_ciphertext,'accountNumberKeyId',b.account_number_key_id,
+      'accountHolder',b.account_holder,'currency',b.currency,'usagePurpose',b.usage_purpose)
       FROM company_bank_accounts b WHERE b.legal_entity_id=le.id AND b.verification_status='VERIFIED' AND b.effective_from<=current_date AND (b.effective_to IS NULL OR b.effective_to>=current_date)
       ORDER BY b.is_primary DESC,b.approved_at DESC LIMIT 1) bank,
     (SELECT jsonb_build_object('name',s.signatory_name,'positionTitle',s.position_title,'signatureAssetId',s.signature_asset_id)
       FROM organization_signatories s WHERE s.legal_entity_id=le.id AND s.active AND s.effective_from<=current_date AND (s.effective_to IS NULL OR s.effective_to>=current_date)
       ORDER BY s.effective_from DESC LIMIT 1) signatory
     FROM branches br JOIN legal_entities le ON le.id=br.legal_entity_id WHERE br.id=$1`,[user.branchId])).rows[0]||{};
-  const legalEntityId=org.legal_entity_id||null; delete org.legal_entity_id;
+  const legalEntityId=org.legal_entity_id||null;
+  if (org.bank?.accountNumberCiphertext) {
+    org.bank.accountNumber = fieldEncryption.decrypt(org.bank.accountNumberCiphertext,
+      { purpose: 'company_bank.account_number', scope: legalEntityId });
+    delete org.bank.accountNumberCiphertext;
+    delete org.bank.accountNumberKeyId;
+  }
+  delete org.legal_entity_id;
   const currency=await masterGovernance.resolveCurrency(client,{legalEntityId,transactionCurrency:transactionCurrency||payload.currency||'IDR',date:currencyDate||payload.exchangeRateDate,amount});
   const dimensions=await masterGovernance.resolveDimensions(client,{type,legalEntityId,departmentId:departmentId||payload.departmentId,costCenterId:costCenterId||payload.costCenterId,profitCenterId:profitCenterId||payload.profitCenterId,projectWbsId:projectWbsId||payload.projectWbsId});
   const result=await client.query(`INSERT INTO business_documents

@@ -32,6 +32,10 @@ function validateEnvironment(env=process.env,{forBoot=false}={}) {
     if(env.MAT_DB_MODE!=='postgres')errors.push('PRODUCTION wajib memakai MAT_DB_MODE=postgres.');
     if(/(?:_dev|_uat)(?:$|[?&])/i.test(env.PGDATABASE||'')||/(?:_dev|_uat)(?:\?|$)/i.test(env.DATABASE_URL||''))errors.push('Database development/UAT dilarang untuk PRODUCTION.');
     if(weak(env.MAT_MFA_ENCRYPTION_KEY))errors.push('MAT_MFA_ENCRYPTION_KEY production belum kuat.');
+    if(weak(env.MAT_FIELD_ENCRYPTION_KEY))errors.push('MAT_FIELD_ENCRYPTION_KEY production belum kuat.');
+    if(weak(env.MAT_FIELD_BLIND_INDEX_KEY))errors.push('MAT_FIELD_BLIND_INDEX_KEY production belum kuat.');
+    if(!/^[A-Za-z0-9._-]{1,48}$/.test(env.MAT_FIELD_ENCRYPTION_KEY_ID||''))errors.push('MAT_FIELD_ENCRYPTION_KEY_ID production wajib diisi.');
+    if(env.MAT_FIELD_ENCRYPTION_KEY&&env.MAT_FIELD_ENCRYPTION_KEY===env.MAT_FIELD_BLIND_INDEX_KEY)errors.push('Field encryption key dan blind-index key production wajib terpisah.');
     if(weak(env.MAT_BACKUP_ENCRYPTION_KEY))errors.push('MAT_BACKUP_ENCRYPTION_KEY production belum kuat.');
     if(weak(env.MAT_DOC_VERIFY_SECRET))errors.push('MAT_DOC_VERIFY_SECRET production wajib kuat dan terpisah.');
     if(!/^v[0-9A-Za-z._-]+$/.test(env.MAT_DOC_VERIFY_KEY_ID||''))errors.push('MAT_DOC_VERIFY_KEY_ID production wajib diisi (contoh v1).');

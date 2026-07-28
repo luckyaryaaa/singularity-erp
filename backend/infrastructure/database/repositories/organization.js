@@ -1,6 +1,7 @@
 'use strict';
 const { AppError } = require('../../../core/errors');
 const { assertPermission, hasPermission } = require('../../../core/permissions');
+const fieldEncryption = require('../../../core/field-encryption');
 const runtime = require('./runtime');
 
 const maskAccount = (value) => value ? `••••${String(value).slice(-4)}` : value;
@@ -55,11 +56,24 @@ const RESOURCES={
   'bank-accounts':{table:'company_bank_accounts',cols:['branch_id','bank_name','account_number','account_holder','currency','usage_purpose','effective_from','effective_to','is_primary','qr_payload','change_reason'],order:'created_at DESC',bank:true}
 };
 const snake=(key)=>key.replace(/[A-Z]/g,c=>`_${c.toLowerCase()}`);
+const BANK_PURPOSE = 'company_bank.account_number';
+function decryptBank(row, entityId) {
+  if (!row) return row;
+  if (row.account_number_ciphertext) {
+    row.account_number = fieldEncryption.decrypt(row.account_number_ciphertext,
+      { purpose: BANK_PURPOSE, scope: entityId });
+  }
+  delete row.account_number_ciphertext;
+  delete row.account_number_key_id;
+  delete row.account_number_blind_index;
+  return row;
+}
 
 async function listResource(client,user,id,name){
   assertPermission(user,'organization.view'); const row=await entity(client,id),spec=RESOURCES[name];
   if(!spec)throw new AppError('RESOURCE_NOT_FOUND');
-  const items=(await client.query(`SELECT * FROM ${spec.table} WHERE legal_entity_id=$1 ORDER BY ${spec.order} LIMIT 200`,[row.id])).rows.map(runtime.camel);
+  const items=(await client.query(`SELECT * FROM ${spec.table} WHERE legal_entity_id=$1 ORDER BY ${spec.order} LIMIT 200`,[row.id])).rows
+    .map((item) => runtime.camel(spec.bank ? decryptBank(item, row.id) : item));
   return items.map(item=>spec.bank&&!canSeeBank(user)?{...item,accountNumber:maskAccount(item.accountNumber)}:item);
 }
 
@@ -69,11 +83,26 @@ async function createResource(client,user,id,name,body,requestId){
   if(spec.bank&&!String(body.changeReason||body.change_reason||'').trim())throw new AppError('REASON_REQUIRED');
   const payload={}; for(const [key,value] of Object.entries(body)){const col=snake(key);if(spec.cols.includes(col)&&value!==''&&value!==undefined)payload[col]=value;}
   if(!Object.keys(payload).length)throw new AppError('VALIDATION_ERROR','Tidak ada kolom valid untuk disimpan.');
-  if(spec.bank){payload.proposed_by=user.id;payload.verification_status='PENDING_VERIFICATION';}
+  let accountPlaintext = null;
+  if(spec.bank){
+    accountPlaintext = String(payload.account_number || '');
+    if (!accountPlaintext.trim()) throw new AppError('VALIDATION_ERROR', 'Nomor rekening wajib diisi.');
+    const protectedValue = fieldEncryption.protect(accountPlaintext,
+      { purpose: BANK_PURPOSE, scope: row.id, blind: true });
+    payload.account_number = protectedValue.legacyToken;
+    payload.account_number_ciphertext = protectedValue.ciphertext;
+    payload.account_number_key_id = protectedValue.keyId;
+    payload.account_number_blind_index = protectedValue.blindIndex;
+    payload.proposed_by=user.id;payload.verification_status='PENDING_VERIFICATION';
+  }
   else payload.created_by=user.id;
   const keys=Object.keys(payload),created=(await client.query(`INSERT INTO ${spec.table}(legal_entity_id,${keys.join(',')}) VALUES($1,${keys.map((_,i)=>`$${i+2}`).join(',')}) RETURNING *`,[row.id,...keys.map(k=>payload[k])])).rows[0];
-  await runtime.audit(client,{userId:user.id,action:'CREATE',module:'organization',entityType:`ORGANIZATION_${name.toUpperCase()}`,entityId:created.id,newValue:{...payload,account_number:payload.account_number?maskAccount(payload.account_number):undefined},reason:payload.change_reason||null,requestId,branchId:user.branchId});
-  return runtime.camel(created);
+  await runtime.audit(client,{userId:user.id,action:'CREATE',module:'organization',entityType:`ORGANIZATION_${name.toUpperCase()}`,entityId:created.id,newValue:{
+    ...payload,account_number_ciphertext:undefined,account_number_key_id:undefined,
+    account_number_blind_index:undefined,
+    account_number:accountPlaintext?maskAccount(accountPlaintext):undefined
+  },reason:payload.change_reason||null,requestId,branchId:user.branchId});
+  return runtime.camel(spec.bank ? decryptBank(created, row.id) : created);
 }
 
 async function updateIdentity(client,user,id,body,requestId){
@@ -102,8 +131,9 @@ async function decideBank(client,user,entityId,bankId,decision,reason,requestId)
     if(!String(reason||'').trim())throw new AppError('REASON_REQUIRED');
     updated=(await client.query(`UPDATE company_bank_accounts SET verification_status='REJECTED',rejected_by=$2,rejected_at=now(),rejection_reason=$3,updated_at=now() WHERE id=$1 RETURNING *`,[bankId,user.id,reason])).rows[0];
   }
-  await runtime.audit(client,{userId:user.id,action:decision==='approve'?'APPROVE':'REJECT',module:'organization',entityType:'COMPANY_BANK',entityId:bankId,oldValue:{status:row.verification_status,account:maskAccount(row.account_number)},newValue:{status:updated.verification_status,account:maskAccount(row.account_number)},reason:reason||row.change_reason,requestId,branchId:user.branchId});
-  return runtime.camel(updated);
+  const account = decryptBank({ ...row }, entityId).account_number;
+  await runtime.audit(client,{userId:user.id,action:decision==='approve'?'APPROVE':'REJECT',module:'organization',entityType:'COMPANY_BANK',entityId:bankId,oldValue:{status:row.verification_status,account:maskAccount(account)},newValue:{status:updated.verification_status,account:maskAccount(account)},reason:reason||row.change_reason,requestId,branchId:user.branchId});
+  return runtime.camel(decryptBank(updated, entityId));
 }
 
 // Aset visual resmi (logo kop, stempel, tanda tangan) untuk dokumen PDF.
