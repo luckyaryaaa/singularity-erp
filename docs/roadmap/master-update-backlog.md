@@ -1,5 +1,17 @@
 # Backlog Resmi — MAT ERP V2
 
+> **Notification Preferences v0.43.0: ENGINEERING SELESAI — 29 Juli 2026.**
+> Migration 078 menambah `notification_preferences` (per pengguna × kategori):
+> mute in-app + email per kategori, RLS per-pemilik, `SYSTEM_ALERT` tak dapat mati.
+> Filter mute dijahit di jalur baca (`listNotifications`/`unreadCount`), menangani
+> notifikasi user & role seragam tanpa kehilangan data. Endpoint GET/POST
+> `/api/notifications/preferences` (router Operations). Menutup ⬜ audit Workspace
+> 6.7 "Notification Preferences Are Missing". Source of truth 001–078; regression
+> 389/389; rollback full-chain 78/77/77; authorization 304 handler. Catatan
+> temuan: outbox domain-event saat ini hanya meng-emit 4 event informasional
+> (invoice/payment/PO/quotation), jadi proyeksi event→work-item ditunda sampai
+> emisi action-required diperluas.
+
 > **Unified Work Item Engine v0.42.0: ENGINEERING SELESAI — 29 Juli 2026.**
 > Migration 077 menambah `work_items`: backbone pekerjaan lintas modul (§4.4/§5.2)
 > — approval/exception/review/correction/task/follow-up sebagai entitas bertipe

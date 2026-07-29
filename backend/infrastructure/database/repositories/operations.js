@@ -32,11 +32,15 @@ async function notify(client,{userId,role,category,title,body,link,dedupeKey,bra
 const NOTIF_VISIBLE = `(n.user_id=$1 OR n.target_role IN($2,'*'))
   AND (n.branch_id IS NULL OR $3::boolean OR n.branch_id=$4)`;
 const notifArgs=(user)=>[user.id,user.role,permissions.CROSS_BRANCH_ROLES.includes(user.role)||user.branchScope==='*',user.branchId||null];
+// Preferensi per pengguna (migrasi 078): kategori yang di-mute pengguna disaring
+// dari TAMPILAN in-app-nya, tanpa menghapus notifikasinya. $1 = user.id.
+const NOTIF_NOT_MUTED=`AND NOT EXISTS(SELECT 1 FROM notification_preferences np
+  WHERE np.user_id=$1 AND np.category=n.category AND np.muted)`;
 
 async function listNotifications(client,user,{limit=60}={}){
   return (await client.query(`SELECT n.*,(r.read_at IS NOT NULL) read_by_me,r.read_at read_at_me
     FROM notifications n LEFT JOIN notification_receipts r ON r.notification_id=n.id AND r.user_id=$1
-    WHERE ${NOTIF_VISIBLE} ORDER BY n.created_at DESC LIMIT $5`,
+    WHERE ${NOTIF_VISIBLE} ${NOTIF_NOT_MUTED} ORDER BY n.created_at DESC LIMIT $5`,
   [...notifArgs(user),Math.min(limit,100)])).rows.map((row)=>({...camel(row),readAt:row.read_at_me}));
 }
 // Belum terbaca dan "menuntut tindakan" adalah dua hal berbeda: yang pertama
@@ -45,7 +49,7 @@ async function unreadCount(client,user){
   const row=(await client.query(`SELECT count(*)::int unread,
       count(*) FILTER(WHERE n.category='ACTION_REQUIRED')::int action_required
     FROM notifications n LEFT JOIN notification_receipts r ON r.notification_id=n.id AND r.user_id=$1
-    WHERE r.notification_id IS NULL AND ${NOTIF_VISIBLE}`,notifArgs(user))).rows[0];
+    WHERE r.notification_id IS NULL AND ${NOTIF_VISIBLE} ${NOTIF_NOT_MUTED}`,notifArgs(user))).rows[0];
   return {unread:row.unread,actionRequired:row.action_required};
 }
 async function markRead(client,user,id){

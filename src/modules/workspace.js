@@ -201,13 +201,25 @@
     onEvent(type) { if (type === 'notification.created') this.render(document.getElementById('main')); },
     async render(main, _p, signal) {
       const data = await query('notifications', () => api('/api/notifications', { signal }), { staleMs: 15_000, force: true });
+      const prefs = await query('notif-prefs', () => api('/api/notifications/preferences'), { staleMs: 60_000 });
       const catIcon = { ACTION_REQUIRED: 'bell', WARNING: 'alert', INFORMATION: 'doc', SUCCESS: 'check', SYSTEM_ALERT: 'monitor' };
       const catTone = { ACTION_REQUIRED: 'amber', WARNING: 'coral', INFORMATION: 'blue', SUCCESS: 'mint', SYSTEM_ALERT: 'coral' };
+      const catLabel = { ACTION_REQUIRED: 'Perlu tindakan', WARNING: 'Peringatan', INFORMATION: 'Informasi', SUCCESS: 'Sukses', SYSTEM_ALERT: 'Peringatan sistem' };
       main.innerHTML = pageHead({
         eyebrow: 'PUSAT NOTIFIKASI', title: 'Notifikasi',
         sub: `${data.unread} belum dibaca dari ${data.items.length} notifikasi terakhir${data.actionRequired ? ` · ${data.actionRequired} menuntut tindakan Anda` : ''}.`,
         actions: data.unread ? `<button class="btn secondary" id="readAll">${ICONS.check} Tandai semua dibaca</button>` : ''
       }) + `
+        <details class="panel notif-prefs">
+          <summary><b>Preferensi notifikasi</b> — pilih kategori yang tampil di sini dan yang dikirim via email</summary>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Kategori</th><th>Tampilkan in-app</th><th>Email</th></tr></thead>
+            <tbody>${prefs.items.map((p) => `<tr>
+              <td>${chip(p.category)} <small>${esc(catLabel[p.category] || p.category)}</small></td>
+              <td><label class="switch"><input type="checkbox" data-show="${p.category}" ${p.muted ? '' : 'checked'} ${p.category === 'SYSTEM_ALERT' ? 'disabled' : ''}> <span>${p.category === 'SYSTEM_ALERT' ? 'Selalu' : (p.muted ? 'Disembunyikan' : 'Tampil')}</span></label></td>
+              <td><label class="switch"><input type="checkbox" data-email="${p.category}" ${p.emailEnabled ? 'checked' : ''}> <span>${p.emailEnabled ? 'Aktif' : 'Nonaktif'}</span></label></td></tr>`).join('')}</tbody>
+          </table></div>
+        </details>
         <section class="notif-list">
           ${data.items.map((n) => `
             <article class="notif-card ${n.readAt ? 'read' : ''}">
@@ -229,6 +241,16 @@
         await api('/api/notifications/read-all', { method: 'POST' });
         invalidate('notifications'); window.MAT.refreshBadge(); this.render(main);
       });
+      main.querySelectorAll('[data-show],[data-email]').forEach((el) => el.addEventListener('change', async () => {
+        const category = el.dataset.show || el.dataset.email;
+        const showEl = main.querySelector(`[data-show="${category}"]`);
+        const emailEl = main.querySelector(`[data-email="${category}"]`);
+        try {
+          await api('/api/notifications/preferences', { method: 'POST', body: {
+            category, muted: showEl ? !showEl.checked : false, emailEnabled: emailEl ? emailEl.checked : false } });
+          invalidate('notif-prefs'); invalidate('notifications'); window.MAT.refreshBadge(); this.render(main);
+        } catch (error) { el.checked = !el.checked; window.UI.toast?.('Gagal menyimpan preferensi', error.message, 'coral'); }
+      }));
     }
   };
 

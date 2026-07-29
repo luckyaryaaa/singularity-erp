@@ -9,6 +9,7 @@ const runtime = require('../infrastructure/database/repositories/runtime');
 const privateStorage = require('../infrastructure/files/private-storage');
 const artifactStorage = require('../infrastructure/files/artifact-storage');
 const reporting = require('../infrastructure/database/repositories/reporting');
+const notifPrefs = require('../infrastructure/database/repositories/notification-preferences');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -16,6 +17,10 @@ async function dispatch(client, req, url, ctx) {
   let m;
   if(method==='GET'&&p==='/api/notifications'){assertPermission(ctx.user,'notification.view');const counts=await operations.unreadCount(client,ctx.user);return {items:await operations.listNotifications(client,ctx.user),unread:counts.unread,actionRequired:counts.actionRequired};}
   if(method==='POST'&&p==='/api/notifications/read-all'){await operations.markAllRead(client,ctx.user);return {ok:true};}
+  // Preferensi notifikasi per pengguna (migrasi 078) — kategori di-mute disaring
+  // dari tampilan in-app; SYSTEM_ALERT tidak dapat dimatikan.
+  if(method==='GET'&&p==='/api/notifications/preferences'){assertPermission(ctx.user,'notification.view');return notifPrefs.getPreferences(client,ctx.user);}
+  if(method==='POST'&&p==='/api/notifications/preferences'){assertPermission(ctx.user,'notification.view');const body=await readBody(req);return notifPrefs.setPreference(client,ctx.user,body,ctx.requestId);}
   m=p.match(/^\/api\/notifications\/([^/]+)\/read$/);if(method==='POST'&&m){if(!await operations.markRead(client,ctx.user,m[1]))throw new AppError('RESOURCE_NOT_FOUND');return {ok:true};}
   if(method==='GET'&&p==='/api/jobs'){assertPermission(ctx.user,'job.view');return operations.listJobs(client,ctx.user,Object.fromEntries(url.searchParams));}
   if(method==='POST'&&p==='/api/jobs'){assertPermission(ctx.user,'job.create');const body=await readBody(req),spec=operations.policyFor(body.type),params=body.params||{};if(params.report){assertPermission(ctx.user,'report.export');reporting.report(params.report,ctx.user);reporting.scopeFor(ctx.user,params.branchId||null);}let pinVerified=false;if(spec.requiresPin){if(ctx.user.role!=='owner')throw new AppError('PIN_REQUIRED');const row=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];pinVerified=!!body.pin&&!!row?.owner_pin_hash&&verifyPassword(String(body.pin),row.owner_pin_hash);if(!pinVerified)throw new AppError('PIN_REQUIRED');}ctx.status=201;return operations.enqueue(client,{type:body.type,user:ctx.user,params,executionKey:req.headers['idempotency-key']||body.executionKey,pinVerified});}

@@ -3,6 +3,30 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.43.0] — 2026-07-29
+
+### Notification Preferences
+
+- Migration 078 menambah `notification_preferences` (per pengguna × kategori):
+  kategori yang di-mute disaring dari tampilan in-app pengguna itu **tanpa
+  menghapus** notifikasinya, dan email per kategori dapat dinyalakan/dimatikan.
+  RLS mengunci ke pemiliknya (bypass sistem untuk worker/test).
+- Filter mute dijahit di **jalur baca** (`listNotifications` + `unreadCount`),
+  bukan di jalur tulis — menangani notifikasi bertarget pengguna maupun peran
+  secara seragam tanpa kehilangan data.
+- `SYSTEM_ALERT` tidak dapat dimatikan — peringatan sistem harus selalu sampai.
+- Endpoint `GET`/`POST /api/notifications/preferences` (router Operations),
+  guard `notification.view`, upsert + audit old/new.
+- Menutup ⬜ audit Workspace 6.7 "Notification Preferences Are Missing" (§5.2 #6/#7).
+
+### Assurance
+
+- Regression + isolated PostgreSQL gate **389/389** lulus (5 test preferensi baru:
+  default, filter mute in-app + hitungan, SYSTEM_ALERT tak dapat mati, upsert,
+  liveness).
+- Full-chain rollback lulus di database disposable: **78 up, 77 down, 77 re-up**.
+- Authorization matrix **304 handler** (Operations 12→14).
+
 ## [0.42.0] — 2026-07-29
 
 ### Unified Work Item Engine

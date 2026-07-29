@@ -100,9 +100,17 @@ Terapkan berurutan dengan `npm run db:migrate`; checksum divalidasi melalui
 - Additive murni; tidak mengubah tabel lain. Rollback aman penuh — `077.down.sql`
   menghapus tabel beserta policy dan index.
 
+## 078 — `notification_preferences`
+
+- Menambah tabel `notification_preferences` (PK user_id+category): mute in-app dan
+  email per kategori, per pengguna. RLS `own_user` mengunci ke pemiliknya (bypass
+  `app.is_system`). Filter mute dijahit di jalur baca notifikasi (operations.js),
+  bukan jalur tulis. `SYSTEM_ALERT` tidak dapat dimatikan (dijaga repo).
+- Additive murni; rollback aman penuh (`078.down.sql` menghapus tabel + policy).
+
 ## Urutan aman
 
-`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076 → 077`
+`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076 → 077 → 078`
 
 Setelah migration 070:
 

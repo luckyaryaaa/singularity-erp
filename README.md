@@ -15,6 +15,23 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.43.0 — Notification Preferences
+
+- PostgreSQL source of truth berada pada migration 001–078.
+- `notification_preferences` (migrasi 078) — pengguna memilih kategori notifikasi;
+  kategori yang di-mute disaring dari tampilan in-app-nya tanpa menghapus
+  notifikasinya, email per kategori dapat diatur. Filter dijahit di jalur baca
+  (`listNotifications`/`unreadCount`); `SYSTEM_ALERT` tidak dapat dimatikan. RLS
+  mengunci preferensi ke pemiliknya. Menutup ⬜ audit Workspace 6.7.
+- Endpoint `GET`/`POST /api/notifications/preferences` (router Operations).
+- Authorization matrix mencakup **304 handler** (Operations 14).
+
+Regression 389/389, migration 001–078, dan rollback full-chain 78/77/77 telah
+tervalidasi. Status ini adalah **engineering release candidate**, bukan izin
+production: UAT 13 role, security retest manual, persetujuan enam rekonsiliasi,
+training, DR RTO/RPO, offsite evidence, dan Owner sign-off tetap menjadi gate
+go-live.
+
 ## Status v0.42.0 — Unified Work Item Engine
 
 - PostgreSQL source of truth berada pada migration 001–077.

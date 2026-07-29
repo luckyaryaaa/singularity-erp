@@ -38,6 +38,17 @@ CANCELLED). Guard `dashboard.view` (autentikasi); kepemilikan (assignee/claimer/
 delegate/creator) dan scope cabang ditegakkan di repository, RLS `work_items`
 sebagai pertahanan kedua. `GET /api/my-work` kini menyertakan bagian `workItems`.
 
+### Preferensi notifikasi (migrasi 078, §5.2)
+
+- `GET /api/notifications/preferences` — preferensi per kategori (ACTION_REQUIRED/
+  WARNING/INFORMATION/SUCCESS/SYSTEM_ALERT): `muted` + `emailEnabled`.
+- `POST /api/notifications/preferences` — set satu kategori `{category, muted,
+  emailEnabled}` (upsert, audit). `SYSTEM_ALERT` tidak dapat di-mute.
+
+Kategori yang di-mute disaring dari `GET /api/notifications` dan hitungan
+belum-baca pengguna itu **tanpa menghapus** notifikasinya. RLS mengunci preferensi
+ke pemiliknya.
+
 ## Auth
 
 - `POST /api/auth/login`
