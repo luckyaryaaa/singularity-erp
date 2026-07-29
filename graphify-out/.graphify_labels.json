@@ -374,7 +374,6 @@
   "372": "graphify reference: transcribe video and audio",
   "373": "graphify reference: GitHub clone and cross-repo merge",
   "374": "graphify reference: transcribe video and audio",
-  "375": "p0-rls-tranche1.test.js",
   "376": "advanced-effect-event-deps.md",
   "377": "advanced-event-handler-refs.md",
   "378": "advanced-init-once.md",
@@ -462,9 +461,6 @@
   "460": "v0.41.0 — Canonical Warehouse Ledger (Stage 1)",
   "461": "request-context.js",
   "462": "database-infrastructure.test.js",
-  "463": "16. Infrastructure and Release Architecture",
-  "464": "smoke-sprint7.js",
-  "465": "9. Import and Data Migration",
   "466": "2. Prinsip Arsitektur Final",
   "468": "seed-postgres-uat-sprint4.js"
 }
