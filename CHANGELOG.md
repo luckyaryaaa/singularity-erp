@@ -3,6 +3,37 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.42.0] — 2026-07-29
+
+### Unified Work Item Engine
+
+- Migration 077 menambah `work_items`: backbone pekerjaan lintas modul (§4.4/§5.2).
+  Approval, exception, review, correction, dan tugas operasional menjadi entitas
+  bertipe dengan siklus hidup OPEN→CLAIMED→IN_PROGRESS→RETURNED/ON_HOLD→
+  DONE/CANCELLED, prioritas, risiko, SLA/jatuh tempo, evidence, optimistic lock,
+  RLS isolasi cabang, dan audit old/new/reason.
+- Aksi lengkap: create, claim, start, complete (dengan evidence), return (revisi),
+  hold, cancel, delegate (substitusi/cuti), dan escalate — enam handler bounded
+  pada router Workspace (10 aksi via alternation), guard `dashboard.view` dengan
+  kepemilikan (assignee/claimer/delegate/creator) dan scope cabang ditegakkan di
+  repository. Membaca notifikasi TIDAK menutup pekerjaan; hanya transisi eksplisit.
+- Klaim menghormati penargetan: item ber-peran hanya dapat diklaim peran yang
+  cocok; pool bebas hanya bila tak ditargetkan ke pengguna maupun peran.
+- **My Work** kini berbasis work item nyata (Ditugaskan/Dikerjakan/Didelegasikan/
+  Dikembalikan) dengan aksi lifecycle langsung — bukan lagi sekadar agregasi
+  read-only dokumen.
+- Perbaikan bug laten: pemeriksaan penerima tugas memakai kolom `app_users.active`
+  (bukan `status` yang tidak ada) — juga menutup jalur `assignedTo` WMS task engine.
+
+### Assurance
+
+- Regression + isolated PostgreSQL gate **384/384** lulus (8 test Work Item baru:
+  lifecycle+evidence, optimistic lock, kepemilikan, penargetan klaim, return,
+  delegasi/eskalasi, My Work scope, liveness).
+- Full-chain rollback lulus di database disposable: **77 up, 76 down, 76 re-up**.
+- Authorization matrix **302 handler** (Workspace 3→7); OpenAPI menambah operasi
+  Work Item ber-cookieAuth.
+
 ## [0.41.0] — 2026-07-29
 
 ### Canonical Warehouse Ledger (Stage 1)

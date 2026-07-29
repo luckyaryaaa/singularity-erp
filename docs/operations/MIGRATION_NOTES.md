@@ -89,9 +89,20 @@ Terapkan berurutan dengan `npm run db:migrate`; checksum divalidasi melalui
   penuh adalah cutover berikutnya. Rollback aman — down membalik seluruh objek
   skema; baris gudang default hasil backfill dibiarkan dan re-up idempoten.
 
+## 077 — `unified_work_items`
+
+- Menambah tabel `work_items`: engine pekerjaan lintas modul bertipe
+  (APPROVAL/EXCEPTION/REVIEW/CORRECTION/TASK/FOLLOW_UP) dengan status
+  OPEN→CLAIMED→IN_PROGRESS→RETURNED/ON_HOLD→DONE/CANCELLED, prioritas, risiko,
+  SLA/jatuh tempo, delegasi, eskalasi, evidence jsonb, dan `version` optimistic.
+- `source_entity_id` sengaja tanpa FK (menunjuk banyak tabel: dokumen, tugas
+  gudang, rekonsiliasi). Isolasi via RLS `branch_scope` (`app_branch_visible`).
+- Additive murni; tidak mengubah tabel lain. Rollback aman penuh — `077.down.sql`
+  menghapus tabel beserta policy dan index.
+
 ## Urutan aman
 
-`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076`
+`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076 → 077`
 
 Setelah migration 070:
 

@@ -1,5 +1,18 @@
 # Backlog Resmi — MAT ERP V2
 
+> **Unified Work Item Engine v0.42.0: ENGINEERING SELESAI — 29 Juli 2026.**
+> Migration 077 menambah `work_items`: backbone pekerjaan lintas modul (§4.4/§5.2)
+> — approval/exception/review/correction/task/follow-up sebagai entitas bertipe
+> dengan siklus hidup penuh, prioritas, risiko, SLA/jatuh tempo, evidence,
+> delegasi/substitusi, eskalasi, optimistic lock, RLS, dan audit. Aksi lengkap di
+> router Workspace (create/claim/start/complete/return/hold/cancel/delegate/
+> escalate); kepemilikan + scope cabang ditegakkan di repository; membaca notifikasi
+> tidak menutup pekerjaan. **My Work kini berbasis work item nyata** dengan aksi
+> lifecycle, bukan agregasi read-only — menutup P1 audit "Unified Work Item". Emisi
+> otomatis dari engine domain (approval, warehouse task, rekonsiliasi) ke work item
+> adalah integrasi lanjutan. Source of truth 001–077; regression 384/384; rollback
+> full-chain 77/76/76; authorization 302 handler.
+
 > **Canonical Warehouse Ledger (Stage 1) v0.41.0: ENGINEERING SELESAI —
 > 29 Juli 2026.** Migration 076 memulai migrasi §9.8 dari Branch-as-Warehouse ke
 > hierarki nyata Plant→Warehouse→Storage Location→Bin **tanpa membalik kunci

@@ -1,7 +1,9 @@
 'use strict';
 const { assertPermission, hasPermission } = require('../core/permissions');
+const { readBody } = require('../core/util');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const accountingConfig = require('../infrastructure/database/repositories/accounting-config');
+const workItems = require('../infrastructure/database/repositories/work-items');
 const { NO_MATCH } = require('./shared');
 
 // P0-P — entitlement per kartu. `dashboard.view` hanya membuka halamannya;
@@ -144,6 +146,7 @@ async function dispatch(client,req,url,ctx){const p=url.pathname,method=req.meth
   if(method==='GET'&&p==='/api/dashboard')return dashboard(client,ctx.user);
   if(method==='GET'&&p==='/api/my-work'){
     assertPermission(ctx.user,'dashboard.view');
+    const workItemsInbox=await workItems.myWork(client,ctx.user);
     const scopeAll=['owner','admin','system_admin'].includes(ctx.user.role)||ctx.user.branchScope==='*';
     const approvals=await runtime.pendingApprovals(client,ctx.user,{limit:5});
     const q=async(sql,params)=>(await client.query(sql,params)).rows.map(runtime.camel);
@@ -166,9 +169,28 @@ async function dispatch(client,req,url,ctx){const p=url.pathname,method=req.meth
       overdue:{items:overdue,total:await count(`SELECT count(*) n FROM business_documents WHERE due_date<current_date AND status IN('APPROVED','IN_PROCESS','PARTIALLY_COMPLETED','PARTIALLY_PAID','OVERDUE') AND ($1 OR branch_id=$2) AND NOT is_archived`,[scopeAll,ctx.user.branchId])},
       failedJobs:{items:failedJobs,total:failedJobs.length},
       actionRequired:{items:actions,total:actions.length},
+      workItems:workItemsInbox,
       generatedAt:new Date().toISOString()
     };
   }
   if(method==='GET'&&p==='/api/approvals'){assertPermission(ctx.user,'approval.view');return runtime.pendingApprovals(client,ctx.user,Object.fromEntries(url.searchParams));}
+
+  // Unified Work Item engine (migrasi 077) — §4.4/§5.2. Guard 'dashboard.view'
+  // (autentikasi); kepemilikan dan scope cabang ditegakkan di repository.
+  if(method==='GET'&&p==='/api/work-items'){assertPermission(ctx.user,'dashboard.view');
+    return workItems.listWorkItems(client,ctx.user,Object.fromEntries(url.searchParams));}
+  if(method==='POST'&&p==='/api/work-items'){assertPermission(ctx.user,'dashboard.view');const body=await readBody(req);
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:'workspace.work-item.create',key:req.headers['idempotency-key'],body},
+      async()=>({status:201,body:await workItems.createWorkItem(client,body,ctx.user,ctx.requestId)}));
+    ctx.status=result.status;return result.body;}
+  let m=p.match(/^\/api\/work-items\/([0-9a-f-]{36})\/(claim|start|return|hold|cancel|delegate|escalate)$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'dashboard.view');const body=await readBody(req);
+    const fn={claim:'claimItem',start:'startItem',return:'returnItem',hold:'holdItem',cancel:'cancelItem',delegate:'delegateItem',escalate:'escalateItem'}[m[2]];
+    return workItems[fn](client,{id:m[1],expectedVersion:Number(body.version),reason:body.reason,toUserId:body.toUserId,user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/work-items\/([0-9a-f-]{36})\/complete$/);
+  if(method==='POST'&&m){assertPermission(ctx.user,'dashboard.view');const body=await readBody(req);
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`workspace.work-item.complete:${m[1]}`,key:req.headers['idempotency-key'],body},
+      async()=>({status:200,body:await workItems.completeItem(client,{id:m[1],expectedVersion:Number(body.version),note:body.note,evidence:body.evidence,user:ctx.user,requestId:ctx.requestId})}));
+    ctx.status=result.status;return result.body;}
 return NO_MATCH;}
 module.exports={dispatch};

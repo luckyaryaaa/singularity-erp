@@ -15,6 +15,26 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.42.0 — Unified Work Item Engine
+
+- PostgreSQL source of truth berada pada migration 001–077.
+- `work_items` (migrasi 077) menjadi backbone pekerjaan lintas modul (§4.4/§5.2):
+  approval, exception, review, correction, dan tugas operasional menjadi entitas
+  bertipe dengan siklus hidup penuh, prioritas, risiko, SLA/jatuh tempo, evidence,
+  delegasi/substitusi, eskalasi, optimistic lock, RLS, dan audit.
+- Aksi diekspos di router Workspace (create/claim/start/complete/return/hold/
+  cancel/delegate/escalate); guard `dashboard.view` dengan kepemilikan dan scope
+  cabang ditegakkan di repository. Membaca notifikasi tidak menutup pekerjaan.
+- **My Work** kini berbasis work item nyata dengan aksi lifecycle langsung —
+  bukan lagi agregasi read-only.
+- Authorization matrix mencakup **302 handler** (Workspace 7).
+
+Regression 384/384, migration 001–077, dan rollback full-chain 77/76/76 telah
+tervalidasi. Status ini adalah **engineering release candidate**, bukan izin
+production: UAT 13 role, security retest manual, persetujuan enam rekonsiliasi,
+training, DR RTO/RPO, offsite evidence, dan Owner sign-off tetap menjadi gate
+go-live.
+
 ## Status v0.41.0 — Canonical Warehouse Ledger (Stage 1)
 
 - PostgreSQL source of truth berada pada migration 001–076.

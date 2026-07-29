@@ -20,6 +20,24 @@ selalu berbentuk `{ code, message, detail? }`.
   `policyVersion` (versi snapshot kebijakan approval) dan `credit` (hold,
   limit, exposure, projected, overLimit) untuk dokumen pelanggan.
 
+### Unified Work Item engine (migrasi 077, §4.4/§5.2)
+
+- `GET /api/work-items` — papan kerja work item + ringkasan (open/active/
+  returned/overdue). Filter: `branchId`, `status`, `itemType`, `assignee=me`.
+- `POST /api/work-items` — buat work item bertipe (APPROVAL/EXCEPTION/REVIEW/
+  CORRECTION/TASK/FOLLOW_UP); `Idempotency-Key` wajib. Mendukung `slaMinutes`
+  (menurunkan due date), `assigneeUserId`/`assigneeRole`, `risk`, `evidence`.
+- `POST /api/work-items/:id/claim|start|return|hold|cancel|delegate|escalate` —
+  transisi ber-`version` (return/hold/cancel beralasan; delegate/escalate
+  menerima `toUserId`).
+- `POST /api/work-items/:id/complete` — selesaikan + `evidence` (`version` +
+  `Idempotency-Key`).
+
+Siklus hidup: OPEN → CLAIMED → IN_PROGRESS → DONE (atau RETURNED/ON_HOLD/
+CANCELLED). Guard `dashboard.view` (autentikasi); kepemilikan (assignee/claimer/
+delegate/creator) dan scope cabang ditegakkan di repository, RLS `work_items`
+sebagai pertahanan kedua. `GET /api/my-work` kini menyertakan bagian `workItems`.
+
 ## Auth
 
 - `POST /api/auth/login`

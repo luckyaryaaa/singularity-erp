@@ -96,7 +96,7 @@ async function createTask(client, input, user, requestId) {
   let assignedTo = null;
   if (input.assignedTo) {
     const target = (await client.query(
-      'SELECT id FROM app_users WHERE id = $1 AND status = $2', [input.assignedTo, 'active'])).rows[0];
+      'SELECT id FROM app_users WHERE id = $1 AND active', [input.assignedTo])).rows[0];
     if (!target) throw new AppError('VALIDATION_ERROR', 'Petugas tujuan tidak ditemukan/aktif.');
     assignedTo = target.id;
   }
