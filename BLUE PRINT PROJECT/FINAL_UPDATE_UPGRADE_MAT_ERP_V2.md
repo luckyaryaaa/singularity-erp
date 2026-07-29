@@ -1,3 +1,8 @@
+> **HISTORICAL MIRROR — JANGAN DIEDIT.** Source of truth blueprint adalah
+> `FINAL_BLUEPRINT_UPDATE_UPGRADE_MAT_ERP_V2_ENTERPRISE_2026-07-21.md`;
+> status implementasi aktual berada di
+> `../docs/audit/enterprise-blueprint-audit-2026-07-29.md`.
+
 # FINAL BLUEPRINT UPDATE & UPGRADE MAT ERP V2
 
 ## Enterprise Integration Blueprint menuju pola SAP / Oracle / Dynamics 365

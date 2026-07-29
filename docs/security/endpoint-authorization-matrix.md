@@ -1,6 +1,6 @@
 # Endpoint Authorization Matrix
 
-Baseline v0.43.0 mencakup 14 bounded router dan 304 handler HTTP.
+Baseline v0.47.0 mencakup 14 bounded router dan 319 handler HTTP.
 Seluruh domain router hanya dipanggil setelah validasi session terpusat di
 `backend/api-postgres.js`. Endpoint publik dibatasi oleh allowlist eksplisit.
 
@@ -9,17 +9,17 @@ Seluruh domain router hanya dipanggil setelah validasi session terpusat di
 | Auth | 15 | public allowlist atau own authenticated session | login, lockout, MFA, recovery code sekali pakai, session expiry |
 | Workspace | 7 | permission + user scope + ownership + version + idempotency | dashboard, My Work, approvals, unified Work Item engine |
 | Documents | 9 | permission dinamis per tipe + branch | cross-branch read/mutation |
-| Sales | 23 | permission + repository branch | quotation, commercial control, dunning, RMA IDOR |
+| Sales | 27 | permission + repository branch | quotation, commercial control, dunning, RMA IDOR, pricing condition engine |
 | Procurement | 20 | permission + RLS + branch + SoD + version + idempotency | RFQ, kontrak/release replay, PO, proposal IDOR |
 | Operations | 14 | permission + ownership + branch | job, file, artifact isolation, notification preferences |
 | Masters | 47 | permission dinamis + repository scope | sensitive bank/employee/master |
 | Organization | 30 | scope + Owner PIN + recent MFA | bank, hierarchy, workforce maker-checker |
-| Inventory | 21 | permission + RLS + warehouse branch + version + idempotency | lot, bin, reservation release, opname scope, WMS task engine, canonical warehouse ledger |
+| Inventory | 30 | permission + RLS + canonical warehouse + version + idempotency | lot, bin, reservation, opname, WMS task, handling unit, immutable mobile scan, health reconciliation |
 | Production | 24 | permission + RLS + work-order branch + version + idempotency | WO, capacity/WIP, QC/CAPA/calibration, MRP isolation |
 | Finance | 40 | permission + branch + PIN/SoD | asset, ledger, HARD coding block, reconciliation evidence, report sign-off, tax IDOR |
 | HR | 15 | permission + branch/own record | roster, correction, payroll scope |
 | Reporting | 9 | permission + branch + ownership | filter/schedule/report scope |
-| Governance | 30 | permission + SoD/PIN/MFA | IAM, review, reset privileged maker-checker, audit append-only |
+| Governance | 32 | permission + SoD/PIN/MFA | IAM, review, reset privileged maker-checker, audit append-only, outbox dead-letter observability/retry |
 
 ## Gate otomatis
 

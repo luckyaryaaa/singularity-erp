@@ -86,8 +86,9 @@ async function runDunning(client, { user, requestId }) {
     if (exists) continue;
     const seq = (await client.query(`SELECT count(*)::int n FROM dunning_notices WHERE created_at>=date_trunc('year',now())`)).rows[0];
     const noticeNumber = `DUN-${new Date().getFullYear()}-${String(seq.n + 1).padStart(4, '0')}`;
+    const noticeId = randomUUID();
     await client.query(`INSERT INTO dunning_notices(id,notice_number,invoice_document_id,customer_id,level,days_overdue,outstanding,policy_snapshot,created_by)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [randomUUID(), noticeNumber, inv.id, inv.party_id, level.level, inv.days_overdue, outstanding,
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [noticeId, noticeNumber, inv.id, inv.party_id, level.level, inv.days_overdue, outstanding,
       JSON.stringify({ level: level.level, name: level.name, action: level.action, minDaysOverdue: level.min_days_overdue }), user.id]);
     issued++;
     let creditHeld = false;
@@ -101,6 +102,18 @@ async function runDunning(client, { user, requestId }) {
     }
     await runtime.audit(client, { userId: user.id, action: 'POST', module: 'invoice', entityType: 'DUNNING_NOTICE', entityId: inv.id, documentNumber: noticeNumber, newValue: { level: level.level, daysOverdue: inv.days_overdue, outstanding, creditHeld }, requestId, branchId: inv.branch_id });
     if (inv.party_id) await runtime.outbox(client, 'invoice.updated', { entityId: inv.document_number, documentType: 'INVOICE', branchId: inv.branch_id });
+    await runtime.actionRequired(client, {
+      actionKey: `dunning:${noticeId}`, actorUserId: user.id, branchId: inv.branch_id,
+      itemType: creditHeld ? 'EXCEPTION' : 'FOLLOW_UP',
+      title: `${creditHeld ? 'Credit hold' : 'Tunggakan'} ${inv.document_number}`,
+      description: `${noticeNumber}: ${inv.days_overdue} hari lewat jatuh tempo, outstanding ${outstanding}.`,
+      sourceModule: 'invoice', sourceEntityType: 'DUNNING_NOTICE', sourceEntityId: noticeId,
+      assigneeRole: 'finance_manager', priority: creditHeld || Number(level.level) >= 3 ? 'URGENT' : 'HIGH',
+      risk: creditHeld ? 'HIGH' : 'MEDIUM',
+      requiredAction: 'Tindak lanjuti pembayaran/komitmen pelanggan dan selesaikan notice dengan alasan.',
+      completionCondition: 'Notice dunning berstatus RESOLVED.',
+      slaMinutes: creditHeld ? 240 : 1440, link: '#/finance/collection'
+    });
     results.push({ invoice: inv.document_number, noticeNumber, level: level.level, outstanding, creditHeld });
   }
   return { scanned: invoices.length, issued, creditHolds: held, notices: results };
@@ -133,6 +146,11 @@ async function resolveDunning(client, { noticeId, reason, user, requestId }) {
     [noticeId, String(reason).slice(0, 500), user.id])).rows[0];
   const runtime = require('./runtime');
   await runtime.audit(client, { userId: user.id, action: 'UPDATE', module: 'invoice', entityType: 'DUNNING_NOTICE', entityId: noticeId, documentNumber: notice.notice_number, oldValue: { status: 'ISSUED' }, newValue: { status: 'RESOLVED' }, reason, requestId });
+  await runtime.actionResolved(client, {
+    actionKey: `dunning:${noticeId}`, actorUserId: user.id, branchId: notice.branch_id,
+    sourceEntityType: 'DUNNING_NOTICE', sourceEntityId: noticeId,
+    resolutionNote: `Notice ${notice.notice_number} diselesaikan: ${reason}`
+  });
   return runtime.camel(updated);
 }
 

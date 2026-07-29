@@ -1,51 +1,70 @@
-# Release Notes — v0.39.0
+# Release Notes — v0.47.0
 
-**Tanggal:** 2026-07-28 · **Branch:** `review/codex-claude-consolidation`  
-**Migrasi:** 001–074 · **Status:** engineering release candidate.
+**Tanggal:** 2026-07-29 · **Branch:** `review/codex-claude-consolidation`
 
-Rilis ini menutup Stage 3 Finance End-to-End secara engineering. Production
-tetap fail-closed sampai evidence dan persetujuan manusia lengkap.
+**Migrasi:** 001–082 · **Status:** technical release candidate.
+
+Rilis ini menyelesaikan Canonical Warehouse Stage 2A dan WMS Mobility:
+canonical-dimension guard, health reconciliation, handling unit/license plate,
+serta bukti scan LOT/BIN/HU append-only yang menjadi completion gate tugas.
+
+Rilis ini menghubungkan transactional Domain Event ke Unified Work Item,
+sekaligus mempertahankan Warehouse Execution, Notification Preferences,
+Advanced Pricing, dan fresh-database warehouse invariant. Production tetap
+fail-closed sampai evidence dan persetujuan manusia lengkap.
 
 ## Sorotan
 
-### Coding block fail-closed
+### Work orchestration lintas modul
 
-- Mode journal dimension default `HARD`; nilai tidak dikenal juga kembali ke
-  `HARD`, bukan melemahkan enforcement.
-- Policy per kategori akun memiliki version dan audit. Cost center, profit
-  center, dan project WBS tersedia pada jurnal manual.
-- Posting otomatis memilih master aktif dari legal entity/cabang secara
-  deterministik, menyimpan header dimension dan snapshot sumber resolusi, lalu
-  tetap menolak bila master wajib memang tidak tersedia.
+- `work.action-required.v1` membuat Work Item + notifikasi secara idempoten;
+  `work.action-resolved.v1` menutupnya otomatis.
+- Approval, Warehouse Task, CAPA/QC, reconciliation exception, dunning, dan
+  credit hold menjadi sumber action-required awal.
+- Outbox memiliki version, retry/backoff, dead-letter, dedupe, audit, metadata
+  observability tanpa payload, dan controlled retry dengan recent MFA.
 
-### Reconciliation dan closing evidence
+### Warehouse execution dan canonical ledger
 
-- Enam evidence type: `BANK`, `INVENTORY`, `PAYROLL`, `TAX`, `AR`, dan `AP`.
-- Snapshot rekonsiliasi immutable, ber-versi, memiliki SHA-256, maker-checker,
-  reject reason, RLS, dan audit trail.
-- Period close wajib `Idempotency-Key` dan alasan. Close package disimpan
-  immutable; reopen menutup lifecycle tanpa menghapus bukti terdahulu.
-- Close ditolak sampai versi terbaru keenam evidence berstatus `APPROVED`,
-  SHA-256 valid, dan bukan `NOT_RUN`; exception approval wajib beralasan.
-- Closing Cockpit menampilkan checklist, evidence terbaru, approval action, dan
-  riwayat close package.
+- WMS task lifecycle RECEIVE/PUTAWAY/PICK/PACK/SHIP/COUNT dengan RLS,
+  optimistic lock, assignment, prioritas, SLA, dan audit.
+- `stock_lots.org_warehouse_id`, ledger `security_invoker`, serta self-healing
+  gudang lot menjaga scope cabang.
+- Migration 080 menjamin setiap cabang aktif yang dibuat setelah migration 076
+  langsung memperoleh tepat satu gudang default aktif.
 
-### Laporan keuangan resmi
+### Unified work dan notification preferences
 
-- Prepare → Review → Sign-off tersedia end-to-end pada UI dan API.
-- Sign-off memerlukan periode `CLOSED`, neraca seimbang, SHA valid, dan pemisahan
-  maker/reviewer/signer.
-- Tax Center menampilkan GL ↔ tax subledger serta evidence reconciliation.
-- OpenAPI 1.4 mencakup endpoint baru; authorization matrix mencakup 291 handler.
+- Work item lintas modul memiliki lifecycle, evidence, delegasi, eskalasi,
+  ownership, SLA, dan My Work berbasis data nyata.
+- Preferensi notifikasi per pengguna dapat mematikan kategori in-app/email
+  tanpa menghapus record; `SYSTEM_ALERT` selalu aktif.
+
+### Advanced pricing Stage 1
+
+- Condition records BASE_PRICE, DISCOUNT_PCT, DISCOUNT_AMT, dan SURCHARGE_PCT
+  dengan scope produk/pelanggan/kategori, quantity scale, validity, priority,
+  optimistic lock, dan audit.
+- Resolver server-authoritative memilih base price paling spesifik lalu
+  menerapkan discount/surcharge yang berlaku.
+
+### Visual dan accessibility
+
+- Baseline visual v8 mencakup 31 halaman × desktop/mobile = **62/62 PASS**.
+- Lima capability terbaru mempunyai selector terarah, bukan hanya smoke pada
+  container umum.
+- Accessibility static **18/18 PASS**.
 
 ## Database dan keamanan
 
-- **Migration 074:** `finance_reconciliation_evidence`,
-  `accounting_period_close_runs`, metadata version pada coding policy, RLS,
-  immutable trigger, dan privilege runtime minimum.
-- Audit data protection lulus: 31/31 tabel RLS, runtime non-owner/
-  non-`BYPASSRLS`, empat encryption constraint valid, nol plaintext, sembilan
-  histori tanpa `DELETE/TRUNCATE`.
+- Migration **001–081** valid dan applied; rollback disposable **81 up, 80
+  down, 80 re-up PASS**. Migration 001 adalah baseline foundation; migration
+  incremental 002–081 mempunyai pasangan down.
+- Authorization matrix: **14 router, 310 handler PASS**.
+- Data protection: **31/31 RLS**, runtime non-owner/non-`BYPASSRLS`, empat
+  encryption constraint valid, nol plaintext, sembilan history protected.
+- Secret scan terakhir: nol finding. Nilai hitungan file final tercatat pada
+  [TEST_EVIDENCE.md](TEST_EVIDENCE.md).
 
 ## Urutan deployment
 
@@ -57,19 +76,19 @@ npm.cmd run security:data-audit
 npm.cmd run predeploy
 ```
 
-Seluruh migration mempunyai pasangan `.down.sql`. Migration rollback harus
-diuji pada database disposable, bukan pada database bisnis.
+Rollback wajib diuji pada database disposable, bukan database bisnis.
 
 ## Gate yang tetap terbuka
 
-Rilis ini **bukan production approval**. Go-live tetap diblokir sampai:
+Technical RC ini **bukan production approval**. Go-live tetap diblokir sampai:
 
 - `SEC-UAT-001` diretest operator dan berstatus `CLOSED`;
-- UAT 13 role dan training evidence lengkap;
+- UAT serta training 13 role lengkap;
 - enam rekonsiliasi aktual disetujui Finance/Owner pada release SHA yang sama;
-- actual RTO/RPO serta immutable offsite backup evidence disetujui;
+- actual RTO/RPO dan immutable offsite backup evidence disetujui;
 - Owner menandatangani versi, SHA, dan migration yang sama.
 
-Detail teknis: [v0.39-finance-end-to-end-closure.md](v0.39-finance-end-to-end-closure.md),
+Detail: [v0.46-domain-event-work-orchestration.md](v0.46-domain-event-work-orchestration.md),
+[v0.45-fresh-database-warehouse-invariant.md](v0.45-fresh-database-warehouse-invariant.md),
 [MIGRATION_NOTES.md](MIGRATION_NOTES.md), dan
 [TEST_EVIDENCE.md](TEST_EVIDENCE.md).

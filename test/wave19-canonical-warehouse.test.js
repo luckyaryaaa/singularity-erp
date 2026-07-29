@@ -60,6 +60,19 @@ dbTest('Wave 19: setiap cabang aktif memiliki tepat satu gudang default', async 
   assert.equal(dup.length, 0, 'tidak boleh ada cabang dengan lebih dari satu gudang default');
 }));
 
+dbTest('Wave 19: cabang aktif yang dibuat setelah migration otomatis memperoleh gudang default', async () => rollback(async (client) => {
+  const legalEntity = (await client.query('SELECT id FROM legal_entities ORDER BY created_at LIMIT 1')).rows[0];
+  const branch = (await client.query(
+    `INSERT INTO branches(id,code,name,legal_entity_id,active)
+     VALUES($1,$2,'Cabang uji lifecycle',$3,true) RETURNING id`,
+    [randomUUID(), tag('BR'), legalEntity.id])).rows[0];
+  const defaults = (await client.query(
+    'SELECT id,active FROM org_warehouses WHERE branch_id=$1 AND is_default',
+    [branch.id])).rows;
+  assert.equal(defaults.length, 1, 'cabang baru wajib langsung mempunyai tepat satu default');
+  assert.equal(defaults[0].active, true, 'gudang default cabang aktif wajib aktif');
+}));
+
 dbTest('Wave 19: lot tanpa gudang di-resolve otomatis ke gudang default cabangnya', async () => rollback(async (client) => {
   const user = await owner(client);
   const { lot } = await makeLot(client, user.branchId, null, 10);

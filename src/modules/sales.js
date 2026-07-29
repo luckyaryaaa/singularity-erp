@@ -303,11 +303,13 @@
   const commercialControl = {
     permission: 'sales_order.view',
     async render(main, _params, signal) {
-      const [overview, contractsRes, ordersRes, backordersRes] = await Promise.all([
+      const [overview, contractsRes, ordersRes, backordersRes, pricingRes] = await Promise.all([
         api('/api/sales/commercial/overview', { signal }), api('/api/sales/contracts', { signal }),
-        api('/api/documents?type=SALES_ORDER&limit=100', { signal }), api('/api/sales/backorders', { signal })
+        api('/api/documents?type=SALES_ORDER&limit=100', { signal }), api('/api/sales/backorders', { signal }),
+        api('/api/sales/pricing-conditions', { signal }).catch(() => ({ items: [] }))
       ]);
       const contracts = asList(contractsRes), orders = asList(ordersRes), backorders = asList(backordersRes);
+      const pricing = (pricingRes && pricingRes.items) || [];
       const orderOptions = orders.map((o) => [o.id, `${o.documentNumber} · ${o.partyName || 'Tanpa pelanggan'} · ${fmtIDR(o.amount)}`]);
       main.innerHTML = pageHead({ eyebrow: 'PENJUALAN · GOVERNANCE', title: 'Commercial Control Center', sub: 'Kendali margin, availability promise, kontrak, milestone billing, dan backorder dengan jejak keputusan.', actions: can('sales_order.create') ? `<button class="btn primary" id="newContract">${ICONS.plus} Kontrak pelanggan</button>` : '' }) + `
         <section class="kpi-grid">
@@ -336,9 +338,58 @@
         <section class="panel"><header><div><p class="eyebrow">FULFILMENT EXCEPTION</p><h2>Backorder worklist</h2></div><span class="chip coral">${backorders.filter((x) => !['FULFILLED','CANCELLED'].includes(x.status)).length} terbuka</span></header>
           <div class="table-wrap"><table><thead><tr><th>Sales order</th><th>Baris</th><th>Pelanggan</th><th>Backorder</th><th>Terallocasi</th><th>Promise</th><th>Status</th></tr></thead><tbody>
           ${backorders.map((b) => `<tr><td><b>${esc(b.documentNumber)}</b></td><td>${b.lineNo} · ${esc(b.description)}</td><td>${esc(b.partyName || '—')}</td><td>${Number(b.backorderQty).toLocaleString('id-ID')}</td><td>${Number(b.allocatedQty).toLocaleString('id-ID')}</td><td>${b.promisedDate ? fmtDate(b.promisedDate) : 'Review manual'}</td><td>${chip(b.status)}</td></tr>`).join('') || '<tr><td colspan="7" class="empty-cell">Belum ada backorder tersimpan.</td></tr>'}
-          </tbody></table></div></section>`;
+          </tbody></table></div></section>
+        <section class="panel pricing-conditions"><header><div><p class="eyebrow">PRICING</p><h2>Kondisi harga (price list & diskon)</h2></div><span class="table-actions">
+            <button class="btn xs light" id="priceCheck">Cek harga</button>
+            ${can('quotation.edit') ? `<button class="btn xs primary" id="newPricing">${ICONS.plus} Tambah kondisi</button>` : ''}</span></header>
+          <div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Cakupan</th><th class="right">Nilai</th><th class="right">Min qty</th><th>Berlaku</th><th>Status / aksi</th></tr></thead><tbody>
+          ${pricing.map((c) => `<tr><td><b>${esc(c.conditionType)}</b></td>
+            <td>${[c.productCode ? esc(c.productCode) : null, c.productCategory ? `kat ${esc(c.productCategory)}` : null, c.partyId ? 'pelanggan' : null].filter(Boolean).join(' · ') || '<span class="muted">semua</span>'}</td>
+            <td class="right money">${String(c.conditionType).endsWith('_PCT') ? `${Number(c.amount)}%` : fmtIDR(c.amount)}</td>
+            <td class="right">${Number(c.minQty)}</td>
+            <td>${fmtDate(c.effectiveFrom)}${c.effectiveTo ? ` – ${fmtDate(c.effectiveTo)}` : ''}</td>
+            <td>${chip(c.status)} ${c.status === 'ACTIVE' && can('quotation.edit') ? `<button class="btn xs light" data-price-off="${c.id}" data-ver="${c.version}">Nonaktifkan</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="empty-cell">Belum ada kondisi harga. Harga jual jatuh ke harga daftar produk.</td></tr>'}
+          </tbody></table></div>
+          <div class="panel-body"><p class="muted">Resolusi harga server: base price paling spesifik (pelanggan+produk &gt; produk &gt; kategori; jatuh ke harga daftar produk bila tak ada), lalu diskon/surcharge yang berlaku diterapkan berurutan. Skala kuantitas dan masa berlaku dihormati.</p></div>
+        </section>`;
 
       const reload = () => this.render(main, _params, signal);
+      main.querySelector('#newPricing')?.addEventListener('click', async () => {
+        const products = asList(await api('/api/products?limit=300').catch(() => ({ items: [] })));
+        const v = await formDialog({ title: 'Tambah kondisi harga', description: 'Base price menetapkan harga; diskon/surcharge menyesuaikannya. Cakupan minimal satu: produk, kategori, atau pelanggan.', fields: [
+          { name: 'conditionType', label: 'Jenis', type: 'select', required: true, options: [['BASE_PRICE', 'Base price'], ['DISCOUNT_PCT', 'Diskon %'], ['DISCOUNT_AMT', 'Diskon /unit'], ['SURCHARGE_PCT', 'Surcharge %']] },
+          { name: 'productId', label: 'Produk', type: 'select', options: [['', '— semua —'], ...products.map((p) => [p.id, `${p.code} · ${p.name}`])] },
+          { name: 'productCategory', label: 'Kategori produk (opsional)' },
+          { name: 'amount', label: 'Nilai (harga / persen / nominal)', type: 'number', min: 0, required: true },
+          { name: 'minQty', label: 'Min qty (skala grosir)', type: 'number', min: 0 },
+          { name: 'effectiveFrom', label: 'Berlaku mulai', type: 'date' },
+          { name: 'effectiveTo', label: 'Berlaku sampai (opsional)', type: 'date' },
+          { name: 'notes', label: 'Catatan' }
+        ], submitLabel: 'Simpan kondisi' });
+        if (!v) return;
+        try {
+          await api('/api/sales/pricing-conditions', { method: 'POST', idempotencyKey: newIdemKey(), body: {
+            conditionType: v.conditionType, productId: v.productId || null, productCategory: v.productCategory || null,
+            amount: Number(v.amount), minQty: v.minQty ? Number(v.minQty) : 0, effectiveFrom: v.effectiveFrom || null, effectiveTo: v.effectiveTo || null, notes: v.notes || null } });
+          toast('Kondisi harga disimpan', v.conditionType); reload();
+        } catch (e) { toast('Gagal menyimpan kondisi', e.message, 'coral'); }
+      });
+      main.querySelector('#priceCheck')?.addEventListener('click', async () => {
+        const products = asList(await api('/api/products?limit=300').catch(() => ({ items: [] })));
+        const v = await formDialog({ title: 'Cek harga', description: 'Resolusi harga server dari condition records.', fields: [
+          { name: 'productId', label: 'Produk', type: 'select', required: true, options: products.map((p) => [p.id, `${p.code} · ${p.name}`]) },
+          { name: 'qty', label: 'Qty', type: 'number', min: 1 }
+        ], submitLabel: 'Hitung harga' });
+        if (!v) return;
+        try {
+          const r = await api(`/api/sales/price?productId=${encodeURIComponent(v.productId)}&qty=${Number(v.qty) || 1}`);
+          toast(`Harga ${r.productCode}`, `Base ${fmtIDR(r.basePrice)} (${r.basePriceSource}) → Net ${fmtIDR(r.netUnitPrice)} · ${r.appliedConditions.length} kondisi`, 'mint');
+        } catch (e) { toast('Gagal menghitung harga', e.message, 'coral'); }
+      });
+      main.querySelectorAll('[data-price-off]').forEach((btn) => btn.addEventListener('click', async () => {
+        try { await api(`/api/sales/pricing-conditions/${btn.dataset.priceOff}/deactivate`, { method: 'POST', body: { version: Number(btn.dataset.ver) } }); toast('Kondisi dinonaktifkan'); reload(); }
+        catch (e) { toast('Gagal menonaktifkan', e.message, 'coral'); }
+      }));
       main.querySelector('#newContract')?.addEventListener('click', async () => {
         const customers = asList(await api('/api/customers?limit=200'));
         const v = await formDialog({ title: 'Kontrak pelanggan', description: 'Kontrak dibuat DRAFT dan wajib melalui maker-checker.', fields: [

@@ -5,6 +5,7 @@ const operations = require('../infrastructure/database/repositories/operations')
 const inventoryLots = require('../infrastructure/database/repositories/inventory');
 const binExecution = require('../infrastructure/database/repositories/bin-execution');
 const warehouseTasks = require('../infrastructure/database/repositories/warehouse-tasks');
+const warehouseMobility = require('../infrastructure/database/repositories/warehouse-mobility');
 const warehouseLedger = require('../infrastructure/database/repositories/warehouse-ledger');
 const stockReservations = require('../infrastructure/database/repositories/stock-reservations');
 const runtime = require('../infrastructure/database/repositories/runtime');
@@ -85,6 +86,43 @@ async function dispatch(client, req, url, ctx) {
   m=p.match(/^\/api\/inventory\/tasks\/([0-9a-f-]{36})\/cancel$/);
   if(method==='POST'&&m){const body=await readBody(req);
     return warehouseTasks.cancelTask(client,{id:m[1],expectedVersion:Number(body.version),reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
+
+  // Canonical Warehouse Stage 2A + WMS Mobility (082).
+  if(method==='GET'&&p==='/api/inventory/warehouse-health')
+    return warehouseMobility.dimensionHealth(client,ctx.user);
+  if(method==='GET'&&p==='/api/inventory/handling-units')
+    return warehouseMobility.listHandlingUnits(client,ctx.user,Object.fromEntries(url.searchParams));
+  if(method==='POST'&&p==='/api/inventory/handling-units'){const body=await readBody(req);
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,
+      operation:'inventory.handling-unit.create',key:req.headers['idempotency-key'],body},
+    async()=>({status:201,body:await warehouseMobility.createHandlingUnit(client,body,ctx.user,ctx.requestId)}));
+    ctx.status=result.status;return result.body;
+  }
+  m=p.match(/^\/api\/inventory\/handling-units\/([0-9a-f-]{36})\/items$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    return warehouseMobility.addHandlingUnitItem(client,{id:m[1],lotId:body.lotId,qty:body.qty,
+      user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/inventory\/handling-units\/([0-9a-f-]{36})\/transition$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    return warehouseMobility.transitionHandlingUnit(client,{id:m[1],action:body.action,
+      expectedVersion:Number(body.version),reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
+  if(method==='POST'&&p==='/api/inventory/mobility/sessions'){const body=await readBody(req);
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,
+      operation:`inventory.mobility.start:${body.taskId}`,key:req.headers['idempotency-key'],body},
+    async()=>({status:201,body:await warehouseMobility.startScanSession(client,{
+      taskId:body.taskId,user:ctx.user,requestId:ctx.requestId})}));
+    ctx.status=result.status;return result.body;
+  }
+  m=p.match(/^\/api\/inventory\/mobility\/sessions\/([0-9a-f-]{36})$/);
+  if(method==='GET'&&m)return warehouseMobility.getScanSession(client,m[1],ctx.user);
+  m=p.match(/^\/api\/inventory\/mobility\/sessions\/([0-9a-f-]{36})\/scan$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    return warehouseMobility.scan(client,{id:m[1],code:body.code,expectedVersion:Number(body.version),
+      deviceLabel:body.deviceLabel,user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/inventory\/mobility\/sessions\/([0-9a-f-]{36})\/complete$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    return warehouseMobility.completeScanSession(client,{id:m[1],expectedVersion:Number(body.version),
+      user:ctx.user,requestId:ctx.requestId});}
   return NO_MATCH;
 }
 

@@ -86,6 +86,8 @@ window.MAT = (() => {
   const EVENT_PREFIXES = {
     'approval.created': ['approvals', 'documents', 'dashboard'],
     'approval.updated': ['approvals', 'documents', 'doc:', 'dashboard'],
+    'work.action-required.v1': ['my-work', 'notifications', 'dashboard'],
+    'work.action-resolved.v1': ['my-work', 'notifications', 'dashboard'],
     'quotation.updated': ['documents:QUOTATION', 'doc:'],
     'purchase_order.updated': ['documents:PURCHASE_ORDER', 'doc:'],
     'goods_receipt.created': ['documents:GOODS_RECEIPT', 'inventory'],

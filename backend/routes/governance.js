@@ -10,6 +10,7 @@ const auth = require('../infrastructure/database/repositories/auth');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const governance = require('../infrastructure/database/repositories/governance');
 const retention = require('../infrastructure/database/repositories/retention');
+const outboxOperations = require('../infrastructure/database/repositories/outbox-operations');
 const passwordReset = require('../infrastructure/database/repositories/password-reset');
 const assurance = require('../infrastructure/database/repositories/assurance');
 const { healthCheck, stats } = require('../infrastructure/database/pool');
@@ -24,6 +25,8 @@ const { NO_MATCH } = require('./shared');
 async function dispatch(client, req, url, ctx) {
   const p=url.pathname, method=req.method;
   let m;
+  if(method==='GET'&&p==='/api/governance/outbox'){assertPermission(ctx.user,'settings.view');return outboxOperations.list(client,{status:url.searchParams.get('status')||'DEAD_LETTER',limit:url.searchParams.get('limit')||50});}
+  m=p.match(/^\/api\/governance\/outbox\/([0-9a-f-]{36})\/retry$/);if(method==='POST'&&m){assertPermission(ctx.user,'settings.edit');const body=await readBody(req);await auth.assertRecentMfa(client,{user:ctx.user,session:ctx.session,action:'Retry dead-letter outbox'});return outboxOperations.retry(client,{id:m[1],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
   if(method==='GET'&&p==='/api/audit'){assertPermission(ctx.user,'audit.view');const limit=Math.min(Math.max(Number(url.searchParams.get('limit'))||25,1),100),page=Math.max(Number(url.searchParams.get('page'))||1,1);const total=Number((await client.query('SELECT count(*) n FROM audit_logs')).rows[0].n);const items=(await client.query(`SELECT a.*,u.display_name user_name,u.role FROM audit_logs a LEFT JOIN app_users u ON u.id=a.user_id ORDER BY occurred_at DESC LIMIT $1 OFFSET $2`,[limit,(page-1)*limit])).rows.map(runtime.camel);return{items,page,limit,total,totalPages:Math.max(Math.ceil(total/limit),1)};}
   if(method==='GET'&&p==='/api/governance/roles'){assertPermission(ctx.user,'iam.view');return{items:await governance.listRoles(client)};}
   if(method==='GET'&&p==='/api/governance/assignments'){assertPermission(ctx.user,'iam.view');return{items:await governance.listAssignments(client,Object.fromEntries(url.searchParams))};}

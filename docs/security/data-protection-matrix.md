@@ -1,6 +1,6 @@
 # Data Protection Matrix — MAT ERP V2
 
-**Baseline:** v0.39.0 · migration 001–074 · 28 Juli 2026
+**Baseline:** v0.46.0 · migration 001–081 · 29 Juli 2026
 
 Dokumen ini menetapkan kontrol berdasarkan risiko dan kebutuhan pemrosesan.
 Enkripsi field diterapkan pada identifier yang tidak memerlukan aritmetika SQL.

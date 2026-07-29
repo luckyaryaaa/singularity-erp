@@ -1,9 +1,31 @@
-# Migration Notes — 063 → 074
+# Migration Notes — 063 → 082
 
-**Rilis:** v0.39.0 · **Seluruh migration memiliki `.down.sql`.**
+**Rilis:** v0.47.0 · migration incremental 002–082 memiliki `.down.sql`;
+001 adalah baseline foundation dan tidak di-rollback.
 
 Terapkan berurutan dengan `npm run db:migrate`; checksum divalidasi melalui
 `npm run db:validate`.
+
+## 082 — `warehouse_stage2a_mobility`
+
+- Menambahkan canonical warehouse guard pada balance, movement, reservation,
+  lot, dan Warehouse Task.
+- Menambahkan expiry date, location ledger, dan health reconciliation view.
+- Menambahkan handling unit/license plate, item, scan session, serta scan event
+  append-only dengan RLS dan trigger lintas-dimensi.
+- Rollback menghapus objek Stage 2A dan mengembalikan resolver lot Stage 1.
+
+## 081 — `domain_event_work_item_projection`
+
+- Menambah `event_version`, `delivery_status`, `next_attempt_at`, dan
+  `dead_lettered_at` pada transactional outbox.
+- Menambah `automation_key`, `source_event_id`, `source_event_type`, serta
+  `auto_managed` pada Unified Work Item.
+- Unique partial index menjamin replay event/business key tidak membuat Work
+  Item ganda.
+- Down migration melepas index/kolom secara terbalik dan memulihkan index
+  unpublished lama.
+- Rollback disposable tervalidasi **81 up, 80 down, 80 re-up**.
 
 ## 063–064 — Security recovery dan execution hardening
 
@@ -108,9 +130,29 @@ Terapkan berurutan dengan `npm run db:migrate`; checksum divalidasi melalui
   bukan jalur tulis. `SYSTEM_ALERT` tidak dapat dimatikan (dijaga repo).
 - Additive murni; rollback aman penuh (`078.down.sql` menghapus tabel + policy).
 
+## 079 — `pricing_conditions`
+
+- Menambah tabel `pricing_conditions`: condition records harga (BASE_PRICE/
+  DISCOUNT_PCT/DISCOUNT_AMT/SURCHARGE_PCT) per legal entity, cakupan produk/
+  pelanggan/kategori, `min_qty` (skala), effective-dated, prioritas, `version`.
+  Constraint: minimal satu dimensi cakupan, validity konsisten, persen ≤ 100.
+- Tanpa RLS cabang (master pricing per legal entity; scope ditegakkan repo +
+  peran lintas cabang). Additive murni; rollback aman penuh.
+
+## 080 — `branch_default_warehouse_guard`
+
+- Menutup celah lifecycle migration 076: cabang aktif yang dibuat setelah
+  migration kini otomatis memiliki tepat satu gudang default aktif.
+- Trigger memilih default existing, mempromosikan warehouse existing, atau
+  membuat warehouse default baru. Fungsi `SECURITY DEFINER` memakai
+  `search_path` terkunci.
+- Backfill memperbaiki cabang aktif yang terlanjur belum mempunyai default.
+- Down migration menghapus trigger/fungsi; baris warehouse yang sudah terbentuk
+  tetap dipertahankan sebagai data organisasi.
+
 ## Urutan aman
 
-`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076 → 077 → 078`
+`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076 → 077 → 078 → 079 → 080`
 
 Setelah migration 070:
 

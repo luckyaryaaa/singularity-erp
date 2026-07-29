@@ -8,12 +8,13 @@
     permission: 'inventory.view',
     onEvent() { this._table?.reload(); },
     render(main) {
-      const TABS = [['saldo', 'Saldo stok'], ['reservations', 'Reservasi'], ['lots', 'Lot & Heat Number'], ['gudang', 'Gudang'], ['bins', 'Rak & Bin'], ['tugas', 'Tugas gudang'], ['opname', 'Stock Opname'], ['valuasi', 'Valuasi']];
+      const TABS = [['saldo', 'Saldo stok'], ['reservations', 'Reservasi'], ['lots', 'Lot & Heat Number'], ['gudang', 'Gudang'], ['bins', 'Rak & Bin'], ['tugas', 'Tugas gudang'], ['mobilitas', 'WMS Mobile'], ['opname', 'Stock Opname'], ['valuasi', 'Valuasi']];
       const requestedTab = state.routeQuery?.get?.('tab');
       this._tab = TABS.some(([id]) => id === requestedTab) ? requestedTab : (this._tab || 'saldo');
       const actions = `<nav class="chip-tabs" aria-label="Tab inventori">${TABS.map(([id, label]) => `<button class="btn ${this._tab === id ? 'primary' : 'secondary'}" data-invtab="${id}">${esc(label)}</button>`).join('')}</nav>
         ${this._tab === 'opname' && can('stock_opname.create') ? `<button class="btn primary" id="startOpname">${ICONS.plus} Mulai opname</button>` : ''}
-        ${this._tab === 'tugas' && can('inventory.edit') ? `<button class="btn primary" id="newTask">${ICONS.plus} Buat tugas gudang</button>` : ''}`;
+        ${this._tab === 'tugas' && can('inventory.edit') ? `<button class="btn primary" id="newTask">${ICONS.plus} Buat tugas gudang</button>` : ''}
+        ${this._tab === 'mobilitas' && can('inventory.edit') ? `<button class="btn primary" id="newHu">${ICONS.plus} Buat handling unit</button>` : ''}`;
       main.innerHTML = pageHead({ eyebrow: 'GUDANG', title: 'Persediaan', sub: 'Saldo stok, traceability lot/heat number (mill certificate), stock opname, dan valuasi.', actions }) + '<section id="pgTable"></section><section id="pgDetail"></section>';
       main.querySelectorAll('[data-invtab]').forEach((b) => b.addEventListener('click', () => {
         this._tab = b.dataset.invtab;
@@ -112,6 +113,8 @@
         this.renderWarehouses(mount);
       } else if (this._tab === 'tugas') {
         this.renderTasks(main, mount);
+      } else if (this._tab === 'mobilitas') {
+        this.renderMobility(main, mount);
       } else if (this._tab === 'opname') {
         this._table = dataTable(mount, {
           key: 'documents:opname', endpoint: '/api/documents', params: { type: 'STOCK_OPNAME' }, title: 'Sesi stock opname', eyebrow: 'OPNAME',
@@ -225,7 +228,7 @@
     async renderWarehouses(mount) {
       try {
         const data = await api('/api/inventory/warehouses');
-        mount.innerHTML = `<section class="panel table-panel">
+        mount.innerHTML = `<section class="panel table-panel warehouse-ledger">
           <header><div><p class="eyebrow">GUDANG · LEDGER KANONIK</p><h2>${data.totals.warehouses} gudang</h2></div>
             <span class="chip blue">${data.totals.qtyOnHand} unit · ${data.totals.lotCount} lot</span></header>
           <div class="table-wrap"><table>
@@ -252,7 +255,7 @@
       try {
         const data = await api('/api/inventory/tasks');
         const s = data.summary;
-        mount.innerHTML = `<section class="panel table-panel">
+        mount.innerHTML = `<section class="panel table-panel warehouse-task-board">
           <header><div><p class="eyebrow">GUDANG · WMS</p><h2>${data.total} tugas eksekusi</h2></div>
             <div class="row-actions">
               <span class="chip gray">${s.open} terbuka</span>
@@ -284,14 +287,24 @@
       if (!can('inventory.edit')) return '';
       const btn = (act, label, cls) => `<button class="btn ${cls}" data-task-act="${act}" data-id="${t.id}" data-ver="${t.version}">${esc(label)}</button>`;
       if (t.status === 'OPEN') return btn('claim', 'Klaim', 'secondary');
-      if (t.status === 'CLAIMED') return btn('start', 'Mulai', 'secondary') + btn('cancel', 'Batal', 'danger-outline');
-      if (t.status === 'IN_PROGRESS') return btn('complete', 'Selesai', 'primary') + btn('cancel', 'Batal', 'danger-outline');
+      const scan = t.scanRequired && ['CLAIMED', 'IN_PROGRESS'].includes(t.status)
+        ? btn('scan', 'Pindai', 'secondary') : '';
+      if (t.status === 'CLAIMED') return btn('start', 'Mulai', 'secondary') + scan + btn('cancel', 'Batal', 'danger-outline');
+      if (t.status === 'IN_PROGRESS') return scan + btn('complete', 'Selesai', 'primary') + btn('cancel', 'Batal', 'danger-outline');
       return '';
     },
     async runTaskAction(main, action, id, version) {
       try {
         if (action === 'claim') await api(`/api/inventory/tasks/${id}/claim`, { method: 'POST', body: { version } });
         else if (action === 'start') await api(`/api/inventory/tasks/${id}/start`, { method: 'POST', body: { version } });
+        else if (action === 'scan') {
+          this._mobilityTaskId = id;
+          this._tab = 'mobilitas';
+          state.routeQuery = new URLSearchParams('tab=mobilitas');
+          history.replaceState(null, '', '#/warehouse/inventory?tab=mobilitas');
+          this.render(main);
+          return;
+        }
         else if (action === 'complete') {
           const answer = await actionDialog({ title: 'Selesaikan tugas', description: 'Untuk put-away, penyelesaian memindahkan lot ke rak tujuan. Catatan opsional.', confirmLabel: 'Selesaikan' });
           if (!answer) return;
@@ -326,7 +339,8 @@
             { name: 'qty', label: 'Qty', type: 'number', min: 0 },
             { name: 'reference', label: 'Referensi (mis. nomor dokumen)' },
             { name: 'instructions', label: 'Instruksi' },
-            { name: 'dueAt', label: 'Jatuh tempo', type: 'date' }
+            { name: 'dueAt', label: 'Jatuh tempo', type: 'date' },
+            { name: 'scanRequired', label: 'Wajibkan bukti scan mobile', type: 'checkbox', value: false }
           ],
           submitLabel: 'Buat tugas'
         });
@@ -335,11 +349,158 @@
         const body = { taskType: value.taskType, priority: value.priority || 'NORMAL',
           lotId: value.lotId || null, toBinId: value.toBinId || null, productId: lot ? lot.productId : null,
           qty: value.qty ? Number(value.qty) : null, reference: value.reference || null,
-          instructions: value.instructions || null, dueAt: value.dueAt || null };
+          instructions: value.instructions || null, dueAt: value.dueAt || null,
+          scanRequired: Boolean(value.scanRequired) };
         const task = await api('/api/inventory/tasks', { method: 'POST', idempotencyKey: newIdemKey(), body });
         toast('Tugas dibuat', `${esc(task.taskType)}${task.branchName ? ' · ' + esc(task.branchName) : ''}`);
         this.render(main);
       } catch (error) { toast('Gagal membuat tugas', error.message, 'coral'); }
+    },
+    async renderMobility(main, mount) {
+      try {
+        const [tasks, hus, health, lots, warehouses, bins] = await Promise.all([
+          api('/api/inventory/tasks?limit=100'),
+          api('/api/inventory/handling-units'),
+          api('/api/inventory/warehouse-health'),
+          api('/api/inventory/lots?limit=100').catch(() => ({ items: [] })),
+          api('/api/inventory/warehouses'),
+          api('/api/inventory/bins').catch(() => ({ items: [] }))
+        ]);
+        this._mobilityData = { tasks, hus, health, lots, warehouses, bins };
+        const active = tasks.items.filter((t) => t.scanRequired && ['CLAIMED', 'IN_PROGRESS'].includes(t.status));
+        mount.innerHTML = `<section class="panel mobile-scan-workbench">
+          <header><div><p class="eyebrow">WMS MOBILE · STAGE 2A</p><h2>Eksekusi pindai terkontrol</h2></div>
+            <span class="chip ${health.healthy ? 'mint' : 'coral'}">${health.healthy ? 'Dimensi sehat' : 'Perlu rekonsiliasi'}</span></header>
+          <div class="panel-body">
+            <div class="metrics compact">
+              ${kpiCard({ label: 'Tugas siap pindai', value: String(active.length), note: 'Claimed / in progress', orb: 'box', orbTone: 'blue' })}
+              ${kpiCard({ label: 'Handling unit aktif', value: String(hus.items.filter((h) => !['SHIPPED', 'VOID'].includes(h.status)).length), note: 'License plate fisik', orb: 'ledger', orbTone: 'mint' })}
+            </div>
+            <div class="field"><span>Pilih tugas</span><select id="mobilityTask">
+              <option value="">— pilih tugas scan —</option>
+              ${active.map((t) => `<option value="${t.id}" ${this._mobilityTaskId === t.id ? 'selected' : ''}>${esc(t.taskType)} · ${esc(t.reference || t.lotNumber || t.id.slice(0, 8))}</option>`).join('')}
+            </select></div>
+            <button class="btn primary" id="startScan" ${active.length ? '' : 'disabled'}>Mulai / lanjutkan sesi</button>
+            <div id="scanSession"></div>
+          </div>
+        </section>
+        <section class="panel table-panel">
+          <header><div><p class="eyebrow">LICENSE PLATE</p><h2>${hus.items.length} handling unit</h2></div></header>
+          <div class="table-wrap"><table><thead><tr><th>License plate</th><th>Gudang / bin</th><th>Tipe</th><th class="right">Qty</th><th>Status</th><th></th></tr></thead>
+          <tbody>${hus.items.length ? hus.items.map((h) => `<tr>
+            <td><b>${esc(h.licensePlate)}</b><small>${h.itemCount} lot</small></td>
+            <td>${esc(h.warehouseCode)}<small>${esc(h.binCode || h.storageLocationCode || 'Belum ditempatkan')}</small></td>
+            <td>${esc(h.handlingUnitType)}</td><td class="right money">${Number(h.totalQty)}</td>
+            <td><span class="chip ${h.status === 'SHIPPED' ? 'mint' : h.status === 'VOID' ? 'gray' : 'blue'}">${esc(h.status)}</span></td>
+            <td class="right"><div class="row-actions">${this.huButtons(h)}</div></td></tr>`).join('')
+    : '<tr><td colspan="6" class="table-loading">Belum ada handling unit.</td></tr>'}</tbody></table></div>
+        </section>`;
+        main.querySelector('#newHu')?.addEventListener('click', () => this.newHandlingUnit(main));
+        mount.querySelector('#startScan')?.addEventListener('click', () => {
+          const taskId = mount.querySelector('#mobilityTask').value;
+          if (taskId) this.openScanSession(mount, taskId);
+        });
+        mount.querySelectorAll('[data-hu-action]').forEach((button) => button.addEventListener('click', () =>
+          this.runHuAction(main, button.dataset.huAction, button.dataset.hu, Number(button.dataset.ver))));
+        if (this._mobilityTaskId) this.openScanSession(mount, this._mobilityTaskId);
+      } catch (error) { mount.innerHTML = `<p class="error-text">${esc(error.message)}</p>`; }
+    },
+    huButtons(hu) {
+      if (!can('inventory.edit')) return '';
+      const button = (action, label, cls = 'secondary') =>
+        `<button class="btn ${cls}" data-hu-action="${action}" data-hu="${hu.id}" data-ver="${hu.version}">${label}</button>`;
+      if (hu.status === 'OPEN') return button('item', 'Isi lot') + button('SEAL', 'Segel', 'primary');
+      if (hu.status === 'SEALED') return button('STAGE', 'Staging', 'primary');
+      if (hu.status === 'STAGED') return button('LOAD', 'Muat', 'primary');
+      if (hu.status === 'LOADED') return button('SHIP', 'Kirim', 'primary');
+      return '';
+    },
+    async newHandlingUnit(main) {
+      const data = this._mobilityData;
+      const value = await formDialog({
+        title: 'Buat handling unit', description: 'License plate unik untuk pallet, peti, box, bundle, atau container.',
+        fields: [
+          { name: 'orgWarehouseId', label: 'Gudang', type: 'select', required: true,
+            options: data.warehouses.items.map((w) => [w.orgWarehouseId, `${w.code} · ${w.name}`]) },
+          { name: 'binId', label: 'Bin awal', type: 'select',
+            options: [['', '— belum ditempatkan —'], ...data.bins.items.map((b) => [b.binId, `${b.code} · ${b.warehouse}`])] },
+          { name: 'handlingUnitType', label: 'Tipe', type: 'select',
+            options: [['PALLET', 'Pallet'], ['CRATE', 'Peti'], ['BOX', 'Box'], ['BUNDLE', 'Bundle'], ['CONTAINER', 'Container']] },
+          { name: 'licensePlate', label: 'License plate (kosong = otomatis)' },
+          { name: 'grossWeight', label: 'Berat bruto', type: 'number', min: 0 }
+        ], submitLabel: 'Buat handling unit'
+      });
+      if (!value) return;
+      try {
+        await api('/api/inventory/handling-units', { method: 'POST', idempotencyKey: newIdemKey(),
+          body: { ...value, binId: value.binId || null, licensePlate: value.licensePlate || null,
+            grossWeight: value.grossWeight || null } });
+        toast('Handling unit dibuat', 'License plate siap digunakan.');
+        this.render(main);
+      } catch (error) { toast('Gagal membuat handling unit', error.message, 'coral'); }
+    },
+    async runHuAction(main, action, id, version) {
+      try {
+        if (action === 'item') {
+          const lots = (this._mobilityData.lots.items || []).filter((lot) => Number(lot.qtyOnHand) > 0);
+          const value = await formDialog({ title: 'Isi lot ke handling unit',
+            description: 'Qty tidak boleh melampaui saldo lot atau alokasi handling unit lain.',
+            fields: [
+              { name: 'lotId', label: 'Lot', type: 'select', required: true,
+                options: lots.map((lot) => [lot.id, `${lot.lotNumber} · ${lot.productCode} · ${Number(lot.qtyOnHand)}`]) },
+              { name: 'qty', label: 'Qty', type: 'number', min: 0, required: true }
+            ], submitLabel: 'Tempatkan lot' });
+          if (!value) return;
+          await api(`/api/inventory/handling-units/${id}/items`, { method: 'POST', body: value });
+        } else {
+          await api(`/api/inventory/handling-units/${id}/transition`,
+            { method: 'POST', body: { action, version } });
+        }
+        toast('Handling unit diperbarui');
+        this.render(main);
+      } catch (error) { toast('Gagal memperbarui handling unit', error.message, 'coral'); }
+    },
+    async openScanSession(mount, taskId) {
+      const box = mount.querySelector('#scanSession');
+      if (!box) return;
+      try {
+        const session = await api('/api/inventory/mobility/sessions',
+          { method: 'POST', idempotencyKey: `scan-session-${taskId}`, body: { taskId } });
+        this._mobilityTaskId = taskId;
+        this.renderScanSession(box, session);
+      } catch (error) { box.innerHTML = `<p class="error-text">${esc(error.message)}</p>`; }
+    },
+    renderScanSession(box, session) {
+      const next = session.nextScan;
+      box.innerHTML = `<div class="review-card scan-session-card">
+        <div class="review-row"><span>Tugas / gudang</span><b>${esc(session.taskType)} · ${esc(session.warehouseCode)}</b></div>
+        <div class="review-row"><span>Progres</span><b>${session.scannedCount}/${session.requiredScans.length} · ${esc(session.status)}</b></div>
+        ${session.events.map((event) => `<div class="review-row"><span>#${event.sequenceNo} ${esc(event.scanType)}</span><b>${esc(event.scannedCode)}</b></div>`).join('')}
+        ${next ? `<form id="scanForm" class="stack"><label class="field"><span>${esc(next.label)} (${esc(next.type)})</span>
+          <input id="scanCode" autocomplete="off" inputmode="text" placeholder="${esc(next.type)}:KODE" required></label>
+          <button class="btn primary" type="submit">Konfirmasi pindai</button></form>` : ''}
+        ${session.status === 'READY' ? '<button class="btn primary" id="completeScan">Finalisasi bukti scan</button>' : ''}
+        ${session.status === 'COMPLETED' ? '<p class="success-text">Bukti scan lengkap dan immutable. Tugas dapat diselesaikan.</p>' : ''}
+      </div>`;
+      box.querySelector('#scanForm')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        try {
+          const updated = await api(`/api/inventory/mobility/sessions/${session.id}/scan`,
+            { method: 'POST', body: { version: session.version, code: box.querySelector('#scanCode').value,
+              deviceLabel: navigator.userAgent.slice(0, 120) } });
+          this.renderScanSession(box, updated);
+          box.querySelector('#scanCode')?.focus();
+        } catch (error) { toast('Scan ditolak', error.message, 'coral'); box.querySelector('#scanCode')?.select(); }
+      });
+      box.querySelector('#completeScan')?.addEventListener('click', async () => {
+        try {
+          const updated = await api(`/api/inventory/mobility/sessions/${session.id}/complete`,
+            { method: 'POST', body: { version: session.version } });
+          this.renderScanSession(box, updated);
+          toast('Bukti scan lengkap', 'Tugas kini dapat diselesaikan.');
+        } catch (error) { toast('Finalisasi gagal', error.message, 'coral'); }
+      });
+      box.querySelector('#scanCode')?.focus();
     }
   };
 

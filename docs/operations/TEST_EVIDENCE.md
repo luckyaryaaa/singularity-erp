@@ -1,69 +1,76 @@
-# Test Evidence — v0.39.0
+# Test Evidence — v0.47.0
 
-**Basis:** `review/codex-claude-consolidation` · migration 001–074 ·
-PostgreSQL 16 lokal. Seluruh bukti dijalankan 28 Juli 2026.
+**Basis:** `review/codex-claude-consolidation` · migration 001–082 ·
+PostgreSQL 16 lokal · dijalankan 29 Juli 2026.
 
 ## Gate agregat
 
 | Gate | Hasil |
 |---|---|
-| Suite regresi utama | **363/363 PASS** |
-| Suite regresi database disposable | **363/363 PASS** |
-| Migration + checksum | **001–074 valid/applied** |
-| Rollback disposable | **74 up, 73 down, 73 re-up PASS** |
-| Authorization matrix | **14 router, 291 handler PASS** |
-| Visual desktop + mobile | **52/52 PASS** (26 halaman × 2 viewport) |
-| Visual quality | overflow 0, unlabeled button 0, console error 0 |
+| Suite regresi utama/final fresh | **408/408 PASS** |
+| Suite regresi database disposable | **408/408 PASS** |
+| Migration + checksum | **001–082 valid/applied** |
+| Rollback disposable | **82 up, 81 down, 81 re-up PASS** |
+| Authorization matrix | **14 router, 319 handler PASS** |
+| Visual desktop + mobile | **64/64 PASS** (32 halaman × 2 viewport) |
+| Visual quality | body overflow 0, unlabeled button 0, console error 0 |
 | Accessibility static | **18/18 PASS** |
-| Secret scan repository | **936 file, 0 finding** |
-| Release artifact | **v0.39.0, 427 file, migration 074, integrity finding 0** |
-| Backup + restore disposable | encrypted/checksum valid, **208 tabel**, migration 074 |
+| Secret scan repository | **1.038 file, 0 finding** |
+| Release artifact | **v0.47.0, 460 packaged file, 461 scanned, migration 082, integrity finding 0** |
+| Backup + restore disposable | encrypted/checksum valid, **219 tabel**, migration 082 |
 | Runtime database role | `mat_erp_app` non-superuser, minimum runtime grants |
-| Predeploy LOCAL | **14/15 PASS**; hanya live npm advisory lookup tertahan sandbox/usage approval |
+| Predeploy LOCAL | **14/15 PASS**; hanya live npm advisory lookup ditolak sandbox |
+| Dependency audit offline | **46 dependency, 0 vulnerability** (cache/offline; bukan bukti registry terkini) |
 
-## Bukti Finance End-to-End
+## Capability evidence
 
 | Area | Bukti | Hasil |
 |---|---|---|
-| HARD coding block | `test/finance-end-to-end-closure.test.js`, `test/wave15-journal-dimensions.test.js` | PASS |
-| Automatic posting dimensions | Sprint 9/11 dan Wave 11 regression | **20/20 PASS** |
-| Reconciliation evidence | prepare/approve, SoD, immutable snapshot | PASS |
-| Period-close package | missing/unapproved/NOT_RUN/hash invalid fail-closed; six evidence frozen; reopen lifecycle | PASS |
-| Financial reports | prepare/review/sign-off, period CLOSED, balance/hash | PASS |
-| Authorization | route matrix allow/deny dan public allowlist | **291 handler PASS** |
+| Finance closure | coding block HARD, six reconciliation evidence, close package, report sign-off | PASS |
+| Warehouse task engine | lifecycle, optimistic lock, scope, put-away | PASS |
+| Canonical warehouse | ledger, lot self-heal, late-created branch default invariant | PASS |
+| Unified work items | lifecycle, ownership, evidence, delegation, escalation | PASS |
+| Notification preferences | mute/filter, upsert, SYSTEM_ALERT guard | PASS |
+| Pricing conditions | specificity, scale, validity, discount/surcharge, deactivate | PASS |
+| Domain event/work orchestration | versioned contract, idempotent projection, auto-resolution, retry/dead-letter/recovery | PASS |
+| Authorization | allow/deny, public allowlist, RLS context | **310 handler PASS** |
 | Data protection | RLS, encryption, plaintext, runtime grants | **31/31 RLS; 0 plaintext; 9 history protected** |
 
-## Bukti visual v7
+## Visual baseline v8
 
-Empat workbench Finance baru menjadi cakupan wajib:
+Cakupan wajib tambahan:
 
-- `#/accounting` — `.process-rail` dan Coding Block Control;
-- `#/tax` — Tax Reconciliation Workbench;
-- `#/accounting/statements` — Official Financial Statements;
-- `#/accounting/closing` — Closing Cockpit dan close evidence.
+- `#/my-work` — `#workItemsPanel`;
+- `#/notifications` — `.notif-prefs`;
+- `#/warehouse/inventory?tab=gudang` — `.warehouse-ledger`;
+- `#/warehouse/inventory?tab=tugas` — `.warehouse-task-board`;
+- `#/sales/commercial-control` — `.pricing-conditions`.
 
-Semuanya lulus pada desktop 1440×1000 dan mobile 390×844, tanpa horizontal
-overflow, visible button tanpa accessible name, error state, atau console error.
+Seluruh 31 halaman lulus pada desktop 1440×1000 dan mobile 390×844.
+Warehouse task desktop memakai table overflow internal yang disengaja; body
+tetap tidak overflow.
 
 ## Isolated UAT technical gate
 
-Database `mat_erp_v2_gate_uat` diprovision fresh, migration 001–074 diterapkan,
+Database `mat_erp_v2_gate_uat` diprovision fresh, migration 001–081 diterapkan,
 field rotation dan runtime grants dijalankan, UAT seed dimuat, opening inventory
-direkonsiliasi, backup terenkripsi dibuat, restore disposable mengembalikan 208
-tabel, lalu 363 test lulus. Database gate dihapus setelah selesai.
+direkonsiliasi, backup terenkripsi dibuat, restore disposable mengembalikan 213
+tabel pada migration 081, lalu 403 test lulus. Database gate dihapus setelah
+selesai.
 
-Penyalinan backup ke `C:\MAT-ERP-Offsite` ditolak environment lokal (`EPERM`);
-backup lokal terenkripsi dan restore test tetap lulus. Ini bukan bukti offsite
-immutable production.
+Percobaan menyalin backup ke `C:\MAT-ERP-Offsite` ditolak environment lokal
+(`EPERM`); backup lokal terenkripsi dan restore disposable tetap lulus. Ini
+bukan bukti offsite immutable production.
 
-Seluruh kontrol predeploy lokal selain live `npm audit` lulus: accessibility,
-visual, environment, secret scan, migration, data protection, release/SBOM,
-isolated regression, load smoke, LAN load 10/25 user, health, runtime controls,
-final assurance, dan backup freshness. Permintaan registry eksternal tidak
-dapat diotorisasi pada sesi ini; hasil advisory terkini tidak diklaim.
+Predeploy lulus pada accessibility, visual, environment, secret scan, migration,
+data protection, release/SBOM, isolated regression, load smoke, LAN load,
+runtime health/control, final assurance, dan backup freshness. Lookup advisory
+live gagal karena environment menolak egress metadata dependency ke registry
+publik. Audit offline terhadap cache tersedia lulus 0 vulnerability pada 46
+dependency; klaim advisory live terbaru tidak dibuat.
 
 ## Batas klaim
 
-Angka ini merupakan bukti **engineering**. Bukti manusia—UAT 13 role,
-persetujuan aktual enam rekonsiliasi, training, SEC-UAT-001 retest, actual
-RTO/RPO, offsite evidence, dan Owner sign-off—belum digantikan automation.
+Angka ini merupakan bukti **engineering/technical RC**. Bukti manusia—UAT 13
+role, SEC-UAT-001 retest, enam rekonsiliasi aktual, training, actual RTO/RPO,
+offsite immutable evidence, dan Owner sign-off—belum digantikan automation.

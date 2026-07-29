@@ -7,6 +7,7 @@ const { assertPermission } = require('../core/permissions');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const salesO2c = require('../infrastructure/database/repositories/sales-o2c');
 const commercial = require('../infrastructure/database/repositories/sales-commercial');
+const pricing = require('../infrastructure/database/repositories/sales-pricing');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -69,6 +70,14 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&pathname==='/api/sales/backorders'){assertPermission(ctx.user,'sales_order.view');return{items:await commercial.backorders(client,ctx.user)};}
   match=pathname.match(/^\/api\/sales\/orders\/([0-9a-f-]{36})\/backorders\/refresh$/);
   if(method==='POST'&&match){assertPermission(ctx.user,'sales_order.edit');const body=await readBody(req);return idempotent(`sales.backorders.refresh:${match[1]}`,body,200,()=>commercial.refreshBackorders(client,match[1],ctx.user));}
+
+  // Advanced pricing condition engine (migrasi 079) — price list/diskon/surcharge
+  // ber-validity; resolusi harga server-authoritative.
+  if(method==='GET'&&pathname==='/api/sales/pricing-conditions'){assertPermission(ctx.user,'quotation.view');return pricing.listConditions(client,ctx.user,Object.fromEntries(url.searchParams));}
+  if(method==='POST'&&pathname==='/api/sales/pricing-conditions'){assertPermission(ctx.user,'quotation.edit');const body=await readBody(req);return idempotent('sales.pricing-condition.create',body,201,()=>pricing.createCondition(client,body,ctx.user,ctx.requestId));}
+  match=pathname.match(/^\/api\/sales\/pricing-conditions\/([0-9a-f-]{36})\/deactivate$/);
+  if(method==='POST'&&match){assertPermission(ctx.user,'quotation.edit');const body=await readBody(req);return pricing.deactivateCondition(client,{id:match[1],expectedVersion:Number(body.version),user:ctx.user,requestId:ctx.requestId});}
+  if(method==='GET'&&pathname==='/api/sales/price'){assertPermission(ctx.user,'quotation.view');const qp=Object.fromEntries(url.searchParams);return pricing.resolvePrice(client,ctx.user,{productId:qp.productId,partyId:qp.partyId||null,qty:qp.qty?Number(qp.qty):1,legalEntityId:qp.legalEntityId||null});}
   return NO_MATCH;
 }
 

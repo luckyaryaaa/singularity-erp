@@ -1,4 +1,4 @@
-# Rencana Retest UAT — v0.39.0
+# Rencana Retest UAT — v0.46.0
 
 **Tujuan:** menutup `SEC-UAT-001` dan menyiapkan bukti UAT 13 role yang wajib
 dieksekusi **manusia**, semuanya menunjuk SHA/migrasi/versi yang sama.
@@ -8,8 +8,8 @@ dieksekusi **manusia**, semuanya menunjuk SHA/migrasi/versi yang sama.
 
 | Item | Nilai |
 |---|---|
-| Versi | v0.39.0 |
-| Migrasi | 001–074 |
+| Versi | v0.46.0 |
+| Migrasi | 001–081 |
 | Branch | review/codex-claude-consolidation |
 | Prasyarat | `npm run predeploy` hijau pada SHA yang diretest |
 

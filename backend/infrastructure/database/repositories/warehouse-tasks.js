@@ -22,6 +22,10 @@ const ENRICH = `SELECT t.*,
     p.code product_code, p.name product_name, p.uom,
     fb.bin_code from_bin_code, tb.bin_code to_bin_code,
     l.lot_number, l.heat_number,
+    w.code org_warehouse_code, w.name org_warehouse_name,
+    sl.code storage_location_code,
+    (SELECT s.status FROM warehouse_scan_sessions s WHERE s.task_id=t.id
+      ORDER BY s.started_at DESC LIMIT 1) scan_session_status,
     b.name branch_name,
     d.document_number source_document_number, d.document_type source_document_type,
     ua.display_name assigned_to_name, uc.display_name created_by_name,
@@ -29,6 +33,8 @@ const ENRICH = `SELECT t.*,
   FROM warehouse_tasks t
   LEFT JOIN products p ON p.id = t.product_id
   LEFT JOIN stock_lots l ON l.id = t.lot_id
+  LEFT JOIN org_warehouses w ON w.id = t.org_warehouse_id
+  LEFT JOIN storage_locations sl ON sl.id = t.storage_location_id
   LEFT JOIN warehouse_bin_scope fb ON fb.bin_id = t.from_bin_id
   LEFT JOIN warehouse_bin_scope tb ON tb.bin_id = t.to_bin_id
   LEFT JOIN branches b ON b.id = t.branch_id
@@ -93,6 +99,12 @@ async function createTask(client, input, user, requestId) {
   await assertBinInBranch(client, input.fromBinId, branchId, user, 'Rak asal');
   await assertBinInBranch(client, input.toBinId, branchId, user, 'Rak tujuan');
 
+  const scanPolicy = input.scanPolicy && typeof input.scanPolicy === 'object' && !Array.isArray(input.scanPolicy)
+    ? input.scanPolicy : {};
+  if (['PACK', 'SHIP'].includes(taskType) && input.scanRequired && !scanPolicy.handlingUnitId) {
+    throw new AppError('VALIDATION_ERROR', `${taskType} dengan scan wajib memerlukan handlingUnitId.`);
+  }
+
   let assignedTo = null;
   if (input.assignedTo) {
     const target = (await client.query(
@@ -105,20 +117,36 @@ async function createTask(client, input, user, requestId) {
   await client.query(
     `INSERT INTO warehouse_tasks
        (id, task_type, priority, branch_id, product_id, lot_id, from_bin_id, to_bin_id, qty,
-        source_module, source_document_id, reference, instructions, due_at, assigned_to, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+        source_module, source_document_id, reference, instructions, due_at, assigned_to, created_by,
+        org_warehouse_id,storage_location_id,scan_required,scan_policy)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
     [id, taskType, priority, branchId, input.productId || null, input.lotId || null,
       input.fromBinId || null, input.toBinId || null, qty,
       input.sourceModule ? String(input.sourceModule).slice(0, 30) : null,
       input.sourceDocumentId || null,
       input.reference ? String(input.reference).slice(0, 500) : null,
       input.instructions ? String(input.instructions).slice(0, 1000) : null,
-      input.dueAt || null, assignedTo, user.id]);
+      input.dueAt || null, assignedTo, user.id,
+      input.orgWarehouseId || null, input.storageLocationId || null,
+      Boolean(input.scanRequired), JSON.stringify(scanPolicy)]);
 
   await runtime.audit(client, { userId: user.id, action: 'CREATE', module: 'inventory',
     entityType: 'WAREHOUSE_TASK', entityId: id, reason: input.reference || null,
-    newValue: { taskType, priority, branchId, lotId: input.lotId || null, toBinId: input.toBinId || null, qty },
+    newValue: { taskType, priority, branchId, lotId: input.lotId || null,
+      toBinId: input.toBinId || null, qty, scanRequired: Boolean(input.scanRequired) },
     requestId, branchId });
+  await runtime.actionRequired(client, {
+    actionKey: `warehouse-task:${id}`, actorUserId: user.id, branchId,
+    itemType: 'TASK', title: `Tugas gudang ${taskType}`,
+    description: input.instructions || input.reference || `Eksekusi tugas ${taskType} di gudang.`,
+    sourceModule: 'inventory', sourceEntityType: 'WAREHOUSE_TASK', sourceEntityId: id,
+    assigneeUserId: assignedTo, assigneeRole: assignedTo ? null : 'warehouse',
+    priority, risk: ['URGENT', 'HIGH'].includes(priority) ? 'HIGH' : 'MEDIUM',
+    requiredAction: `Klaim, mulai, dan selesaikan tugas gudang ${taskType}.`,
+    completionCondition: 'Warehouse task berstatus DONE atau CANCELLED.',
+    dueAt: input.dueAt || null, slaMinutes: input.dueAt ? null : 480,
+    link: '#/warehouse/inventory?tab=tugas'
+  });
   return mapRow(await loadEnriched(client, id));
 }
 
@@ -222,9 +250,14 @@ async function cancelTask(client, { id, expectedVersion, reason, user, requestId
   if (explanation.length < 10) {
     throw new AppError('REASON_REQUIRED', 'Alasan pembatalan tugas minimal 10 karakter.');
   }
-  await transition(client, { id, expectedVersion, user, requestId, action: 'CANCEL', reason: explanation,
+  const result = await transition(client, { id, expectedVersion, user, requestId, action: 'CANCEL', reason: explanation,
     from: OPEN_STATES,
     set: { status: 'CANCELLED', cancelled_by: user.id, cancelled_at: new Date(), cancel_reason: explanation.slice(0, 500) } });
+  await runtime.actionResolved(client, {
+    actionKey: `warehouse-task:${id}`, actorUserId: user.id, branchId: result.row.branch_id,
+    sourceEntityType: 'WAREHOUSE_TASK', sourceEntityId: id,
+    resolutionNote: `Tugas gudang dibatalkan: ${explanation}`
+  });
   return mapRow(await loadEnriched(client, id));
 }
 
@@ -238,6 +271,15 @@ async function completeTask(client, { id, expectedVersion, note, user, requestId
   if (!['CLAIMED', 'IN_PROGRESS'].includes(row.status)) {
     throw new AppError('STATUS_INVALID',
       `Tugas berstatus ${row.status} tidak dapat diselesaikan.`, { currentStatus: row.status });
+  }
+  if (row.scan_required) {
+    const evidence = (await client.query(
+      `SELECT id FROM warehouse_scan_sessions
+       WHERE task_id=$1 AND status='COMPLETED' ORDER BY completed_at DESC LIMIT 1`, [id])).rows[0];
+    if (!evidence) {
+      throw new AppError('STATUS_INVALID',
+        'Tugas ini mewajibkan sesi scan mobile yang lengkap sebelum dapat diselesaikan.');
+    }
   }
 
   let effect = null;
@@ -259,6 +301,11 @@ async function completeTask(client, { id, expectedVersion, note, user, requestId
     oldValue: { status: row.status, version: row.version },
     newValue: { status: 'DONE', version: updated.version, effect: effect ? 'lot moved' : 'closed' },
     requestId, branchId: row.branch_id });
+  await runtime.actionResolved(client, {
+    actionKey: `warehouse-task:${id}`, actorUserId: user.id, branchId: row.branch_id,
+    sourceEntityType: 'WAREHOUSE_TASK', sourceEntityId: id,
+    resolutionNote: note || `Tugas gudang ${row.task_type} selesai.`
+  });
   const task = mapRow(await loadEnriched(client, id));
   task.effect = effect;
   return task;

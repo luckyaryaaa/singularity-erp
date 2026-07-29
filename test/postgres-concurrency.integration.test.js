@@ -6,6 +6,14 @@ const { Client } = require('pg');
 const { randomUUID } = require('node:crypto');
 const runtime = require('../backend/infrastructure/database/repositories/runtime');
 
+async function deleteTemporaryBranch(client, branchId) {
+  // Migration 080 provisions a canonical default warehouse for every active
+  // branch. Integration fixtures must remove that owned child before deleting
+  // their temporary branch.
+  await client.query('DELETE FROM org_warehouses WHERE branch_id=$1', [branchId]);
+  await client.query('DELETE FROM branches WHERE id=$1', [branchId]);
+}
+
 test('PostgreSQL numbering concurrency: 24 transaksi menghasilkan nomor unik', async () => {
   const admin=new Client({connectionString:process.env.MIGRATION_DATABASE_URL}); await admin.connect();
   const branchId=randomUUID();
@@ -21,7 +29,7 @@ test('PostgreSQL numbering concurrency: 24 transaksi menghasilkan nomor unik', a
     assert.deepEqual(seq,Array.from({length:24},(_,i)=>i+1));
   } finally {
     await admin.query('DELETE FROM document_sequences WHERE branch_id=$1',[branchId]);
-    await admin.query('DELETE FROM branches WHERE id=$1',[branchId]); await admin.end();
+    await deleteTemporaryBranch(admin, branchId); await admin.end();
   }
 });
 
@@ -50,7 +58,7 @@ test('PostgreSQL document transaction: audit+outbox atomic dan stale version dit
     } finally {await client.end();}
   } finally {
     if(doc){await admin.query('DELETE FROM audit_logs WHERE entity_id=$1',[doc.id]);await admin.query('DELETE FROM domain_event_outbox WHERE entity_id=$1',[doc.documentNumber]);await admin.query('DELETE FROM business_documents WHERE id=$1',[doc.id]);}
-    await admin.query('DELETE FROM document_sequences WHERE branch_id=$1',[branchId]);await admin.query('DELETE FROM app_users WHERE id=$1',[userId]);await admin.query('DELETE FROM branches WHERE id=$1',[branchId]);await admin.end();
+    await admin.query('DELETE FROM document_sequences WHERE branch_id=$1',[branchId]);await admin.query('DELETE FROM app_users WHERE id=$1',[userId]);await deleteTemporaryBranch(admin, branchId);await admin.end();
   }
 });
 
@@ -69,7 +77,7 @@ test('PostgreSQL idempotency: 12 request paralel mengeksekusi handler tepat seka
     const client=new Client({connectionString:process.env.DATABASE_URL});await client.connect();await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");
     await assert.rejects(()=>runtime.withIdempotency(client,{userId,operation:'invoice.issue',key,body:{amount:9999}},async()=>({status:201,body:{}})),e=>e.code==='DUPLICATE_REQUEST');
     await client.query('ROLLBACK');await client.end();
-  }finally{await admin.query('DELETE FROM idempotency_records WHERE user_id=$1',[userId]);await admin.query('DELETE FROM app_users WHERE id=$1',[userId]);await admin.query('DELETE FROM branches WHERE id=$1',[branchId]);await admin.end();}
+  }finally{await admin.query('DELETE FROM idempotency_records WHERE user_id=$1',[userId]);await admin.query('DELETE FROM app_users WHERE id=$1',[userId]);await deleteTemporaryBranch(admin, branchId);await admin.end();}
 });
 
 test('PostgreSQL approval: jenjang supervisor → finance → owner tidak dapat dilompati',async()=>{
@@ -85,6 +93,6 @@ test('PostgreSQL approval: jenjang supervisor → finance → owner tidak dapat 
     assert.equal(doc.status,'APPROVED');assert.equal(doc.approvals.length,3);
   }finally{
     await client.end();if(doc){await adminDb.query('DELETE FROM audit_logs WHERE entity_id=$1',[doc.id]);await adminDb.query('DELETE FROM domain_event_outbox WHERE entity_id=$1',[doc.documentNumber]);await adminDb.query('DELETE FROM business_documents WHERE id=$1',[doc.id]);}
-    await adminDb.query('DELETE FROM document_sequences WHERE branch_id=$1',[branchId]);await adminDb.query('DELETE FROM app_users WHERE branch_id=$1',[branchId]);await adminDb.query('DELETE FROM branches WHERE id=$1',[branchId]);await adminDb.end();
+    await adminDb.query('DELETE FROM document_sequences WHERE branch_id=$1',[branchId]);await adminDb.query('DELETE FROM app_users WHERE branch_id=$1',[branchId]);await deleteTemporaryBranch(adminDb, branchId);await adminDb.end();
   }
 });

@@ -31,9 +31,10 @@ test('gerbang visual berjalan terhadap PostgreSQL secara default', () => {
 
 test('cakupan halaman tidak boleh menyusut di bawah ambang', () => {
   const pages = baseline.pages;
-  assert.ok(pages.length >= 26, `cakupan turun menjadi ${pages.length} halaman — minimal 26`);
+  assert.ok(baseline.version >= 8, `versi baseline turun menjadi ${baseline.version} — minimal 8`);
+  assert.ok(pages.length >= 31, `cakupan turun menjadi ${pages.length} halaman — minimal 31`);
   // Modul inti wajib terwakili; inilah yang dulu tidak pernah tersentuh.
-  for (const wajib of ['dashboard', 'organization', 'inventory', 'customers', 'products', 'work-orders', 'quotations', 'data-retention', 'accounting-coding-block', 'tax-reconciliation', 'financial-statements', 'closing-cockpit']) {
+  for (const wajib of ['dashboard', 'organization', 'inventory', 'customers', 'products', 'work-orders', 'quotations', 'data-retention', 'accounting-coding-block', 'tax-reconciliation', 'financial-statements', 'closing-cockpit', 'my-work-items', 'notification-preferences', 'warehouse-ledger', 'warehouse-tasks', 'pricing-conditions']) {
     assert.ok(pages.some((p) => p.name === wajib), `halaman '${wajib}' wajib masuk cakupan visual`);
   }
   // Halaman yang butuh backend penuh ditandai eksplisit, bukan diam-diam gagal.

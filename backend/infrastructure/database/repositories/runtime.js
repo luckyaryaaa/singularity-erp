@@ -79,9 +79,27 @@ async function audit(client,entry) {
 
 async function outbox(client,eventType,payload={}) {
   const id=randomUUID();
-  await client.query(`INSERT INTO domain_event_outbox(id,event_type,entity_id,branch_id,payload) VALUES($1,$2,$3,$4,$5)`,
-    [id,eventType,payload.entityId||null,payload.branchId||null,payload]);
+  const versionMatch=String(eventType).match(/\.v(\d+)$/);
+  const eventVersion=versionMatch?Number(versionMatch[1]):1;
+  await client.query(`INSERT INTO domain_event_outbox(id,event_type,event_version,entity_id,branch_id,payload) VALUES($1,$2,$3,$4,$5,$6)`,
+    [id,eventType,eventVersion,payload.entityId||payload.sourceEntityId||null,payload.branchId||null,payload]);
   return id;
+}
+
+function assertActionContract(input) {
+  for(const field of ['actionKey','actorUserId','branchId','sourceEntityType','sourceEntityId']){
+    if(!String(input?.[field]||'').trim())throw new AppError('VALIDATION_ERROR',`Kontrak work action membutuhkan ${field}.`);
+  }
+  if(String(input.actionKey).length>160)throw new AppError('VALIDATION_ERROR','actionKey work action maksimal 160 karakter.');
+}
+async function actionRequired(client,input){
+  assertActionContract(input);
+  if(!String(input.title||'').trim())throw new AppError('VALIDATION_ERROR','Judul action-required wajib diisi.');
+  return outbox(client,'work.action-required.v1',{...input,eventVersion:1,entityId:input.entityId||input.sourceEntityId});
+}
+async function actionResolved(client,input){
+  assertActionContract(input);
+  return outbox(client,'work.action-resolved.v1',{...input,eventVersion:1,entityId:input.entityId||input.sourceEntityId});
 }
 
 // P0-J — Customer PO adalah komitmen hukum pelanggan. Nomor PO, keabsahan
@@ -256,6 +274,15 @@ if(user.role!=='owner'){params.push(level);scope+=` AND $${params.length}=ANY(d.
 const APPROVAL_TIERS=[{max:5_000_000,levels:['supervisor']},{max:50_000_000,levels:['supervisor','finance']},{max:Infinity,levels:['supervisor','finance','owner']}];
 const TRANSITIONS={submit:{from:['DRAFT','REVISION_REQUIRED'],to:'WAITING_APPROVAL'},approve:{from:['WAITING_APPROVAL'],to:'APPROVED'},reject:{from:['WAITING_APPROVAL'],to:'REJECTED'},revise:{from:['WAITING_APPROVAL'],to:'REVISION_REQUIRED'},start:{from:['APPROVED'],to:'IN_PROCESS'},complete:{from:['IN_PROCESS','PARTIALLY_COMPLETED'],to:'COMPLETED'},close:{from:['COMPLETED','PARTIALLY_PAID'],to:'CLOSED'},cancel:{from:['DRAFT','WAITING_APPROVAL','REVISION_REQUIRED','APPROVED'],to:'CANCELLED'},void:{from:['APPROVED','IN_PROCESS','COMPLETED','CLOSED','PARTIALLY_PAID'],to:'VOID'}};
 const roleLevel={sales:'supervisor',procurement:'supervisor',warehouse:'supervisor',production:'supervisor',hrd:'supervisor',finance_manager:'finance',finance:'finance',accounting:'finance',owner:'owner'};
+const approvalDomainRole=(documentType)=>{
+  if(['CUSTOMER_INQUIRY','QUOTATION','CUSTOMER_PO','SALES_ORDER','PROJECT'].includes(documentType))return'sales';
+  if(['PURCHASE_REQUEST','RFQ','PURCHASE_ORDER','SUPPLIER_INVOICE','SUPPLIER_PAYMENT'].includes(documentType))return'procurement';
+  if(['GOODS_RECEIPT','MATERIAL_ISSUE','STOCK_TRANSFER','STOCK_ADJUSTMENT','STOCK_OPNAME','DELIVERY','RMA'].includes(documentType))return'warehouse';
+  if(['WORK_ORDER','QC_INSPECTION'].includes(documentType))return'production';
+  if(['PAYROLL_RUN','LEAVE_REQUEST'].includes(documentType))return'hrd';
+  return'finance_manager';
+};
+const approvalAssigneeRole=(level,documentType)=>level==='owner'?'owner':level==='finance'?'finance_manager':approvalDomainRole(documentType);
 
 async function approvalPolicy(client,doc){
   const row=(await client.query(`SELECT * FROM approval_policy_versions WHERE status='ACTIVE' AND document_type IN($1,'*')
@@ -292,6 +319,11 @@ async function transitionDocument(client,{id,action,user,reason,requestId,allowO
       partyId:doc.party_id,lines,requireLinked:Boolean(doc.payload?.sourceDocumentId)||lines.some(l=>l.sourceLineId)});
   }
   let status=rule.to,approvals=Array.isArray(doc.approvals)?doc.approvals:[],levels=doc.required_approval_levels||[];
+  let previousApprovalKey=null;
+  if(['approve','reject','revise'].includes(action)){
+    const previousLevel=levels.find(level=>!approvals.some(a=>a.level===level));
+    if(previousLevel)previousApprovalKey=`approval:${doc.id}:${doc.version}:${previousLevel}`;
+  }
   const extra={};
   if(action==='submit'){const resolved=await approvalPolicy(client,doc);levels=resolved.levels;approvals=[];extra.submitted_at=new Date();extra.approval_policy_version_id=resolved.id;extra.approval_policy_snapshot=resolved.snapshot;}
   if(['approve','reject','revise'].includes(action)){
@@ -313,6 +345,30 @@ async function transitionDocument(client,{id,action,user,reason,requestId,allowO
   const updated=(await client.query(`UPDATE business_documents SET ${columns.join(',')} WHERE id=$1 RETURNING *`,values)).rows[0];
   await audit(client,{userId:user.id,action:{submit:'SUBMIT',approve:'APPROVE',reject:'REJECT',revise:'REQUEST_REVISION',start:'POST',complete:'POST',close:'POST',cancel:'CANCEL',void:'VOID'}[action]||'UPDATE',module:doc.document_type.toLowerCase(),entityType:doc.document_type,entityId:id,documentNumber:doc.document_number,oldValue:{status:doc.status},newValue:{status},reason,requestId,branchId:doc.branch_id});
   await outbox(client,['submit','approve','reject','revise'].includes(action)?'approval.updated':'document.updated',{entityId:doc.document_number,documentType:doc.document_type,branchId:doc.branch_id,version:updated.version,status});
+  if(previousApprovalKey){
+    await actionResolved(client,{actionKey:previousApprovalKey,actorUserId:user.id,branchId:doc.branch_id,
+      sourceEntityType:doc.document_type,sourceEntityId:doc.id,entityId:doc.document_number,
+      resolutionNote:`Tahap persetujuan diproses dengan aksi ${action.toUpperCase()}.`});
+  }
+  if(status==='WAITING_APPROVAL'){
+    const pendingLevel=levels.find(level=>!approvals.some(a=>a.level===level));
+    if(pendingLevel){
+      const priority=Number(doc.amount)>=100_000_000?'URGENT':Number(doc.amount)>=25_000_000?'HIGH':'NORMAL';
+      await actionRequired(client,{
+        actionKey:`approval:${doc.id}:${updated.version}:${pendingLevel}`,
+        actorUserId:user.id,branchId:doc.branch_id,itemType:'APPROVAL',
+        title:`Persetujuan ${doc.document_number}`,
+        description:`${doc.title||doc.document_type} menunggu persetujuan level ${pendingLevel}.`,
+        sourceModule:doc.document_type.toLowerCase(),sourceEntityType:doc.document_type,
+        sourceEntityId:doc.id,entityId:doc.document_number,
+        assigneeRole:approvalAssigneeRole(pendingLevel,doc.document_type),
+        priority,risk:priority==='URGENT'?'HIGH':priority==='HIGH'?'MEDIUM':'LOW',
+        requiredAction:`Tinjau dan putuskan dokumen ${doc.document_number}.`,
+        completionCondition:`Tahap ${pendingLevel} disetujui, ditolak, atau dikembalikan untuk revisi.`,
+        slaMinutes:1440,link:'#/approvals'
+      });
+    }
+  }
   // Dokumen yang berakhir tanpa dipenuhi WAJIB melepas stok yang ditahannya.
   // Tanpa ini, pesanan yang dibatalkan menyandera stoknya selamanya dan tidak
   // ada yang tahu penyebabnya — persis masalah yang membuat reservasi harus
@@ -350,4 +406,4 @@ async function withIdempotency(client,{userId,operation,key,body},execute){
   return response;
 }
 
-module.exports={PREFIXES,camel,nextNumber,audit,redactAudit,outbox,createDocument,assertCustomerPoValid,updateDocument,getDocument,documentRelations,convertDocument,listDocuments,auditTrail,pendingApprovals,transitionDocument,withIdempotency,approvalPolicy,APPROVAL_TIERS,CONVERSIONS};
+module.exports={PREFIXES,camel,nextNumber,audit,redactAudit,outbox,actionRequired,actionResolved,createDocument,assertCustomerPoValid,updateDocument,getDocument,documentRelations,convertDocument,listDocuments,auditTrail,pendingApprovals,transitionDocument,withIdempotency,approvalPolicy,APPROVAL_TIERS,CONVERSIONS};

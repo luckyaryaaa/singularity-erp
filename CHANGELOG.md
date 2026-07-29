@@ -1,7 +1,99 @@
 # Changelog
 
+## [0.47.0] — 2026-07-29
+
+### Canonical Warehouse Stage 2A + WMS Mobility
+
+- Migration 082 mewajibkan dimensi `org_warehouse_id` pada balance, movement,
+  reservation, lot, dan Warehouse Task dengan trigger scope lintas cabang.
+- Lot memperoleh storage location dan expiry date untuk canonical location
+  ledger serta fondasi FEFO.
+- Handling unit/license plate memiliki lifecycle OPEN → SEALED → STAGED →
+  LOADED → SHIPPED, quantity guard, RLS, audit, dan optimistic locking.
+- Mobile scan session menegakkan urutan LOT/BIN/HU, operator ownership,
+  canonical warehouse scope, append-only evidence, serta task completion gate.
+- Workbench WMS Mobile tersedia pada inventori dengan health reconciliation,
+  handling-unit board, dan input scanner keyboard-wedge.
+
+### Assurance
+
+- Targeted Wave 24 **5/5 PASS**; targeted compatibility **25/25 PASS**.
+- Migration/checksum **001–082** valid; rollback disposable **82/81/81 PASS**.
+- Authorization matrix **14 router/319 handler PASS**.
+
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
+
+## [0.46.0] — 2026-07-29
+
+### Domain Event → Unified Work Item
+
+- Migration 081 menambah versioned outbox delivery state, retry scheduling,
+  dead-letter, serta deduplication metadata pada `work_items`.
+- Proyektor idempoten mengubah event `work.action-required.v1` menjadi Work
+  Item + notifikasi `ACTION_REQUIRED`, dan `work.action-resolved.v1` menutupnya
+  otomatis dengan audit.
+- Approval, Warehouse Task, CAPA/QC, reconciliation exception, serta
+  dunning/credit hold sudah menerbitkan kontrak action-required/resolved.
+- Outbox dispatcher sekarang memakai RLS system context eksplisit,
+  exponential backoff, dead-letter audit, dan baru menyiarkan SSE setelah commit.
+- Governance API menyediakan metadata outbox tanpa payload dan retry
+  dead-letter beralasan dengan recent MFA.
+
+### Assurance
+
+- Targeted Wave 23 **5/5 PASS**.
+- Regression utama dan isolated fresh PostgreSQL **403/403 PASS**.
+- Migration/checksum **001–081** valid; rollback disposable **81/80/80 PASS**.
+- Authorization matrix **14 router/310 handler PASS**.
+
+## [0.45.0] — 2026-07-29
+
+### Fresh-database warehouse invariant dan release closure
+
+- Migration 080 menutup celah lifecycle migration 076: cabang aktif yang dibuat
+  setelah migration kini otomatis memperoleh tepat satu gudang default aktif.
+- Trigger menggunakan fungsi `SECURITY DEFINER` dengan `search_path` terkunci;
+  backfill memperbaiki cabang aktif yang telanjur belum mempunyai default.
+- Integration fixtures mengikuti ownership child warehouse saat membersihkan
+  cabang temporer.
+- Visual baseline v8 menambahkan lima capability terbaru dan menjadi 31 halaman
+  × 2 viewport.
+
+### Assurance
+
+- Regression utama dan isolated PostgreSQL gate **398/398 PASS**.
+- Migration/checksum **001–080** valid; rollback disposable **80/79/79 PASS**.
+- Backup terenkripsi dan restore disposable **213 tabel**, migration 080.
+- Visual **62/62 PASS**, accessibility **18/18 PASS**, authorization **308
+  handler**, dan data protection **31/31 RLS; 0 plaintext**.
+
+## [0.44.0] — 2026-07-29
+
+### Advanced Pricing — Condition Engine (Stage 1)
+
+- Migration 079 menambah `pricing_conditions`: condition records ala SAP-SD ringkas
+  (BASE_PRICE, DISCOUNT_PCT, DISCOUNT_AMT, SURCHARGE_PCT) per legal entity, dengan
+  cakupan produk/pelanggan/kategori, **skala kuantitas** (`min_qty`), **validity**
+  (effective-dated), prioritas, dan optimistic lock.
+- Resolver **server-authoritative** `resolvePrice(legalEntity, party, product, qty,
+  date)`: menentukan base price paling spesifik/berprioritas (jatuh ke harga daftar
+  produk bila tak ada), lalu menerapkan seluruh diskon/surcharge yang berlaku
+  berurutan — klien meminta harga, tidak menetapkannya.
+- Empat endpoint pada router Sales: resolusi (`GET /api/sales/price`) + CRUD
+  condition (`GET`/`POST /api/sales/pricing-conditions`, `POST …/{id}/deactivate`),
+  guard `quotation.view`/`quotation.edit`, idempotency + audit.
+- Legal-entity scope ditegakkan (entity lain hanya untuk peran lintas cabang).
+- Mengangkat ⬜ audit Sales "Advanced pricing condition engine" ke Stage 1;
+  **rebate dan komisi tetap stage berikutnya**.
+
+### Assurance
+
+- Regression + isolated PostgreSQL gate **397/397** lulus (8 test pricing baru:
+  base price vs daftar, spesifisitas pelanggan+produk, skala kuantitas, diskon/
+  surcharge, validity, deactivate + optimistic lock, legal-entity scope, liveness).
+- Full-chain rollback lulus di database disposable: **79 up, 78 down, 78 re-up**.
+- Authorization matrix **308 handler** (Sales 23→27).
 
 ## [0.43.0] — 2026-07-29
 

@@ -52,6 +52,10 @@ async function run() {
   const appPort = new URL(base).port || '4174';
   const server = spawn(process.execPath, ['server.js'], { cwd: root, env: {
       ...process.env, PORT: appPort,
+      // Baseline merender puluhan halaman × dua viewport dalam satu menit.
+      // Override hanya berlaku pada child visual-test; runtime normal tetap
+      // memakai default produksi 120 read/menit.
+      MAT_RATE_READ_PER_MIN: '1000',
       // server.js memaksa mode ephemeral (in-memory) bila NODE_ENV=test — itu
       // pengaman supaya uji tidak menyentuh database nyata. Mode postgres
       // karenanya TIDAK boleh memakai flag itu, kalau tidak gerbang ini kembali

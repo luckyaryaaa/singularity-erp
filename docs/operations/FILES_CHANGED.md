@@ -1,7 +1,52 @@
-# Files Changed — Konsolidasi v0.39.0
+# Files Changed — Konsolidasi v0.47.0
+
+## Closure v0.47.0 — migration 082 dan WMS Mobility
+
+- `082_warehouse_stage2a_mobility`: canonical warehouse guard, expiry/location
+  ledger, health view, handling unit, scan session, dan append-only scan event.
+- `warehouse-mobility.js`: lifecycle license plate dan eksekusi scan berurutan.
+- `warehouse-tasks.js`: canonical dimension serta scan-required completion gate.
+- `inventory.js` (route + UI): sembilan endpoint dan WMS Mobile workbench.
+- Wave 24, OpenAPI 1.5, authorization 319 handler, visual baseline v9.
 
 Riwayat pada branch `review/codex-claude-consolidation`. Setiap commit mandiri,
 di-review, dan lulus scoped tests-nya (lihat [TEST_EVIDENCE.md](TEST_EVIDENCE.md)).
+
+## Closure v0.46.0 — migration 081 dan Work Orchestration
+
+- `081_domain_event_work_item_projection`: versioned outbox delivery,
+  retry/backoff/dead-letter, serta dedupe/source metadata Unified Work Item.
+- `domain-work-projector.js`: proyeksi idempoten action-required/resolved,
+  notifikasi, auto-resolution, dan audit.
+- Runtime sources: approval, Warehouse Task, CAPA/QC, reconciliation exception,
+  serta dunning/credit hold.
+- Outbox dispatcher: RLS system context, savepoint per event, post-commit SSE,
+  exponential backoff, dan dead-letter audit.
+- Governance outbox operations/API: metadata tanpa payload dan controlled retry
+  dengan recent MFA + alasan.
+- Wave 23 test, OpenAPI event catalog, SSE cache invalidation, authorization
+  matrix 310 handler, environment example, release evidence, backlog, audit,
+  dan blueprint diselaraskan.
+
+## Closure v0.45.0 — migration 080 dan release governance
+
+- `080_branch_default_warehouse_guard`: invariant gudang default untuk cabang
+  yang dibuat/diaktifkan setelah migration 076, backfill, dan rollback.
+- Test Warehouse Stage 2 menambah late-created branch lifecycle; integration
+  fixtures membersihkan owned warehouse sebelum branch temporer.
+- Visual baseline v8: 31 halaman × desktop/mobile, termasuk lima capability
+  terbaru dengan selector terarah.
+- README, changelog, release/migration notes, test evidence, UAT baseline,
+  security matrix, audit, backlog, blueprint source map, dan release artifact
+  diselaraskan ke v0.45/migration 080.
+
+## Closure v0.40.0–v0.44.0 — migration 075–079
+
+- 075 Warehouse Task Engine; 076 Canonical Warehouse Ledger Stage 1;
+  077 Unified Work Items; 078 Notification Preferences; 079 Advanced Pricing
+  Conditions Stage 1.
+- Source, API, UI, permission/scope, audit, test, rollback, dan dokumentasi
+  capability tersedia; production acceptance tetap mengikuti human gates.
 
 ## Closure v0.39.0 — migration 074
 

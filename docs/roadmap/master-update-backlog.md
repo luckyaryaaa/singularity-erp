@@ -1,5 +1,50 @@
 # Backlog Resmi — MAT ERP V2
 
+> **TECHNICAL RC v0.47 — 29 JULI 2026.** Canonical Warehouse Stage 2A + WMS
+> Mobility selesai engineering: migration 001–082; dimensi gudang kanonik
+> wajib pada ledger utama; handling unit/license plate dan scan LOT/BIN/HU
+> append-only tersedia. Fresh isolated regression 408/408, rollback 82/81/81,
+> visual v9 64/64, accessibility 18/18, authorization 319 handler, RLS 31/31,
+> secret scan 1.038/0. **Prioritas berikutnya: Stage 2B reconcile/read-switch
+> dan cutover rehearsal**, lalu feature freeze serta LAN-UAT/DR/Owner sign-off.
+> Status ini tidak menutup human/production gates.
+
+> **TECHNICAL RC v0.46 — 29 JULI 2026.** Work Orchestration Integration selesai:
+> source/migration kini v0.46.0/001–081; transactional outbox memproyeksikan
+> action-required approval, Warehouse Task, CAPA/QC, reconciliation exception,
+> dunning/credit hold ke Unified Work Item secara idempoten dan menutupnya lewat
+> action-resolved. Retry/backoff/dead-letter, audit, observability tanpa payload,
+> dan controlled retry recent-MFA tersedia. Regression utama + fresh isolated
+> 403/403; rollback 81/80/80; visual v8 62/62; accessibility 18/18;
+> authorization 310 handler; data protection 31/31 RLS dan nol plaintext.
+> Human gates tetap terbuka: UAT 13 role,
+> SEC-UAT-001 retest, rekonsiliasi, training, actual RTO/RPO, offsite immutable
+> evidence, dan Owner sign-off.
+>
+> Tahap engineering aktif berikutnya: **Canonical Warehouse Stage 2 + WMS
+> Mobility**, kemudian Organization context/Pricing Stage 2 sesuai keputusan
+> scope, Feature Freeze, LAN-UAT/DR/Owner Sign-off, lalu VPS.
+
+> **AUDIT TERPADU TERBARU — 29 JULI 2026 (baseline sebelum remediation).** Current source v0.44.0 sehat
+> (397/397 regression, migration 001–079, 308 handler, 31/31 RLS, secret scan
+> 994/0, accessibility 18/18, visual 52/52), tetapi proyek **belum 100% go-live**.
+> Release artifact masih stale v0.39/migration 074; final UAT gagal tertutup
+> dengan 40 blocker evidence/sign-off. Dari 42 acceptance gate inti blueprint,
+> 37 selesai engineering dan 5 parsial. Urutan audit: **v0.44 Release Governance
+> Closure → Domain Event/Work Item Integration → Canonical Warehouse Stage 2 +
+> WMS Mobility → Feature Freeze → LAN-UAT/DR/Owner Sign-off → VPS**. Audit
+> authoritative: `docs/audit/enterprise-blueprint-audit-2026-07-29.md`.
+
+> **Advanced Pricing — Condition Engine (Stage 1) v0.44.0: ENGINEERING SELESAI —
+> 29 Juli 2026.** Migration 079 menambah `pricing_conditions`: condition records
+> (BASE_PRICE/diskon/surcharge) per legal entity dengan cakupan produk/pelanggan/
+> kategori, skala kuantitas, validity effective-dated, prioritas, optimistic lock.
+> Resolver server-authoritative `GET /api/sales/price` + CRUD condition di router
+> Sales (scope legal-entity ditegakkan). Mengangkat ⬜ audit Sales "Advanced
+> pricing condition engine" ke Stage 1. **Rebate, komisi, dan integrasi auto-fill
+> harga ke baris quotation/SO tetap stage berikutnya.** Source of truth 001–079;
+> regression 397/397; rollback full-chain 79/78/78; authorization 308 handler.
+
 > **Notification Preferences v0.43.0: ENGINEERING SELESAI — 29 Juli 2026.**
 > Migration 078 menambah `notification_preferences` (per pengguna × kategori):
 > mute in-app + email per kategori, RLS per-pemilik, `SYSTEM_ALERT` tak dapat mati.
@@ -8,9 +53,9 @@
 > `/api/notifications/preferences` (router Operations). Menutup ⬜ audit Workspace
 > 6.7 "Notification Preferences Are Missing". Source of truth 001–078; regression
 > 389/389; rollback full-chain 78/77/77; authorization 304 handler. Catatan
-> temuan: outbox domain-event saat ini hanya meng-emit 4 event informasional
-> (invoice/payment/PO/quotation), jadi proyeksi event→work-item ditunda sampai
-> emisi action-required diperluas.
+> Temuan outbox informasional pada baseline ini telah ditutup oleh v0.46:
+> event action-required/resolved ber-versi, projector idempoten, retry,
+> dead-letter, audit, dan recovery operasional kini tersedia.
 
 > **Unified Work Item Engine v0.42.0: ENGINEERING SELESAI — 29 Juli 2026.**
 > Migration 077 menambah `work_items`: backbone pekerjaan lintas modul (§4.4/§5.2)
@@ -20,9 +65,9 @@
 > router Workspace (create/claim/start/complete/return/hold/cancel/delegate/
 > escalate); kepemilikan + scope cabang ditegakkan di repository; membaca notifikasi
 > tidak menutup pekerjaan. **My Work kini berbasis work item nyata** dengan aksi
-> lifecycle, bukan agregasi read-only — menutup P1 audit "Unified Work Item". Emisi
-> otomatis dari engine domain (approval, warehouse task, rekonsiliasi) ke work item
-> adalah integrasi lanjutan. Source of truth 001–077; regression 384/384; rollback
+> lifecycle, bukan agregasi read-only — menutup P1 audit "Unified Work Item".
+> Integrasi otomatis domain → Work Item kemudian ditutup pada v0.46/migration
+> 081. Source of truth release ini 001–077; regression 384/384; rollback
 > full-chain 77/76/76; authorization 302 handler.
 
 > **Canonical Warehouse Ledger (Stage 1) v0.41.0: ENGINEERING SELESAI —
@@ -309,7 +354,7 @@
 | R019 Production, BOM, MRP & QC | routing, work center, MRP, capacity, WIP, job costing, inspection plan, NCR/CAPA, kalibrasi | ◐ engine capacity/WIP 060 dan CAPA/calibration 061 beserta Control Tower/Calibration Register v0.36.0 ✅; inspection-plan sampling dan maintenance/EAM tetap Wave E |
 | R020 Finance, Accounting & Fixed Asset | posting profile, segmented COA, subledger, closing cockpit, fixed asset, budgeting | ◐ posting profile config-driven + budget pengadaan ✅ + **fixed asset registry (FA-*, kategori configuration-driven umur+akun), depresiasi garis lurus otomatis (idempoten per periode, jurnal sistem JRN-*), disposal ber-jurnal nilai buku, laporan keuangan formal (neraca balance dgn akun kontra bertanda benar + laba rugi), closing cockpit 10 checklist rekonsiliasi (bank/inventori/payroll/pajak/subledger/penyusutan) → readiness, subledger AR/AP vs GL ber-selisih terukur** ✅ Sprint 13; failed posting queue, project profitability, segmented COA formal ⬜ |
 | R021 HRD, Payroll & Tax | shift/roster, koreksi absensi, leave accrual, rule engine payroll/BPJS/PPh21 versioned | ◐ payroll rule engine ber-versi ✅ + **shift/roster (jam lembur payroll dari shift roster — hardcode 8 jam dihapus, default NORMAL parity), work calendar + aturan akhir pekan, koreksi absensi maker-checker (snapshot lama immutable, SoD DB, source CORRECTION), leave accrual engine (kebijakan effective-dated, akrual bulanan idempoten, masa kerja minimum), LEAVE_REQUEST tervalidasi saldo & durasi hari kerja + pemotongan otomatis saat approve** ✅ Sprint 14; payslip PDF per karyawan, multi-shift per hari ⬜ |
-| R022 Document, Notification & Integration | template dokumen resmi, SMTP, webhook, API versioning, OpenAPI, event catalog | ◐ **template resmi immutable + QR grafis + HMAC key rotation + watermark/pagination/audit reprint, PDF attachment SMTP dan retry idempotent, OpenAPI 3.0.3 + X-API-Version, event catalog** ✅ v0.22.0; logo binary terkelola dan webhook outbound allowlisted masih ⬜ |
+| R022 Document, Notification & Integration | template dokumen resmi, SMTP, webhook, API versioning, OpenAPI, event catalog | ◐ **template resmi immutable + QR grafis + HMAC key rotation + watermark/pagination/audit reprint, PDF attachment SMTP dan retry idempotent, OpenAPI 3.0.3 + X-API-Version, event catalog, Domain Event → Work Item projection + retry/dead-letter/recovery v0.46** ✅; logo binary terkelola dan webhook outbound allowlisted masih ⬜ |
 | R023 Reporting & Executive Cockpit | SQL KPI layer, materialized view, laporan terjadwal | **✅ Sprint 16 / v0.23.0**: semantic KPI berbasis GL/subledger/produksi/QC, materialized 12-month summary + freshness worker, filter periode/cabang + saved view, executive mobile cockpit, AR aging/order funnel/project actual margin/action queue, 8 laporan XLSX/PDF, scheduler harian/mingguan/bulanan anti-duplikasi, export scope validation, dan audit download |
 
 ## R024–R026 — Audit final, UAT LAN, Go-live (§29–34)

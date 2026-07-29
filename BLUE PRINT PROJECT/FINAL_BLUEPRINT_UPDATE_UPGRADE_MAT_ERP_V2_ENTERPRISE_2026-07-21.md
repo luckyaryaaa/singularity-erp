@@ -1,3 +1,7 @@
+> **BLUEPRINT KANONIS.** Dokumen ini adalah requirement baseline. Status
+> implementasi dan evidence aktual berada di
+> `../docs/audit/enterprise-blueprint-audit-2026-07-29.md`.
+
 # FINAL BLUEPRINT UPDATE & UPGRADE MAT ERP V2
 
 ## Enterprise Integration Blueprint menuju pola SAP / Oracle / Dynamics 365

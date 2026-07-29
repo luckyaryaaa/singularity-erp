@@ -3,6 +3,24 @@
 ERP internal multi-pengguna dengan identitas Soft Clay Enterprise. Runtime
 normal memakai Node.js 20+ dan PostgreSQL 16 sebagai sumber data tunggal.
 
+## Status v0.47.0 — Canonical Warehouse Stage 2A + WMS Mobile
+
+- PostgreSQL source of truth berada pada migration 001–082.
+- Balance, movement, reservation, lot, dan Warehouse Task mempunyai dimensi
+  gudang kanonik yang fail-closed lintas cabang.
+- Handling unit/license plate dan sesi scan LOT/BIN/HU tersedia dengan RLS,
+  optimistic locking, audit, append-only evidence, dan completion gate.
+- Location ledger menyediakan grain product → warehouse → storage location →
+  bin serta expiry date sebagai fondasi FEFO.
+- Authorization matrix mencakup 14 router dan 319 handler.
+
+Stage 2A adalah fase introduce + dual-write guard. Grain cabang lama masih
+menjadi compatibility scope hingga health reconciliation stabil dan Stage 2B
+read-switch/cutover dijalankan. Status tetap **technical release candidate**,
+bukan izin production; UAT manusia, DR, training, dan Owner sign-off tetap gate.
+
+Detail: [v0.47-canonical-warehouse-stage2a-mobility.md](docs/operations/v0.47-canonical-warehouse-stage2a-mobility.md).
+
 ## Menjalankan
 
 ```powershell
@@ -14,6 +32,63 @@ npm.cmd run dev
 Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
+
+## Status v0.46.0 — Domain Event → Work Orchestration
+
+- PostgreSQL source of truth berada pada migration 001–081.
+- Event `work.action-required.v1` memproyeksikan approval, Warehouse Task,
+  CAPA/QC, exception rekonsiliasi, serta dunning/credit hold ke Unified Work
+  Item secara idempoten.
+- Event `work.action-resolved.v1` menutup Work Item otomatis ketika sumber
+  selesai; seluruh create/resolve/retry/dead-letter tercatat dalam audit.
+- Outbox mempunyai exponential backoff, dead-letter, observability tanpa
+  payload, dan retry beralasan dengan permission + recent MFA.
+- Authorization matrix mencakup 14 router dan 310 handler.
+
+Regression utama dan fresh isolated PostgreSQL **403/403**, migration
+**001–081**, rollback **81/80/80**, visual **62/62**, dan accessibility
+**18/18** telah tervalidasi. Status tetap **technical release
+candidate**, bukan izin production: UAT 13 role, security retest manual, enam
+rekonsiliasi, training, actual RTO/RPO, offsite immutable evidence, dan Owner
+sign-off tetap menjadi gate go-live.
+
+Detail: [v0.46-domain-event-work-orchestration.md](docs/operations/v0.46-domain-event-work-orchestration.md).
+
+## Status v0.45.0 — Fresh-Database Warehouse Invariant
+
+- PostgreSQL source of truth berada pada migration 001–080.
+- Migration 080 memastikan setiap cabang aktif—termasuk cabang yang dibuat
+  setelah migration 076—langsung memiliki tepat satu gudang default aktif.
+- Baseline visual v8 mencakup 31 halaman × 2 viewport, termasuk Work Items,
+  Notification Preferences, Warehouse Ledger, WMS Task Board, dan Pricing
+  Conditions secara terarah.
+- Database disposable penuh telah menjalankan migration, seed, field encryption,
+  runtime grants, opening inventory, encrypted backup/restore, dan 398/398 test.
+
+Regression **398/398**, migration **001–080**, rollback **80/79/79**, visual
+**62/62**, dan accessibility **18/18** tervalidasi. Status ini adalah
+**technical release candidate**, bukan izin production: UAT 13 role, security
+retest manual, enam rekonsiliasi, training, actual RTO/RPO, offsite immutable
+evidence, dan Owner sign-off tetap menjadi gate go-live.
+
+## Status v0.44.0 — Advanced Pricing Condition Engine (Stage 1)
+
+- PostgreSQL source of truth berada pada migration 001–079.
+- `pricing_conditions` (migrasi 079) — condition records (BASE_PRICE/diskon/
+  surcharge) per legal entity dengan cakupan produk/pelanggan/kategori, skala
+  kuantitas, validity effective-dated, prioritas, dan optimistic lock.
+- Resolver server-authoritative `GET /api/sales/price`: base price paling
+  spesifik/berprioritas (jatuh ke harga daftar produk) + diskon/surcharge berlaku
+  berurutan. CRUD condition pada router Sales; scope legal-entity ditegakkan.
+- Mengangkat ⬜ audit Sales "Advanced pricing condition engine" ke Stage 1; rebate
+  dan komisi tetap stage berikutnya.
+- Authorization matrix mencakup **308 handler** (Sales 27).
+
+Regression 397/397, migration 001–079, dan rollback full-chain 79/78/78 telah
+tervalidasi. Status ini adalah **engineering release candidate**, bukan izin
+production: UAT 13 role, security retest manual, persetujuan enam rekonsiliasi,
+training, DR RTO/RPO, offsite evidence, dan Owner sign-off tetap menjadi gate
+go-live.
 
 ## Status v0.43.0 — Notification Preferences
 

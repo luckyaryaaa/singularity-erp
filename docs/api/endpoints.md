@@ -155,6 +155,30 @@ transisi memakai optimistic lock (`version`) dan tercatat old/new/reason di audi
 trail; isolasi cabang dijaga permission + RLS `warehouse_tasks`. Engine berdiri
 di atas model lot/bin (058) — ledger stok tidak diubah.
 
+### Canonical Warehouse Stage 2A + WMS Mobile (migrasi 082)
+
+- `GET /api/inventory/warehouse-health` — release gate rekonsiliasi dimensi
+  gudang kanonik pada balance, movement, reservation, lot, dan task.
+- `GET|POST /api/inventory/handling-units` — register license plate pallet/peti/
+  box/bundle/container. Create wajib `Idempotency-Key`.
+- `POST /api/inventory/handling-units/:id/items` — alokasikan qty lot ke
+  handling unit OPEN; database menolak lot lintas cabang/gudang dan aplikasi
+  menolak total alokasi melebihi saldo lot.
+- `POST /api/inventory/handling-units/:id/transition` — lifecycle ber-`version`:
+  OPEN → SEALED → STAGED → LOADED → SHIPPED; VOID wajib beralasan.
+- `POST /api/inventory/mobility/sessions` — mulai/lanjut sesi scan untuk task
+  CLAIMED/IN_PROGRESS; `Idempotency-Key` wajib.
+- `GET /api/inventory/mobility/sessions/:id` — langkah berikutnya dan evidence
+  scan berurutan.
+- `POST /api/inventory/mobility/sessions/:id/scan` — pindai `LOT:`, `BIN:`,
+  atau `HU:` dengan optimistic version, ownership operator, serta scope gudang.
+- `POST /api/inventory/mobility/sessions/:id/complete` — finalisasi evidence.
+  Task dengan `scanRequired=true` tidak dapat DONE sebelum sesi COMPLETED.
+
+Stage 2A adalah fase introduce + dual-write guard. Kolom `warehouse_id`
+ber-grain cabang masih dipertahankan sebagai compatibility scope sampai health
+reconciliation stabil dan fase read-switch/cutover Stage 2B disetujui.
+
 ### Production, Quality & MRP (R019, Sprint 12)
 
 - `GET /api/work-orders/:id/production` — cockpit routing, material, issue,
@@ -205,6 +229,10 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
 - `GET /api/governance/access-reviews/:id`
 - `POST /api/governance/access-reviews/items/:id/decide`
 - `POST /api/governance/access-reviews/:id/complete`
+- `GET /api/governance/outbox` — observability metadata outbox dengan filter
+  status/type; payload event tidak pernah dikembalikan
+- `POST /api/governance/outbox/:id/retry` — recovery `DEAD_LETTER` terkontrol;
+  membutuhkan `settings.edit`, recent MFA, alasan, dan menghasilkan audit trail
 - `GET /api/organization` — profil legal entity + skor kelengkapan + jumlah hierarchy
 - `PATCH /api/organization/:id` — identitas versioned, Owner + PIN + alasan
 - `GET /api/organization/:id/hierarchy`
@@ -261,6 +289,11 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
 - `GET /api/openapi.json` — spesifikasi OpenAPI 3.0.3 (publik); setiap respons
   API menyertakan header `X-API-Version`
 - `GET /api/system/events-catalog` — katalog event domain outbox (publik)
+- Kontrak orkestrasi action queue memakai event versioned
+  `work.action-required.v1` dan `work.action-resolved.v1`. Dispatcher
+  memproyeksikan event secara idempoten ke Unified Work Item + notifikasi,
+  melakukan retry exponential backoff, dan memindahkan kegagalan permanen ke
+  `DEAD_LETTER` untuk recovery governance.
 - `GET /api/documents/:id/official-pdf` — cetak dokumen resmi ber-identitas:
   kop dari `organization_identity_snapshot` (immutable — identitas saat
   terbit), tabel baris, terbilang, blok tanda tangan penandatangan aktif,

@@ -8,7 +8,7 @@ const {hasPermission}=require('../backend/core/permissions');
 const openapi=require('../backend/core/openapi');
 const ROOT=path.join(__dirname,'..'),ROUTES=path.join(ROOT,'backend/routes');
 
-test('authorization matrix mencakup seluruh bounded router dan 304 handler',()=>{
+test('authorization matrix mencakup seluruh bounded router dan 319 handler',()=>{
   const actual=fs.readdirSync(ROUTES).filter(x=>x.endsWith('.js')&&x!=='shared.js').sort();
   assert.deepEqual([...ROUTE_MATRIX.map(x=>x.file)].sort(),actual);
   let total=0;
@@ -27,7 +27,7 @@ test('authorization matrix mencakup seluruh bounded router dan 304 handler',()=>
     assert.equal(row.directGuards+row.delegated+row.public,row.handlers,`${row.file}: akuntansi handler tidak lengkap (direct ${row.directGuards}+delegasi ${row.delegated}+publik ${row.public} != ${row.handlers})`);
     total+=handlers;
   }
-  assert.equal(total,304);
+  assert.equal(total,319);
 });
 
 test('semua permission literal mempunyai jalur allow dan deny',()=>{

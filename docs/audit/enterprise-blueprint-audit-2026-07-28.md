@@ -1,5 +1,8 @@
 # Audit Enterprise Blueprint MAT ERP V2
 
+> **Historis / superseded.** Current assessment setelah v0.40–v0.44 berada di
+> [enterprise-blueprint-audit-2026-07-29.md](enterprise-blueprint-audit-2026-07-29.md).
+
 **Tanggal audit:** 28 Juli 2026  
 **Baseline kode:** `98e6fcf9f4febf5ded9f9e0c9ac4981ae99a7486`  
 **Cakupan:** source code, database PostgreSQL, migration, pengujian otomatis, dokumen release, serta seluruh dokumen pada `BLUE PRINT PROJECT/`.

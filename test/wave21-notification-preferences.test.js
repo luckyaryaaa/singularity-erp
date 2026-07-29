@@ -26,6 +26,9 @@ const tag = (p) => `${p}${(seq += 1)}${Date.now().toString(36).toUpperCase().sli
 
 dbTest('Wave 21: preferensi default menampilkan kelima kategori, tak ada yang di-mute', async () => rollback(async (client) => {
   const user = await owner(client);
+  // Isolasi dari preferensi apa pun yang mungkin sudah ter-commit di DB bersama
+  // (dihapus dalam transaksi rollback ini saja).
+  await client.query('DELETE FROM notification_preferences WHERE user_id = $1', [user.id]);
   const p = await prefs.getPreferences(client, user);
   assert.equal(p.items.length, 5);
   assert.ok(p.items.every((x) => x.muted === false && x.emailEnabled === false), 'default: tampil in-app, email mati');

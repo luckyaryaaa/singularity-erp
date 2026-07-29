@@ -19,6 +19,20 @@ function assertPeriod(value) {
   if (!/^\d{4}-\d{2}$/.test(p)) throw new AppError('VALIDATION_ERROR', 'Periode wajib berformat YYYY-MM.');
   return p;
 }
+async function workBranchId(client, user, legalEntityId = null) {
+  if (user?.branchId) return user.branchId;
+  const own = user?.id
+    ? (await client.query('SELECT branch_id FROM app_users WHERE id=$1', [user.id])).rows[0]
+    : null;
+  if (own?.branch_id) return own.branch_id;
+  const fallback = legalEntityId
+    ? (await client.query(
+      'SELECT id FROM branches WHERE legal_entity_id=$1 AND active ORDER BY is_head_office DESC,created_at LIMIT 1',
+      [legalEntityId])).rows[0]
+    : null;
+  if (!fallback?.id) throw new AppError('VALIDATION_ERROR', 'Cabang konteks work item rekonsiliasi tidak tersedia.');
+  return fallback.id;
+}
 
 // ── Laporan keuangan: neraca + laba rugi ─────────────────────────────────────
 async function financialStatements(client, value, user) {
@@ -189,17 +203,38 @@ async function prepareReconciliationEvidence(client, { type, period, user, reque
   assertPermission(user, normalized === 'TAX' ? 'tax.edit' : 'ledger.create');
   const snapshot = await reconciliationSnapshot(client, { type: normalized, period, user });
   const entityId = await accountingConfig.defaultLegalEntityId(client);
+  const actionBranchId = await workBranchId(client, user, entityId);
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`reconciliation:${entityId}:${snapshot.period}:${normalized}`]);
   const version = Number((await client.query(`SELECT COALESCE(MAX(version),0)+1 n FROM finance_reconciliation_evidence
     WHERE legal_entity_id=$1 AND period=$2 AND reconciliation_type=$3`, [entityId,snapshot.period,normalized])).rows[0].n);
   const sha = evidenceHash(snapshot);
-  await client.query(`UPDATE finance_reconciliation_evidence SET status='SUPERSEDED'
-    WHERE legal_entity_id=$1 AND period=$2 AND reconciliation_type=$3 AND status='PREPARED'`, [entityId,snapshot.period,normalized]);
+  const superseded=(await client.query(`UPDATE finance_reconciliation_evidence SET status='SUPERSEDED'
+    WHERE legal_entity_id=$1 AND period=$2 AND reconciliation_type=$3 AND status='PREPARED'
+    RETURNING id`, [entityId,snapshot.period,normalized])).rows;
+  for(const previous of superseded){
+    await require('./runtime').actionResolved(client,{
+      actionKey:`reconciliation:${previous.id}`,actorUserId:user.id,branchId:actionBranchId,
+      sourceEntityType:'FINANCE_RECONCILIATION',sourceEntityId:previous.id,
+      resolutionNote:`Evidence digantikan oleh rekonsiliasi ${normalized} ${snapshot.period} versi ${version}.`
+    });
+  }
   const row=(await client.query(`INSERT INTO finance_reconciliation_evidence
     (legal_entity_id,period,reconciliation_type,version,result_status,difference,snapshot,snapshot_sha256,prepared_by)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
     [entityId,snapshot.period,normalized,version,snapshot.resultStatus,snapshot.difference,JSON.stringify(snapshot),sha,user.id])).rows[0];
   await require('./runtime').audit(client,{userId:user.id,action:'PREPARE',module:'ledger',entityType:'FINANCE_RECONCILIATION',entityId:row.id,newValue:{type:normalized,period:snapshot.period,version,resultStatus:snapshot.resultStatus,difference:snapshot.difference,sha256:sha},requestId});
+  if(snapshot.resultStatus!=='MATCHED'){
+    await require('./runtime').actionRequired(client,{
+      actionKey:`reconciliation:${row.id}`,actorUserId:user.id,branchId:actionBranchId,
+      itemType:'EXCEPTION',title:`Rekonsiliasi ${normalized} ${snapshot.period}: ${snapshot.resultStatus}`,
+      description:`Selisih rekonsiliasi ${snapshot.difference}. Evidence versi ${version} perlu ditinjau.`,
+      sourceModule:'ledger',sourceEntityType:'FINANCE_RECONCILIATION',sourceEntityId:row.id,
+      assigneeRole:'finance_manager',priority:snapshot.resultStatus==='NOT_RUN'?'URGENT':'HIGH',
+      risk:'HIGH',requiredAction:'Tinjau evidence, koreksi sumber selisih, lalu approve/reject dengan alasan.',
+      completionCondition:'Evidence rekonsiliasi diputuskan atau digantikan versi baru yang matched.',
+      slaMinutes:1440,link:'#/accounting/closing'
+    });
+  }
   return reconciliationEvidenceView(row);
 }
 
@@ -218,6 +253,14 @@ async function decideReconciliationEvidence(client, { id, action, reason, user, 
   const updated=(await client.query(`UPDATE finance_reconciliation_evidence SET status=$2,approved_by=$3,approved_at=now(),decision_reason=$4 WHERE id=$1 RETURNING *`,
     [id,status,user.id,String(reason||'').trim()||null])).rows[0];
   await require('./runtime').audit(client,{userId:user.id,action:action.toUpperCase(),module:'ledger',entityType:'FINANCE_RECONCILIATION',entityId:id,reason:String(reason||'').trim()||null,newValue:{status,type:row.reconciliation_type,period:row.period,version:row.version},requestId});
+  if(row.result_status!=='MATCHED'){
+    const actionBranchId=await workBranchId(client,user,row.legal_entity_id);
+    await require('./runtime').actionResolved(client,{
+      actionKey:`reconciliation:${id}`,actorUserId:user.id,branchId:actionBranchId,
+      sourceEntityType:'FINANCE_RECONCILIATION',sourceEntityId:id,
+      resolutionNote:`Evidence rekonsiliasi ${row.reconciliation_type} ${row.period} ${status.toLowerCase()}.`
+    });
+  }
   return reconciliationEvidenceView(updated);
 }
 

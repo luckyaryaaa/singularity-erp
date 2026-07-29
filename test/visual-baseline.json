@@ -1,6 +1,6 @@
 {
-  "version": 7,
-  "_note": "v7 menambahkan empat workbench Finance End-to-End Closure: Accounting/Coding Block, Tax Reconciliation, Official Financial Statements, dan Closing Cockpit; login visual menyelesaikan MFA privileged sebelum pemeriksaan desktop dan mobile.",
+  "version": 9,
+  "_note": "v9 menambahkan bukti visual WMS Mobile Stage 2A; v8 menambahkan Work Items, Notification Preferences, Warehouse Ledger, Warehouse Task Board, dan Advanced Pricing Conditions.",
   "_riwayat": "v2 menyesuaikan arsitektur menu v0.29.0 (Executive Cockpit melebur ke Dashboard, #/reports menjadi Report Factory). Sebelum v3, gerbang ini berjalan dengan MAT_DB_MODE=memory yaitu adapter lama backend/api.js yang hanya melayani sembilan endpoint, sementara produksi memakai PostgreSQL dengan ratusan handler. Akibatnya mayoritas halaman tidak pernah dirender oleh pemeriksaan otomatis apa pun, dan sejumlah cacat lama — hitungan organisasi selalu nol, total dokumen tampil Rp NaN, rute persediaan yang hilang — baru ketahuan lewat pemeriksaan browser manual.",
   "_memorySafe": "Halaman bertanda memorySafe:false menuntut endpoint di luar sembilan milik adapter in-memory dan hanya diuji pada mode postgres (MAT_UI_SMOKE_DB=postgres, default). Jalankan MAT_UI_SMOKE_DB=memory hanya untuk pemeriksaan cepat tanpa database.",
   "maxHorizontalOverflow": 1,
@@ -39,6 +39,12 @@
     { "name": "purchase-contracts", "hash": "#/procurement/contracts", "selector": ".enterprise-table", "memorySafe": false },
     { "name": "capacity-wip", "hash": "#/production/capacity", "selector": ".capacity-grid", "memorySafe": false },
     { "name": "quality-management", "hash": "#/production/quality-management", "selector": ".calibration-register", "memorySafe": false },
-    { "name": "mrp", "hash": "#/production/mrp", "selector": ".table-wrap", "memorySafe": false }
+    { "name": "mrp", "hash": "#/production/mrp", "selector": ".table-wrap", "memorySafe": false },
+    { "name": "my-work-items", "hash": "#/my-work", "selector": "#workItemsPanel", "memorySafe": false },
+    { "name": "notification-preferences", "hash": "#/notifications", "selector": ".notif-prefs", "memorySafe": false },
+    { "name": "warehouse-ledger", "hash": "#/warehouse/inventory?tab=gudang", "selector": ".warehouse-ledger", "memorySafe": false },
+    { "name": "warehouse-tasks", "hash": "#/warehouse/inventory?tab=tugas", "selector": ".warehouse-task-board", "memorySafe": false },
+    { "name": "warehouse-mobility", "hash": "#/warehouse/inventory?tab=mobilitas", "selector": ".mobile-scan-workbench", "memorySafe": false },
+    { "name": "pricing-conditions", "hash": "#/sales/commercial-control", "selector": ".pricing-conditions", "memorySafe": false }
   ]
 }

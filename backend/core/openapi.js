@@ -3,7 +3,7 @@
 // Dihasilkan dari daftar endpoint terkurasi (bukan refleksi otomatis) agar
 // kontrak API stabil dan terdokumentasi. API_VERSION dikirim pada header
 // X-API-Version setiap respons.
-const API_VERSION = '1.4';
+const API_VERSION = '1.5';
 
 // Ringkas: [method, path, tag, summary, {auth?}]. Path memakai {id} OpenAPI.
 const ENDPOINTS = [
@@ -35,6 +35,10 @@ const ENDPOINTS = [
   ['POST', '/api/documents/{id}/convert', 'Documents', 'Konversi ke dokumen lanjutan'],
   ['GET', '/api/documents/{id}/official-pdf', 'Documents', 'Cetak dokumen resmi ber-identitas'],
   ['POST', '/api/documents/{id}/email', 'Documents', 'Kirim dokumen via email (SMTP)'],
+  ['GET', '/api/sales/price', 'Sales', 'Resolusi harga server (base price + diskon/surcharge)'],
+  ['GET', '/api/sales/pricing-conditions', 'Sales', 'Daftar condition record harga'],
+  ['POST', '/api/sales/pricing-conditions', 'Sales', 'Buat condition harga (idempotency)'],
+  ['POST', '/api/sales/pricing-conditions/{id}/deactivate', 'Sales', 'Nonaktifkan condition harga (version)'],
   ['GET', '/api/quotations/{id}/revisions', 'Sales', 'Histori revisi penawaran'],
   ['POST', '/api/quotations/{id}/revise', 'Sales', 'Revisi penawaran ber-versi'],
   ['POST', '/api/rma', 'Sales', 'Buat RMA / klaim garansi'],
@@ -62,6 +66,15 @@ const ENDPOINTS = [
   ['POST', '/api/inventory/tasks/{id}/start', 'Inventory', 'Mulai kerjakan tugas gudang (version)'],
   ['POST', '/api/inventory/tasks/{id}/complete', 'Inventory', 'Selesaikan tugas gudang; put-away memindahkan lot (version + idempotency)'],
   ['POST', '/api/inventory/tasks/{id}/cancel', 'Inventory', 'Batalkan tugas gudang beralasan (version)'],
+  ['GET', '/api/inventory/warehouse-health', 'Inventory', 'Health gate dimensi gudang kanonik'],
+  ['GET', '/api/inventory/handling-units', 'Inventory', 'Daftar handling unit/license plate'],
+  ['POST', '/api/inventory/handling-units', 'Inventory', 'Buat handling unit (idempotency)'],
+  ['POST', '/api/inventory/handling-units/{id}/items', 'Inventory', 'Tempatkan lot ke handling unit'],
+  ['POST', '/api/inventory/handling-units/{id}/transition', 'Inventory', 'Transisi handling unit (version)'],
+  ['POST', '/api/inventory/mobility/sessions', 'Inventory', 'Mulai sesi scan tugas (idempotency)'],
+  ['GET', '/api/inventory/mobility/sessions/{id}', 'Inventory', 'Detail dan bukti sesi scan'],
+  ['POST', '/api/inventory/mobility/sessions/{id}/scan', 'Inventory', 'Catat scan berurutan (version)'],
+  ['POST', '/api/inventory/mobility/sessions/{id}/complete', 'Inventory', 'Finalisasi bukti scan (version)'],
   ['GET', '/api/work-orders/{id}/production', 'Production', 'Cockpit produksi WO'],
   ['POST', '/api/work-orders/{id}/plan', 'Production', 'Rencanakan produksi (BOM + reservasi)'],
   ['GET', '/api/production/capacity', 'Production', 'Capacity board per work center dan tanggal'],
@@ -114,6 +127,8 @@ const ENDPOINTS = [
   ['GET', '/api/governance/retention/holds', 'Governance', 'Daftar legal hold retention'],
   ['POST', '/api/governance/retention/holds', 'Governance', 'Tempatkan legal hold pada record/resource'],
   ['POST', '/api/governance/retention/holds/{id}/release', 'Governance', 'Lepaskan legal hold beralasan'],
+  ['GET', '/api/governance/outbox', 'Governance', 'Observability event outbox tanpa mengekspos payload'],
+  ['POST', '/api/governance/outbox/{id}/retry', 'Governance', 'Retry dead-letter beralasan dengan recent MFA'],
   ['GET', '/api/events', 'Realtime', 'Server-Sent Events terautentikasi']
 ];
 
@@ -128,7 +143,9 @@ const EVENTS = [
   { event: 'payment.posted', when: 'Pembayaran diposting / dibalik', payload: ['entityId', 'documentType', 'branchId'] },
   { event: 'goods_receipt.created', when: 'Penerimaan barang dibuat', payload: ['entityId', 'branchId'] },
   { event: 'work_order.updated', when: 'Work order diperbarui', payload: ['entityId', 'branchId'] },
-  { event: 'payroll.updated', when: 'Payroll run diperbarui', payload: ['entityId', 'branchId'] }
+  { event: 'payroll.updated', when: 'Payroll run diperbarui', payload: ['entityId', 'branchId'] },
+  { event: 'work.action-required.v1', version: 1, when: 'Kejadian domain membutuhkan tindakan manusia dan diproyeksikan ke My Work', payload: ['actionKey', 'actorUserId', 'itemType', 'title', 'sourceEntityType', 'sourceEntityId', 'branchId', 'assigneeUserId', 'assigneeRole', 'priority', 'risk', 'requiredAction', 'completionCondition', 'dueAt', 'slaMinutes'] },
+  { event: 'work.action-resolved.v1', version: 1, when: 'Kejadian domain sumber selesai dan menutup Work Item otomatis', payload: ['actionKey', 'sourceEntityType', 'sourceEntityId', 'branchId', 'actorUserId', 'resolutionNote'] }
 ];
 
 function spec(host = 'localhost') {

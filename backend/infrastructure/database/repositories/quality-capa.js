@@ -71,6 +71,19 @@ async function openCase(client, { inspectionId, branchId, title, description, se
   await runtime.audit(client, { userId: user.id, action: 'CREATE', module: 'quality',
     entityType: 'CAPA_CASE', entityId: row.id, documentNumber: row.case_number,
     newValue: { severity: row.severity, source: row.source, inspectionId }, requestId, branchId: scope });
+  await runtime.actionRequired(client, {
+    actionKey: `capa:${row.id}`, actorUserId: user.id, branchId: scope,
+    itemType: 'CORRECTION', title: `Tindak lanjut ${row.case_number}`,
+    description: row.title, sourceModule: 'quality', sourceEntityType: 'CAPA_CASE',
+    sourceEntityId: row.id, assigneeUserId: row.owner_id,
+    assigneeRole: row.owner_id ? null : 'production',
+    priority: row.severity === 'CRITICAL' ? 'URGENT' : row.severity === 'MAJOR' ? 'HIGH' : 'NORMAL',
+    risk: row.severity === 'CRITICAL' ? 'HIGH' : row.severity === 'MAJOR' ? 'MEDIUM' : 'LOW',
+    requiredAction: 'Analisis akar masalah, lakukan tindakan korektif/preventif, lalu verifikasi efektivitas.',
+    completionCondition: 'Kasus CAPA berstatus CLOSED atau CANCELLED.',
+    dueAt: row.due_date, slaMinutes: row.due_date ? null : 4320,
+    link: '#/production/quality-management'
+  });
   return camel(row);
 }
 
@@ -138,6 +151,15 @@ async function advanceCase(client, { id, toStatus, payload = {}, reason, expecte
   await runtime.audit(client, { userId: user.id, action: 'STATUS_CHANGE', module: 'quality',
     entityType: 'CAPA_CASE', entityId: id, documentNumber: row.case_number, reason,
     oldValue: { status: row.status }, newValue: { status: target }, requestId, branchId: row.branch_id });
+  if (['CLOSED', 'CANCELLED'].includes(target)) {
+    await runtime.actionResolved(client, {
+      actionKey: `capa:${id}`, actorUserId: user.id, branchId: row.branch_id,
+      sourceEntityType: 'CAPA_CASE', sourceEntityId: id,
+      resolutionNote: target === 'CLOSED'
+        ? `CAPA ${row.case_number} ditutup setelah verifikasi efektivitas.`
+        : `CAPA ${row.case_number} dibatalkan: ${reason}`
+    });
+  }
   return camel(updated);
 }
 
