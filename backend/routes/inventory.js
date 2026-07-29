@@ -7,6 +7,7 @@ const binExecution = require('../infrastructure/database/repositories/bin-execut
 const warehouseTasks = require('../infrastructure/database/repositories/warehouse-tasks');
 const warehouseMobility = require('../infrastructure/database/repositories/warehouse-mobility');
 const warehouseLedger = require('../infrastructure/database/repositories/warehouse-ledger');
+const warehouseCutover = require('../infrastructure/database/repositories/warehouse-cutover');
 const stockReservations = require('../infrastructure/database/repositories/stock-reservations');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const { AppError } = require('../core/errors');
@@ -15,7 +16,7 @@ const { NO_MATCH } = require('./shared');
 async function dispatch(client, req, url, ctx) {
   const p=url.pathname, method=req.method;
   let m;
-  if(method==='GET'&&p==='/api/inventory'){assertPermission(ctx.user,'inventory.view');return operations.listInventory(client,ctx.user,Object.fromEntries(url.searchParams));}
+  if(method==='GET'&&p==='/api/inventory'){assertPermission(ctx.user,'inventory.view');const readGrain=await warehouseCutover.getReadGrain(client);return operations.listInventory(client,ctx.user,{...Object.fromEntries(url.searchParams),readGrain});}
   if(method==='GET'&&p==='/api/inventory/reservations')
     return stockReservations.listReservations(client,ctx.user,Object.fromEntries(url.searchParams));
   m=p.match(/^\/api\/inventory\/reservations\/([0-9a-f-]{36})\/release$/);
@@ -123,6 +124,14 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m){const body=await readBody(req);
     return warehouseMobility.completeScanSession(client,{id:m[1],expectedVersion:Number(body.version),
       user:ctx.user,requestId:ctx.requestId});}
+
+  // Canonical Warehouse Stage 2B (083) — reconcile + reversible read-switch.
+  if(method==='GET'&&p==='/api/inventory/reconciliation')
+    return warehouseCutover.reconciliation(client,ctx.user);
+  if(method==='GET'&&p==='/api/inventory/stock-by-warehouse')
+    return warehouseCutover.stockByWarehouse(client,ctx.user,Object.fromEntries(url.searchParams));
+  if(method==='POST'&&p==='/api/inventory/read-grain'){const body=await readBody(req);
+    return warehouseCutover.setReadGrain(client,{grain:body.grain,note:body.note},ctx.user,ctx.requestId);}
   return NO_MATCH;
 }
 

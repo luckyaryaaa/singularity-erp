@@ -1,5 +1,16 @@
 # Backlog Resmi — MAT ERP V2
 
+> **TECHNICAL RC v0.48 — 29 JULI 2026.** Canonical Warehouse Stage 2B (Reconcile
+> + Read-Switch) selesai engineering: migration 001–083; fase reconcile+read-switch
+> cutover kanonik yang REVERSIBEL — view rekonsiliasi membuktikan baca grain
+> org_warehouse identik nilainya dengan grain cabang, flag `warehouse.read_grain`
+> (BRANCH↔CANONICAL) dapat diaktifkan & di-rollback (rehearsal) dengan gate
+> rekonsiliasi bersih, `listInventory` grain-aware. `warehouse_id` tetap kunci
+> scope/RLS. Fresh isolated regression 414/414, rollback 83/82/82, authorization
+> 322 handler. **Prioritas berikutnya: cutover rehearsal end-to-end + grain-flip
+> terminal (scope/RLS switch)**, lalu feature freeze serta LAN-UAT/DR/Owner
+> sign-off. Human/production gates tetap terbuka.
+
 > **TECHNICAL RC v0.47 — 29 JULI 2026.** Canonical Warehouse Stage 2A + WMS
 > Mobility selesai engineering: migration 001–082; dimensi gudang kanonik
 > wajib pada ledger utama; handling unit/license plate dan scan LOT/BIN/HU

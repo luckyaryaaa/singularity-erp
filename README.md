@@ -3,6 +3,24 @@
 ERP internal multi-pengguna dengan identitas Soft Clay Enterprise. Runtime
 normal memakai Node.js 20+ dan PostgreSQL 16 sebagai sumber data tunggal.
 
+## Status v0.48.0 — Canonical Warehouse Stage 2B (Reconcile + Read-Switch)
+
+- PostgreSQL source of truth berada pada migration 001–083.
+- Fase RECONCILE + READ-SWITCH cutover kanonik, **reversibel**: view rekonsiliasi
+  membuktikan baca grain `org_warehouse` identik nilainya dengan grain cabang;
+  flag `warehouse.read_grain` (BRANCH↔CANONICAL) dapat diaktifkan & di-rollback
+  (rehearsal), dijaga `settings.edit`, ber-gate rekonsiliasi bersih.
+- `listInventory` grain-aware (default BRANCH). Endpoint baru: reconciliation,
+  stock-by-warehouse, read-grain. `warehouse_id` tetap kunci scope/RLS; grain-flip
+  terminal adalah stage berikutnya.
+- Authorization matrix mencakup **322 handler** (Inventory 33).
+
+Regression 414/414, migration 001–083, dan rollback full-chain 83/82/82 telah
+tervalidasi. Status ini adalah **engineering release candidate**, bukan izin
+production: UAT 13 role, security retest manual, persetujuan enam rekonsiliasi,
+training, DR RTO/RPO, offsite evidence, dan Owner sign-off tetap menjadi gate
+go-live.
+
 ## Status v0.47.0 — Canonical Warehouse Stage 2A + WMS Mobile
 
 - PostgreSQL source of truth berada pada migration 001–082.

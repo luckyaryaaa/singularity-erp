@@ -150,9 +150,18 @@ Terapkan berurutan dengan `npm run db:migrate`; checksum divalidasi melalui
 - Down migration menghapus trigger/fungsi; baris warehouse yang sudah terbentuk
   tetap dipertahankan sebagai data organisasi.
 
+## 083 — `warehouse_stage2b_read_switch`
+
+- Fase RECONCILE + READ-SWITCH cutover kanonik, reversibel. Menambah view
+  `warehouse_read_switch_reconciliation` (per produk×cabang: total grain cabang
+  vs grain org_warehouse) + `warehouse_read_switch_health` (ringkasan gate), dan
+  seed `system_settings.warehouse.read_grain='BRANCH'`.
+- Additive murni; `warehouse_id` tetap kunci scope/RLS. `listInventory` grain-aware
+  (default BRANCH identik). Rollback aman penuh (drop view + hapus setting).
+
 ## Urutan aman
 
-`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076 → 077 → 078 → 079 → 080`
+`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076 → 077 → 078 → 079 → 080 → 081 → 082 → 083`
 
 Setelah migration 070:
 

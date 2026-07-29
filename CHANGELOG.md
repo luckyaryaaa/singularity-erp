@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.48.0] — 2026-07-29
+
+### Canonical Warehouse Stage 2B — Reconcile + Read-Switch (reversible)
+
+- Migration 083 menambah fase RECONCILE + READ-SWITCH dari cutover kanonik
+  (introduce → dual-write → reconcile → read-switch), **reversibel**:
+  - view `warehouse_read_switch_reconciliation` + `warehouse_read_switch_health`
+    membuktikan membaca pada grain `org_warehouse` **identik nilainya** dengan
+    grain cabang (`warehouse_id`) — read-switch tidak mengubah angka, hanya grain;
+  - flag `warehouse.read_grain` (BRANCH default | CANONICAL) di `system_settings`,
+    dapat diaktifkan dan **di-rollback** (rehearsal), dijaga `settings.edit`;
+  - **gate**: beralih ke CANONICAL ditolak bila rekonsiliasi belum bersih;
+    kembali ke BRANCH selalu boleh.
+- `operations.listInventory` kini grain-aware (default BRANCH = perilaku identik;
+  CANONICAL menampilkan gudang kanonik). Endpoint baru pada router Inventory:
+  `GET /api/inventory/reconciliation`, `GET /api/inventory/stock-by-warehouse`,
+  `POST /api/inventory/read-grain`.
+- `warehouse_id` ber-grain cabang **tetap** kunci scope/RLS (kompatibilitas);
+  grain-flip terminal adalah stage berikutnya.
+
+### Assurance
+
+- Regression + isolated PostgreSQL gate **414/414** lulus (6 test read-switch baru:
+  rekonsiliasi bersih, value-preserving antar grain, flag reversibel + gate, izin
+  settings.edit, stok grain kanonik, liveness).
+- Full-chain rollback lulus di database disposable: **83 up, 82 down, 82 re-up**.
+- Authorization matrix **322 handler** (Inventory 30→33).
+
 ## [0.47.0] — 2026-07-29
 
 ### Canonical Warehouse Stage 2A + WMS Mobility
