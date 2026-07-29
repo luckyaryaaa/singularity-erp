@@ -31,12 +31,13 @@
     async render(main, _p, signal) {
       this.period = this.period || new Date().toISOString().slice(0, 7);
       const period = this.period;
-      const [s, ledger, reconciliations, profiles, payrollRules] = await Promise.all([
+      const [s, ledger, reconciliations, profiles, payrollRules, coding] = await Promise.all([
         query(`accounting:${period}`, () => api(`/api/accounting/summary?period=${period}`, { signal }), { staleMs: 60_000 }),
         query(`ledger:${period}`, () => api(`/api/accounting/ledger?period=${period}&limit=50`, { signal }), { staleMs: 60_000 }),
         api(`/api/accounting/reconciliation?period=${period}`, { signal }),
         query('posting-profiles', () => api('/api/accounting/posting-profiles', { signal }), { staleMs: 300_000 }),
-        can('payroll.view') ? query('payroll-rules', () => api('/api/accounting/payroll-rules', { signal }), { staleMs: 300_000 }) : Promise.resolve({ items: [] })
+        can('payroll.view') ? query('payroll-rules', () => api('/api/accounting/payroll-rules', { signal }), { staleMs: 300_000 }) : Promise.resolve({ items: [] }),
+        api('/api/accounting/coding-block', { signal })
       ]);
       const pl = s.profitLoss;
       const balanced = Math.abs(s.debitTotal - s.creditTotal) < 0.01;
@@ -77,6 +78,11 @@
             </div>
           </article>
         </section>
+        <section class="panel table-panel"><header><div><p class="eyebrow">CODING BLOCK CONTROL</p><h2>Kebijakan dimensi jurnal</h2></div><span class="chip ${coding.enforcement==='HARD'?'mint':'amber'}">${esc(coding.enforcement)} enforcement</span></header>
+          <div class="table-wrap"><table><thead><tr><th>Kategori akun</th><th>Cost center</th><th>Profit center</th><th>Project</th><th>Versi</th><th></th></tr></thead>
+          <tbody>${coding.policies.map(p=>`<tr><td><b>${esc(p.category)}</b></td><td>${p.requiresCostCenter?chip('REQUIRED'):'Opsional'}</td><td>${p.requiresProfitCenter?chip('REQUIRED'):'Opsional'}</td><td>${p.requiresProject?chip('REQUIRED'):'Opsional'}</td><td>v${p.version}</td><td class="right">${can('settings.edit')?`<button class="btn ghost sm" data-coding-policy="${esc(p.category)}">Atur</button>`:''}</td></tr>`).join('')}</tbody></table></div>
+          <div class="panel-body"><p class="muted">HARD enforcement menolak posting akun P&L yang tidak membawa dimensi wajib. Perubahan policy memiliki versi dan audit trail.</p></div>
+        </section>
         <section class="panel"><header><div><p class="eyebrow">BUKU BESAR</p><h2>50 transaksi jurnal terbaru</h2></div><span class="chip ${balanced ? 'mint' : 'coral'}">${balanced ? 'Debit = kredit' : 'Tidak seimbang'}</span></header>
           <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Dokumen</th><th>Akun</th><th class="right">Debit</th><th class="right">Kredit</th></tr></thead>
           <tbody>${ledger.items.map(r => `<tr><td>${fmtDate(r.postingDate)}</td><td><b>${esc(r.documentNumber)}</b><small>${esc(r.title)}</small></td><td>${esc(r.accountCode)} · ${esc(r.accountName)}</td><td class="right money">${r.debit ? fmtIDRFull(r.debit) : '—'}</td><td class="right money">${r.credit ? fmtIDRFull(r.credit) : '—'}</td></tr>`).join('') || '<tr><td colspan="5" class="table-loading">Belum ada jurnal pada periode ini.</td></tr>'}</tbody></table></div>
@@ -95,15 +101,27 @@
           </article>` : ''}
         </section>`;
       main.querySelector('#accountingPeriod').addEventListener('change', (e) => { this.period = e.target.value; this.render(main); });
+      main.querySelectorAll('[data-coding-policy]').forEach(btn=>btn.addEventListener('click',async()=>{
+        const current=coding.policies.find(p=>p.category===btn.dataset.codingPolicy);
+        const value=await formDialog({title:`Atur coding block ${current.category}`,description:'Perubahan policy berlaku untuk posting berikutnya dan tercatat sebagai configuration change.',fields:[
+          {name:'requiresCostCenter',label:'Wajib cost center',type:'checkbox',value:current.requiresCostCenter},
+          {name:'requiresProfitCenter',label:'Wajib profit center',type:'checkbox',value:current.requiresProfitCenter},
+          {name:'requiresProject',label:'Wajib project WBS',type:'checkbox',value:current.requiresProject},
+          {name:'reason',label:'Alasan perubahan',type:'textarea',required:true}
+        ],submitLabel:'Simpan policy'});
+        if(!value)return;
+        try{await api(`/api/accounting/coding-block/${current.category}`,{method:'PUT',body:value});toast('Kebijakan diperbarui',`${current.category} · versi baru aktif`);this.render(main);}
+        catch(error){toast('Kebijakan gagal disimpan',error.detail||error.message,'coral');}
+      }));
       main.querySelector('#closePeriod')?.addEventListener('click', async () => {
         const answer = await actionDialog({ title: `Tutup periode ${period}`, description: 'Server menjalankan SELURUH checklist closing cockpit: FAIL memblokir mutlak; WARN membutuhkan waiver tertulis.', requireReason: true, confirmLabel: 'Tutup periode' }); if (!answer) return;
-        try { await api('/api/accounting/period/close', { method: 'POST', body: { period, ...answer } }); invalidate(`accounting:${period}`); toast('Periode ditutup', `${period} sekarang terkunci.`); this.render(main); }
+        try { await api('/api/accounting/period/close', { method: 'POST', idempotencyKey: newIdemKey(), body: { period, ...answer } }); invalidate(`accounting:${period}`); toast('Periode ditutup', `${period} sekarang terkunci.`); this.render(main); }
         catch (error) {
           // Checklist WARN: minta waiver formal lalu ulangi dengan waiveWarnings.
           if (error.code === 'REASON_REQUIRED' && /waiveWarnings/.test(error.detail || error.message)) {
             const waiver = await actionDialog({ title: 'Waiver checklist WARN', description: `${error.detail || error.message}\n\nWaiver terekam permanen pada bukti closing dan audit trail.`, requireReason: true, confirmLabel: 'Tutup dengan waiver', danger: true });
             if (!waiver) return;
-            try { await api('/api/accounting/period/close', { method: 'POST', body: { period, ...answer, waiveWarnings: waiver.reason } }); invalidate(`accounting:${period}`); toast('Periode ditutup dengan waiver', `${period} terkunci — waiver terekam.`); this.render(main); return; }
+            try { await api('/api/accounting/period/close', { method: 'POST', idempotencyKey: newIdemKey(), body: { period, ...answer, waiveWarnings: waiver.reason } }); invalidate(`accounting:${period}`); toast('Periode ditutup dengan waiver', `${period} terkunci — waiver terekam.`); this.render(main); return; }
             catch (retryError) { toast('Closing gagal', retryError.detail || retryError.message, 'coral'); return; }
           }
           toast('Closing gagal', error.detail || error.message, 'coral');
@@ -111,7 +129,38 @@
       });
       main.querySelector('#reopenPeriod')?.addEventListener('click', async () => { const answer = await actionDialog({ title: `Buka kembali ${period}`, description: 'Tindakan kritis ini memerlukan PIN Owner dan alasan tertulis.', requireReason: true, requirePin: true, confirmLabel: 'Buka periode', danger: true }); if (!answer) return; try { await api('/api/accounting/period/reopen', { method: 'POST', body: { period, ...answer } }); invalidate(`accounting:${period}`); toast('Periode dibuka kembali', period); this.render(main); } catch (error) { toast('Reopen gagal', error.message, 'coral'); } });
       main.querySelector('#reconcilePeriod')?.addEventListener('click', async () => { try { await api('/api/jobs', { method: 'POST', body: { type: 'RECONCILIATION', params: { period } } }); toast('Rekonsiliasi dijadwalkan', 'Worker akan mencocokkan mutasi bank dan buku besar.'); } catch (error) { toast('Rekonsiliasi gagal', error.message, 'coral'); } });
-      main.querySelector('#manualJournal')?.addEventListener('click', async () => { try { const accounts = await api('/api/accounting/accounts'), options = accounts.items.map(x => [x.code, `${x.code} · ${x.name}`]); const value = await formDialog({ title: 'Buat jurnal manual', description: 'Template debit–kredit sederhana. Dokumen tetap dibuat sebagai draft untuk approval sebelum posting.', fields: [{ name: 'title', label: 'Judul jurnal', required: true }, { name: 'debitAccount', label: 'Akun debit', type: 'select', options, required: true }, { name: 'creditAccount', label: 'Akun kredit', type: 'select', options, required: true }, { name: 'amount', label: 'Nilai', type: 'number', min: 1, required: true }, { name: 'memo', label: 'Memo', type: 'textarea' }], submitLabel: 'Buat draft jurnal' }); if (!value) return; if (value.debitAccount === value.creditAccount) throw new Error('Akun debit dan kredit harus berbeda.'); const doc = await api('/api/documents', { method: 'POST', idempotencyKey: newIdemKey(), body: { type: 'JOURNAL', title: value.title, amount: value.amount, payload: { period, journalLines: [{ accountCode: value.debitAccount, debit: value.amount, credit: 0, memo: value.memo }, { accountCode: value.creditAccount, debit: 0, credit: value.amount, memo: value.memo }] } } }); toast('Draft jurnal dibuat', doc.documentNumber); openDrawer(doc.id, { onChange: () => this.render(main) }); } catch (error) { toast('Jurnal gagal dibuat', error.message, 'coral'); } });
+      main.querySelector('#manualJournal')?.addEventListener('click', async () => {
+        try {
+          const [accounts, coding] = await Promise.all([api('/api/accounting/accounts'), api('/api/accounting/coding-block')]);
+          const options = accounts.items.map(x => [x.code, `${x.code} · ${x.name}`]);
+          const value = await formDialog({
+            title: 'Buat jurnal manual',
+            description: `Coding block ${coding.enforcement}. Akun P&L wajib membawa cost center dan profit center sebelum dapat diposting.`,
+            fields: [
+              { name: 'title', label: 'Judul jurnal', required: true },
+              { name: 'debitAccount', label: 'Akun debit', type: 'select', options, required: true },
+              { name: 'creditAccount', label: 'Akun kredit', type: 'select', options, required: true },
+              { name: 'amount', label: 'Nilai', type: 'number', min: 1, required: true },
+              { name: 'costCenterId', label: 'Cost center', type: 'select', options: coding.costCenters.map(x => [x.id, `${x.code} · ${x.name}`]), required: coding.enforcement === 'HARD' },
+              { name: 'profitCenterId', label: 'Profit center', type: 'select', options: coding.profitCenters.map(x => [x.id, `${x.code} · ${x.name}`]), required: coding.enforcement === 'HARD' },
+              { name: 'projectWbsId', label: 'Project WBS', type: 'select', options: [['', '— Tidak terkait proyek —'], ...coding.projects.map(x => [x.id, `${x.code} · ${x.name}`])] },
+              { name: 'memo', label: 'Memo', type: 'textarea' }
+            ], submitLabel: 'Buat draft jurnal'
+          });
+          if (!value) return;
+          if (value.debitAccount === value.creditAccount) throw new Error('Akun debit dan kredit harus berbeda.');
+          const dims = { costCenterId: value.costCenterId, profitCenterId: value.profitCenterId, projectWbsId: value.projectWbsId || undefined };
+          const doc = await api('/api/documents', { method: 'POST', idempotencyKey: newIdemKey(), body: {
+            type: 'JOURNAL', title: value.title, amount: value.amount, ...dims,
+            payload: { period, ...dims, journalLines: [
+              { accountCode: value.debitAccount, debit: value.amount, credit: 0, memo: value.memo, ...dims },
+              { accountCode: value.creditAccount, debit: 0, credit: value.amount, memo: value.memo, ...dims }
+            ] }
+          } });
+          toast('Draft jurnal dibuat', `${doc.documentNumber} · coding block lengkap`);
+          openDrawer(doc.id, { onChange: () => this.render(main) });
+        } catch (error) { toast('Jurnal gagal dibuat', error.detail || error.message, 'coral'); }
+      });
       const bankPicker = main.querySelector('#bankFile'); main.querySelector('#bankImport')?.addEventListener('click', () => bankPicker.click()); bankPicker?.addEventListener('change', async () => { const file = bankPicker.files[0]; if (!file) return; try { const saved = await uploadFile('/api/files?module=ledger', file); await api('/api/jobs', { method: 'POST', body: { type: 'IMPORT_CSV', params: { module: 'bank', fileId: saved.id } } }); toast('Mutasi bank dijadwalkan', 'Format: transaction_date, reference, description, direction, amount.'); } catch (error) { toast('Import bank gagal', error.message, 'coral'); } });
     }
   };
@@ -122,10 +171,13 @@
     async render(main, _p, signal) {
       this.period = this.period || new Date().toISOString().slice(0, 7);
       const period = this.period;
-      const [t, cmp] = await Promise.all([
+      const [t, cmp, recon, evidence] = await Promise.all([
         query(`tax:${period}`, () => api(`/api/tax/summary?period=${period}`, { signal }), { staleMs: 60_000 }),
-        api(`/api/tax/compliance?period=${period}`, { signal })
+        api(`/api/tax/compliance?period=${period}`, { signal }),
+        api(`/api/accounting/tax-reconciliation?period=${period}`, { signal }),
+        api(`/api/accounting/reconciliation-evidence?period=${period}&type=TAX`, { signal })
       ]);
+      const latestTaxEvidence = evidence.items[0];
       const actions = `<a class="btn secondary" href="/api/tax/efaktur.csv?period=${esc(period)}" target="_blank" rel="noopener">${ICONS.doc} Ekspor e-Faktur</a><label class="period-picker"><span>Periode</span><input id="taxPeriod" type="month" value="${esc(period)}"></label>${can('tax.edit') ? `<button class="btn primary" id="taxSync">${ICONS.refresh} Sinkronkan pajak</button>` : ''}`;
       main.innerHTML = pageHead({ eyebrow: 'PERPAJAKAN', title: 'Tax center', sub: `Periode ${t.period}. Kalkulasi bersumber dari transaksi yang sudah disetujui.`, actions }) + `
         <section class="metrics">
@@ -133,6 +185,23 @@
           ${kpiCard({ label: 'PPN masukan', value: fmtIDR(t.ppnInput), note: 'Dapat dikreditkan', orb: 'doc', orbTone: 'mint' })}
           ${kpiCard({ label: 'PPN kurang bayar', value: fmtIDR(t.ppnPayable), note: 'Setor sebelum akhir bulan', tone: 'warn', orb: 'wallet', orbTone: 'amber' })}
           ${kpiCard({ label: 'PPh 21 + 23', value: fmtIDR(t.pph21 + t.pph23), note: 'Potongan masa berjalan', orb: 'payslip', orbTone: 'lavender' })}
+        </section>
+        <section class="panel table-panel"><header><div><p class="eyebrow">GL ↔ TAX SUBLEDGER</p><h2>Tax Reconciliation Workbench</h2></div>
+          <div class="row-actions"><span class="chip ${Math.abs(recon.difference) < 1 ? 'mint' : 'coral'}">${Math.abs(recon.difference) < 1 ? 'MATCHED' : 'EXCEPTION'}</span>
+          ${can('tax.edit') ? `<button class="btn primary sm" id="taxReconPrepare">${ICONS.check} Simpan evidence</button>` : ''}</div></header>
+          <div class="kpi-grid">
+            <article class="kpi"><span>Subledger pajak</span><strong>${fmtIDR(recon.subledgerTotal)}</strong><small>${recon.byType.reduce((n,x)=>n+Number(x.records),0)} record</small></article>
+            <article class="kpi"><span>GL akrual ${esc(recon.taxAccount)}</span><strong>${fmtIDR(recon.glAccrued)}</strong><small>Setoran ${fmtIDR(recon.glSettled)}</small></article>
+            <article class="kpi"><span>Selisih</span><strong>${fmtIDR(recon.difference)}</strong><small>${Math.abs(recon.difference) < 1 ? 'Siap direview' : 'Wajib diinvestigasi'}</small></article>
+            <article class="kpi"><span>Evidence terakhir</span><strong>${latestTaxEvidence ? `v${latestTaxEvidence.version}` : '—'}</strong><small>${latestTaxEvidence ? `${latestTaxEvidence.status} · ${latestTaxEvidence.preparedByName || 'user'}` : 'Belum disimpan'}</small></article>
+          </div>
+          <div class="table-wrap"><table><thead><tr><th>Jenis pajak</th><th class="right">Record</th><th class="right">Nilai subledger</th></tr></thead>
+            <tbody>${recon.byType.map(x=>`<tr><td><b>${esc(x.taxType)}</b></td><td class="right">${Number(x.records)}</td><td class="right money">${fmtIDRFull(x.amount)}</td></tr>`).join('') || '<tr><td colspan="3" class="table-loading">Belum ada subledger pajak.</td></tr>'}</tbody>
+          </table></div>
+          ${latestTaxEvidence && latestTaxEvidence.status === 'PREPARED' ? `<div class="panel-body row-actions">
+            <span class="muted">SHA-256 ${esc(latestTaxEvidence.sha256.slice(0,16))}… · maker ${esc(latestTaxEvidence.preparedByName || latestTaxEvidence.preparedBy)}</span>
+            ${can('tax.approve') ? `<button class="btn secondary sm" data-tax-recon="approve" data-result="${esc(latestTaxEvidence.resultStatus)}" data-id="${esc(latestTaxEvidence.id)}">Approve</button><button class="btn danger-outline sm" data-tax-recon="reject" data-result="${esc(latestTaxEvidence.resultStatus)}" data-id="${esc(latestTaxEvidence.id)}">Reject</button>` : ''}
+          </div>` : ''}
         </section>
         <section class="dashboard-grid">
           <article class="panel"><header><div><p class="eyebrow">KEPATUHAN</p><h2>Tenggat pajak</h2></div></header>
@@ -169,6 +238,17 @@
           </article>
         </section>`;
       const reloadTax = () => { invalidate(`tax:${period}`); this.render(main); };
+      main.querySelector('#taxReconPrepare')?.addEventListener('click', async () => {
+        try { const saved=await api('/api/accounting/reconciliation-evidence',{method:'POST',body:{type:'TAX',period}});toast('Evidence rekonsiliasi disimpan',`TAX v${saved.version} · ${saved.resultStatus}`);reloadTax(); }
+        catch(error){toast('Evidence gagal disimpan',error.detail||error.message,'coral');}
+      });
+      main.querySelectorAll('[data-tax-recon]').forEach(btn=>btn.addEventListener('click',async()=>{
+        const reject=btn.dataset.taxRecon==='reject',exception=btn.dataset.result!=='MATCHED';
+        const answer=await actionDialog({title:`${reject?'Tolak':'Setujui'} evidence pajak`,description:`Maker dan approver harus pengguna berbeda. Keputusan masuk audit trail.${exception&&!reject?' Evidence exception wajib disertai alasan persetujuan.':''}`,requireReason:reject||exception,confirmLabel:reject?'Tolak evidence':'Setujui evidence',danger:reject});
+        if(!answer)return;
+        try{await api(`/api/accounting/reconciliation-evidence/${btn.dataset.id}/${btn.dataset.taxRecon}`,{method:'POST',body:answer});toast('Evidence diperbarui',btn.dataset.taxRecon.toUpperCase());reloadTax();}
+        catch(error){toast('Keputusan gagal',error.detail||error.message,'coral');}
+      }));
       main.querySelector('#nsfpAdd')?.addEventListener('click', async () => {
         const v = await formDialog({ title: 'Daftarkan jatah NSFP', description: 'Masukkan rentang Nomor Seri Faktur Pajak sesuai surat pemberian DJP. Rentang tidak boleh tumpang tindih.', fields: [{ name: 'dgtLetterNumber', label: 'Nomor surat DJP', required: true }, { name: 'prefix', label: 'Prefix (mis. 001-26)', required: true }, { name: 'serialStart', label: 'Serial awal', type: 'number', min: 1, required: true }, { name: 'serialEnd', label: 'Serial akhir', type: 'number', min: 1, required: true }, { name: 'issuedDate', label: 'Tanggal surat', type: 'date' }], submitLabel: 'Daftarkan' });
         if (!v) return;
@@ -324,13 +404,18 @@
     permission: 'ledger.view',
     async render(main) {
       this._period = this._period || new Date().toISOString().slice(0, 7);
-      const st = await api(`/api/accounting/financial-statements?period=${this._period}`);
+      const [st, official] = await Promise.all([
+        api(`/api/accounting/financial-statements?period=${this._period}`),
+        api(`/api/accounting/financial-reports?period=${this._period}`)
+      ]);
       const bs = st.balanceSheet, is = st.incomeStatement;
+      const officialRows = official.items || [];
       const rowsOf = (list) => asList(list).map((r) => `<tr><td>${esc(r.code)} · ${esc(r.name)}</td><td class="right money">${fmtIDRFull(r.balance)}</td></tr>`).join('');
       main.innerHTML = pageHead({
         eyebrow: 'AKUNTANSI', title: 'Laporan keuangan', sub: `Neraca (kumulatif s/d ${st.period}) & laba rugi periode berjalan.`,
         actions: `<label class="period-picker"><span>Periode</span><input id="fsPeriod" type="month" value="${esc(this._period)}"></label>
-          <span class="chip ${bs.balanced ? 'mint' : 'coral'}">${bs.balanced ? 'Neraca seimbang' : 'Neraca TIDAK seimbang'}</span>`
+          <span class="chip ${bs.balanced ? 'mint' : 'coral'}">${bs.balanced ? 'Neraca seimbang' : 'Neraca TIDAK seimbang'}</span>
+          ${can('report.create') && !bs.publishBlocked ? `<button class="btn primary" id="fsPrepare">${ICONS.check} Prepare snapshot</button>` : ''}`
       }) + `
         ${bs.publishBlocked ? `<section class="attention"><div class="attention-orb">${ICONS.alert}</div><div><p class="eyebrow">PUBLIKASI DIBLOKIR</p><h2>${bs.unmappedLines.length} akun berkategori tidak dikenal (${fmtIDRFull(bs.unmappedTotal)})</h2><p>Akun berikut tidak masuk neraca dan tidak lagi diam-diam ditambahkan ke ekuitas: ${bs.unmappedLines.map((r) => esc(`${r.code} ${r.name} [${r.category}]`)).join(', ')}. Perbaiki kategori pada bagan akun sebelum laporan diterbitkan.</p></div></section>` : ''}
         <section class="dashboard-grid">
@@ -358,10 +443,37 @@
             <div class="panel-body"><p class="muted">Akun kontra (akumulasi penyusutan, retur penjualan) tampil negatif dan mengurangi kelompoknya — identitas aset = kewajiban + ekuitas terjaga.</p></div>
           </article>
         </section>
+        <section class="panel table-panel"><header><div><p class="eyebrow">OFFICIAL REPORT PACKAGE</p><h2>Prepare → Review → Sign-off</h2></div><span class="chip blue">${officialRows.length} versi</span></header>
+          <div class="table-wrap"><table><thead><tr><th>Versi</th><th>Status</th><th>Maker / reviewer / signer</th><th>Integritas</th><th class="right">Aksi</th></tr></thead>
+          <tbody>${officialRows.map(r=>`<tr><td><b>${esc(r.period)} · v${r.version}</b><small>${fmtDateTime(r.preparedAt)}</small></td><td>${chip(r.status)}</td>
+            <td><small>Maker</small>${esc(r.preparedByName||r.preparedBy)}<small>Reviewer ${esc(r.reviewedByName||r.reviewedBy||'—')} · Signer ${esc(r.signedOffByName||r.signedOffBy||'—')}</small></td>
+            <td><span class="chip ${r.balanced?'mint':'coral'}">${r.balanced?'Balanced':'Unbalanced'}</span><small>SHA ${esc(r.sha256.slice(0,16))}…</small></td>
+            <td class="right row-actions">
+              ${r.status==='PREPARED'&&can('report.submit')?`<button class="btn secondary sm" data-fr-action="review" data-id="${esc(r.id)}">Review</button>`:''}
+              ${['PREPARED','REVIEWED'].includes(r.status)&&can('report.reject')?`<button class="btn danger-outline sm" data-fr-action="reject" data-id="${esc(r.id)}">Reject</button>`:''}
+              ${r.status==='REVIEWED'&&can('report.approve')?`<button class="btn primary sm" data-fr-action="signoff" data-id="${esc(r.id)}">Sign-off</button>`:''}
+            </td></tr>`).join('')||`<tr><td colspan="5"><div class="empty-state">${clayOrb('blue','doc')}<h3>Belum ada official snapshot</h3><p>Prepare snapshot setelah angka dan klasifikasi akun siap untuk proses maker-checker.</p></div></td></tr>`}</tbody>
+          </table></div>
+          <div class="panel-body"><p class="muted">Snapshot bersifat immutable dan diverifikasi SHA-256. Reviewer tidak boleh sama dengan maker; signer tidak boleh sama dengan reviewer; sign-off hanya diizinkan setelah period close.</p></div>
+        </section>
         <section class="panel"><header><div><p class="eyebrow">SUBLEDGER</p><h2>AR / AP vs buku besar</h2></div><div class="chip-tabs"><button class="btn ${this._sub !== 'AP' ? 'primary' : 'secondary'}" data-subtype="AR">Piutang (AR)</button><button class="btn ${this._sub === 'AP' ? 'primary' : 'secondary'}" data-subtype="AP">Utang (AP)</button></div></header>
           <div id="subledgerBox"><div class="table-loading">Memuat…</div></div>
         </section>`;
       main.querySelector('#fsPeriod').addEventListener('change', (e) => { this._period = e.target.value; this.render(main); });
+      main.querySelector('#fsPrepare')?.addEventListener('click',async()=>{
+        const answer=await actionDialog({title:`Prepare laporan ${this._period}`,description:'Sistem akan membekukan snapshot resmi, menghitung SHA-256, dan memulai alur maker-checker.',confirmLabel:'Prepare snapshot'});
+        if(!answer)return;
+        try{const report=await api('/api/accounting/financial-reports',{method:'POST',body:{period:this._period}});toast('Snapshot disiapkan',`${report.period} v${report.version}`);this.render(main);}
+        catch(error){toast('Prepare gagal',error.detail||error.message,'coral');}
+      });
+      main.querySelectorAll('[data-fr-action]').forEach(btn=>btn.addEventListener('click',async()=>{
+        const action=btn.dataset.frAction,reject=action==='reject';
+        const label=action==='review'?'Review':action==='signoff'?'Sign-off':'Reject';
+        const answer=await actionDialog({title:`${label} laporan keuangan`,description:'Segregation of duties dan integritas snapshot diverifikasi kembali di server.',requireReason:reject,confirmLabel:label,danger:reject});
+        if(!answer)return;
+        try{const report=await api(`/api/accounting/financial-reports/${btn.dataset.id}/${action}`,{method:'POST',body:answer});toast('Workflow laporan diperbarui',`${report.period} v${report.version} · ${report.status}`);this.render(main);}
+        catch(error){toast(`${label} gagal`,error.detail||error.message,'coral');}
+      }));
       main.querySelectorAll('[data-subtype]').forEach((b) => b.addEventListener('click', () => { this._sub = b.dataset.subtype; this.render(main); }));
       const sub = await api(`/api/accounting/subledger?type=${this._sub || 'AR'}&period=${this._period}`);
       main.querySelector('#subledgerBox').innerHTML = `
@@ -377,7 +489,13 @@
     permission: 'closing.view',
     async render(main) {
       this._period = this._period || new Date().toISOString().slice(0, 7);
-      const ck = await api(`/api/accounting/closing-cockpit?period=${this._period}`);
+      const [ck,reconciliationEvidence,closeEvidence] = await Promise.all([
+        api(`/api/accounting/closing-cockpit?period=${this._period}`),
+        api(`/api/accounting/reconciliation-evidence?period=${this._period}`),
+        api(`/api/accounting/period-close-evidence?period=${this._period}`)
+      ]);
+      const typeByCheck={bank_reconciliation:'BANK',inventory_reconciliation:'INVENTORY',payroll_reconciliation:'PAYROLL',tax_reconciliation:'TAX',subledger_ar:'AR',subledger_ap:'AP'};
+      const latestByType=reconciliationEvidence.items.reduce((out,item)=>(out[item.type]??=item,out),{});
       const READY_CHIP = { READY: 'mint', REVIEW: 'amber', BLOCKED: 'coral' };
       const ST_ICON = { PASS: ICONS.check, WARN: ICONS.alert, FAIL: ICONS.close };
       const ST_CHIP = { PASS: 'mint', WARN: 'amber', FAIL: 'coral' };
@@ -392,16 +510,35 @@
           ${kpiCard({ label: 'Perlu perhatian', value: String(ck.summary.warn), note: 'Boleh ditutup dengan catatan', tone: ck.summary.warn ? 'warn' : '', orb: 'alert', orbTone: 'amber' })}
           ${kpiCard({ label: 'Memblokir', value: String(ck.summary.fail), note: 'Wajib dibereskan sebelum closing', tone: ck.summary.fail ? 'warn' : 'up', orb: 'lock', orbTone: 'coral' })}
         </section>
-        <section class="panel"><header><div><p class="eyebrow">CHECKLIST</p><h2>${ck.checks.length} pemeriksaan</h2></div>${ck.closingStatus === 'CLOSED' ? '<span class="chip gray">Periode sudah ditutup</span>' : ''}</header>
-          <div class="table-wrap"><table><thead><tr><th></th><th>Pemeriksaan</th><th>Detail</th></tr></thead>
-          <tbody>${ck.checks.map((c2) => `<tr><td><span class="chip ${ST_CHIP[c2.status]}">${ST_ICON[c2.status]} ${c2.status}</span></td><td><b>${esc(c2.name)}</b></td><td>${esc(c2.detail)}</td></tr>`).join('')}</tbody></table></div>
-          <div class="panel-body"><p class="muted">FAIL memblokir closing; WARN adalah selisih yang harus dijelaskan (mis. saldo stok legacy tanpa jurnal). Tutup periode tetap memvalidasi trial balance & dokumen menggantung di server.</p></div>
+        <section class="panel"><header><div><p class="eyebrow">CHECKLIST & EVIDENCE</p><h2>${ck.checks.length} pemeriksaan</h2></div>${ck.closingStatus === 'CLOSED' ? '<span class="chip gray">Periode sudah ditutup</span>' : ''}</header>
+          <div class="table-wrap"><table><thead><tr><th></th><th>Pemeriksaan</th><th>Detail</th><th>Evidence</th><th></th></tr></thead>
+          <tbody>${ck.checks.map((c2) => {const type=typeByCheck[c2.id],ev=type&&latestByType[type];return `<tr><td><span class="chip ${ST_CHIP[c2.status]}">${ST_ICON[c2.status]} ${c2.status}</span></td><td><b>${esc(c2.name)}</b></td><td>${esc(c2.detail)}</td>
+            <td>${ev?`${chip(ev.status)}<small>v${ev.version} · ${esc(ev.preparedByName||'maker')} · SHA ${esc(ev.sha256.slice(0,10))}…</small>`:type?'<span class="muted">Belum disimpan</span>':'—'}</td>
+            <td class="right row-actions">${type&&can(type==='TAX'?'tax.edit':'ledger.create')?`<button class="btn ghost sm" data-recon-prepare="${type}">Prepare</button>`:''}
+              ${ev?.status==='PREPARED'&&can(type==='TAX'?'tax.approve':'ledger.approve')?`<button class="btn secondary sm" data-recon-decide="approve" data-result="${esc(ev.resultStatus)}" data-id="${esc(ev.id)}">Approve</button><button class="btn danger-outline sm" data-recon-decide="reject" data-result="${esc(ev.resultStatus)}" data-id="${esc(ev.id)}">Reject</button>`:''}</td></tr>`;}).join('')}</tbody></table></div>
+          <div class="panel-body"><p class="muted">Enam rekonsiliasi utama memiliki snapshot ber-versi dan maker-checker. FAIL memblokir closing; WARN membutuhkan waiver formal. Close package disimpan immutable beserta SHA-256.</p></div>
+        </section>
+        <section class="panel"><header><div><p class="eyebrow">PERIOD CLOSE EVIDENCE</p><h2>Riwayat close package</h2></div><span class="chip blue">${closeEvidence.items.length} package</span></header>
+          <div class="table-wrap"><table><thead><tr><th>Periode</th><th>Status</th><th>Closer</th><th>Alasan</th><th>SHA-256</th></tr></thead><tbody>
+          ${closeEvidence.items.map(x=>`<tr><td><b>${esc(x.period)}</b><small>${fmtDateTime(x.closedAt)}</small></td><td>${chip(x.status)}</td><td>${esc(x.closedByName||'—')}</td><td>${esc(x.closeReason)}</td><td><code>${esc(x.sha256.slice(0,20))}…</code></td></tr>`).join('')||'<tr><td colspan="5" class="table-loading">Belum ada close package.</td></tr>'}
+          </tbody></table></div>
         </section>`;
       main.querySelector('#ckPeriod').addEventListener('change', (e) => { this._period = e.target.value; this.render(main); });
+      main.querySelectorAll('[data-recon-prepare]').forEach(btn=>btn.addEventListener('click',async()=>{
+        try{const ev=await api('/api/accounting/reconciliation-evidence',{method:'POST',body:{type:btn.dataset.reconPrepare,period:this._period}});toast('Evidence disiapkan',`${ev.type} v${ev.version} · ${ev.resultStatus}`);this.render(main);}
+        catch(error){toast('Prepare evidence gagal',error.detail||error.message,'coral');}
+      }));
+      main.querySelectorAll('[data-recon-decide]').forEach(btn=>btn.addEventListener('click',async()=>{
+        const reject=btn.dataset.reconDecide==='reject',exception=btn.dataset.result!=='MATCHED';
+        const answer=await actionDialog({title:`${reject?'Tolak':'Setujui'} evidence rekonsiliasi`,description:`Approver wajib berbeda dari maker. Keputusan tersimpan di audit trail.${exception&&!reject?' Evidence exception wajib disertai alasan persetujuan.':''}`,requireReason:reject||exception,confirmLabel:reject?'Reject':'Approve',danger:reject});
+        if(!answer)return;
+        try{await api(`/api/accounting/reconciliation-evidence/${btn.dataset.id}/${btn.dataset.reconDecide}`,{method:'POST',body:answer});toast('Evidence diperbarui',btn.dataset.reconDecide.toUpperCase());this.render(main);}
+        catch(error){toast('Keputusan gagal',error.detail||error.message,'coral');}
+      }));
       main.querySelector('#ckClose')?.addEventListener('click', async () => {
         const answer = await actionDialog({ title: `Tutup periode ${this._period}`, description: 'Periode tertutup tidak menerima transaksi. Reopen membutuhkan PIN Owner.', requireReason: true, confirmLabel: 'Tutup periode' });
         if (!answer) return;
-        try { await api('/api/accounting/period/close', { method: 'POST', body: { period: this._period, ...answer } }); invalidate(`accounting:${this._period}`); toast('Periode ditutup', this._period); this.render(main); }
+        try { await api('/api/accounting/period/close', { method: 'POST', idempotencyKey: newIdemKey(), body: { period: this._period, ...answer } }); invalidate(`accounting:${this._period}`); toast('Periode ditutup', this._period); this.render(main); }
         catch (error) { toast('Closing gagal', error.message, 'coral'); }
       });
     }

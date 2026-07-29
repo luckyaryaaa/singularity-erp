@@ -8,11 +8,12 @@
     permission: 'inventory.view',
     onEvent() { this._table?.reload(); },
     render(main) {
-      const TABS = [['saldo', 'Saldo stok'], ['reservations', 'Reservasi'], ['lots', 'Lot & Heat Number'], ['bins', 'Rak & Bin'], ['opname', 'Stock Opname'], ['valuasi', 'Valuasi']];
+      const TABS = [['saldo', 'Saldo stok'], ['reservations', 'Reservasi'], ['lots', 'Lot & Heat Number'], ['gudang', 'Gudang'], ['bins', 'Rak & Bin'], ['tugas', 'Tugas gudang'], ['opname', 'Stock Opname'], ['valuasi', 'Valuasi']];
       const requestedTab = state.routeQuery?.get?.('tab');
       this._tab = TABS.some(([id]) => id === requestedTab) ? requestedTab : (this._tab || 'saldo');
       const actions = `<nav class="chip-tabs" aria-label="Tab inventori">${TABS.map(([id, label]) => `<button class="btn ${this._tab === id ? 'primary' : 'secondary'}" data-invtab="${id}">${esc(label)}</button>`).join('')}</nav>
-        ${this._tab === 'opname' && can('stock_opname.create') ? `<button class="btn primary" id="startOpname">${ICONS.plus} Mulai opname</button>` : ''}`;
+        ${this._tab === 'opname' && can('stock_opname.create') ? `<button class="btn primary" id="startOpname">${ICONS.plus} Mulai opname</button>` : ''}
+        ${this._tab === 'tugas' && can('inventory.edit') ? `<button class="btn primary" id="newTask">${ICONS.plus} Buat tugas gudang</button>` : ''}`;
       main.innerHTML = pageHead({ eyebrow: 'GUDANG', title: 'Persediaan', sub: 'Saldo stok, traceability lot/heat number (mill certificate), stock opname, dan valuasi.', actions }) + '<section id="pgTable"></section><section id="pgDetail"></section>';
       main.querySelectorAll('[data-invtab]').forEach((b) => b.addEventListener('click', () => {
         this._tab = b.dataset.invtab;
@@ -107,6 +108,10 @@
             }).catch((error) => { detail.innerHTML = `<p class="error-text">${esc(error.message)}</p>`; });
           }));
         }).catch((error) => { mount.innerHTML = `<p class="error-text">${esc(error.message)}</p>`; });
+      } else if (this._tab === 'gudang') {
+        this.renderWarehouses(mount);
+      } else if (this._tab === 'tugas') {
+        this.renderTasks(main, mount);
       } else if (this._tab === 'opname') {
         this._table = dataTable(mount, {
           key: 'documents:opname', endpoint: '/api/documents', params: { type: 'STOCK_OPNAME' }, title: 'Sesi stock opname', eyebrow: 'OPNAME',
@@ -215,6 +220,126 @@
         box.querySelector('#lotRelease')?.addEventListener('click', async () => { try { await api(`/api/inventory/lots/${lotId}/release`, { method: 'POST', body: {} }); invalidate('inventory:lots'); toast('Blokir dilepas', lot.lotNumber); this.render(main); } catch (error) { toast('Gagal melepas blokir', error.message, 'coral'); } });
         box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       } catch (error) { toast('Gagal memuat lot', error.message, 'coral'); }
+    },
+    // Ledger gudang kanonik (migrasi 076) — Plant → Gudang + ringkasan stok.
+    async renderWarehouses(mount) {
+      try {
+        const data = await api('/api/inventory/warehouses');
+        mount.innerHTML = `<section class="panel table-panel">
+          <header><div><p class="eyebrow">GUDANG · LEDGER KANONIK</p><h2>${data.totals.warehouses} gudang</h2></div>
+            <span class="chip blue">${data.totals.qtyOnHand} unit · ${data.totals.lotCount} lot</span></header>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Gudang</th><th>Plant</th><th>Tipe</th><th class="right">Lot</th><th class="right">Qty</th><th>Status</th></tr></thead>
+            <tbody>${data.items.length ? data.items.map((w) => `<tr>
+              <td><b>${esc(w.code)}</b><small>${esc(w.name)}</small></td>
+              <td>${w.plantCode ? esc(w.plantCode) : '<span class="muted">—</span>'}</td>
+              <td><small>${esc(w.warehouseType || '—')}</small></td>
+              <td class="right">${w.lotCount}</td>
+              <td class="right money">${w.qtyOnHand}</td>
+              <td>${w.isDefault ? '<span class="chip mint">Default</span>' : ''}${w.active ? '' : '<span class="chip gray">Non-aktif</span>'}</td></tr>`).join('')
+    : '<tr><td colspan="6" class="table-loading">Belum ada gudang untuk cabang ini.</td></tr>'}</tbody>
+          </table></div>
+          <div class="panel-body"><p class="muted">Hierarki kanonik Plant → Gudang → Zona → Rak. Stok kini punya identitas gudang nyata di dalam cabangnya; put-away menyelaraskan gudang lot ke gudang rak tujuan. Cabang tetap menjadi kunci isolasi — jembatan ter-enforce menuju grain gudang penuh.</p></div>
+        </section>`;
+      } catch (error) { mount.innerHTML = `<p class="error-text">${esc(error.message)}</p>`; }
+    },
+    // WMS task board — receiving→putaway→pick→pack→ship sebagai tugas bertipe.
+    async renderTasks(main, mount) {
+      const TYPE = { RECEIVE: 'Terima', PUTAWAY: 'Put-away', PICK: 'Pick', PACK: 'Pack', SHIP: 'Kirim', COUNT: 'Cycle count' };
+      const PRIO = { URGENT: 'coral', HIGH: 'amber', NORMAL: 'blue', LOW: 'gray' };
+      const ST = { OPEN: 'gray', CLAIMED: 'blue', IN_PROGRESS: 'amber', DONE: 'mint', CANCELLED: 'gray' };
+      main.querySelector('#newTask')?.addEventListener('click', () => this.newTaskDialog(main));
+      try {
+        const data = await api('/api/inventory/tasks');
+        const s = data.summary;
+        mount.innerHTML = `<section class="panel table-panel">
+          <header><div><p class="eyebrow">GUDANG · WMS</p><h2>${data.total} tugas eksekusi</h2></div>
+            <div class="row-actions">
+              <span class="chip gray">${s.open} terbuka</span>
+              <span class="chip amber">${s.inProgress} berjalan</span>
+              ${s.overdue ? `<span class="chip coral">${s.overdue} lewat tempo</span>` : ''}
+              <span class="chip mint">${s.done} selesai</span>
+            </div></header>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Tugas</th><th>Barang / lot</th><th>Rak</th><th class="right">Qty</th><th>Prioritas</th><th>Jatuh tempo</th><th>Petugas</th><th>Status</th><th></th></tr></thead>
+            <tbody>${data.items.length ? data.items.map((t) => `<tr>
+              <td><b>${esc(TYPE[t.taskType] || t.taskType)}</b>${t.reference ? `<small>${esc(t.reference)}</small>` : ''}</td>
+              <td>${t.productCode ? `<b>${esc(t.productCode)}</b>` : '<span class="muted">—</span>'}${t.lotNumber ? `<small>${esc(t.lotNumber)}</small>` : ''}</td>
+              <td>${t.fromBinCode ? esc(t.fromBinCode) + ' → ' : ''}${esc(t.toBinCode || '—')}</td>
+              <td class="right money">${t.qty ?? '—'}</td>
+              <td><span class="chip ${PRIO[t.priority] || 'gray'}">${esc(t.priority)}</span></td>
+              <td>${t.dueAt ? `<span class="${t.overdue ? 'error-text' : ''}">${fmtDateTime(t.dueAt)}</span>` : '<span class="muted">—</span>'}</td>
+              <td>${esc(t.assignedToName || '—')}</td>
+              <td><span class="chip ${ST[t.status] || 'gray'}">${esc(t.status)}</span></td>
+              <td class="right"><div class="row-actions">${this.taskButtons(t)}</div></td></tr>`).join('')
+    : '<tr><td colspan="9" class="table-loading">Belum ada tugas gudang. Buat tugas untuk mengarahkan penerimaan, put-away, pick, pack, atau pengiriman.</td></tr>'}</tbody>
+          </table></div>
+          <div class="panel-body"><p class="muted">Tugas put-away menyelesaikan diri dengan memindahkan lot ke rak tujuan — status DONE berarti stok benar-benar berpindah, bukan sekadar ditandai. Setiap transisi memakai optimistic lock dan tercatat di audit trail.</p></div>
+        </section>`;
+        mount.querySelectorAll('[data-task-act]').forEach((b) => b.addEventListener('click', () =>
+          this.runTaskAction(main, b.dataset.taskAct, b.dataset.id, Number(b.dataset.ver))));
+      } catch (error) { mount.innerHTML = `<p class="error-text">${esc(error.message)}</p>`; }
+    },
+    taskButtons(t) {
+      if (!can('inventory.edit')) return '';
+      const btn = (act, label, cls) => `<button class="btn ${cls}" data-task-act="${act}" data-id="${t.id}" data-ver="${t.version}">${esc(label)}</button>`;
+      if (t.status === 'OPEN') return btn('claim', 'Klaim', 'secondary');
+      if (t.status === 'CLAIMED') return btn('start', 'Mulai', 'secondary') + btn('cancel', 'Batal', 'danger-outline');
+      if (t.status === 'IN_PROGRESS') return btn('complete', 'Selesai', 'primary') + btn('cancel', 'Batal', 'danger-outline');
+      return '';
+    },
+    async runTaskAction(main, action, id, version) {
+      try {
+        if (action === 'claim') await api(`/api/inventory/tasks/${id}/claim`, { method: 'POST', body: { version } });
+        else if (action === 'start') await api(`/api/inventory/tasks/${id}/start`, { method: 'POST', body: { version } });
+        else if (action === 'complete') {
+          const answer = await actionDialog({ title: 'Selesaikan tugas', description: 'Untuk put-away, penyelesaian memindahkan lot ke rak tujuan. Catatan opsional.', confirmLabel: 'Selesaikan' });
+          if (!answer) return;
+          await api(`/api/inventory/tasks/${id}/complete`, { method: 'POST', idempotencyKey: newIdemKey(), body: { version, note: answer.reason || null } });
+        } else if (action === 'cancel') {
+          const answer = await actionDialog({ title: 'Batalkan tugas', description: 'Alasan minimal 10 karakter dan tercatat di audit trail.', requireReason: true, confirmLabel: 'Batalkan tugas', danger: true });
+          if (!answer) return;
+          if (String(answer.reason || '').trim().length < 10) { toast('Alasan terlalu singkat', 'Isi minimal 10 karakter.', 'coral'); return; }
+          await api(`/api/inventory/tasks/${id}/cancel`, { method: 'POST', body: { version, reason: answer.reason } });
+        }
+        invalidate('inventory');
+        toast('Tugas diperbarui', 'Papan kerja gudang disegarkan.');
+        this.render(main);
+      } catch (error) { toast('Gagal memperbarui tugas', error.message, 'coral'); }
+    },
+    async newTaskDialog(main) {
+      try {
+        const [lotsR, binsR] = await Promise.all([
+          api('/api/inventory/lots?limit=100').catch(() => ({ items: [] })),
+          api('/api/inventory/bins').catch(() => ({ items: [] }))
+        ]);
+        const lots = (lotsR.items || []).filter((l) => Number(l.qtyOnHand) > 0);
+        const bins = binsR.items || [];
+        const value = await formDialog({
+          title: 'Buat tugas gudang',
+          description: 'Arahkan eksekusi gudang sebagai tugas bertipe. Put-away wajib menyertakan lot dan rak tujuan — penyelesaiannya memindahkan lot secara nyata.',
+          fields: [
+            { name: 'taskType', label: 'Jenis tugas', type: 'select', required: true, options: [['RECEIVE', 'Terima (receiving)'], ['PUTAWAY', 'Put-away'], ['PICK', 'Pick'], ['PACK', 'Pack'], ['SHIP', 'Kirim (ship)'], ['COUNT', 'Cycle count']] },
+            { name: 'priority', label: 'Prioritas', type: 'select', options: [['NORMAL', 'Normal'], ['LOW', 'Rendah'], ['HIGH', 'Tinggi'], ['URGENT', 'Mendesak']] },
+            { name: 'lotId', label: 'Lot (untuk put-away/pick)', type: 'select', options: [['', '—'], ...lots.map((l) => [l.id, `${l.lotNumber} · ${l.productCode} · sisa ${Number(l.qtyOnHand)}`])] },
+            { name: 'toBinId', label: 'Rak tujuan (untuk put-away)', type: 'select', options: [['', '—'], ...bins.map((b) => [b.binId, `${b.code} · ${b.warehouse}`])] },
+            { name: 'qty', label: 'Qty', type: 'number', min: 0 },
+            { name: 'reference', label: 'Referensi (mis. nomor dokumen)' },
+            { name: 'instructions', label: 'Instruksi' },
+            { name: 'dueAt', label: 'Jatuh tempo', type: 'date' }
+          ],
+          submitLabel: 'Buat tugas'
+        });
+        if (!value) return;
+        const lot = lots.find((l) => l.id === value.lotId);
+        const body = { taskType: value.taskType, priority: value.priority || 'NORMAL',
+          lotId: value.lotId || null, toBinId: value.toBinId || null, productId: lot ? lot.productId : null,
+          qty: value.qty ? Number(value.qty) : null, reference: value.reference || null,
+          instructions: value.instructions || null, dueAt: value.dueAt || null };
+        const task = await api('/api/inventory/tasks', { method: 'POST', idempotencyKey: newIdemKey(), body });
+        toast('Tugas dibuat', `${esc(task.taskType)}${task.branchName ? ' · ' + esc(task.branchName) : ''}`);
+        this.render(main);
+      } catch (error) { toast('Gagal membuat tugas', error.message, 'coral'); }
     }
   };
 

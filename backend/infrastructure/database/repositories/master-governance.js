@@ -184,7 +184,13 @@ async function resolveDimensions(client,{type,legalEntityId,departmentId,costCen
   }
   if(policy?.legal_entity_required&&legalEntityId&&policy.cost_center_required&&!cost)throw new AppError('VALIDATION_ERROR','Cost center wajib untuk tipe transaksi ini.');
   if(cost&&legalEntityId){const valid=(await client.query('SELECT 1 FROM cost_centers WHERE id=$1 AND legal_entity_id=$2 AND active',[cost,legalEntityId])).rowCount;if(!valid)throw new AppError('VALIDATION_ERROR','Cost center tidak berada pada legal entity transaksi.');}
-  const ids={departmentId:departmentId||null,costCenterId:cost,profitCenterId:profitCenterId||null,projectWbsId:projectWbsId||null};
+  let profit=profitCenterId||null;
+  if(!profit&&policy?.profit_center_required&&legalEntityId){
+    profit=(await client.query(`SELECT id FROM profit_centers WHERE legal_entity_id=$1 AND active ORDER BY code LIMIT 1`,[legalEntityId])).rows[0]?.id||null;
+  }
+  if(policy?.legal_entity_required&&legalEntityId&&policy.profit_center_required&&!profit)throw new AppError('VALIDATION_ERROR','Profit center wajib untuk tipe transaksi ini.');
+  if(profit&&legalEntityId){const valid=(await client.query('SELECT 1 FROM profit_centers WHERE id=$1 AND legal_entity_id=$2 AND active',[profit,legalEntityId])).rowCount;if(!valid)throw new AppError('VALIDATION_ERROR','Profit center tidak berada pada legal entity transaksi.');}
+  const ids={departmentId:departmentId||null,costCenterId:cost,profitCenterId:profit,projectWbsId:projectWbsId||null};
   return {...ids,snapshot:{policy:policy?.document_type||'DEFAULT',legalEntityId,...ids,resolvedAt:new Date().toISOString()}};
 }
 

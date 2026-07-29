@@ -30,6 +30,10 @@ dbTest('D.3: migrasi 069 membuat financial_reports dengan kolom SoD', async () =
 
 dbTest('D.3: alur prepare → review → sign-off dengan SoD dan versioning', async () => withClient(async (c) => {
   const [a, b, d] = await threeUsers(c);
+  const entityId=(await c.query('SELECT id FROM legal_entities ORDER BY created_at LIMIT 1')).rows[0].id;
+  await c.query(`INSERT INTO accounting_periods(legal_entity_id,period,status,closed_at,closed_by)
+    VALUES($1,$2,'CLOSED',now(),$3)
+    ON CONFLICT(legal_entity_id,period) DO UPDATE SET status='CLOSED',closed_at=now(),closed_by=excluded.closed_by`,[entityId,PERIOD,a]);
   const r1 = await fr.prepareFinancialReport(c, { period: PERIOD, user: glob(a), requestId: randomUUID() });
   assert.equal(r1.status, 'PREPARED');
   assert.equal(r1.version, 1);

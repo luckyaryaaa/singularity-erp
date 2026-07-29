@@ -1,14 +1,5 @@
 'use strict';
-// B1/B2 — resolusi kewenangan runtime dari database.
-//
-// Sebelumnya `hasPermission` hanya membaca konstanta ROLE_GRANTS di source dan
-// hanya melihat SATU peran (`app_users.role`). Akibatnya: (a) mengubah
-// kewenangan menuntut deploy ulang, dan (b) peran tambahan yang sah pada
-// user_role_assignments tidak pernah berpengaruh.
-//
-// Modul ini BUKAN mesin otorisasi kedua: keputusannya tetap dibuat
-// core/permissions.hasPermission. Yang berubah hanya dari mana daftar grant
-// berasal — database, dengan ROLE_GRANTS sebagai baseline awal.
+
 const { ROLE_GRANTS, grantsFor } = require('../../../core/permissions');
 
 // Reconcile baseline additively. Permission baru pada release berikutnya harus

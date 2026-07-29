@@ -1,5 +1,58 @@
 # Backlog Resmi — MAT ERP V2
 
+> **Canonical Warehouse Ledger (Stage 1) v0.41.0: ENGINEERING SELESAI —
+> 29 Juli 2026.** Migration 076 memulai migrasi §9.8 dari Branch-as-Warehouse ke
+> hierarki nyata Plant→Warehouse→Storage Location→Bin **tanpa membalik kunci
+> isolasi**: `org_warehouses.is_default` + backfill gudang default per cabang
+> (7/7), `stock_lots.org_warehouse_id` dengan trigger self-healing (gudang lot
+> selalu di cabangnya), put-away menyelaraskan gudang lot ke rak tujuan, view
+> `stock_warehouse_ledger` (Legal Entity→Plant→Warehouse), endpoint + tab Gudang.
+> Menutup temuan audit "◐ masih bridging ke ledger/branch legacy" menjadi
+> jembatan **eksplisit & ter-enforce**. **Stage 2** (grain-flip penuh: mengganti
+> makna `warehouse_id` di ~200 titik lintas 20 file + RLS + fixtures) adalah
+> cutover berlapis tersendiri dan belum dikerjakan. Source of truth 001–076;
+> regression 376/376; rollback full-chain 76/75/75; authorization 298 handler.
+
+> **Warehouse Execution Task Engine v0.40.0: ENGINEERING SELESAI —
+> 29 Juli 2026.** Migration 075 menambah `warehouse_tasks`: mesin tugas gudang
+> bertipe (receiving→put-away→pick→pack→ship + cycle count) dengan siklus hidup,
+> prioritas, jatuh tempo, penugasan, optimistic lock, RLS, dan audit. Menutup
+> **sebagian** P1 Warehouse: alur WMS task flow minimum kini ada; canonical
+> Branch-as-Warehouse ledger (Plant→Warehouse→Storage Location→Bin sebagai FK
+> stok) dan barcode/handling-unit/FEFO tetap Wave E lanjutan. Source of truth
+> 001–075; regression 370/370; rollback full-chain 75/74/74; authorization 297
+> handler. Unified Work Item lintas modul, retest manual, UAT 13 role, training,
+> approval enam rekonsiliasi, DR, offsite proof, dan Owner sign-off tetap gate
+> manusia.
+
+> **Finance End-to-End Closure v0.39.0: ENGINEERING SELESAI —
+> 28 Juli 2026.** Migration 074 menutup HARD coding block, six-way immutable
+> reconciliation evidence, official financial-report workflow, period-close
+> package, RLS, maker-checker, SHA-256, dan UI desktop/mobile.
+> Source of truth 001–074; regression/isolated 363/363; rollback full-chain
+> 74/73/73; visual v7 52/52; authorization 291 handler.
+>
+> Tahap aktif berikutnya: canonical Warehouse/WMS dan Unified Work Item.
+> Manual security retest, UAT 13 role, training, approval aktual enam
+> rekonsiliasi, DR, offsite proof, dan Owner sign-off tetap gate manusia.
+
+> **Security & Data Protection Closure v0.38.0: ENGINEERING SELESAI —
+> 28 Juli 2026.** Migration 070–073 menutup RLS tranche Finance/HR/payroll,
+> fail-closed employee tanpa branch, perluasan enkripsi KTP/NPWP/BPJS/identitas
+> pajak, least-privilege histori sensitif, dan kapasitas token legacy.
+
+> **Enterprise Data & Finance Controls v0.37.0: ENGINEERING BASELINE —
+> 28 Juli 2026.** Migration 065–069 menutup field-encryption foundation,
+> retention/legal hold, journal coding block, GL↔tax reconciliation, dan
+> financial-report sign-off. Source of truth 001–069; authorization matrix
+> 14 router/286 handler; OpenAPI 1.3; regression 353/353.
+>
+> Tahap aktif berikutnya sesuai audit 28 Juli saat baseline ini diterbitkan:
+> RLS untuk aggregate Finance sensitif dan perluasan klasifikasi/enkripsi PII,
+> UI end-to-end coding block/tax reconciliation/report sign-off, lalu canonical
+> Warehouse/WMS dan Unified Work Item. SEC-UAT-001, UAT 13 role, training,
+> rekonsiliasi, DR, serta Owner sign-off tetap gate manusia.
+
 > **Execution Control Workbenches v0.36.0: WAVE B/C ENGINEERING SELESAI —
 > 27 Juli 2026.** Migration 064 menambahkan RLS execution, security-invoker
 > view, optimistic version, dan replay guard. Reservation, Purchase Contract
@@ -227,7 +280,7 @@
 |---|---|---|
 | R016 Sales & Order-to-Cash | inquiry→quotation revisi→PO→SO/proyek→credit control→delivery→invoice→collection→warranty | ✅ v0.34.0 — alur dasar, quotation revision, credit/dunning/RMA, ATP/CTP line promise, margin exception maker-checker, customer contract/blanket release, milestone billing idempoten, dan backorder worklist selesai; UAT bisnis tetap gate terpisah |
 | R017 Procurement Source-to-Pay | PR→budget→RFQ→comparison→PO→GR→three-way match→payment proposal | ◐ engine purchase contract/blanket + controlled release migration 059 dan Contract 360/release history v0.36.0 ✅; supplier portal/EDI dan advanced sourcing analytics tetap pengembangan lanjutan |
-| R018 Warehouse & Inventory | hierarchy, bin, lot/serial/heat, reservation, opname, valuation policy | ◐ reservation engine 057, bin execution 058, lot/opname, perpetual inventory/COGS 062, serta Reservation Workbench v0.36.0 ✅; mobile barcode/handling-unit task engine tetap Wave E |
+| R018 Warehouse & Inventory | hierarchy, bin, lot/serial/heat, reservation, opname, valuation policy | ◐ reservation engine 057, bin execution 058, lot/opname, perpetual inventory/COGS 062, Reservation Workbench v0.36.0, serta **Warehouse Task Engine 075 (receiving→put-away→pick→pack→ship + cycle count sebagai tugas bertipe, siklus hidup, optimistic lock, RLS, Warehouse Task Board) v0.40.0** ✅; **Canonical Warehouse Ledger Stage 1 (org_warehouse_id + default per cabang + trigger self-healing + view Legal Entity→Plant→Warehouse) v0.41.0** ✅; grain-flip penuh `warehouse_id` (Stage 2) + barcode/handling-unit/FEFO tetap Wave E |
 | R019 Production, BOM, MRP & QC | routing, work center, MRP, capacity, WIP, job costing, inspection plan, NCR/CAPA, kalibrasi | ◐ engine capacity/WIP 060 dan CAPA/calibration 061 beserta Control Tower/Calibration Register v0.36.0 ✅; inspection-plan sampling dan maintenance/EAM tetap Wave E |
 | R020 Finance, Accounting & Fixed Asset | posting profile, segmented COA, subledger, closing cockpit, fixed asset, budgeting | ◐ posting profile config-driven + budget pengadaan ✅ + **fixed asset registry (FA-*, kategori configuration-driven umur+akun), depresiasi garis lurus otomatis (idempoten per periode, jurnal sistem JRN-*), disposal ber-jurnal nilai buku, laporan keuangan formal (neraca balance dgn akun kontra bertanda benar + laba rugi), closing cockpit 10 checklist rekonsiliasi (bank/inventori/payroll/pajak/subledger/penyusutan) → readiness, subledger AR/AP vs GL ber-selisih terukur** ✅ Sprint 13; failed posting queue, project profitability, segmented COA formal ⬜ |
 | R021 HRD, Payroll & Tax | shift/roster, koreksi absensi, leave accrual, rule engine payroll/BPJS/PPh21 versioned | ◐ payroll rule engine ber-versi ✅ + **shift/roster (jam lembur payroll dari shift roster — hardcode 8 jam dihapus, default NORMAL parity), work calendar + aturan akhir pekan, koreksi absensi maker-checker (snapshot lama immutable, SoD DB, source CORRECTION), leave accrual engine (kebijakan effective-dated, akrual bulanan idempoten, masa kerja minimum), LEAVE_REQUEST tervalidasi saldo & durasi hari kerja + pemotongan otomatis saat approve** ✅ Sprint 14; payslip PDF per karyawan, multi-shift per hari ⬜ |

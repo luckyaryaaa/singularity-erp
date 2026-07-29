@@ -3,6 +3,161 @@
 Semua perubahan penting MAT ERP V2 dicatat di file ini. Versi mengikuti
 Semantic Versioning selama fase local build dan LAN-UAT.
 
+## [0.41.0] — 2026-07-29
+
+### Canonical Warehouse Ledger (Stage 1)
+
+- Migration 076 memulai migrasi §9.8 dari "Branch-as-Warehouse" ke hierarki nyata
+  **Plant → Warehouse → Storage Location → Bin** tanpa membalik kunci isolasi.
+- `org_warehouses` memperoleh `is_default` (maksimal satu default per cabang) dan
+  backfill memastikan **setiap cabang aktif punya gudang default** deterministik
+  (7/7 cabang; cabang tanpa gudang dibuatkan otomatis, plant di-resolve bila ada).
+- `stock_lots` memperoleh `org_warehouse_id` — identitas gudang kanonik. Trigger
+  self-healing menjamin gudang lot **selalu berada di dalam cabangnya**: bila
+  NULL atau menunjuk gudang cabang lain, di-resolve ke gudang default cabang;
+  penempatan spesifik ke gudang lain dalam cabang yang sama dihormati.
+- Put-away kini **menyelaraskan gudang lot ke gudang rak tujuan** — ledger
+  mengikuti penempatan fisik.
+- View `stock_warehouse_ledger` (security_invoker) menyatukan Legal Entity →
+  Plant → Warehouse dengan ringkasan stok; endpoint `GET /api/inventory/warehouses`
+  dan tab **Gudang** menampilkannya per cabang.
+- Jembatan cabang↔gudang kini **eksplisit dan ter-enforce**, menutup temuan audit
+  "◐ masih terdapat bridging ke ledger/branch legacy". Grain-flip penuh (mengganti
+  makna `warehouse_id` di ~200 titik + RLS) tetap cutover berlapis berikutnya.
+
+### Assurance
+
+- Regression + isolated PostgreSQL gate **376/376** lulus (6 test kanonik baru:
+  backfill default, auto-resolve, self-heal lintas cabang, rekonsiliasi put-away,
+  scope ledger, liveness). Trigger `stock_lots` tidak meregresi jalur
+  GR/produksi/opname/transfer.
+- Full-chain rollback lulus di database disposable: **76 up, 75 down, 75 re-up**.
+- Authorization matrix **298 handler** (Inventory 20→21); OpenAPI menambah operasi
+  ledger gudang ber-cookieAuth.
+
+## [0.40.0] — 2026-07-29
+
+### Warehouse Execution Task Engine (WMS minimal task flow)
+
+- Migration 075 menambah `warehouse_tasks`: mesin tugas eksekusi gudang bertipe
+  (RECEIVE, PUTAWAY, PICK, PACK, SHIP, COUNT) dengan siklus hidup
+  OPEN→CLAIMED→IN_PROGRESS→DONE/CANCELLED, prioritas, jatuh tempo, penugasan,
+  optimistic version, RLS isolasi cabang, dan constraint struktural (put-away
+  wajib lot + rak tujuan; pick wajib lot).
+- Menutup sebagian blueprint §9.8: receiving→put-away→pick→pack→ship menjadi
+  **tugas** yang dapat ditugaskan, diklaim, dikerjakan, dan diaudit — bukan
+  mutasi stok diam-diam. Tugas PUTAWAY menyelesaikan diri dengan memindahkan lot
+  ke rak tujuan lewat penempatan lot yang sudah ada (058), sehingga tidak ada
+  jalur mutasi stok kedua yang bisa menyimpang dari kenyataan.
+- Enam endpoint baru pada router Inventory (papan kerja + create + claim + start
+  + complete + cancel) dengan permission delegated (`inventory.view`/`edit`),
+  optimistic lock, idempotency pada create/complete, dan audit old/new/reason.
+- Warehouse Task Board pada modul Persediaan: ringkasan terbuka/berjalan/lewat
+  tempo/selesai, aksi klaim/mulai/selesai/batal, dan dialog pembuatan tugas.
+- Ledger stok tidak diubah: migrasi Branch-as-Warehouse kanonik tetap pekerjaan
+  tersendiri; engine ini berdiri di atas model lot/bin yang ada.
+
+### Assurance
+
+- Regression utama dan isolated PostgreSQL gate **370/370** lulus (7 test WMS
+  baru: siklus hidup, optimistic lock, status guard, isolasi cabang, constraint,
+  liveness skema).
+- Full-chain rollback lulus di database disposable: **75 up, 74 down, 74 re-up**.
+- Authorization matrix mencakup **297 handler** (Inventory 14→20, seluruhnya
+  delegated + terklasifikasi); OpenAPI mengekspos enam operasi WMS ber-cookieAuth.
+- Status tetap engineering release candidate; approval rekonsiliasi aktual, UAT
+  manusia, training, DR/offsite proof, dan Owner sign-off tetap fail-closed.
+
+## [0.39.0] — 2026-07-28
+
+### Finance End-to-End Closure
+
+- Migration 074 menambah evidence rekonsiliasi BANK/INVENTORY/PAYROLL/TAX/AR/AP
+  dan period-close package immutable, RLS, versioning, SHA-256, serta
+  segregation of duties.
+- Journal coding block default `HARD`; posting P&L tanpa dimensi wajib ditolak.
+  Dokumen operasional legacy me-resolve cost/profit center aktif secara
+  deterministik dan menyimpan hasilnya pada header serta snapshot audit.
+- Coding Block Control, Tax Reconciliation, Official Financial Statements, dan
+  Closing Cockpit kini memiliki workbench operator lengkap.
+- Financial report sign-off hanya dapat dilakukan pada periode `CLOSED` dengan
+  snapshot seimbang dan hash yang tetap valid.
+- Period close wajib beralasan dan idempoten; close/reopen mempunyai evidence
+  lifecycle yang tidak dapat diedit oleh runtime role.
+- OpenAPI naik ke 1.4 dan authorization matrix mencakup 291 handler.
+
+### Assurance
+
+- Regression utama dan isolated PostgreSQL gate **363/363** lulus.
+- Full-chain rollback lulus: **74 up, 73 down, 73 re-up**.
+- Data protection audit: **31/31 RLS**, empat constraint tervalidasi, nol
+  plaintext, sembilan histori tanpa hak hapus runtime.
+- Visual baseline v7: **52/52** render lulus (26 halaman × desktop/mobile);
+  accessibility 18/18 dan secret scan 936 file/0 temuan.
+- Status tetap engineering release candidate; approval rekonsiliasi aktual,
+  UAT manusia, training, DR/offsite proof, dan Owner sign-off tetap fail-closed.
+
+## [0.38.0] — 2026-07-28
+
+### Security & Data Protection Closure
+
+- Migration 070 mengaktifkan RLS pada 29 tabel sensitif Finance, organization,
+  HR, payroll, attendance, dan tax serta menambah envelope encryption untuk
+  KTP, NPWP employee, nomor BPJS, dan identitas pajak organisasi.
+- Migration 071 membuat employee tanpa branch gagal tertutup bagi sesi
+  branch-scoped; hanya system/cross-branch context yang dapat melihatnya.
+- Migration 072 mencabut `DELETE/TRUNCATE` runtime pada tujuh histori
+  Finance/HR/payroll yang harus dikoreksi melalui versioning/reversal.
+- Migration 073 memperbesar compatibility-token column KTP/NPWP/BPJS agar
+  token blind-index 40 karakter dapat disimpan tanpa truncation.
+- Repository master data dan organization mengenkripsi sebelum write,
+  mendekripsi hanya di jalur berizin, melakukan masking, dan meredaksi audit.
+- `security:data-audit` memverifikasi RLS/policy, ownership/BYPASSRLS,
+  constraint encryption, sisa plaintext, dan least-privilege grants.
+- Predeploy dan release package memuat audit data-protection sebagai gate.
+
+### Assurance
+
+- Regression utama 359/359 dan scoped security 19/19 lulus.
+- Full-chain rollback lulus pada database disposable: 73 up, 72 down, 72
+  re-up.
+- Status tetap engineering release candidate; UAT manusia, rekonsiliasi,
+  training, DR/offsite proof, security retest, dan Owner sign-off tidak
+  digantikan automation.
+
+## [0.37.0] — 2026-07-28
+
+### Enterprise Data Protection
+
+- Migration 065 menambah field encryption AES-256-GCM, purpose/scope AAD,
+  blind index, versioned key ring, dan rotation ledger untuk rekening bank
+  serta restricted HR notes.
+- Migration 066 menambah retention allowlist, legal hold, preview berumur
+  terbatas, exact-count batch execution, idempotency, recent MFA, dan execution
+  ledger.
+- Retention Workbench masuk navigasi resmi dan visual baseline desktop/mobile.
+
+### Finance Control Depth
+
+- Migration 067 menambah journal coding block berupa cost center, profit
+  center, dan project WBS beserta policy kategori akun.
+- Migration 068 mengganti rekonsiliasi pajak placeholder menjadi perbandingan
+  GL-ke-tax ledger yang dipakai closing cockpit.
+- Migration 069 menambah financial-report lifecycle prepare→review→sign-off/
+  reject dengan snapshot ber-versi dan segregation of duties.
+- OpenAPI naik ke 1.3 dan mendokumentasikan endpoint tax reconciliation serta
+  financial-report sign-off.
+
+### Release Governance
+
+- Package, lockfile, README, changelog, roadmap, release notes, migration notes,
+  endpoint matrix, UAT baseline, dan release manifest diselaraskan ke v0.37.0
+  serta migration 069.
+- Authorization matrix mencakup 14 router dan 286 handler.
+- Regression 353/353 dan migration 001–069 lulus. UAT manusia, training,
+  rekonsiliasi, DR evidence, SEC-UAT-001 closure, dan Owner sign-off tetap
+  fail-closed dan bukan bagian dari klaim engineering completion.
+
 ## [0.36.0] — 2026-07-27
 
 ### Execution Control Workbenches

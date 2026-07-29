@@ -1,4 +1,4 @@
-# Rencana Retest UAT — v0.36.0
+# Rencana Retest UAT — v0.39.0
 
 **Tujuan:** menutup `SEC-UAT-001` dan menyiapkan bukti UAT 13 role yang wajib
 dieksekusi **manusia**, semuanya menunjuk SHA/migrasi/versi yang sama.
@@ -8,8 +8,8 @@ dieksekusi **manusia**, semuanya menunjuk SHA/migrasi/versi yang sama.
 
 | Item | Nilai |
 |---|---|
-| Versi | v0.36.0 |
-| Migrasi | 001–066 |
+| Versi | v0.39.0 |
+| Migrasi | 001–074 |
 | Branch | review/codex-claude-consolidation |
 | Prasyarat | `npm run predeploy` hijau pada SHA yang diretest |
 
@@ -48,6 +48,10 @@ least-privilege. Hasil masuk `UAT_PLAN.json` / `UAT_RESULTS.json`.
 Enam rekonsiliasi wajib bertanda tangan (`RECONCILIATION.json`):
 `TRIAL_BALANCE`, `AR_GL`, `AP_GL`, `INVENTORY_GL`, `PAYROLL_GL`, `TAX`.
 Masing-masing: sumber angka, selisih, penjelasan, approver.
+
+Gunakan workbench `#/tax`, `#/accounting/closing`, dan
+`#/accounting/statements` untuk menghasilkan evidence aplikasi. Maker,
+reviewer/approver, dan signer harus pengguna berbeda sesuai policy.
 
 ## 5. DR & sign-off
 

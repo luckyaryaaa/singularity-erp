@@ -19,14 +19,14 @@ async function withClient(fn) {
   finally { await c.query('ROLLBACK').catch(() => {}); await c.end(); }
 }
 
-test('D.1: mode enforcement default SOFT dan hanya menerima OFF/SOFT/HARD', () => {
+test('D.1/v0.39: mode enforcement default HARD dan hanya menerima OFF/SOFT/HARD', () => {
   const prev = process.env.MAT_JOURNAL_DIMENSION_ENFORCEMENT;
   delete process.env.MAT_JOURNAL_DIMENSION_ENFORCEMENT;
-  assert.equal(posting.dimensionEnforcement(), 'SOFT');
+  assert.equal(posting.dimensionEnforcement(), 'HARD');
   process.env.MAT_JOURNAL_DIMENSION_ENFORCEMENT = 'hard';
   assert.equal(posting.dimensionEnforcement(), 'HARD');
   process.env.MAT_JOURNAL_DIMENSION_ENFORCEMENT = 'bogus';
-  assert.equal(posting.dimensionEnforcement(), 'SOFT');
+  assert.equal(posting.dimensionEnforcement(), 'HARD');
   if (prev === undefined) delete process.env.MAT_JOURNAL_DIMENSION_ENFORCEMENT; else process.env.MAT_JOURNAL_DIMENSION_ENFORCEMENT = prev;
 });
 

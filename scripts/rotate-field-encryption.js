@@ -26,6 +26,24 @@ const BANKS = [
     key: 'bank_account_key_id', blind: 'bank_account_blind_index',
     purpose: 'supplier_legacy.bank_account', nullable: true }
 ];
+const IDENTIFIERS = [
+  { table: 'employee_personal_profiles', id: 'employee_id', scope: 'employee_id',
+    legacy: 'nik_ktp', cipher: 'nik_ktp_ciphertext',
+    key: 'nik_ktp_key_id', blind: 'nik_ktp_blind_index',
+    purpose: 'employee_personal.nik_ktp', nullable: true },
+  { table: 'employee_tax_profiles', id: 'id', scope: 'employee_id',
+    legacy: 'npwp', cipher: 'npwp_ciphertext',
+    key: 'npwp_key_id', blind: 'npwp_blind_index',
+    purpose: 'employee_tax.npwp', nullable: true },
+  { table: 'employee_bpjs_profiles', id: 'id', scope: 'employee_id',
+    legacy: 'membership_number', cipher: 'membership_number_ciphertext',
+    key: 'membership_number_key_id', blind: 'membership_number_blind_index',
+    purpose: 'employee_bpjs.membership_number', nullable: true },
+  { table: 'organization_tax_identities', id: 'id', scope: 'legal_entity_id',
+    legacy: 'identity_number', cipher: 'identity_number_ciphertext',
+    key: 'identity_number_key_id', blind: 'identity_number_blind_index',
+    purpose: 'organization_tax.identity_number' }
+];
 const NOTES = [
   { table: 'employee_emergency_contacts', id: 'id', scope: 'employee_id',
     legacy: 'restricted_notes', cipher: 'restricted_notes_ciphertext',
@@ -50,7 +68,7 @@ function plaintext(row, spec) {
 async function pendingCounts(client) {
   const cfg = fields.configuration();
   const result = {};
-  for (const spec of [...BANKS, ...NOTES]) {
+  for (const spec of [...BANKS, ...IDENTIFIERS, ...NOTES]) {
     const column = spec.cipher;
     const key = spec.key;
     const row = (await client.query(
@@ -68,7 +86,7 @@ async function rotate(client) {
   await client.query('BEGIN');
   try {
     await client.query(`SELECT pg_advisory_xact_lock(hashtextextended('field-encryption-rotation',0))`);
-    for (const spec of BANKS) {
+    for (const spec of [...BANKS, ...IDENTIFIERS]) {
       const rows = (await client.query(
         `SELECT ${[spec.id, spec.scope, spec.legacy, spec.cipher, spec.key].join(',')}
            FROM ${spec.table}
@@ -117,6 +135,10 @@ async function rotate(client) {
       ['company_bank_accounts', 'ck_company_bank_encrypted'],
       ['supplier_bank_accounts', 'ck_supplier_bank_encrypted'],
       ['employee_bank_accounts', 'ck_employee_bank_encrypted'],
+      ['employee_personal_profiles', 'ck_employee_ktp_encrypted'],
+      ['employee_tax_profiles', 'ck_employee_npwp_encrypted'],
+      ['employee_bpjs_profiles', 'ck_employee_bpjs_encrypted'],
+      ['organization_tax_identities', 'ck_organization_tax_id_encrypted'],
       ['employee_emergency_contacts', 'ck_emergency_notes_encrypted'],
       ['employee_restricted_records', 'ck_restricted_notes_encrypted']
     ]) {

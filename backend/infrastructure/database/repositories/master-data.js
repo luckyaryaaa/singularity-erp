@@ -10,6 +10,9 @@ const masterGovernance = require('./master-governance');
 
 const maskAccount = (value) => value ? `••••${String(value).slice(-4)}` : value;
 const maskMoney = () => 'Rp ••••••••';
+const maskIdentifier = (value) => value
+  ? `${String(value).slice(0, 2)}••••••${String(value).slice(-4)}`
+  : value;
 const canSeeSalary = (user) => hasPermission(user, 'payroll.view') || hasPermission(user, '*');
 const canSeeBank = (user) => ['owner','finance_manager','accounting'].includes(user.role) || hasPermission(user, '*');
 
@@ -20,8 +23,9 @@ const REGISTRY = {
     subs: {
       'personal': { table: 'employee_personal_profiles', fk: 'employee_id', single: true,
         cols: ['nik_ktp','birth_place','birth_date','gender','marital_status','religion','address','phone','personal_email','blood_type'],
+        encrypted: { field: 'nik_ktp', purpose: 'employee_personal.nik_ktp', blind: true },
         guard: (u) => assertPermission(u, 'employee.edit'),
-        mask: (row, u) => canSeeSalary(u) ? row : { ...row, nikKtp: row.nikKtp ? `${String(row.nikKtp).slice(0,2)}••••••••••${String(row.nikKtp).slice(-4)}` : null } },
+        mask: (row, u) => canSeeSalary(u) ? row : { ...row, nikKtp: maskIdentifier(row.nikKtp) } },
       'positions': { table: 'employee_positions', fk: 'employee_id', order: 'effective_from DESC',
         cols: ['department_id','division','position_title','supervisor_employee_id','branch_id','work_location','shift_group','salary_grade','payroll_frequency','commission_eligible','effective_from','effective_to'] },
       'employment-history': { table: 'employee_employment_history', fk: 'employee_id', order: 'event_date DESC',
@@ -33,9 +37,13 @@ const REGISTRY = {
         viewGuard: (u) => { if (!canSeeSalary(u)) throw new AppError('PERMISSION_DENIED', 'Data kompensasi membutuhkan izin payroll.'); },
         reason: true, makerChecker: true, workflow: 'compensation' },
       'tax-profiles': { table: 'employee_tax_profiles', fk: 'employee_id', order: 'effective_from DESC',
-        cols: ['npwp','tax_subject','tax_scheme','ptkp_status','ter_category','ter_rate','tax_method','previous_employer_income','effective_from','effective_to','calculation_version'] },
+        cols: ['npwp','tax_subject','tax_scheme','ptkp_status','ter_category','ter_rate','tax_method','previous_employer_income','effective_from','effective_to','calculation_version'],
+        encrypted: { field: 'npwp', purpose: 'employee_tax.npwp', blind: true },
+        mask: (row, u) => canSeeSalary(u) ? row : { ...row, npwp: maskIdentifier(row.npwp) } },
       'bpjs': { table: 'employee_bpjs_profiles', fk: 'employee_id', order: 'program',
-        cols: ['program','membership_number','wage_base','risk_category','employer_pct','employee_pct','ceiling_amount','floor_amount','active_from','active_to','calculation_version'] },
+        cols: ['program','membership_number','wage_base','risk_category','employer_pct','employee_pct','ceiling_amount','floor_amount','active_from','active_to','calculation_version'],
+        encrypted: { field: 'membership_number', purpose: 'employee_bpjs.membership_number', blind: true },
+        mask: (row, u) => canSeeSalary(u) ? row : { ...row, membershipNumber: maskIdentifier(row.membershipNumber) } },
       'insurance': { table: 'employee_insurance_profiles', fk: 'employee_id', order: 'effective_from DESC',
         cols: ['insurer','policy_number','coverage_type','family_covered','premium','employer_contribution','employee_contribution','effective_from','expiry_date','file_id'] },
       'insurance-claims': { table: 'employee_insurance_claim_history', fk: 'employee_id', order: 'claim_date DESC',
@@ -261,19 +269,22 @@ async function createSub(client, master, id, sub, body, user, requestId) {
     `INSERT INTO ${s.table}(${s.fk},${keys.join(',')}) VALUES($1,${keys.map((_, i) => `$${i + 2}`).join(',')}) RETURNING *`,
     [id, ...keys.map((k) => payload[k])])).rows[0];
 
+  const auditedPayload = { parent: id, ...payload };
+  if (s.encrypted) {
+    const field = s.encrypted.field;
+    delete auditedPayload[`${field}_ciphertext`];
+    delete auditedPayload[`${field}_key_id`];
+    delete auditedPayload[`${field}_blind_index`];
+    auditedPayload[field] = field === 'account_number' && sensitivePlaintext
+      ? maskAccount(sensitivePlaintext)
+      : sensitivePlaintext ? 'REDACTED' : auditedPayload[field];
+  }
+  if (payload.base_salary !== undefined) auditedPayload.base_salary = 'REDACTED';
+  if (payload.fixed_allowance !== undefined) auditedPayload.fixed_allowance = 'REDACTED';
+  if (payload.variable_allowance !== undefined) auditedPayload.variable_allowance = 'REDACTED';
   await runtime.audit(client, {
     userId: user.id, action: 'CREATE', module: m.module, entityType: `${master}.${sub}`.toUpperCase(),
-    entityId: inserted.id, newValue: {
-      parent: id, ...payload,
-      account_number_ciphertext: undefined, account_number_key_id: undefined,
-      account_number_blind_index: undefined, restricted_notes_ciphertext: undefined,
-      restricted_notes_key_id: undefined,
-      account_number: sensitivePlaintext && s.encrypted?.field === 'account_number'
-        ? maskAccount(sensitivePlaintext) : undefined,
-      restricted_notes: sensitivePlaintext && s.encrypted?.field === 'restricted_notes'
-        ? 'REDACTED' : payload.restricted_notes,
-      base_salary: payload.base_salary ? 'REDACTED' : undefined
-    },
+    entityId: inserted.id, newValue: auditedPayload,
     reason: body.change_reason || body.changeReason || null, requestId, branchId: user.branchId
   });
   await masterGovernance.refreshQuality(client, master, id);

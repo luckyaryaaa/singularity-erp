@@ -2,8 +2,7 @@
 const {randomUUID}=require('node:crypto');const {AppError}=require('../../../core/errors');
 const accountingConfig=require('./accounting-config');
 
-// Normalisasi + validasi baris (murni, tanpa DB) — dipakai untuk menghitung
-// total otoritatif SEBELUM dokumen disimpan, dan untuk menulis baris.
+
 function normalizeLines(lines){
   if(!Array.isArray(lines))return null;
   if(lines.length>500)throw new AppError('VALIDATION_ERROR','Maksimal 500 baris per dokumen.');
@@ -25,12 +24,7 @@ async function syncDocumentLines(client,documentId,lines){
   return lineSubtotalOf(normalized);
 }
 
-// P1-4 — pemenuhan tidak boleh melampaui yang dipesan.
-//
-// Tanpa pemeriksaan ini, tautan baris hanya menjadi hiasan: seseorang dapat
-// mengirim 100 unit atas baris pesanan 10 unit dan sistem tetap menganggapnya
-// sah. Aturannya sejajar dengan retur RMA (P0-L) dan three-way match (P0-O):
-// klaim terdahulu ikut diperhitungkan, dan draf tidak mengunci sisa pesanan.
+
 async function assertFulfilmentWithinOrder(client,{documentId,documentType,partyId,lines,requireLinked=false}){
   const normalized=normalizeLines(lines);
   if(!normalized)return null;
@@ -98,12 +92,7 @@ async function orderFulfilment(client,salesOrderId){
     orderedQty:r.ordered_qty,deliveredQty:r.delivered_qty,invoicedQty:r.invoiced_qty,remainingQty:r.remaining_qty}))};
 }
 
-// P0-I: total dokumen dihitung SERVER dari baris + diskon/pajak header.
-// Klien boleh mengirim `amount`, tetapi nilai itu hanya diterima bila cocok
-// dengan hitungan server — mencegah header Rp10 jt dengan baris Rp100 jt
-// (memengaruhi ambang approval, margin, eksposur kredit, pajak, dan laporan).
-// Urutan: subtotal baris → diskon header → pajak header → biaya angkut/
-// surcharge level header (landed cost, mis. freight dari RFQ terpilih).
+
 function authoritativeTotal(lineSubtotal,payload={}){
   const discountPct=Number(payload.discountPct||0),taxPct=Number(payload.taxPct||0);
   const freight=Number(payload.freightTotal||payload.freight||0),surcharge=Number(payload.surchargeTotal||0);
@@ -239,8 +228,9 @@ async function dimensionPolicy(client){
     .rows.reduce((o,r)=>(o[r.category]=r,o),{});
 }
 // Mode penegakan: OFF (abaikan dimensi), SOFT (validasi FK yang dikirim, wajib
-// tidak dipaksa), HARD (paksa dimensi wajib per kebijakan). Default SOFT.
-function dimensionEnforcement(){const m=String(process.env.MAT_JOURNAL_DIMENSION_ENFORCEMENT||'SOFT').toUpperCase();return['OFF','SOFT','HARD'].includes(m)?m:'SOFT';}
+// tidak dipaksa), HARD (paksa dimensi wajib per kebijakan). Mulai v0.39,
+// baseline aman adalah HARD; SOFT hanya boleh dipilih eksplisit saat cut-over.
+function dimensionEnforcement(){const m=String(process.env.MAT_JOURNAL_DIMENSION_ENFORCEMENT||'HARD').toUpperCase();return['OFF','SOFT','HARD'].includes(m)?m:'HARD';}
 // Validasi dimensi satu baris jurnal. `dims` hanya diterapkan bila kebijakan
 // akunnya memang mengenal dimensi (P&L); baris neraca tetap NULL.
 async function resolveLineDimensions(client,{category,dims={},policy,enforcement,label}){
@@ -257,6 +247,57 @@ async function resolveLineDimensions(client,{category,dims={},policy,enforcement
   }
   return{costCenterId:cc,profitCenterId:pc,projectWbsId:pj};
 }
+// Dokumen otomatis dari proses operasional lama belum selalu membawa coding
+// block di header. Dalam mode HARD, resolve master aktif milik legal entity
+// (cost center cabang diprioritaskan) dan simpan hasilnya agar dapat diaudit.
+async function resolveDefaultDocumentDimensions(client,doc,dims,enforcement){
+  if(enforcement!=='HARD')return dims;
+  const legalEntityId=doc.legalEntityId||doc.legal_entity_id||null;
+  if(!legalEntityId)return dims;
+  const resolved={...dims};
+  if(!resolved.costCenterId){
+    const branchId=doc.branchId||doc.branch_id||null;
+    const row=(await client.query(
+      `SELECT id FROM cost_centers
+        WHERE legal_entity_id=$1 AND active=true
+          AND valid_from<=current_date
+          AND (valid_to IS NULL OR valid_to>=current_date)
+        ORDER BY CASE WHEN branch_id=$2 THEN 0 WHEN branch_id IS NULL THEN 1 ELSE 2 END, code
+        LIMIT 1`,
+      [legalEntityId,branchId]
+    )).rows[0];
+    resolved.costCenterId=row?.id||null;
+  }
+  if(!resolved.profitCenterId){
+    const row=(await client.query(
+      `SELECT id FROM profit_centers
+        WHERE legal_entity_id=$1 AND active=true
+        ORDER BY code
+        LIMIT 1`,
+      [legalEntityId]
+    )).rows[0];
+    resolved.profitCenterId=row?.id||null;
+  }
+  if(doc.id&&(resolved.costCenterId!==dims.costCenterId||resolved.profitCenterId!==dims.profitCenterId)){
+    const snapshot={
+      postingResolution:{
+        enforcement,
+        source:'ACTIVE_LEGAL_ENTITY_MASTER',
+        costCenterId:resolved.costCenterId,
+        profitCenterId:resolved.profitCenterId
+      }
+    };
+    await client.query(
+      `UPDATE business_documents
+          SET cost_center_id=COALESCE(cost_center_id,$2),
+              profit_center_id=COALESCE(profit_center_id,$3),
+              dimension_snapshot=COALESCE(dimension_snapshot,'{}'::jsonb)||$4::jsonb
+        WHERE id=$1`,
+      [doc.id,resolved.costCenterId,resolved.profitCenterId,JSON.stringify(snapshot)]
+    );
+  }
+  return resolved;
+}
 // Bangun & simpan jurnal dari posting profile (configuration-driven §18.2).
 // amounts = peta amount_source → nilai (mis. {AMOUNT, NET, TAX, BPJS_COMPANY}).
 async function postFromProfile(client,doc,user,{transactionType,amounts,memoBase}){
@@ -266,7 +307,14 @@ async function postFromProfile(client,doc,user,{transactionType,amounts,memoBase
   const missing=codes.filter(c=>!accounts[c]);if(missing.length)throw new AppError('RESOURCE_NOT_FOUND',`Akun posting belum ada di COA: ${missing.join(', ')}.`);
   // Wave D.1 — dimensi diturunkan dari dokumen (payload) untuk kaki P&L.
   const policy=await dimensionPolicy(client),enforcement=dimensionEnforcement();
-  const docDims={costCenterId:doc.payload?.costCenterId||null,profitCenterId:doc.payload?.profitCenterId||null,projectWbsId:doc.payload?.projectWbsId||null};
+  // Kolom header adalah sumber otoritatif. Fallback payload dipertahankan untuk
+  // dokumen legacy dan import lama.
+  let docDims={
+    costCenterId:doc.costCenterId||doc.cost_center_id||doc.payload?.costCenterId||null,
+    profitCenterId:doc.profitCenterId||doc.profit_center_id||doc.payload?.profitCenterId||null,
+    projectWbsId:doc.projectWbsId||doc.project_wbs_id||doc.payload?.projectWbsId||null
+  };
+  docDims=await resolveDefaultDocumentDimensions(client,doc,docDims,enforcement);
   let debitTotal=0,creditTotal=0;
   for(const leg of profile.legs){const value=Math.round(Number(amounts[leg.amount_source]||0)*100)/100;if(!value)continue;const acct=accounts[leg.account_code],debit=leg.side==='D'?value:0,credit=leg.side==='C'?value:0;debitTotal+=debit;creditTotal+=credit;const dim=await resolveLineDimensions(client,{category:acct.category,dims:docDims,policy,enforcement,label:`${doc.documentNumber} · ${leg.account_code}`});await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo,cost_center_id,profit_center_id,project_wbs_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[randomUUID(),doc.id,acct.id,debit,credit,`${doc.documentNumber} · ${memoBase}${leg.memo_suffix?' '+leg.memo_suffix:''}`,dim.costCenterId,dim.profitCenterId,dim.projectWbsId]);}
   if(Math.abs(debitTotal-creditTotal)>.01)throw new AppError('VALIDATION_ERROR',`Jurnal ${transactionType} tidak seimbang (D ${debitTotal} vs C ${creditTotal}).`);
@@ -274,9 +322,9 @@ async function postFromProfile(client,doc,user,{transactionType,amounts,memoBase
   return{profileCode:profile.code,profileVersion:profile.version,debit:debitTotal,credit:creditTotal};
 }
 async function postAccounting(client,doc,user){if(doc.documentType==='JOURNAL')return postManualJournal(client,doc,user);if(doc.documentType==='PAYROLL_RUN')return postPayroll(client,doc,user);if(PERPETUAL_TRIGGER[doc.documentType])return postPerpetualInventory(client,doc,user);const trigger=POSTING_TRIGGER[doc.documentType];if(!trigger||doc.status!==trigger)return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const amount=Number(doc.amount);if(!(amount>0))throw new AppError('VALIDATION_ERROR','Nilai posting jurnal harus lebih dari nol.');const period=await ensureOpenPeriod(client,doc);const posted=await postFromProfile(client,doc,user,{transactionType:doc.documentType,amounts:{AMOUNT:amount},memoBase:'auto posting'});await finishPosting(client,doc,'ACCOUNTING',{period,...posted,amount});return{period,...posted,amount};}
-async function postManualJournal(client,doc,user){if(doc.status!=='APPROVED')return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const lines=doc.payload?.journalLines;if(!Array.isArray(lines)||lines.length<2)throw new AppError('VALIDATION_ERROR','Jurnal manual membutuhkan minimal dua baris.');const debit=lines.reduce((n,x)=>n+Number(x.debit||0),0),credit=lines.reduce((n,x)=>n+Number(x.credit||0),0);if(!(debit>0)||Math.abs(debit-credit)>.01)throw new AppError('VALIDATION_ERROR','Total debit dan kredit jurnal harus seimbang.');const period=await ensureOpenPeriod(client,doc),codes=[...new Set(lines.map(x=>String(x.accountCode||'')))],accounts=await loadAccounts(client,codes);if(codes.some(code=>!accounts[code]))throw new AppError('RESOURCE_NOT_FOUND','Salah satu akun jurnal tidak ditemukan.');const policy=await dimensionPolicy(client),enforcement=dimensionEnforcement();for(const line of lines){const d=Number(line.debit||0),c=Number(line.credit||0);if(d<0||c<0||d&&c||!d&&!c)throw new AppError('VALIDATION_ERROR','Baris jurnal harus memiliki tepat satu sisi debit/kredit.');const acct=accounts[line.accountCode],dim=await resolveLineDimensions(client,{category:acct.category,dims:{costCenterId:line.costCenterId,profitCenterId:line.profitCenterId,projectWbsId:line.projectWbsId},policy,enforcement,label:`Jurnal ${doc.documentNumber} · ${line.accountCode}`});await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo,cost_center_id,profit_center_id,project_wbs_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[randomUUID(),doc.id,acct.id,d,c,String(line.memo||doc.title).slice(0,500),dim.costCenterId,dim.profitCenterId,dim.projectWbsId]);}await finishPosting(client,doc,'ACCOUNTING',{period,debit,credit,manual:true});return{period,debit,credit,manual:true};}
+async function postManualJournal(client,doc,user){if(doc.status!=='APPROVED')return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const lines=doc.payload?.journalLines;if(!Array.isArray(lines)||lines.length<2)throw new AppError('VALIDATION_ERROR','Jurnal manual membutuhkan minimal dua baris.');const debit=lines.reduce((n,x)=>n+Number(x.debit||0),0),credit=lines.reduce((n,x)=>n+Number(x.credit||0),0);if(!(debit>0)||Math.abs(debit-credit)>.01)throw new AppError('VALIDATION_ERROR','Total debit dan kredit jurnal harus seimbang.');const period=await ensureOpenPeriod(client,doc),codes=[...new Set(lines.map(x=>String(x.accountCode||'')))],accounts=await loadAccounts(client,codes);if(codes.some(code=>!accounts[code]))throw new AppError('RESOURCE_NOT_FOUND','Salah satu akun jurnal tidak ditemukan.');const policy=await dimensionPolicy(client),enforcement=dimensionEnforcement();const headerDims={costCenterId:doc.costCenterId||doc.cost_center_id||doc.payload?.costCenterId,profitCenterId:doc.profitCenterId||doc.profit_center_id||doc.payload?.profitCenterId,projectWbsId:doc.projectWbsId||doc.project_wbs_id||doc.payload?.projectWbsId};for(const line of lines){const d=Number(line.debit||0),c=Number(line.credit||0);if(d<0||c<0||d&&c||!d&&!c)throw new AppError('VALIDATION_ERROR','Baris jurnal harus memiliki tepat satu sisi debit/kredit.');const acct=accounts[line.accountCode],dim=await resolveLineDimensions(client,{category:acct.category,dims:{costCenterId:line.costCenterId||headerDims.costCenterId,profitCenterId:line.profitCenterId||headerDims.profitCenterId,projectWbsId:line.projectWbsId||headerDims.projectWbsId},policy,enforcement,label:`Jurnal ${doc.documentNumber} · ${line.accountCode}`});await client.query(`INSERT INTO journal_lines(id,journal_document_id,account_id,debit,credit,memo,cost_center_id,profit_center_id,project_wbs_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[randomUUID(),doc.id,acct.id,d,c,String(line.memo||doc.title).slice(0,500),dim.costCenterId,dim.profitCenterId,dim.projectWbsId]);}await finishPosting(client,doc,'ACCOUNTING',{period,debit,credit,manual:true,enforcement});return{period,debit,credit,manual:true,enforcement};}
 async function postPayroll(client,doc,user){if(doc.status!=='APPROVED')return null;if(!await claimPosting(client,doc,user,'ACCOUNTING'))return{replay:true};const net=Number(doc.amount),tax=Number(doc.payload?.pph21||0),bpjs=Number(doc.payload?.bpjs||0),period=await ensureOpenPeriod(client,doc);
   // Kaki payroll dari posting profile: NET, TAX, BPJS_COMPANY dipetakan ke akun.
   const posted=await postFromProfile(client,doc,user,{transactionType:'PAYROLL_RUN',amounts:{NET:net,TAX:tax,BPJS_COMPANY:bpjs},memoBase:'payroll'});await finishPosting(client,doc,'ACCOUNTING',{period,net,tax,bpjs,...posted});return{period,net,tax,bpjs,...posted};}
 async function postDocument(client,doc,user){return{inventory:await postInventory(client,doc,user),accounting:await postAccounting(client,doc,user)};}
-module.exports={syncDocumentLines,normalizeLines,postPerpetualInventory,movementValue,assertFulfilmentWithinOrder,orderFulfilment,lineSubtotalOf,authoritativeTotal,assertAmountMatchesLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod,loadAccounts,dimensionPolicy,resolveLineDimensions,dimensionEnforcement};
+module.exports={syncDocumentLines,normalizeLines,postPerpetualInventory,movementValue,assertFulfilmentWithinOrder,orderFulfilment,lineSubtotalOf,authoritativeTotal,assertAmountMatchesLines,postInventory,postAccounting,postManualJournal,postPayroll,postFromProfile,postDocument,applyBalance:balance,claimPosting,finishPosting,ensureOpenPeriod,loadAccounts,dimensionPolicy,resolveLineDimensions,resolveDefaultDocumentDimensions,dimensionEnforcement};

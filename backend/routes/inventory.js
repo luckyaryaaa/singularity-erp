@@ -4,6 +4,8 @@ const { assertPermission } = require('../core/permissions');
 const operations = require('../infrastructure/database/repositories/operations');
 const inventoryLots = require('../infrastructure/database/repositories/inventory');
 const binExecution = require('../infrastructure/database/repositories/bin-execution');
+const warehouseTasks = require('../infrastructure/database/repositories/warehouse-tasks');
+const warehouseLedger = require('../infrastructure/database/repositories/warehouse-ledger');
 const stockReservations = require('../infrastructure/database/repositories/stock-reservations');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const { AppError } = require('../core/errors');
@@ -28,6 +30,9 @@ async function dispatch(client, req, url, ctx) {
   // Sprint 11 (R018) — lot/heat traceability, valuasi, dan stock opname.
   // Eksekusi bin — storage_locations/warehouse_bins ada sejak migrasi 012
   // tetapi tidak pernah dirujuk kode apa pun sampai migrasi 058.
+  // Canonical warehouse ledger (migrasi 076) — dimensi gudang kanonik per cabang.
+  if(method==='GET'&&p==='/api/inventory/warehouses')
+    return warehouseLedger.listWarehouses(client,ctx.user,{branchId:url.searchParams.get('branchId')||undefined});
   if(method==='GET'&&p==='/api/inventory/bins')
     return binExecution.listBins(client,{branchId:url.searchParams.get('branchId')||ctx.user.branchId,user:ctx.user});
   m=p.match(/^\/api\/inventory\/bins\/([0-9a-f-]{36})$/);
@@ -52,6 +57,34 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m){assertPermission(ctx.user,'stock_opname.view');return inventoryLots.opnameLines(client,m[1],ctx.user);}
   m=p.match(/^\/api\/inventory\/opname\/([0-9a-f-]{36})\/counts$/);
   if(method==='POST'&&m){assertPermission(ctx.user,'stock_opname.edit');const body=await readBody(req);return inventoryLots.enterOpnameCounts(client,{docId:m[1],counts:body.counts,user:ctx.user,requestId:ctx.requestId});}
+
+  // WMS task engine (migrasi 075) — receiving→putaway→pick→pack→ship sebagai
+  // tugas bertipe yang dapat ditugaskan, diklaim, dan diaudit. Permission
+  // ditegakkan di repository (delegated), pola sama dengan eksekusi bin.
+  if(method==='GET'&&p==='/api/inventory/tasks')
+    return warehouseTasks.listTasks(client,ctx.user,Object.fromEntries(url.searchParams));
+  if(method==='POST'&&p==='/api/inventory/tasks'){const body=await readBody(req);
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,
+      operation:'inventory.task.create',key:req.headers['idempotency-key'],body},
+    async()=>({status:201,body:await warehouseTasks.createTask(client,body,ctx.user,ctx.requestId)}));
+    ctx.status=result.status;return result.body;
+  }
+  m=p.match(/^\/api\/inventory\/tasks\/([0-9a-f-]{36})\/claim$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    return warehouseTasks.claimTask(client,{id:m[1],expectedVersion:Number(body.version),user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/inventory\/tasks\/([0-9a-f-]{36})\/start$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    return warehouseTasks.startTask(client,{id:m[1],expectedVersion:Number(body.version),user:ctx.user,requestId:ctx.requestId});}
+  m=p.match(/^\/api\/inventory\/tasks\/([0-9a-f-]{36})\/complete$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,
+      operation:`inventory.task.complete:${m[1]}`,key:req.headers['idempotency-key'],body},
+    async()=>({status:200,body:await warehouseTasks.completeTask(client,{id:m[1],expectedVersion:Number(body.version),note:body.note,user:ctx.user,requestId:ctx.requestId})}));
+    ctx.status=result.status;return result.body;
+  }
+  m=p.match(/^\/api\/inventory\/tasks\/([0-9a-f-]{36})\/cancel$/);
+  if(method==='POST'&&m){const body=await readBody(req);
+    return warehouseTasks.cancelTask(client,{id:m[1],expectedVersion:Number(body.version),reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
   return NO_MATCH;
 }
 

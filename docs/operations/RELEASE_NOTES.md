@@ -1,57 +1,75 @@
-# Release Notes — v0.36.0
+# Release Notes — v0.39.0
 
-**Tanggal:** 2026-07-28 · **Branch:** review/codex-claude-consolidation ·
-**Migrasi:** 001–066 · **Gate:** predeploy LOCAL 14/14 hijau.
+**Tanggal:** 2026-07-28 · **Branch:** `review/codex-claude-consolidation`  
+**Migrasi:** 001–074 · **Status:** engineering release candidate.
 
-Rilis ini mengonsolidasikan empat wave enterprise (migrasi 063–066) dan
-penutupan audit otorisasi **G1–G6** menjadi riwayat yang dapat direview.
+Rilis ini menutup Stage 3 Finance End-to-End secara engineering. Production
+tetap fail-closed sampai evidence dan persetujuan manusia lengkap.
 
 ## Sorotan
 
-### Keamanan & tata kelola
-- **Privileged password reset maker-checker (063):** reset administratif memakai
-  usul→setuju dua orang (Security/System Admin → Owner) dengan recent MFA, SoD
-  (maker ≠ checker), tautan sekali pakai 30 menit, dan audit DENY/APPROVE tanpa
-  menulis secret. Reset Owner server-only. Izin `user.reset_password` dipisah
-  granular dari `user.edit`.
-- **MFA recovery (063):** sepuluh recovery code SHA-256 sekali pakai, lifecycle
-  pergantian faktor, dan workbench Account/User Security.
-- **Field-level encryption (065):** AES-256-GCM untuk rekening bank, PII, dan
-  data gaji; blind index HMAC untuk pencarian atas ciphertext; rotasi kunci
-  berversi (current + previous) + skrip rotasi.
-- **Data retention lifecycle (066):** policy retensi allowlist tertutup, legal
-  hold, preview/eksekusi aman, ledger retensi append-only, API/UI governance.
+### Coding block fail-closed
 
-### Eksekusi & integritas data (064)
-- **RLS defense-in-depth** pada reservasi, kontrak pembelian, work-order
-  operations/materials/time-logs, QC, CAPA, alat ukur, kalibrasi;
-  view `security_invoker`.
-- **Optimistic concurrency** (kolom `version` + `expectedVersion`) mencegah
-  timpa perubahan dari layar stale.
-- **Replay guard** kontrak pembelian NULL-safe (idempotency + unique partial index).
-- **Workbench operator** desktop/mobile: Reservation, Purchase Contract 360,
-  Capacity & WIP, CAPA & Calibration — dengan URL state, empty/permission state,
-  pagination, dan mutasi terkendali.
+- Mode journal dimension default `HARD`; nilai tidak dikenal juga kembali ke
+  `HARD`, bukan melemahkan enforcement.
+- Policy per kategori akun memiliki version dan audit. Cost center, profit
+  center, dan project WBS tersedia pada jurnal manual.
+- Posting otomatis memilih master aktif dari legal entity/cabang secara
+  deterministik, menyimpan header dimension dan snapshot sumber resolusi, lalu
+  tetap menolak bila master wajib memang tidak tersedia.
 
-### Penutupan audit otorisasi (G1–G6)
-- **G1:** memperbaiki bypass konteks RLS — sebelumnya **setiap** request domain
-  berjalan sebagai `app.is_system=on/cross_branch=on`, mematikan pertahanan
-  kedua di database pada 34 tabel ber-RLS. Diperbaiki dan **dibuktikan pada
-  PostgreSQL live**.
-- **G2:** akuntansi handler lengkap (`directGuards + delegated + public === handlers`)
-  yang ditegakkan CI.
-- **G3:** rekonsiliasi dokumen keamanan ke 281 handler + drift-guard.
-- **G4:** logging event `authz_denied` terstruktur pada penolakan izin.
-- **G5:** guard three-way match didokumentasikan (read-only derived — disengaja).
-- **G6:** endpoint publik didokumentasikan di OpenAPI.
+### Reconciliation dan closing evidence
 
-## Kompatibilitas & migrasi
-Naik migrasi 063→066 secara berurutan; rollback tersedia (`.down.sql`) dan
-teruji (66→65→…→63). Set env baru `MAT_FIELD_ENCRYPTION_*` (lihat `.env.example`).
-Detail: [MIGRATION_NOTES.md](MIGRATION_NOTES.md).
+- Enam evidence type: `BANK`, `INVENTORY`, `PAYROLL`, `TAX`, `AR`, dan `AP`.
+- Snapshot rekonsiliasi immutable, ber-versi, memiliki SHA-256, maker-checker,
+  reject reason, RLS, dan audit trail.
+- Period close wajib `Idempotency-Key` dan alasan. Close package disimpan
+  immutable; reopen menutup lifecycle tanpa menghapus bukti terdahulu.
+- Close ditolak sampai versi terbaru keenam evidence berstatus `APPROVED`,
+  SHA-256 valid, dan bukan `NOT_RUN`; exception approval wajib beralasan.
+- Closing Cockpit menampilkan checklist, evidence terbaru, approval action, dan
+  riwayat close package.
 
-## Status
-Rekayasa lulus regression. **Go-live: BLOCKED** menunggu gate manusia Wave F
-(UAT 13 role, rekonsiliasi, DR RTO/RPO, Owner sign-off, SEC-UAT-001 CLOSED) dan
-wave rekayasa berikutnya (Finance depth, Operations logistics). Lihat artefak
-readiness & [../uat/UAT_RETEST_PLAN.md](../uat/UAT_RETEST_PLAN.md).
+### Laporan keuangan resmi
+
+- Prepare → Review → Sign-off tersedia end-to-end pada UI dan API.
+- Sign-off memerlukan periode `CLOSED`, neraca seimbang, SHA valid, dan pemisahan
+  maker/reviewer/signer.
+- Tax Center menampilkan GL ↔ tax subledger serta evidence reconciliation.
+- OpenAPI 1.4 mencakup endpoint baru; authorization matrix mencakup 291 handler.
+
+## Database dan keamanan
+
+- **Migration 074:** `finance_reconciliation_evidence`,
+  `accounting_period_close_runs`, metadata version pada coding policy, RLS,
+  immutable trigger, dan privilege runtime minimum.
+- Audit data protection lulus: 31/31 tabel RLS, runtime non-owner/
+  non-`BYPASSRLS`, empat encryption constraint valid, nol plaintext, sembilan
+  histori tanpa `DELETE/TRUNCATE`.
+
+## Urutan deployment
+
+```powershell
+npm.cmd run db:migrate
+npm.cmd run db:grant-runtime
+npm.cmd run db:validate
+npm.cmd run security:data-audit
+npm.cmd run predeploy
+```
+
+Seluruh migration mempunyai pasangan `.down.sql`. Migration rollback harus
+diuji pada database disposable, bukan pada database bisnis.
+
+## Gate yang tetap terbuka
+
+Rilis ini **bukan production approval**. Go-live tetap diblokir sampai:
+
+- `SEC-UAT-001` diretest operator dan berstatus `CLOSED`;
+- UAT 13 role dan training evidence lengkap;
+- enam rekonsiliasi aktual disetujui Finance/Owner pada release SHA yang sama;
+- actual RTO/RPO serta immutable offsite backup evidence disetujui;
+- Owner menandatangani versi, SHA, dan migration yang sama.
+
+Detail teknis: [v0.39-finance-end-to-end-closure.md](v0.39-finance-end-to-end-closure.md),
+[MIGRATION_NOTES.md](MIGRATION_NOTES.md), dan
+[TEST_EVIDENCE.md](TEST_EVIDENCE.md).

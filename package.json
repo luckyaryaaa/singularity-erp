@@ -1,6 +1,6 @@
 {
   "name": "mat-erp-v2",
-  "version": "0.36.0",
+  "version": "0.41.0",
   "private": true,
   "scripts": {
     "dev": "node server.js",
@@ -34,6 +34,7 @@
     "security:rotate-runtime": "node scripts/rotate-runtime-secrets.js",
     "security:rotate-fields": "node scripts/rotate-field-encryption.js --apply",
     "security:fields-status": "node scripts/rotate-field-encryption.js",
+    "security:data-audit": "node scripts/audit-data-protection.js",
     "db:seed:uat": "node scripts/seed-postgres-uat.js",
     "db:seed:uat:sprint4": "node scripts/seed-postgres-uat-sprint4.js",
     "backup:run": "node scripts/backup-postgres.js run",

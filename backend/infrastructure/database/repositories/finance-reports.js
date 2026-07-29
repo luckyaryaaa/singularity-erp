@@ -5,11 +5,13 @@
 // created_at) — konsisten dengan ledger, closing, dan posting engine.
 const { createHash } = require('node:crypto');
 const { AppError } = require('../../../core/errors');
+const { canonical } = require('../../../core/doc-verification');
 const { hasGlobalScope, queryScope } = require('../../../core/data-scope');
 const { assertPermission } = require('../../../core/permissions');
 const accountingConfig = require('./accounting-config');
 
 const idr = (v) => Math.round(Number(v || 0) * 100) / 100;
+const evidenceHash = (value) => createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex');
 const PERIOD_EXPR = `COALESCE(NULLIF(d.payload->>'period',''),to_char(d.created_at,'YYYY-MM'))`;
 
 function assertPeriod(value) {
@@ -143,6 +145,123 @@ async function taxReconciliation(client, { period: value, user }) {
   };
 }
 
+// ── Rekonsiliasi ber-versi: prepare → approve/reject ─────────────────────────
+const RECONCILIATION_TYPES = new Set(['BANK','INVENTORY','PAYROLL','TAX','AR','AP']);
+const RECONCILIATION_CHECK = {
+  BANK:'bank_reconciliation', INVENTORY:'inventory_reconciliation',
+  PAYROLL:'payroll_reconciliation', TAX:'tax_reconciliation',
+  AR:'subledger_ar', AP:'subledger_ap'
+};
+
+async function reconciliationSnapshot(client, { type, period: value, user }) {
+  const normalized = String(type || '').toUpperCase();
+  if (!RECONCILIATION_TYPES.has(normalized)) throw new AppError('VALIDATION_ERROR', 'Jenis rekonsiliasi wajib BANK, INVENTORY, PAYROLL, TAX, AR, atau AP.');
+  const period = assertPeriod(value);
+  if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Evidence rekonsiliasi membutuhkan scope perusahaan.');
+  let detail;
+  if (normalized === 'TAX') detail = await taxReconciliation(client, { period, user });
+  else if (normalized === 'AR' || normalized === 'AP') detail = await subledger(client, { type: normalized, period, user });
+  else {
+    const cockpit = await closingCockpit(client, period, user);
+    detail = cockpit.checks.find((x) => x.id === RECONCILIATION_CHECK[normalized]);
+  }
+  const difference = normalized === 'TAX' ? Number(detail.difference)
+    : normalized === 'AR' || normalized === 'AP' ? Number(detail.difference)
+      : detail?.data?.executed === false ? null
+        : Number.isFinite(Number(detail?.data?.difference)) ? Number(detail.data.difference)
+          : detail?.status === 'PASS' ? 0 : null;
+  const resultStatus = difference == null ? 'NOT_RUN' : Math.abs(difference) < 1 ? 'MATCHED' : 'EXCEPTION';
+  return { schemaVersion: 1, type: normalized, period, resultStatus, difference: difference || 0, detail, generatedAt: new Date().toISOString() };
+}
+
+function reconciliationEvidenceView(r) {
+  return {
+    id:r.id, period:r.period, type:r.reconciliation_type, version:r.version,
+    status:r.status, resultStatus:r.result_status, difference:Number(r.difference),
+    sha256:r.snapshot_sha256, preparedBy:r.prepared_by, preparedByName:r.prepared_by_name,
+    preparedAt:r.prepared_at, approvedBy:r.approved_by, approvedByName:r.approved_by_name,
+    approvedAt:r.approved_at, decisionReason:r.decision_reason
+  };
+}
+
+async function prepareReconciliationEvidence(client, { type, period, user, requestId }) {
+  const normalized = String(type || '').toUpperCase();
+  assertPermission(user, normalized === 'TAX' ? 'tax.edit' : 'ledger.create');
+  const snapshot = await reconciliationSnapshot(client, { type: normalized, period, user });
+  const entityId = await accountingConfig.defaultLegalEntityId(client);
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`reconciliation:${entityId}:${snapshot.period}:${normalized}`]);
+  const version = Number((await client.query(`SELECT COALESCE(MAX(version),0)+1 n FROM finance_reconciliation_evidence
+    WHERE legal_entity_id=$1 AND period=$2 AND reconciliation_type=$3`, [entityId,snapshot.period,normalized])).rows[0].n);
+  const sha = evidenceHash(snapshot);
+  await client.query(`UPDATE finance_reconciliation_evidence SET status='SUPERSEDED'
+    WHERE legal_entity_id=$1 AND period=$2 AND reconciliation_type=$3 AND status='PREPARED'`, [entityId,snapshot.period,normalized]);
+  const row=(await client.query(`INSERT INTO finance_reconciliation_evidence
+    (legal_entity_id,period,reconciliation_type,version,result_status,difference,snapshot,snapshot_sha256,prepared_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+    [entityId,snapshot.period,normalized,version,snapshot.resultStatus,snapshot.difference,JSON.stringify(snapshot),sha,user.id])).rows[0];
+  await require('./runtime').audit(client,{userId:user.id,action:'PREPARE',module:'ledger',entityType:'FINANCE_RECONCILIATION',entityId:row.id,newValue:{type:normalized,period:snapshot.period,version,resultStatus:snapshot.resultStatus,difference:snapshot.difference,sha256:sha},requestId});
+  return reconciliationEvidenceView(row);
+}
+
+async function decideReconciliationEvidence(client, { id, action, reason, user, requestId }) {
+  const row=(await client.query('SELECT * FROM finance_reconciliation_evidence WHERE id=$1 FOR UPDATE',[id])).rows[0];
+  if(!row)throw new AppError('RESOURCE_NOT_FOUND','Evidence rekonsiliasi tidak ditemukan.');
+  if(evidenceHash(row.snapshot)!==row.snapshot_sha256)throw new AppError('STATUS_INVALID','Integritas snapshot rekonsiliasi gagal diverifikasi. Proses dihentikan.');
+  const tax=row.reconciliation_type==='TAX';
+  assertPermission(user,`${tax?'tax':'ledger'}.${action==='approve'?'approve':'reject'}`);
+  if(row.status!=='PREPARED')throw new AppError('STATUS_INVALID',`Evidence berstatus ${row.status} tidak dapat diputuskan.`);
+  if(String(row.prepared_by)===String(user.id))throw new AppError('SOD_CONFLICT','Penyusun rekonsiliasi tidak boleh menjadi approver.');
+  if(action==='reject'&&!String(reason||'').trim())throw new AppError('REASON_REQUIRED','Alasan penolakan rekonsiliasi wajib diisi.');
+  if(action==='approve'&&row.result_status!=='MATCHED'&&!String(reason||'').trim())throw new AppError('REASON_REQUIRED',`Evidence ${row.result_status} membutuhkan alasan persetujuan exception.`);
+  if(!['approve','reject'].includes(action))throw new AppError('VALIDATION_ERROR','Keputusan rekonsiliasi tidak dikenal.');
+  const status=action==='approve'?'APPROVED':'REJECTED';
+  const updated=(await client.query(`UPDATE finance_reconciliation_evidence SET status=$2,approved_by=$3,approved_at=now(),decision_reason=$4 WHERE id=$1 RETURNING *`,
+    [id,status,user.id,String(reason||'').trim()||null])).rows[0];
+  await require('./runtime').audit(client,{userId:user.id,action:action.toUpperCase(),module:'ledger',entityType:'FINANCE_RECONCILIATION',entityId:id,reason:String(reason||'').trim()||null,newValue:{status,type:row.reconciliation_type,period:row.period,version:row.version},requestId});
+  return reconciliationEvidenceView(updated);
+}
+
+async function listReconciliationEvidence(client,{period,type,user}={}){
+  if(!hasGlobalScope(user))throw new AppError('PERMISSION_DENIED','Daftar evidence rekonsiliasi membutuhkan scope perusahaan.');
+  const params=[];let where='TRUE';
+  if(period){params.push(assertPeriod(period));where+=` AND e.period=$${params.length}`;}
+  if(type){const normalized=String(type).toUpperCase();if(!RECONCILIATION_TYPES.has(normalized))throw new AppError('VALIDATION_ERROR');params.push(normalized);where+=` AND e.reconciliation_type=$${params.length}`;}
+  const rows=(await client.query(`SELECT e.*,p.display_name prepared_by_name,a.display_name approved_by_name
+    FROM finance_reconciliation_evidence e
+    LEFT JOIN app_users p ON p.id=e.prepared_by LEFT JOIN app_users a ON a.id=e.approved_by
+    WHERE ${where} ORDER BY e.period DESC,e.reconciliation_type,e.version DESC`,params)).rows;
+  return{items:rows.map(reconciliationEvidenceView)};
+}
+
+// Period close hanya memakai versi TERBARU per tipe. Evidence lama yang pernah
+// disetujui tidak boleh mengesahkan snapshot baru yang masih PREPARED/REJECTED.
+async function validateReconciliationEvidenceForClose(client,periodValue){
+  const period=assertPeriod(periodValue);
+  const rows=(await client.query(`SELECT DISTINCT ON (reconciliation_type) *
+    FROM finance_reconciliation_evidence
+    WHERE period=$1
+    ORDER BY reconciliation_type,version DESC`,[period])).rows;
+  const latest=new Map(rows.map(row=>[row.reconciliation_type,row]));
+  const issues=[];
+  const items=[];
+  for(const type of RECONCILIATION_TYPES){
+    const row=latest.get(type);
+    if(!row){issues.push(`${type}: evidence belum disiapkan`);continue;}
+    const integrity=evidenceHash(row.snapshot)===row.snapshot_sha256;
+    if(!integrity)issues.push(`${type}: SHA-256 tidak valid`);
+    if(row.status!=='APPROVED')issues.push(`${type}: versi terbaru berstatus ${row.status}`);
+    if(row.result_status==='NOT_RUN')issues.push(`${type}: rekonsiliasi belum dijalankan`);
+    items.push({
+      id:row.id,type,version:row.version,status:row.status,
+      resultStatus:row.result_status,difference:Number(row.difference),
+      sha256:row.snapshot_sha256,integrity,
+      preparedBy:row.prepared_by,approvedBy:row.approved_by,
+      decisionReason:row.decision_reason
+    });
+  }
+  return{ready:issues.length===0,period,issues,items};
+}
+
 // ── Closing cockpit: checklist siap-tutup ────────────────────────────────────
 async function closingCockpit(client, value, user) {
   if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Closing cockpit global membutuhkan scope perusahaan.');
@@ -151,7 +270,7 @@ async function closingCockpit(client, value, user) {
   // §35: akun rekonsiliasi berasal dari konfigurasi peran akun (migrasi 039).
   const roles = await accountingConfig.accountCodes(client, ['INVENTORY', 'PAYROLL_EXPENSE'], period);
   const checks = [];
-  const add = (id, name, status, detail) => checks.push({ id, name, status, detail });
+  const add = (id, name, status, detail, data) => checks.push({ id, name, status, detail, ...(data ? { data } : {}) });
 
   const summary = await businessOps.accountingSummary(client, period, user);
   add('trial_balance', 'Trial balance seimbang', Math.abs(summary.debitTotal - summary.creditTotal) < 0.01 ? 'PASS' : 'FAIL',
@@ -165,7 +284,8 @@ async function closingCockpit(client, value, user) {
 
   const bankRecon = (await client.query('SELECT * FROM reconciliation_runs WHERE period=$1 ORDER BY created_at DESC LIMIT 1', [period])).rows[0];
   add('bank_reconciliation', 'Rekonsiliasi bank dijalankan', bankRecon ? (Math.abs(Number(bankRecon.difference)) < 0.01 ? 'PASS' : 'WARN') : 'WARN',
-    bankRecon ? `Selisih ${idr(bankRecon.difference).toLocaleString('id-ID')}` : 'Belum dijalankan periode ini');
+    bankRecon ? `Selisih ${idr(bankRecon.difference).toLocaleString('id-ID')}` : 'Belum dijalankan periode ini',
+    {executed:!!bankRecon,difference:bankRecon?idr(bankRecon.difference):0});
 
   // Rekonsiliasi inventori: GL persediaan kumulatif vs nilai saldo stok berjalan.
   const glInv = Number((await client.query(`SELECT COALESCE(SUM(j.debit-j.credit),0)::float n FROM journal_lines j
@@ -173,7 +293,8 @@ async function closingCockpit(client, value, user) {
     WHERE a.code=$2 AND ${PERIOD_EXPR}<=$1`, [period, roles.INVENTORY])).rows[0].n);
   const subInv = Number((await client.query('SELECT COALESCE(SUM(value_idr),0)::float n FROM inventory_balances')).rows[0].n);
   add('inventory_reconciliation', `Rekonsiliasi inventori (GL ${roles.INVENTORY} vs saldo stok)`, Math.abs(glInv - subInv) < 1 ? 'PASS' : 'WARN',
-    `GL ${idr(glInv).toLocaleString('id-ID')} vs subledger stok ${idr(subInv).toLocaleString('id-ID')} (selisih ${idr(glInv - subInv).toLocaleString('id-ID')})`);
+    `GL ${idr(glInv).toLocaleString('id-ID')} vs subledger stok ${idr(subInv).toLocaleString('id-ID')} (selisih ${idr(glInv - subInv).toLocaleString('id-ID')})`,
+    {executed:true,difference:idr(glInv-subInv)});
 
   // Rekonsiliasi payroll: beban gaji GL periode vs total payroll run periode.
   const glPayroll = Number((await client.query(`SELECT COALESCE(SUM(j.debit-j.credit),0)::float n FROM journal_lines j
@@ -183,7 +304,8 @@ async function closingCockpit(client, value, user) {
     JOIN business_documents d ON d.id=i.payroll_document_id WHERE d.payload->>'period'=$1 AND d.status NOT IN('DRAFT','CANCELLED','VOID','REJECTED')`, [period])).rows[0].n);
   add('payroll_reconciliation', `Rekonsiliasi payroll (GL ${roles.PAYROLL_EXPENSE} vs payroll items)`,
     payrollDocs === 0 && glPayroll === 0 ? 'PASS' : Math.abs(glPayroll - payrollDocs) < 1 ? 'PASS' : 'WARN',
-    `GL ${idr(glPayroll).toLocaleString('id-ID')} vs payroll ${idr(payrollDocs).toLocaleString('id-ID')}`);
+    `GL ${idr(glPayroll).toLocaleString('id-ID')} vs payroll ${idr(payrollDocs).toLocaleString('id-ID')}`,
+    {executed:true,difference:idr(glPayroll-payrollDocs)});
 
   // Rekonsiliasi pajak nyata (Wave D.2): subledger tax_records vs GL akun pajak.
   const taxRecon = await taxReconciliation(client, { period, user });
@@ -263,9 +385,9 @@ function reportView(r) {
     netIncome: r.net_income != null ? Number(r.net_income) : null,
     totalAssets: r.total_assets != null ? Number(r.total_assets) : null,
     balanced: r.balanced, sha256: r.snapshot_sha256,
-    preparedBy: r.prepared_by, preparedAt: r.prepared_at,
-    reviewedBy: r.reviewed_by, reviewedAt: r.reviewed_at,
-    signedOffBy: r.signed_off_by, signedOffAt: r.signed_off_at,
+    preparedBy: r.prepared_by, preparedByName:r.prepared_by_name, preparedAt: r.prepared_at,
+    reviewedBy: r.reviewed_by, reviewedByName:r.reviewed_by_name, reviewedAt: r.reviewed_at,
+    signedOffBy: r.signed_off_by, signedOffByName:r.signed_off_by_name, signedOffAt: r.signed_off_at,
     decisionReason: r.decision_reason
   };
 }
@@ -279,7 +401,7 @@ async function prepareFinancialReport(client, { period: value, user, requestId }
     throw new AppError('VALIDATION_ERROR', 'Laporan tidak dapat disiapkan: ada akun tak terpetakan (UNMAPPED). Bereskan bagan akun dahulu.', { unmappedTotal: snapshot.balanceSheet.unmappedTotal });
   }
   const entityId = await accountingConfig.defaultLegalEntityId(client);
-  const sha = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
+  const sha = evidenceHash(snapshot);
   const version = Number((await client.query('SELECT COALESCE(MAX(version),0)+1 v FROM financial_reports WHERE legal_entity_id=$1 AND period=$2', [entityId, period])).rows[0].v);
   const row = (await client.query(
     `INSERT INTO financial_reports(legal_entity_id,period,version,status,snapshot,snapshot_sha256,net_income,total_assets,balanced,prepared_by)
@@ -294,6 +416,8 @@ async function prepareFinancialReport(client, { period: value, user, requestId }
 async function decideFinancialReport(client, { id, action, reason, user, requestId }) {
   const row = (await client.query('SELECT * FROM financial_reports WHERE id=$1 FOR UPDATE', [id])).rows[0];
   if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Laporan keuangan tidak ditemukan.');
+  const actualSha=evidenceHash(row.snapshot);
+  if(actualSha!==row.snapshot_sha256)throw new AppError('STATUS_INVALID','Integritas snapshot laporan gagal diverifikasi. Proses dihentikan.');
   if (action === 'review') {
     assertPermission(user, 'report.submit');
     if (row.status !== 'PREPARED') throw new AppError('STATUS_INVALID', `Laporan berstatus ${row.status} tidak dapat direview.`);
@@ -303,6 +427,10 @@ async function decideFinancialReport(client, { id, action, reason, user, request
     assertPermission(user, 'report.approve');
     if (row.status !== 'REVIEWED') throw new AppError('STATUS_INVALID', `Laporan berstatus ${row.status} belum dapat ditandatangani (wajib REVIEWED).`);
     if (String(row.reviewed_by) === String(user.id)) throw new AppError('SOD_CONFLICT', 'Penandatangan tidak boleh sama dengan reviewer.');
+    const entityId=await accountingConfig.defaultLegalEntityId(client);
+    const closed=(await client.query(`SELECT 1 FROM accounting_periods WHERE legal_entity_id=$1 AND period=$2 AND status='CLOSED'`,[entityId,row.period])).rowCount;
+    if(!closed)throw new AppError('STATUS_INVALID',`Periode ${row.period} belum ditutup. Sign-off resmi hanya boleh dilakukan setelah period close.`);
+    if(!row.balanced)throw new AppError('STATUS_INVALID','Neraca snapshot tidak seimbang dan tidak dapat ditandatangani.');
     await client.query(`UPDATE financial_reports SET status='SIGNED_OFF',signed_off_by=$2,signed_off_at=now() WHERE id=$1`, [id, user.id]);
   } else if (action === 'reject') {
     assertPermission(user, 'report.reject');
@@ -316,15 +444,35 @@ async function decideFinancialReport(client, { id, action, reason, user, request
 
 async function listFinancialReports(client, { period, user }) {
   if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Daftar laporan keuangan resmi membutuhkan scope perusahaan.');
-  const rows = (await client.query(`SELECT id,period,version,status,net_income,total_assets,balanced,snapshot_sha256,prepared_by,prepared_at,reviewed_by,reviewed_at,signed_off_by,signed_off_at,decision_reason
-    FROM financial_reports ${period ? 'WHERE period=$1' : ''} ORDER BY period DESC, version DESC`, period ? [assertPeriod(period)] : [])).rows;
+  const rows = (await client.query(`SELECT f.id,f.period,f.version,f.status,f.net_income,f.total_assets,f.balanced,f.snapshot_sha256,
+    f.prepared_by,f.prepared_at,f.reviewed_by,f.reviewed_at,f.signed_off_by,f.signed_off_at,f.decision_reason,
+    p.display_name prepared_by_name,r.display_name reviewed_by_name,s.display_name signed_off_by_name
+    FROM financial_reports f LEFT JOIN app_users p ON p.id=f.prepared_by
+    LEFT JOIN app_users r ON r.id=f.reviewed_by LEFT JOIN app_users s ON s.id=f.signed_off_by
+    ${period ? 'WHERE f.period=$1' : ''} ORDER BY f.period DESC, f.version DESC`, period ? [assertPeriod(period)] : [])).rows;
   return { items: rows.map(reportView) };
 }
 async function financialReportDetail(client, id, user) {
   if (!hasGlobalScope(user)) throw new AppError('PERMISSION_DENIED', 'Detail laporan keuangan resmi membutuhkan scope perusahaan.');
-  const row = (await client.query('SELECT * FROM financial_reports WHERE id=$1', [id])).rows[0];
+  const row = (await client.query(`SELECT f.*,p.display_name prepared_by_name,r.display_name reviewed_by_name,s.display_name signed_off_by_name
+    FROM financial_reports f LEFT JOIN app_users p ON p.id=f.prepared_by
+    LEFT JOIN app_users r ON r.id=f.reviewed_by LEFT JOIN app_users s ON s.id=f.signed_off_by WHERE f.id=$1`, [id])).rows[0];
   if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Laporan keuangan tidak ditemukan.');
-  return { ...reportView(row), snapshot: row.snapshot };
+  const actualSha=evidenceHash(row.snapshot);
+  return { ...reportView(row), snapshot: row.snapshot, integrity:{valid:actualSha===row.snapshot_sha256,expected:row.snapshot_sha256,actual:actualSha} };
 }
 
-module.exports = { financialStatements, subledger, taxReconciliation, closingCockpit, postInventoryOpeningBalance, prepareFinancialReport, decideFinancialReport, listFinancialReports, financialReportDetail };
+async function listPeriodCloseEvidence(client,{period,user}={}){
+  if(!hasGlobalScope(user))throw new AppError('PERMISSION_DENIED','Evidence period close membutuhkan scope perusahaan.');
+  const rows=(await client.query(`SELECT c.id,c.period,c.status,c.evidence_sha256,c.close_reason,c.closed_at,c.reopened_at,c.reopen_reason,
+    u.display_name closed_by_name,r.display_name reopened_by_name
+    FROM accounting_period_close_runs c LEFT JOIN app_users u ON u.id=c.closed_by
+    LEFT JOIN app_users r ON r.id=c.reopened_by ${period?'WHERE c.period=$1':''} ORDER BY c.closed_at DESC`,
+    period?[assertPeriod(period)]:[])).rows;
+  return{items:rows.map(x=>({id:x.id,period:x.period,status:x.status,sha256:x.evidence_sha256,closeReason:x.close_reason,closedAt:x.closed_at,closedByName:x.closed_by_name,reopenedAt:x.reopened_at,reopenedByName:x.reopened_by_name,reopenReason:x.reopen_reason}))};
+}
+
+module.exports = { financialStatements, subledger, taxReconciliation, closingCockpit, postInventoryOpeningBalance,
+  reconciliationSnapshot,prepareReconciliationEvidence,decideReconciliationEvidence,listReconciliationEvidence,
+  validateReconciliationEvidenceForClose,
+  prepareFinancialReport, decideFinancialReport, listFinancialReports, financialReportDetail,listPeriodCloseEvidence };

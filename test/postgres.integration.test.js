@@ -13,6 +13,7 @@ const { hasPermission } = require('../backend/core/permissions');
 const postgresAuth = require('../backend/infrastructure/database/repositories/auth');
 const { hashPassword } = require('../backend/core/auth');
 const businessOps = require('../backend/infrastructure/database/repositories/business-operations');
+const financeReports = require('../backend/infrastructure/database/repositories/finance-reports');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
@@ -183,10 +184,22 @@ pgTest('PostgreSQL Sprint 4: accounting, allocation, attendance, payroll, tax, i
     // P0-E: closing WAJIB melewati seluruh checklist cockpit. Checklist WARN
     // menolak penutupan tanpa waiver tertulis; dengan waiver, bukti checklist
     // ikut tersimpan pada hasil closing.
-    await assert.rejects(()=>businessOps.closePeriod(client,{period:payrollPeriod,user:owner}),error=>error.code==='REASON_REQUIRED','WARN checklist wajib waiver');
-    const closed=await businessOps.closePeriod(client,{period:payrollPeriod,user:owner,waiveWarnings:'Integration test: WARN ditinjau dan diterima'});assert.equal(closed.status,'CLOSED');
+    await assert.rejects(()=>businessOps.closePeriod(client,{period:payrollPeriod,user:owner,reason:'Integration test period close'}),error=>error.code==='REASON_REQUIRED','WARN checklist wajib waiver');
+    await assert.rejects(()=>businessOps.closePeriod(client,{period:payrollPeriod,user:owner,reason:'Integration test period close',waiveWarnings:'Integration test waiver'}),error=>error.code==='STATUS_INVALID'&&/enam evidence/i.test(error.detail),'close wajib enam evidence approved');
+    await businessOps.reconcile(client,{period:payrollPeriod,user:owner});
+    const checkerId=(await client.query('SELECT id FROM app_users WHERE active AND id<>$1 ORDER BY created_at LIMIT 1',[owner.id])).rows[0]?.id;
+    assert.ok(checkerId,'butuh checker berbeda untuk evidence rekonsiliasi');
+    const checker={...owner,id:checkerId};
+    for(const type of ['BANK','INVENTORY','PAYROLL','TAX','AR','AP']){
+      const prepared=await financeReports.prepareReconciliationEvidence(client,{type,period:payrollPeriod,user:owner,requestId:randomUUID()});
+      const approved=await financeReports.decideReconciliationEvidence(client,{id:prepared.id,action:'approve',reason:'Integration exception reviewed',user:checker,requestId:randomUUID()});
+      assert.equal(approved.status,'APPROVED');
+    }
+    const closed=await businessOps.closePeriod(client,{period:payrollPeriod,user:owner,reason:'Integration test period close',waiveWarnings:'Integration test: WARN ditinjau dan diterima'});assert.equal(closed.status,'CLOSED');
     assert.ok(closed.closingEvidence&&Array.isArray(closed.closingEvidence.checks)&&closed.closingEvidence.checks.length,'bukti checklist closing wajib tersimpan');
-    assert.equal(closed.closingEvidence.waiver.by,owner.id,'waiver mencatat siapa yang menyetujui');
+    assert.equal(closed.closingEvidence.reconciliationEvidence.length,6,'close package membekukan enam evidence rekonsiliasi');
+    if(closed.closingEvidence.waiver)assert.equal(closed.closingEvidence.waiver.by,owner.id,'waiver mencatat siapa yang menyetujui');
+    else assert.equal(closed.closingEvidence.readiness,'READY','tanpa warning, waiver tidak diperlukan');
     const reopened=await businessOps.reopenPeriod(client,{period:payrollPeriod,user:owner,reason:'Integration test'});assert.equal(reopened.status,'OPEN');
 
     const invoice=await runtime.createDocument(client,{type:'INVOICE',user:owner,title:'Allocation invoice',amount:500000,requestId:randomUUID()}),payment=await runtime.createDocument(client,{type:'CUSTOMER_PAYMENT',user:owner,title:'Allocation payment',amount:500000,requestId:randomUUID()});await client.query(`UPDATE business_documents SET status='APPROVED' WHERE id=ANY($1::uuid[])`,[[invoice.id,payment.id]]);const allocated=await businessOps.allocatePayment(client,{paymentId:payment.id,invoiceId:invoice.id,amount:500000,user:owner});assert.equal(allocated.invoiceStatus,'CLOSED');assert.equal(allocated.remaining,0);

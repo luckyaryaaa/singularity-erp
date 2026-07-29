@@ -1,8 +1,9 @@
 'use strict';
-const {randomUUID}=require('node:crypto');
+const {randomUUID,createHash}=require('node:crypto');
 const {AppError}=require('../../../core/errors');
 const runtime=require('./runtime');
 const accountingConfig=require('./accounting-config');
+const {canonical}=require('../../../core/doc-verification');
 const {assertBranchAccess,hasGlobalScope,queryScope}=require('../../../core/data-scope');
 
 const periodOk=value=>/^\d{4}-(0[1-9]|1[0-2])$/.test(String(value||''));
@@ -34,14 +35,45 @@ async function ledger(client,{period:value,accountCode,user,page=1,limit=100}={}
 // P0-E: penutupan periode WAJIB melewati SELURUH checklist closing cockpit di
 // server — bukan hanya trial balance + unposted. FAIL memblokir mutlak; WARN
 // hanya boleh lewat dengan waiver tertulis yang terekam pada audit & periode.
-async function closePeriod(client,{period:value,user,waiveWarnings}){if(!hasGlobalScope(user))throw new AppError('PERMISSION_DENIED','Penutupan periode global membutuhkan scope perusahaan.');const p=period(value);await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`closing:${p}`]);const summary=await accountingSummary(client,p,user);if(Math.abs(summary.debitTotal-summary.creditTotal)>.01)throw new AppError('VALIDATION_ERROR','Trial balance belum seimbang.');const unposted=Number((await client.query(`SELECT count(*) n FROM business_documents d WHERE COALESCE(NULLIF(d.payload->>'period',''),to_char(d.created_at,'YYYY-MM'))=$1 AND d.document_type IN('INVOICE','CUSTOMER_PAYMENT','SUPPLIER_INVOICE','SUPPLIER_PAYMENT','EXPENSE','PAYROLL_RUN') AND d.status NOT IN('DRAFT','CANCELLED','VOID','REJECTED') AND NOT EXISTS(SELECT 1 FROM document_postings p WHERE p.document_id=d.id AND p.posting_kind='ACCOUNTING')`,[p])).rows[0].n);if(unposted)throw new AppError('STATUS_INVALID',`${unposted} transaksi keuangan belum diposting.`);
-  const cockpit=await require('./finance-reports').closingCockpit(client,p,user);
+async function closePeriod(client,{period:value,user,waiveWarnings,reason}){
+  if(!hasGlobalScope(user))throw new AppError('PERMISSION_DENIED','Penutupan periode global membutuhkan scope perusahaan.');
+  if(!String(reason||'').trim())throw new AppError('REASON_REQUIRED','Alasan penutupan periode wajib diisi.');
+  const p=period(value);
+  await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`closing:${p}`]);
+  const summary=await accountingSummary(client,p,user);
+  if(Math.abs(summary.debitTotal-summary.creditTotal)>.01)throw new AppError('VALIDATION_ERROR','Trial balance belum seimbang.');
+  const unposted=Number((await client.query(`SELECT count(*) n FROM business_documents d WHERE COALESCE(NULLIF(d.payload->>'period',''),to_char(d.created_at,'YYYY-MM'))=$1 AND d.document_type IN('INVOICE','CUSTOMER_PAYMENT','SUPPLIER_INVOICE','SUPPLIER_PAYMENT','EXPENSE','PAYROLL_RUN') AND d.status NOT IN('DRAFT','CANCELLED','VOID','REJECTED') AND NOT EXISTS(SELECT 1 FROM document_postings p WHERE p.document_id=d.id AND p.posting_kind='ACCOUNTING')`,[p])).rows[0].n);
+  if(unposted)throw new AppError('STATUS_INVALID',`${unposted} transaksi keuangan belum diposting.`);
+  const financeReports=require('./finance-reports');
+  const cockpit=await financeReports.closingCockpit(client,p,user);
   if(cockpit.readiness==='BLOCKED'){const fails=cockpit.checks.filter(x=>x.status==='FAIL').map(x=>x.name).join('; ');throw new AppError('STATUS_INVALID',`Closing diblokir oleh checklist: ${fails}`,{checks:cockpit.checks});}
   if(cockpit.readiness==='REVIEW'&&!String(waiveWarnings||'').trim()){const warns=cockpit.checks.filter(x=>x.status==='WARN').map(x=>x.name).join('; ');throw new AppError('REASON_REQUIRED',`Checklist masih WARN (${warns}). Sertakan waiveWarnings berisi alasan formal untuk melanjutkan.`,{checks:cockpit.checks});}
-  const evidence={readiness:cockpit.readiness,summary:cockpit.summary,checks:cockpit.checks.map(x=>({id:x.id,status:x.status,detail:x.detail})),waiver:cockpit.readiness==='REVIEW'?{reason:String(waiveWarnings).trim(),by:user.id,at:new Date().toISOString()}:null};
+  const reconciliation=await financeReports.validateReconciliationEvidenceForClose(client,p);
+  if(!reconciliation.ready)throw new AppError('STATUS_INVALID',`Closing membutuhkan enam evidence rekonsiliasi terbaru yang approved: ${reconciliation.issues.join('; ')}`,{reconciliation});
+  const evidence={
+    schemaVersion:1,period:p,generatedAt:new Date().toISOString(),
+    readiness:cockpit.readiness,summary:cockpit.summary,
+    checks:cockpit.checks.map(x=>({id:x.id,name:x.name,status:x.status,detail:x.detail})),
+    reconciliationEvidence:reconciliation.items,
+    waiver:cockpit.readiness==='REVIEW'?{reason:String(waiveWarnings).trim(),by:user.id,at:new Date().toISOString()}:null
+  };
+  const evidenceSha256=createHash('sha256').update(JSON.stringify(canonical(evidence))).digest('hex');
   const entityId=await accountingConfig.defaultLegalEntityId(client);
-  const row=(await client.query(`INSERT INTO accounting_periods(id,legal_entity_id,period,status,closed_at,closed_by) VALUES($1,$2,$3,'CLOSED',now(),$4) ON CONFLICT(legal_entity_id,period) DO UPDATE SET status='CLOSED',closed_at=now(),closed_by=excluded.closed_by RETURNING *`,[randomUUID(),entityId,p,user.id])).rows[0];return{...runtime.camel(row),closingEvidence:evidence};}
-async function reopenPeriod(client,{period:value,user,reason}){const p=period(value);if(!reason)throw new AppError('REASON_REQUIRED');const row=(await client.query(`UPDATE accounting_periods SET status='OPEN',reopened_at=now(),reopened_by=$2,reopen_reason=$3 WHERE period=$1 AND legal_entity_id=$4 AND status='CLOSED' RETURNING *`,[p,user.id,reason,await accountingConfig.defaultLegalEntityId(client)])).rows[0];if(!row)throw new AppError('STATUS_INVALID','Periode tidak ditemukan atau sudah terbuka.');return runtime.camel(row);}
+  const row=(await client.query(`INSERT INTO accounting_periods(id,legal_entity_id,period,status,closed_at,closed_by) VALUES($1,$2,$3,'CLOSED',now(),$4) ON CONFLICT(legal_entity_id,period) DO UPDATE SET status='CLOSED',closed_at=now(),closed_by=excluded.closed_by RETURNING *`,[randomUUID(),entityId,p,user.id])).rows[0];
+  const closeRun=(await client.query(`INSERT INTO accounting_period_close_runs(legal_entity_id,period,evidence,evidence_sha256,close_reason,closed_by)
+    VALUES($1,$2,$3,$4,$5,$6) RETURNING id,closed_at`,[entityId,p,JSON.stringify(evidence),evidenceSha256,String(reason).trim(),user.id])).rows[0];
+  return{...runtime.camel(row),closingEvidence:evidence,closingEvidenceId:closeRun.id,closingEvidenceSha256:evidenceSha256};
+}
+async function reopenPeriod(client,{period:value,user,reason}){
+  const p=period(value);if(!reason)throw new AppError('REASON_REQUIRED');
+  const entityId=await accountingConfig.defaultLegalEntityId(client);
+  const row=(await client.query(`UPDATE accounting_periods SET status='OPEN',reopened_at=now(),reopened_by=$2,reopen_reason=$3 WHERE period=$1 AND legal_entity_id=$4 AND status='CLOSED' RETURNING *`,[p,user.id,reason,entityId])).rows[0];
+  if(!row)throw new AppError('STATUS_INVALID','Periode tidak ditemukan atau sudah terbuka.');
+  await client.query(`UPDATE accounting_period_close_runs SET status='REOPENED',reopened_by=$3,reopened_at=now(),reopen_reason=$4
+    WHERE id=(SELECT id FROM accounting_period_close_runs WHERE legal_entity_id=$1 AND period=$2 AND status='CLOSED' ORDER BY closed_at DESC LIMIT 1)`,
+    [entityId,p,user.id,String(reason).trim()]);
+  return runtime.camel(row);
+}
 
 async function allocatePayment(client,{paymentId,invoiceId,amount,user}){const value=Number(amount);if(!(value>0))throw new AppError('VALIDATION_ERROR','Nilai alokasi harus lebih dari nol.');const docs=(await client.query(`SELECT * FROM business_documents WHERE id=ANY($1::uuid[]) FOR UPDATE`,[[paymentId,invoiceId]])).rows;if(docs.length!==2)throw new AppError('RESOURCE_NOT_FOUND');const payment=docs.find(d=>d.id===paymentId),invoice=docs.find(d=>d.id===invoiceId);assertBranchAccess(user,payment.branch_id,'Pembayaran berada di cabang di luar cakupan Anda.');assertBranchAccess(user,invoice.branch_id,'Tagihan berada di cabang di luar cakupan Anda.');if(payment.branch_id!==invoice.branch_id)throw new AppError('VALIDATION_ERROR','Pembayaran dan tagihan harus berasal dari cabang yang sama.');const valid=payment.document_type==='CUSTOMER_PAYMENT'&&invoice.document_type==='INVOICE'||payment.document_type==='SUPPLIER_PAYMENT'&&invoice.document_type==='SUPPLIER_INVOICE';if(!valid)throw new AppError('VALIDATION_ERROR','Jenis pembayaran dan tagihan tidak sesuai.');if(!['APPROVED','COMPLETED','CLOSED'].includes(payment.status))throw new AppError('STATUS_INVALID','Pembayaran harus disetujui atau selesai.');if(['VOID','CANCELLED','CLOSED'].includes(invoice.status))throw new AppError('STATUS_INVALID','Tagihan tidak dapat menerima alokasi.');const used=Number((await client.query('SELECT COALESCE(sum(amount),0) n FROM payment_allocations WHERE payment_document_id=$1 AND reversed_at IS NULL',[paymentId])).rows[0].n),paid=Number((await client.query('SELECT COALESCE(sum(amount),0) n FROM payment_allocations WHERE invoice_document_id=$1 AND reversed_at IS NULL',[invoiceId])).rows[0].n);if(used+value>Number(payment.amount)+.01)throw new AppError('VALIDATION_ERROR','Alokasi melebihi nilai pembayaran.');if(paid+value>Number(invoice.amount)+.01)throw new AppError('VALIDATION_ERROR','Alokasi melebihi sisa tagihan.');const allocation=(await client.query(`INSERT INTO payment_allocations(id,payment_document_id,invoice_document_id,amount,created_by) VALUES($1,$2,$3,$4,$5) ON CONFLICT(payment_document_id,invoice_document_id) DO UPDATE SET amount=payment_allocations.amount+excluded.amount RETURNING *`,[randomUUID(),paymentId,invoiceId,value,user.id])).rows[0],next=paid+value,status=next>=Number(invoice.amount)-.01?'CLOSED':'PARTIALLY_PAID';await client.query(`UPDATE business_documents SET status=$2,payload=jsonb_set(payload,'{paid}',to_jsonb($3::numeric),true),version=version+1,updated_at=now(),updated_by=$4 WHERE id=$1`,[invoiceId,status,next,user.id]);return{allocation:runtime.camel(allocation),invoiceStatus:status,paid:next,remaining:Math.max(0,Number(invoice.amount)-next)};}
 

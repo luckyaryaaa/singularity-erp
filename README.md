@@ -15,6 +15,91 @@ Aplikasi tersedia di `http://127.0.0.1:4173`. Credential development hanya
 dibaca dari `.env`; akun demo dan password hard-coded tidak tersedia pada
 runtime PostgreSQL.
 
+## Status v0.41.0 — Canonical Warehouse Ledger (Stage 1)
+
+- PostgreSQL source of truth berada pada migration 001–076.
+- Memulai migrasi §9.8 dari "Branch-as-Warehouse" ke hierarki nyata **Plant →
+  Warehouse → Storage Location → Bin** tanpa membalik kunci isolasi. Setiap
+  cabang aktif kini punya **gudang default** deterministik (backfill 7/7).
+- `stock_lots` memperoleh `org_warehouse_id` (identitas gudang kanonik). Trigger
+  self-healing menjamin gudang lot selalu berada di dalam cabangnya; put-away
+  menyelaraskan gudang lot ke gudang rak tujuan (ledger mengikuti penempatan).
+- View `stock_warehouse_ledger` (security_invoker) menyatukan Legal Entity →
+  Plant → Warehouse; endpoint `GET /api/inventory/warehouses` dan tab **Gudang**
+  menampilkannya per cabang.
+- Jembatan cabang↔gudang kini eksplisit dan ter-enforce. Grain-flip penuh
+  (mengganti makna `warehouse_id` di ~200 titik + RLS) adalah cutover berlapis
+  berikutnya (Stage 2).
+- Authorization matrix mencakup **298 handler** (Inventory 21).
+
+Regression 376/376, migration 001–076, dan rollback full-chain 76/75/75 telah
+tervalidasi. Status ini adalah **engineering release candidate**, bukan izin
+production: UAT 13 role, security retest manual, persetujuan enam rekonsiliasi,
+training, DR RTO/RPO, offsite evidence, dan Owner sign-off tetap menjadi gate
+go-live.
+
+## Status v0.40.0 — Warehouse Execution Task Engine
+
+- PostgreSQL source of truth berada pada migration 001–075.
+- Warehouse Task Engine (migrasi 075) menjadikan eksekusi gudang —
+  receiving, put-away, pick, pack, ship, dan cycle count — sebagai **tugas
+  bertipe** yang dapat ditugaskan, diklaim, dikerjakan, dan diaudit, dengan
+  siklus hidup OPEN→CLAIMED→IN_PROGRESS→DONE/CANCELLED, prioritas, jatuh tempo,
+  optimistic version, dan RLS isolasi cabang.
+- Tugas PUTAWAY menyelesaikan diri dengan memindahkan lot ke rak tujuan lewat
+  penempatan lot yang sudah ada — status DONE berarti stok benar-benar berpindah,
+  bukan sekadar ditandai. Ledger stok tidak diubah: migrasi Branch-as-Warehouse
+  kanonik tetap pekerjaan tersendiri.
+- Router Inventory bertambah enam handler (papan kerja + create + claim + start +
+  complete + cancel) dengan permission delegated, optimistic lock, idempotency,
+  dan audit old/new/reason; Warehouse Task Board tersedia di modul Persediaan.
+- Authorization matrix mencakup 297 handler; OpenAPI mengekspos enam operasi WMS
+  ber-cookieAuth.
+
+Regression 370/370, migration 001–075, dan rollback full-chain 75/74/74 telah
+tervalidasi. Status ini adalah **engineering release candidate**, bukan izin
+production: UAT 13 role, security retest manual, persetujuan manusia atas enam
+rekonsiliasi, training, DR RTO/RPO, offsite evidence, dan Owner sign-off tetap
+menjadi gate go-live.
+
+## Status v0.39.0 — Finance End-to-End Closure
+
+- PostgreSQL source of truth berada pada migration 001–074.
+- Journal coding block berjalan fail-closed pada mode `HARD`; posting P&L wajib
+  membawa cost center/profit center sesuai policy ber-versi. Dokumen otomatis
+  me-resolve master aktif dan menyimpan snapshot audit.
+- Tax Reconciliation Workbench membandingkan GL dengan tax subledger serta
+  menyimpan evidence immutable ber-versi melalui maker-checker.
+- Official Financial Statements memakai alur Prepare → Review → Sign-off,
+  segregation of duties, SHA-256, balanced snapshot, dan hanya dapat
+  ditandatangani setelah period close.
+- Closing Cockpit mencakup evidence BANK, INVENTORY, PAYROLL, TAX, AR, dan AP,
+  close package immutable, alasan wajib, idempotency, dan jejak reopen. Period
+  close ditolak sampai versi terbaru keenam evidence approved, SHA valid, dan
+  tidak berstatus NOT_RUN.
+- RLS aktif pada 31 tabel Finance, organization, HR, payroll, attendance, dan
+  tax; runtime role bukan owner, tidak memiliki `BYPASSRLS`, dan employee tanpa
+  branch gagal tertutup.
+- Field encryption AES-256-GCM melindungi rekening bank, restricted HR notes,
+  KTP, NPWP employee, nomor BPJS, dan identitas pajak organisasi, dengan blind
+  index, key ring, rotation ledger, dan pemeriksaan plaintext pada predeploy.
+- Sembilan histori financial report, accounting period/close, reconciliation,
+  compensation, tax/BPJS, payroll, dan tax record tidak dapat dihapus oleh
+  runtime role.
+- Data Retention & Legal Hold Workbench menyediakan policy allowlist, preview,
+  exact-count execution, recent-MFA approval, idempotency, dan immutable run
+  evidence untuk enam resource teknis.
+- Authorization matrix mencakup 291 handler dan OpenAPI 1.4 mendokumentasikan
+  kontrak Finance/Governance baru.
+
+Regression 363/363, migration 001–074, dan rollback full-chain 74/73/73 telah
+tervalidasi.
+Visual baseline v7 mencakup 26 halaman × 2 viewport, termasuk empat Finance
+workbench baru. Status ini adalah **engineering release candidate**, bukan izin
+production: UAT 13 role, security retest manual, persetujuan manusia atas enam
+rekonsiliasi, training, DR RTO/RPO, offsite evidence, dan Owner sign-off tetap
+wajib.
+
 ## Status v0.36.0 — Execution Control Workbenches
 
 - PostgreSQL source of truth berada pada migration 001–064.
@@ -374,6 +459,7 @@ PostgreSQL, mencabut semua sesi Owner, dan tidak mencetak secret.
 - `docs/self-test/checklist.md`
 - `docs/security/endpoint-authorization-matrix.md`
 - `docs/sop/README.md`
+- `docs/operations/v0.39-finance-end-to-end-closure.md`
 - `docs/operations/sprint17-final-audit-evidence.md`
 - `docs/operations/sprint16-reporting-evidence.md`
 - `docs/operations/deployment-runbook.md`

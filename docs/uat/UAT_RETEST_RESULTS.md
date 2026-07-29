@@ -1,6 +1,6 @@
-# Hasil Retest UAT — v0.36.0
+# Hasil Retest UAT — v0.39.0
 
-**Basis:** review/codex-claude-consolidation · migrasi 001–066 · 2026-07-28.
+**Basis:** review/codex-claude-consolidation · migration 001–074 · 2026-07-28.
 Dokumen ini memisahkan **bukti otomatis (selesai)** dari **gate manusia
 (menunggu operator)**. Automation tidak boleh menutup gate manusia.
 
@@ -8,14 +8,14 @@ Dokumen ini memisahkan **bukti otomatis (selesai)** dari **gate manusia
 
 | Gate | Hasil | Bukti |
 |---|---|---|
-| Predeploy LOCAL | **14/14 hijau, exit 0** | `npm run predeploy` |
-| Regresi terisolasi | **326/326** | `npm run test:uat:isolated` |
-| Migrasi + checksum | 001–066 valid | `db:validate` |
-| Rollback drill | 66 → 65 → 66 aman | predeploy |
-| Visual desktop+mobile | lulus (MFA-aware) | `test:visual` |
+| Regresi utama | **363/363** | `npm test` |
+| Regresi terisolasi | **363/363** | `npm run test:uat:isolated` |
+| Migrasi + checksum | 001–074 valid | `db:validate` |
+| Rollback drill | 74 up, 73 down, 73 re-up | `db:rollback-verify` |
+| Visual desktop+mobile | **52/52**, MFA-aware | `test:visual` |
 | Aksesibilitas | 18/18 | `test:a11y` |
 | Secret scan | 0 temuan | `security:scan` |
-| Backup + restore drill | terenkripsi, drill sukses | predeploy |
+| Backup + restore drill | terenkripsi, 208 tabel/migration 074 | isolated gate |
 | SEC-UAT-001 (otomatis) | maker-checker, SoD, token/recovery sekali pakai, DENY teraudit — **PASS** | `test/sec-uat-001-password-reset.test.js`, `test/postgres.http.test.js` |
 | RLS G1 (live PostgreSQL) | isolasi cabang, fail-closed, isolasi pool — **PASS** | `test/p0-rls-tranche1.test.js`, `test/branch-isolation.test.js` |
 

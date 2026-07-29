@@ -35,6 +35,14 @@ const q = `"${appUser}"`;
     await client.query(`REVOKE DELETE ON attendance_corrections,dunning_notices,fixed_assets,po_change_orders,notification_deliveries FROM ${q}`);
     await client.query(`REVOKE INSERT,UPDATE,DELETE,TRUNCATE ON reporting_refresh_runs FROM ${q}`);
     await client.query(`REVOKE DELETE,TRUNCATE ON report_schedules FROM ${q}`);
+    // Financial statements and HR/payroll histories are lifecycle/append-only
+    // evidence. Corrections use a new version/effective date, never deletion.
+    const protectedHistories = [
+      'financial_reports', 'accounting_periods', 'employee_compensation_history',
+      'employee_tax_profiles', 'employee_bpjs_profiles', 'payroll_items',
+      'tax_records', 'finance_reconciliation_evidence', 'accounting_period_close_runs'
+    ];
+    await client.query(`REVOKE DELETE,TRUNCATE ON ${protectedHistories.map((name) => `"${name}"`).join(',')} FROM ${q}`);
     await client.query(`GRANT SELECT ON mv_executive_monthly_kpis TO ${q}`);
     await client.query(`GRANT EXECUTE ON FUNCTION refresh_executive_reporting() TO ${q}`);
     await client.query(`GRANT EXECUTE ON FUNCTION inventory_partition_maintenance(integer) TO ${q}`);
@@ -48,7 +56,14 @@ const q = `"${appUser}"`;
         AND (has_table_privilege($1,c.oid,'UPDATE') OR has_table_privilege($1,c.oid,'DELETE')
           OR has_table_privilege($1,c.oid,'TRUNCATE'))`, [appUser])).rows.map((r) => r.relname);
     if (leaks.length) throw new Error(`Partisi audit masih dapat diubah/dihapus oleh ${appUser}: ${leaks.join(', ')}`);
+    const historyLeaks = (await client.query(`SELECT c.relname FROM pg_class c
+      JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname='public' AND c.relname=ANY($2)
+        AND (has_table_privilege($1,c.oid,'DELETE') OR has_table_privilege($1,c.oid,'TRUNCATE'))`,
+    [appUser, protectedHistories])).rows.map((r) => r.relname);
+    if (historyLeaks.length) throw new Error(`Riwayat sensitif masih dapat dihapus oleh ${appUser}: ${historyLeaks.join(', ')}`);
     var auditProtected = auditTables.length;
   } finally { await client.end(); }
-  console.log(JSON.stringify({ granted: true, role: appUser, createSchema: false, auditTablesProtected: auditProtected }));
+  console.log(JSON.stringify({ granted: true, role: appUser, createSchema: false,
+    auditTablesProtected: auditProtected, sensitiveHistoriesProtected: 9 }));
 })().catch((error) => { console.error(error.message); process.exitCode = 1; });

@@ -52,7 +52,11 @@ async function putaway(client, { lotId, binId, user, reason, requestId }) {
     throw new AppError('VALIDATION_ERROR', `Lot sudah berada di bin ${bin.bin_code}.`);
   }
   const previous = lot.bin_id;
-  await client.query('UPDATE stock_lots SET bin_id=$2,updated_at=now() WHERE id=$1', [lotId, binId]);
+  // Ledger kanonik mengikuti penempatan fisik: gudang lot diselaraskan ke gudang
+  // rak tujuan (migrasi 076). resolveBin menjamin rak berada di cabang yang sama,
+  // sehingga invariant "gudang stok selalu di cabangnya" tetap terpenuhi.
+  await client.query('UPDATE stock_lots SET bin_id=$2,org_warehouse_id=$3,updated_at=now() WHERE id=$1',
+    [lotId, binId, bin.org_warehouse_id]);
   await client.query(
     `INSERT INTO stock_lot_movements(lot_id,movement_type,qty,from_bin_id,to_bin_id,memo,created_by)
      VALUES($1,$2,$3,$4,$5,$6,$7)`,

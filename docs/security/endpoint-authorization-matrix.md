@@ -1,6 +1,6 @@
 # Endpoint Authorization Matrix
 
-Baseline v0.36.0 mencakup 14 bounded router dan 286 handler HTTP.
+Baseline v0.41.0 mencakup 14 bounded router dan 298 handler HTTP.
 Seluruh domain router hanya dipanggil setelah validasi session terpusat di
 `backend/api-postgres.js`. Endpoint publik dibatasi oleh allowlist eksplisit.
 
@@ -14,9 +14,9 @@ Seluruh domain router hanya dipanggil setelah validasi session terpusat di
 | Operations | 12 | permission + ownership + branch | job, file, artifact isolation |
 | Masters | 47 | permission dinamis + repository scope | sensitive bank/employee/master |
 | Organization | 30 | scope + Owner PIN + recent MFA | bank, hierarchy, workforce maker-checker |
-| Inventory | 14 | permission + RLS + warehouse branch + version + idempotency | lot, bin, reservation release, opname scope |
+| Inventory | 21 | permission + RLS + warehouse branch + version + idempotency | lot, bin, reservation release, opname scope, WMS task engine, canonical warehouse ledger |
 | Production | 24 | permission + RLS + work-order branch + version + idempotency | WO, capacity/WIP, QC/CAPA/calibration, MRP isolation |
-| Finance | 35 | permission + branch + PIN/SoD | asset, ledger, payroll, GL↔tax reconciliation, report sign-off, tax IDOR |
+| Finance | 40 | permission + branch + PIN/SoD | asset, ledger, HARD coding block, reconciliation evidence, report sign-off, tax IDOR |
 | HR | 15 | permission + branch/own record | roster, correction, payroll scope |
 | Reporting | 9 | permission + branch + ownership | filter/schedule/report scope |
 | Governance | 30 | permission + SoD/PIN/MFA | IAM, review, reset privileged maker-checker, audit append-only |

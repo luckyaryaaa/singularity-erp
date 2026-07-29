@@ -3,7 +3,7 @@
 // Dihasilkan dari daftar endpoint terkurasi (bukan refleksi otomatis) agar
 // kontrak API stabil dan terdokumentasi. API_VERSION dikirim pada header
 // X-API-Version setiap respons.
-const API_VERSION = '1.2';
+const API_VERSION = '1.4';
 
 // Ringkas: [method, path, tag, summary, {auth?}]. Path memakai {id} OpenAPI.
 const ENDPOINTS = [
@@ -44,11 +44,18 @@ const ENDPOINTS = [
   ['POST', '/api/purchase-contracts/{id}/approve', 'Procurement', 'Setujui kontrak (version + SoD)'],
   ['POST', '/api/purchase-contracts/{id}/release', 'Procurement', 'Release kontrak ke PO (version + idempotency)'],
   ['GET', '/api/inventory', 'Inventory', 'Saldo stok'],
+  ['GET', '/api/inventory/warehouses', 'Inventory', 'Ledger gudang kanonik per cabang (Plant→Warehouse + ringkasan stok)'],
   ['GET', '/api/inventory/reservations', 'Inventory', 'Reservation workbench berhalaman'],
   ['POST', '/api/inventory/reservations/{id}/release', 'Inventory', 'Lepas reservasi beralasan (version + idempotency)'],
   ['GET', '/api/inventory/lots', 'Inventory', 'Lot + heat number (traceability)'],
   ['GET', '/api/inventory/valuation', 'Inventory', 'Valuasi persediaan'],
   ['POST', '/api/inventory/opname', 'Inventory', 'Mulai stock opname'],
+  ['GET', '/api/inventory/tasks', 'Inventory', 'Papan kerja tugas gudang (WMS) + ringkasan'],
+  ['POST', '/api/inventory/tasks', 'Inventory', 'Buat tugas gudang bertipe (idempotency)'],
+  ['POST', '/api/inventory/tasks/{id}/claim', 'Inventory', 'Klaim tugas gudang (version)'],
+  ['POST', '/api/inventory/tasks/{id}/start', 'Inventory', 'Mulai kerjakan tugas gudang (version)'],
+  ['POST', '/api/inventory/tasks/{id}/complete', 'Inventory', 'Selesaikan tugas gudang; put-away memindahkan lot (version + idempotency)'],
+  ['POST', '/api/inventory/tasks/{id}/cancel', 'Inventory', 'Batalkan tugas gudang beralasan (version)'],
   ['GET', '/api/work-orders/{id}/production', 'Production', 'Cockpit produksi WO'],
   ['POST', '/api/work-orders/{id}/plan', 'Production', 'Rencanakan produksi (BOM + reservasi)'],
   ['GET', '/api/production/capacity', 'Production', 'Capacity board per work center dan tanggal'],
@@ -63,6 +70,20 @@ const ENDPOINTS = [
   ['GET', '/api/accounting/financial-statements', 'Finance', 'Neraca + laba rugi'],
   ['GET', '/api/accounting/closing-cockpit', 'Finance', 'Checklist tutup buku'],
   ['GET', '/api/accounting/subledger', 'Finance', 'Subledger AR/AP vs GL'],
+  ['GET', '/api/accounting/tax-reconciliation', 'Finance', 'Rekonsiliasi GL ke pajak per periode'],
+  ['GET', '/api/accounting/financial-reports', 'Finance', 'Daftar laporan keuangan ber-versi'],
+  ['POST', '/api/accounting/financial-reports', 'Finance', 'Siapkan snapshot laporan keuangan'],
+  ['GET', '/api/accounting/financial-reports/{id}', 'Finance', 'Detail snapshot dan histori sign-off laporan'],
+  ['POST', '/api/accounting/financial-reports/{id}/review', 'Finance', 'Review laporan keuangan (maker-checker)'],
+  ['POST', '/api/accounting/financial-reports/{id}/signoff', 'Finance', 'Sign-off laporan keuangan (SoD)'],
+  ['POST', '/api/accounting/financial-reports/{id}/reject', 'Finance', 'Tolak laporan keuangan dengan alasan'],
+  ['GET', '/api/accounting/coding-block', 'Finance', 'Master dan policy coding block jurnal'],
+  ['PUT', '/api/accounting/coding-block/{category}', 'Finance', 'Ubah policy coding block ber-versi'],
+  ['GET', '/api/accounting/reconciliation-evidence', 'Finance', 'Daftar evidence enam rekonsiliasi close'],
+  ['POST', '/api/accounting/reconciliation-evidence', 'Finance', 'Prepare snapshot evidence rekonsiliasi'],
+  ['POST', '/api/accounting/reconciliation-evidence/{id}/approve', 'Finance', 'Approve evidence rekonsiliasi dengan SoD'],
+  ['POST', '/api/accounting/reconciliation-evidence/{id}/reject', 'Finance', 'Reject evidence rekonsiliasi dengan alasan'],
+  ['GET', '/api/accounting/period-close-evidence', 'Finance', 'Riwayat immutable period close package'],
   ['GET', '/api/assets', 'Finance', 'Registry aset tetap'],
   ['POST', '/api/assets/depreciation/run', 'Finance', 'Jalankan penyusutan'],
   ['POST', '/api/payments/{id}/reverse', 'Finance', 'Pembalikan pembayaran (Owner+PIN)'],

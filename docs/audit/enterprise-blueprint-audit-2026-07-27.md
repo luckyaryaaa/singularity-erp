@@ -1,3 +1,5 @@
+> **Dokumen ini telah digantikan oleh audit 28 Juli 2026:** [enterprise-blueprint-audit-2026-07-28.md](enterprise-blueprint-audit-2026-07-28.md).
+
 # Audit Enterprise Blueprint MAT ERP V2
 
 **Tanggal audit:** 27 Juli 2026  

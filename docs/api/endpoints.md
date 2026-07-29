@@ -92,6 +92,10 @@ finance/payroll. Harga supplier append-only (revisi bertambah, tidak menimpa).
 - `POST /api/inventory/lots/:id/{block|quarantine|release}` — QC hold ber-alasan;
   lot terblokir dilewati pemilihan FIFO
 - `GET /api/inventory/valuation` — valuasi per produk×gudang (saldo agregat + lapisan lot)
+- `GET /api/inventory/warehouses` — ledger gudang kanonik per cabang (migrasi 076):
+  Legal Entity → Plant → Warehouse + `is_default` + ringkasan stok (lot/qty). Stok
+  memperoleh `org_warehouse_id` nyata di dalam cabangnya; put-away menyelaraskannya
+  ke gudang rak tujuan. Cabang tetap kunci isolasi (Stage 1 menuju grain penuh).
 - `POST /api/inventory/opname` — buat sesi opname (dokumen `STOCK_OPNAME`, nomor OPN,
   snapshot qty per lot + sisa tanpa lot; satu sesi berjalan per gudang)
 - `GET /api/inventory/opname/:docId/lines` — baris + variance
@@ -103,6 +107,24 @@ saldo + lot otomatis dan selisih dijurnal via posting profile `OPNAME-DEFAULT`
 (GAIN → 1300/4250, LOSS → 6150/1300). Lot lahir otomatis dari Goods Receipt
 (heat number/mill cert dari baris GR); Material Issue konsumsi FIFO; Stock
 Transfer melahirkan lot anak yang mewarisi heat/biaya (lineage `parent_lot_id`).
+
+### WMS — mesin tugas eksekusi gudang (migrasi 075)
+
+- `GET /api/inventory/tasks` — papan kerja tugas gudang + ringkasan
+  (terbuka/berjalan/lewat tempo/selesai). Filter: `branchId`, `status`,
+  `taskType`, `assignee=me`, `page`, `limit`.
+- `POST /api/inventory/tasks` — buat tugas bertipe (RECEIVE/PUTAWAY/PICK/PACK/
+  SHIP/COUNT); `Idempotency-Key` wajib. Put-away wajib `lotId` + `toBinId`.
+- `POST /api/inventory/tasks/:id/claim` — klaim tugas (OPEN→CLAIMED, `version`).
+- `POST /api/inventory/tasks/:id/start` — mulai kerjakan (CLAIMED→IN_PROGRESS).
+- `POST /api/inventory/tasks/:id/complete` — selesaikan (→DONE, `version` +
+  `Idempotency-Key`). Put-away memindahkan lot ke rak tujuan secara nyata.
+- `POST /api/inventory/tasks/:id/cancel` — batalkan beralasan (≥10 karakter).
+
+Siklus hidup: OPEN → CLAIMED → IN_PROGRESS → DONE (atau CANCELLED). Setiap
+transisi memakai optimistic lock (`version`) dan tercatat old/new/reason di audit
+trail; isolasi cabang dijaga permission + RLS `warehouse_tasks`. Engine berdiri
+di atas model lot/bin (058) — ledger stok tidak diubah.
 
 ### Production, Quality & MRP (R019, Sprint 12)
 
@@ -245,6 +267,27 @@ branch scope, status dokumen, dan prerequisite completion divalidasi server.
 - `LEAVE_REQUEST`: submit memvalidasi payload.startDate/endDate + saldo
   (durasi = HARI KERJA dari kalender); approve penuh memotong saldo
   (idempoten, tercatat payload.leaveApplied)
+
+## v0.39 — Finance End-to-End Closure
+
+- `GET /api/accounting/coding-block` — enforcement mode, policy per kategori,
+  serta pilihan cost center, profit center, dan project WBS aktif.
+- `PUT /api/accounting/coding-block/:category` — update policy ber-versi dan
+  beralasan; permission settings dan audit berlaku.
+- `GET /api/accounting/tax-reconciliation?period=YYYY-MM` — GL ↔ tax subledger
+  dengan nilai per tipe, accrued/settled, dan difference.
+- `GET|POST /api/accounting/reconciliation-evidence` — daftar atau prepare
+  snapshot immutable untuk BANK/INVENTORY/PAYROLL/TAX/AR/AP.
+- `POST /api/accounting/reconciliation-evidence/:id/approve|reject` —
+  maker-checker; reject wajib reason.
+- `GET /api/accounting/period-close-evidence?period=YYYY-MM` — immutable close
+  package, SHA-256, closer, waiver, dan lifecycle reopen.
+- `POST /api/accounting/period/close` — reason dan `Idempotency-Key` wajib;
+  FAIL memblokir dan WARN memerlukan waiver.
+- `GET|POST /api/accounting/financial-reports` dan
+  `POST /api/accounting/financial-reports/:id/review|reject|signoff` —
+  official Prepare → Review → Sign-off, SoD, balance/hash verification, dan
+  prerequisite period `CLOSED`.
 
 ## Sprint 13 — Finance: aset tetap, laporan, cockpit (R020)
 

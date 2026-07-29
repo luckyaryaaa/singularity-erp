@@ -2,7 +2,7 @@
 const businessDate = require('../core/business-date');
 const { readBody } = require('../core/util');
 const { AppError } = require('../core/errors');
-const { assertPermission } = require('../core/permissions');
+const { assertPermission, hasPermission } = require('../core/permissions');
 const { verifyPassword } = require('../core/password');
 const businessOps = require('../infrastructure/database/repositories/business-operations');
 const runtime = require('../infrastructure/database/repositories/runtime');
@@ -24,7 +24,15 @@ async function dispatch(client, req, url, ctx) {
   // Payroll rule versions (§19.5) — tarif BPJS/PTKP/PPh21 effective-dated.
   if(method==='GET'&&p==='/api/accounting/payroll-rules'){assertPermission(ctx.user,'payroll.view');return{items:(await client.query(`SELECT rule_type,version,effective_from,effective_until,active,config,description FROM payroll_rule_versions WHERE active ORDER BY rule_type,effective_from DESC`)).rows.map(runtime.camel)};}
   if(method==='GET'&&p==='/api/accounting/ledger'){assertPermission(ctx.user,'ledger.view');return businessOps.ledger(client,{...Object.fromEntries(url.searchParams),user:ctx.user});}
-  if(method==='POST'&&p==='/api/accounting/period/close'){assertPermission(ctx.user,'closing.post');const body=await readBody(req),result=await businessOps.closePeriod(client,{period:body.period,user:ctx.user,waiveWarnings:body.waiveWarnings});await runtime.audit(client,{userId:ctx.user.id,action:'CLOSE_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:result,reason:body.reason||'Tutup periode',requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
+  if(method==='POST'&&p==='/api/accounting/period/close'){
+    assertPermission(ctx.user,'closing.post');const body=await readBody(req);
+    if(!req.headers['idempotency-key'])throw new AppError('VALIDATION_ERROR','Header Idempotency-Key wajib untuk period close.');
+    const result=await runtime.withIdempotency(client,{userId:ctx.user.id,operation:`accounting.close:${body.period}`,key:req.headers['idempotency-key'],body},async()=>{
+      const outcome=await businessOps.closePeriod(client,{period:body.period,user:ctx.user,waiveWarnings:body.waiveWarnings,reason:body.reason});
+      await runtime.audit(client,{userId:ctx.user.id,action:'CLOSE_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:{status:outcome.status,evidenceId:outcome.closingEvidenceId,evidenceSha256:outcome.closingEvidenceSha256},reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});
+      return{status:200,body:outcome};
+    });return result.body;
+  }
   if(method==='POST'&&p==='/api/accounting/period/reopen'){assertPermission(ctx.user,'closing.edit');if(ctx.user.role!=='owner')throw new AppError('PERMISSION_DENIED','Hanya Owner yang dapat membuka kembali periode.');const body=await readBody(req),row=(await client.query('SELECT owner_pin_hash FROM app_users WHERE id=$1',[ctx.user.id])).rows[0];if(!body.pin||!row?.owner_pin_hash||!verifyPassword(String(body.pin),row.owner_pin_hash))throw new AppError('PIN_REQUIRED');const result=await businessOps.reopenPeriod(client,{period:body.period,user:ctx.user,reason:body.reason});await runtime.audit(client,{userId:ctx.user.id,action:'REOPEN_PERIOD',module:'closing',entityType:'ACCOUNTING_PERIOD',newValue:result,reason:body.reason,requestId:ctx.requestId,branchId:ctx.user.branchId});return result;}
   if(method==='POST'&&p==='/api/payments/allocate'){
     // P0-D: alokasi WAJIB idempoten — ON CONFLICT menambah amount sehingga
@@ -50,13 +58,50 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&p==='/api/accounting/financial-statements'){assertPermission(ctx.user,'ledger.view');return financeReports.financialStatements(client,url.searchParams.get('period'),ctx.user);}
   if(method==='GET'&&p==='/api/accounting/closing-cockpit'){assertPermission(ctx.user,'closing.view');return financeReports.closingCockpit(client,url.searchParams.get('period'),ctx.user);}
   if(method==='GET'&&p==='/api/accounting/subledger'){assertPermission(ctx.user,'ledger.view');return financeReports.subledger(client,{type:url.searchParams.get('type')||'AR',period:url.searchParams.get('period'),user:ctx.user});}
-  if(method==='GET'&&p==='/api/accounting/tax-reconciliation'){assertPermission(ctx.user,'ledger.view');return financeReports.taxReconciliation(client,{period:url.searchParams.get('period'),user:ctx.user});}
+  if(method==='GET'&&p==='/api/accounting/tax-reconciliation'){
+    if(!hasPermission(ctx.user,'ledger.view')&&!hasPermission(ctx.user,'tax.view'))throw new AppError('PERMISSION_DENIED');
+    return financeReports.taxReconciliation(client,{period:url.searchParams.get('period'),user:ctx.user});
+  }
+  if(method==='GET'&&p==='/api/accounting/reconciliation-evidence'){
+    if(!hasPermission(ctx.user,'ledger.view')&&!hasPermission(ctx.user,'tax.view'))throw new AppError('PERMISSION_DENIED');
+    return financeReports.listReconciliationEvidence(client,{period:url.searchParams.get('period'),type:url.searchParams.get('type'),user:ctx.user});
+  }
+  if(method==='POST'&&p==='/api/accounting/reconciliation-evidence'){
+    const body=await readBody(req);ctx.status=201;
+    return financeReports.prepareReconciliationEvidence(client,{type:body.type,period:body.period,user:ctx.user,requestId:ctx.requestId});
+  }
+  m=p.match(/^\/api\/accounting\/reconciliation-evidence\/([0-9a-f-]{36})\/(approve|reject)$/);
+  if(method==='POST'&&m){const body=await readBody(req);return financeReports.decideReconciliationEvidence(client,{id:m[1],action:m[2],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
+  if(method==='GET'&&p==='/api/accounting/period-close-evidence'){assertPermission(ctx.user,'closing.view');return financeReports.listPeriodCloseEvidence(client,{period:url.searchParams.get('period'),user:ctx.user});}
   if(method==='GET'&&p==='/api/accounting/financial-reports'){assertPermission(ctx.user,'report.view');return financeReports.listFinancialReports(client,{period:url.searchParams.get('period'),user:ctx.user});}
   m=p.match(/^\/api\/accounting\/financial-reports\/([0-9a-f-]{36})$/);
   if(method==='GET'&&m){assertPermission(ctx.user,'report.view');return financeReports.financialReportDetail(client,m[1],ctx.user);}
   if(method==='POST'&&p==='/api/accounting/financial-reports'){assertPermission(ctx.user,'report.create');const body=await readBody(req);ctx.status=201;return financeReports.prepareFinancialReport(client,{period:body.period,user:ctx.user,requestId:ctx.requestId});}
   m=p.match(/^\/api\/accounting\/financial-reports\/([0-9a-f-]{36})\/(review|signoff|reject)$/);
   if(method==='POST'&&m){const body=await readBody(req);return financeReports.decideFinancialReport(client,{id:m[1],action:m[2],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
+  if(method==='GET'&&p==='/api/accounting/coding-block'){
+    assertPermission(ctx.user,'journal.view');
+    const entityId=ctx.user.legalEntityId||await accountingConfig.defaultLegalEntityId(client);
+    const [policy,cost,profit,projects]=await Promise.all([
+      client.query(`SELECT category,requires_cost_center,requires_profit_center,requires_project,version,updated_at FROM account_dimension_policy ORDER BY category`),
+      client.query(`SELECT id,code,name FROM cost_centers WHERE legal_entity_id=$1 AND active ORDER BY code`,[entityId]),
+      client.query(`SELECT id,code,name FROM profit_centers WHERE legal_entity_id=$1 AND active ORDER BY code`,[entityId]),
+      client.query(`SELECT w.id,w.code,w.name FROM project_wbs w
+        LEFT JOIN cost_centers c ON c.id=w.cost_center_id
+        LEFT JOIN business_documents d ON d.id=w.project_document_id
+        WHERE w.active AND (c.legal_entity_id=$1 OR d.legal_entity_id=$1) ORDER BY w.code`,[entityId])
+    ]);
+    return{enforcement:require('../infrastructure/database/repositories/posting').dimensionEnforcement(),policies:policy.rows.map(runtime.camel),costCenters:cost.rows.map(runtime.camel),profitCenters:profit.rows.map(runtime.camel),projects:projects.rows.map(runtime.camel)};
+  }
+  m=p.match(/^\/api\/accounting\/coding-block\/([A-Z_]+)$/);
+  if(method==='PUT'&&m){
+    assertPermission(ctx.user,'settings.edit');const body=await readBody(req);
+    const row=(await client.query(`UPDATE account_dimension_policy SET requires_cost_center=$2,requires_profit_center=$3,requires_project=$4,version=version+1,updated_at=now(),updated_by=$5 WHERE category=$1 RETURNING *`,
+      [m[1],Boolean(body.requiresCostCenter),Boolean(body.requiresProfitCenter),Boolean(body.requiresProject),ctx.user.id])).rows[0];
+    if(!row)throw new AppError('RESOURCE_NOT_FOUND','Kebijakan coding block tidak ditemukan.');
+    await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'settings',entityType:'ACCOUNT_DIMENSION_POLICY',documentNumber:m[1],newValue:runtime.camel(row),reason:body.reason||'Pembaruan kebijakan coding block',requestId:ctx.requestId});
+    return runtime.camel(row);
+  }
   // Sprint 10: payment reversal — kontrol kritis setara void pembayaran:
   // hanya Owner + PIN + alasan; jurnal pembalik, alokasi ditandai reversed.
   m=p.match(/^\/api\/payments\/([0-9a-f-]{36})\/reverse$/);

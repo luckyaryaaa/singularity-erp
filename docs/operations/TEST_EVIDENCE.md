@@ -1,46 +1,69 @@
-# Test Evidence — v0.36.0
+# Test Evidence — v0.39.0
 
-**Basis:** review/codex-claude-consolidation · migrasi 001–066 · PostgreSQL live.
-Seluruh angka di bawah dijalankan pada working tree yang identik dengan rilis.
+**Basis:** `review/codex-claude-consolidation` · migration 001–074 ·
+PostgreSQL 16 lokal. Seluruh bukti dijalankan 28 Juli 2026.
 
 ## Gate agregat
 
 | Gate | Hasil |
 |---|---|
-| `npm run predeploy` (LOCAL) | **14/14 hijau, exit 0** |
-| Suite tes otomatis terisolasi | **326/326** |
-| Migrasi + checksum (001–066) | valid |
-| Rollback drill | 66 → 65 → 64 → 63 aman |
-| Visual desktop + mobile | lulus, tanpa overflow/console error |
-| Aksesibilitas statis | 18/18 |
-| Secret scan | 0 temuan |
-| Dependency audit | 0 vulnerability (high) |
-| Backup + restore drill | terenkripsi, checksum valid, drill sukses |
+| Suite regresi utama | **363/363 PASS** |
+| Suite regresi database disposable | **363/363 PASS** |
+| Migration + checksum | **001–074 valid/applied** |
+| Rollback disposable | **74 up, 73 down, 73 re-up PASS** |
+| Authorization matrix | **14 router, 291 handler PASS** |
+| Visual desktop + mobile | **52/52 PASS** (26 halaman × 2 viewport) |
+| Visual quality | overflow 0, unlabeled button 0, console error 0 |
+| Accessibility static | **18/18 PASS** |
+| Secret scan repository | **936 file, 0 finding** |
+| Release artifact | **v0.39.0, 427 file, migration 074, integrity finding 0** |
+| Backup + restore disposable | encrypted/checksum valid, **208 tabel**, migration 074 |
+| Runtime database role | `mat_erp_app` non-superuser, minimum runtime grants |
+| Predeploy LOCAL | **14/15 PASS**; hanya live npm advisory lookup tertahan sandbox/usage approval |
 
-## Bukti scoped per-wave (dijalankan saat konsolidasi)
+## Bukti Finance End-to-End
 
-| Wave / temuan | Test | Hasil |
+| Area | Bukti | Hasil |
 |---|---|---|
-| 063 + 066 | `sec-uat-001-password-reset`, `wave14-data-retention`, `postgres-auth.integration` | **13/13** |
-| 064 | `wave12-execution-hardening`, `wave9-capacity-wip`, `wave10-capa-calibration`, `sprint12-production` | **23/23** |
-| 065 | `wave13-field-encryption` | **4/4** |
-| G1–G6 | `authorization-matrix` (6), `p0-rls-tranche1` (9), `branch-isolation` (4) | **19/19** |
-| HTTP e2e | `postgres.http` | **5/5** |
-| OpenAPI/docs | `sprint15-docs` | **15/15** |
+| HARD coding block | `test/finance-end-to-end-closure.test.js`, `test/wave15-journal-dimensions.test.js` | PASS |
+| Automatic posting dimensions | Sprint 9/11 dan Wave 11 regression | **20/20 PASS** |
+| Reconciliation evidence | prepare/approve, SoD, immutable snapshot | PASS |
+| Period-close package | missing/unapproved/NOT_RUN/hash invalid fail-closed; six evidence frozen; reopen lifecycle | PASS |
+| Financial reports | prepare/review/sign-off, period CLOSED, balance/hash | PASS |
+| Authorization | route matrix allow/deny dan public allowlist | **291 handler PASS** |
+| Data protection | RLS, encryption, plaintext, runtime grants | **31/31 RLS; 0 plaintext; 9 history protected** |
 
-## Bukti G1 — RLS pada PostgreSQL live
+## Bukti visual v7
 
-`test/p0-rls-tranche1.test.js` (9/9, 0 skipped) membuktikan pada database nyata:
-- **Isolasi cabang:** pengguna cabang A tidak melihat/menulis record cabang B;
-- **Fail-closed:** tanpa konteks, 0 baris terbaca;
-- **Isolasi pool:** koneksi bekas pengguna sistem/global tidak bocor ke pengguna
-  normal berikutnya; konteks tidak bertahan setelah commit/rollback/exception;
-- **App-layer:** pengguna cabang tidak dapat eskalasi lewat `branchId` request.
+Empat workbench Finance baru menjadi cakupan wajib:
 
-Ditambah `test/branch-isolation.test.js` (4/4) membuktikan penolakan IDOR lintas
-cabang pada jalur HTTP nyata melalui dispatcher yang sudah diperbaiki.
+- `#/accounting` — `.process-rail` dan Coding Block Control;
+- `#/tax` — Tax Reconciliation Workbench;
+- `#/accounting/statements` — Official Financial Statements;
+- `#/accounting/closing` — Closing Cockpit dan close evidence.
 
-## Catatan
-Angka ini adalah bukti **rekayasa**. Bukti **manusia** (UAT 13 role,
-rekonsiliasi, DR RTO/RPO, Owner sign-off) belum termasuk dan tidak boleh
-digantikan hasil otomatis — lihat [../uat/UAT_RETEST_RESULTS.md](../uat/UAT_RETEST_RESULTS.md).
+Semuanya lulus pada desktop 1440×1000 dan mobile 390×844, tanpa horizontal
+overflow, visible button tanpa accessible name, error state, atau console error.
+
+## Isolated UAT technical gate
+
+Database `mat_erp_v2_gate_uat` diprovision fresh, migration 001–074 diterapkan,
+field rotation dan runtime grants dijalankan, UAT seed dimuat, opening inventory
+direkonsiliasi, backup terenkripsi dibuat, restore disposable mengembalikan 208
+tabel, lalu 363 test lulus. Database gate dihapus setelah selesai.
+
+Penyalinan backup ke `C:\MAT-ERP-Offsite` ditolak environment lokal (`EPERM`);
+backup lokal terenkripsi dan restore test tetap lulus. Ini bukan bukti offsite
+immutable production.
+
+Seluruh kontrol predeploy lokal selain live `npm audit` lulus: accessibility,
+visual, environment, secret scan, migration, data protection, release/SBOM,
+isolated regression, load smoke, LAN load 10/25 user, health, runtime controls,
+final assurance, dan backup freshness. Permintaan registry eksternal tidak
+dapat diotorisasi pada sesi ini; hasil advisory terkini tidak diklaim.
+
+## Batas klaim
+
+Angka ini merupakan bukti **engineering**. Bukti manusia—UAT 13 role,
+persetujuan aktual enam rekonsiliasi, training, SEC-UAT-001 retest, actual
+RTO/RPO, offsite evidence, dan Owner sign-off—belum digantikan automation.

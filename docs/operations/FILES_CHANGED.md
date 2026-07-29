@@ -1,7 +1,44 @@
-# Files Changed — Konsolidasi v0.36.0
+# Files Changed — Konsolidasi v0.39.0
 
 Riwayat pada branch `review/codex-claude-consolidation`. Setiap commit mandiri,
 di-review, dan lulus scoped tests-nya (lihat [TEST_EVIDENCE.md](TEST_EVIDENCE.md)).
+
+## Closure v0.39.0 — migration 074
+
+- `074_finance_end_to_end_closure`: reconciliation evidence, period-close
+  package, RLS, immutable trigger, policy version, dan rollback.
+- Posting repository: HARD enforcement, header/payload dimensions, deterministic
+  legal-entity master fallback, dan posting-resolution snapshot.
+- Finance repository/routes: reconciliation prepare/approve/reject, close
+  evidence, coding policy maintenance, report integrity/sign-off, mandatory
+  idempotency untuk period close, serta audit trail.
+- Finance UI: Coding Block Control, Tax Reconciliation, Official Financial
+  Statements, dan Closing Cockpit end-to-end.
+- OpenAPI 1.4, authorization matrix 291 handler, visual baseline v7, tests,
+  roadmap, audit, release/migration notes, dan evidence diselaraskan.
+
+## Closure v0.38.0 — migration 070–073
+
+- `070_security_data_protection_tranche2`: 29 tabel RLS dan encryption KTP,
+  NPWP employee, BPJS, serta organization tax identity.
+- `071_employee_null_scope_fail_closed`: null-branch employee tidak bocor ke
+  sesi branch.
+- `072_sensitive_history_least_privilege`: tujuh histori kritis no-delete.
+- `073_identifier_token_capacity`: kolom legacy menampung token terenkripsi.
+- Repository master-data/organization, rotation utility, runtime grants,
+  predeploy gate, release builder, data-protection audit, negative isolation
+  tests, risk matrix, audit, roadmap, dan release evidence diselaraskan.
+
+## Closure v0.37.0 — migration 065–069 dan release governance
+
+- Migration 065–066: field encryption/key rotation dan retention/legal hold.
+- Migration 067–069: journal dimensions, tax reconciliation, dan financial
+  report sign-off.
+- Release governance: package/lockfile, README, changelog, roadmap, OpenAPI,
+  endpoint matrix, UAT baseline, migration/release notes, test evidence, visual
+  baseline, dan release manifest.
+- Visual v6 menambahkan Retention Workbench dan menaikkan coverage menjadi
+  22 halaman × 2 viewport.
 
 ## `3edb463` — feat(security,governance): privileged reset/MFA recovery + data retention (063+066)
 > 063 dan 066 digabung karena inseparable: `routes/governance.js` mengimpor
