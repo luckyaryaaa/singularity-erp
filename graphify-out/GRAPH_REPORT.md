@@ -1,16 +1,16 @@
 # Graph Report - MAT ERP V2  (2026-07-29)
 
 ## Corpus Check
-- 620 files · ~447,882 words
+- 625 files · ~450,057 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5083 nodes · 7750 edges · 464 communities (368 shown, 96 thin omitted)
-- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 812 edges (avg confidence: 0.55)
+- 5111 nodes · 7785 edges · 470 communities (375 shown, 95 thin omitted)
+- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 814 edges (avg confidence: 0.55)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f1505c86`
+- Built from commit: `518236cd`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -382,6 +382,7 @@
 - graphify reference: transcribe video and audio
 - graphify reference: GitHub clone and cross-repo merge
 - graphify reference: transcribe video and audio
+- p0-dashboard-entitlement.test.js
 - advanced-effect-event-deps.md
 - advanced-event-handler-refs.md
 - advanced-init-once.md
@@ -467,14 +468,19 @@
 - v0.41.0 — Canonical Warehouse Ledger (Stage 1)
 - request-context.js
 - database-infrastructure.test.js
+- sprint7-organization-employee.test.js
+- format_ascii_box
+- v0.43.0 — Notification Preferences
 - 2. Prinsip Arsitektur Final
+- p0-emergency-access.test.js
 - seed-postgres-uat-sprint4.js
+- 16. Infrastructure and Release Architecture
 
 ## God Nodes (most connected - your core abstractions)
 1. `camel()` - 183 edges
-2. `assertPermission()` - 123 edges
-3. `audit()` - 64 edges
-4. `AppError` - 58 edges
+2. `assertPermission()` - 125 edges
+3. `audit()` - 65 edges
+4. `AppError` - 59 edges
 5. `dispatch()` - 52 edges
 6. `scripts` - 51 edges
 7. `dispatch()` - 46 edges
@@ -489,10 +495,10 @@
   index.html → favicon.svg
 - `Sidebar Navigation` --conceptually_related_to--> `MAT Brand Mark (Favicon)`  [INFERRED]
   index.html → favicon.svg
-- `validatePack()` --indirect_call--> `code()`  [INFERRED]
-  scripts/uat-evidence.js → backend/infrastructure/database/repositories/org-workforce.js
-- `render()` --indirect_call--> `hierarchy()`  [INFERRED]
-  src/modules/organization.js → backend/infrastructure/database/repositories/organization.js
+- `status()` --indirect_call--> `sql()`  [INFERRED]
+  backend/infrastructure/database/migrations.js → scripts/verify-migration-rollback.js
+- `createPayroll()` --indirect_call--> `raw()`  [INFERRED]
+  backend/infrastructure/database/repositories/business-operations.js → test/p0-credit-exposure.test.js
 
 ## Import Cycles
 - None detected.
@@ -508,7 +514,7 @@
 - **Incident, Backup, Disaster Recovery & Rollback Response** — docs_sop_06_incident_response, docs_sop_04_backup_restore, docs_sop_05_disaster_recovery, docs_sop_07_release_deployment_rollback [EXTRACTED 0.90]
 - **Maker-Checker / SoD Control Pattern** — docs_sop_09_user_access_iam_maker_checker, docs_sop_13_procurement_s2p_payment, docs_sop_15_hr_payroll [INFERRED 0.85]
 
-## Communities (464 total, 96 thin omitted)
+## Communities (470 total, 95 thin omitted)
 
 ### Community 0 - "Authentication, Session & MFA"
 Cohesion: 0.14
@@ -516,7 +522,7 @@ Nodes (23): base32Decode(), base32Encode(), crypto, generateSecret(), hotp(), ot
 
 ### Community 1 - "Production & MRP Execution"
 Cohesion: 0.06
-Nodes (59): { AppError }, assertBranchScope(), assertReadyToComplete(), completeOperation(), convertMrp(), createIssueFromPlan(), finishWorkOrder(), getWo() (+51 more)
+Nodes (58): { AppError }, assertBranchScope(), assertReadyToComplete(), completeOperation(), convertMrp(), createIssueFromPlan(), finishWorkOrder(), getWo() (+50 more)
 
 ### Community 2 - "Ops Scripts & DB Tooling"
 Cohesion: 0.04
@@ -531,8 +537,8 @@ Cohesion: 0.15
 Nodes (27): { AppError }, clean(), create(), createRule(), detectDuplicates(), IMPORT_TYPES, importErrors(), list() (+19 more)
 
 ### Community 5 - "Stock Reservations"
-Cohesion: 0.20
-Nodes (20): { AppError }, assertBinInBranch(), binExecution, cancelTask(), claimTask(), completeTask(), createTask(), listTasks() (+12 more)
+Cohesion: 0.12
+Nodes (33): { AppError }, binContents(), getLot(), listBins(), locateProduct(), num(), permissions, putaway() (+25 more)
 
 ### Community 6 - "Architecture & Changelog Docs"
 Cohesion: 0.08
@@ -543,16 +549,16 @@ Cohesion: 0.09
 Nodes (41): SOP-01 Daily Operations & Monitoring, Self Test Gate, SOP-02 Weekly Performance & Security Review, SOP-03 Monthly Platform Maintenance, SOP-04 Backup & Restore, Encrypted Offsite Backup, Restore Drill on Disposable DB, SHA-256 Checksum Verification (+33 more)
 
 ### Community 8 - "Job Queue & Operations Repo"
-Cohesion: 0.08
-Nodes (34): snapshot(), MODULES, readRawBody(), activeStatuses, {AppError}, authorizeJob(), {camel}, CATEGORIES (+26 more)
+Cohesion: 0.07
+Nodes (36): snapshot(), MODULES, readRawBody(), activeStatuses, {AppError}, authorizeJob(), {camel}, CATEGORIES (+28 more)
 
 ### Community 9 - "Reporting & Cockpit"
-Cohesion: 0.12
-Nodes (21): accountingConfig, { AppError }, assertReportAllowed(), BY_KEY, BY_TITLE, { camel }, createSchedule(), deleteFilter() (+13 more)
+Cohesion: 0.13
+Nodes (24): accountingConfig, { AppError }, assertReportAllowed(), BY_KEY, BY_TITLE, { camel }, cockpit(), createSchedule() (+16 more)
 
 ### Community 10 - "Sessions, Events & Notifications"
 Cohesion: 0.11
-Nodes (17): CATEGORIES, events, listFor(), markAllRead(), { store }, { uid, nowIso }, unreadCount(), { clone } (+9 more)
+Nodes (30): create(), publish(), lookup(), save(), { store }, { uid, sha256, nowIso }, withIdempotency(), CATEGORIES (+22 more)
 
 ### Community 11 - "Alerts & Backup Crypto"
 Cohesion: 0.10
@@ -567,32 +573,32 @@ Cohesion: 0.12
 Nodes (18): applySignature(), buildPdf(), { codeFor }, { decodeImage }, drawQr(), esc(), fmtDate(), hexToPdf() (+10 more)
 
 ### Community 14 - "HR & Reporting Routes"
-Cohesion: 0.10
-Nodes (21): readBody(), { assertPermission }, businessOps, hrOps, { NO_MATCH }, { readBody }, runtime, { AppError } (+13 more)
+Cohesion: 0.08
+Nodes (25): { assertPermission }, businessOps, hrOps, { NO_MATCH }, { readBody }, runtime, { assertPermission }, { NO_MATCH } (+17 more)
 
 ### Community 15 - "Sales Commercial Controls"
-Cohesion: 0.15
-Nodes (23): reversePayment(), assertAmountMatchesLines(), assertFulfilmentWithinOrder(), authoritativeTotal(), balance(), lineSubtotalOf(), normalizeLines(), postDocument() (+15 more)
+Cohesion: 0.18
+Nodes (19): resolveDimensions(), assertAmountMatchesLines(), assertFulfilmentWithinOrder(), authoritativeTotal(), balance(), lineSubtotalOf(), normalizeLines(), postDocument() (+11 more)
 
 ### Community 16 - "API Dispatcher & Documents"
-Cohesion: 0.07
-Nodes (31): ACTION_PERMISSION, { AppError }, { assertPermission, grantsFor, approvalLevelsFor, APPROVAL_MATRIX }, audit, auth, docModule(), documents, events (+23 more)
+Cohesion: 0.08
+Nodes (22): ACTION_PERMISSION, { AppError }, { assertPermission, grantsFor, approvalLevelsFor, APPROVAL_MATRIX }, audit, auth, documents, events, idempotency (+14 more)
 
 ### Community 17 - "CSV Import & Job Worker"
-Cohesion: 0.10
-Nodes (27): {AppError}, parse(), heartbeat(), refresh(), scopedMetadata(), artifacts, auditPartitionMaintenance(), backup (+19 more)
+Cohesion: 0.11
+Nodes (26): {AppError}, parse(), heartbeat(), scopedMetadata(), artifacts, auditPartitionMaintenance(), backup, businessDate (+18 more)
 
 ### Community 18 - "Procurement Controls"
 Cohesion: 0.11
-Nodes (43): assertBranchAccess(), resolveBranch(), assertPermission(), recordActualHours(), addQuote(), { AppError }, { assertBranchAccess, hasGlobalScope, queryScope, resolveBranch }, assertBudgetOk() (+35 more)
+Nodes (49): assertBranchAccess(), resolveBranch(), assertPermission(), readBody(), payrollItems(), reversePayment(), activateCostRevision(), promoteRevision() (+41 more)
 
 ### Community 19 - "Tax Compliance (eFaktur)"
 Cohesion: 0.15
-Nodes (22): allocateRange(), { AppError }, businessDate, cancelTaxInvoice(), csvCell(), digitsOnly(), exportEFaktur(), formatFpNumber() (+14 more)
+Nodes (26): spec(), allocateRange(), { AppError }, businessDate, cancelTaxInvoice(), csvCell(), digitsOnly(), exportEFaktur() (+18 more)
 
 ### Community 20 - "Master Data & Field Encryption"
-Cohesion: 0.10
-Nodes (33): hasPermission(), activateCostRevision(), { AppError }, approveSupplierBank(), { assertPermission, hasPermission }, canSeeBank(), canSeeSalary(), createSub() (+25 more)
+Cohesion: 0.17
+Nodes (23): hasPermission(), { AppError }, approveSupplierBank(), { assertPermission, hasPermission }, canSeeBank(), canSeeSalary(), createSub(), decideEmployeeSensitive() (+15 more)
 
 ### Community 21 - "Governance Policies & Reviews"
 Cohesion: 0.11
@@ -603,16 +609,16 @@ Cohesion: 0.18
 Nodes (27): {AppError}, assertPositionParents(), assertScope(), businessDate, {camel}, captureVersion(), clean(), code() (+19 more)
 
 ### Community 23 - "Core Auth & MFA"
-Cohesion: 0.12
-Nodes (36): record(), adminResetPassword(), { AppError }, assertPasswordPolicy(), audit, changeOwnPassword(), changePasswordWithToken(), completeMfa() (+28 more)
+Cohesion: 0.09
+Nodes (38): record(), adminResetPassword(), { AppError }, assertPasswordPolicy(), audit, changeOwnPassword(), changePasswordWithToken(), completeMfa() (+30 more)
 
 ### Community 24 - "Business Ops & Payroll"
-Cohesion: 0.13
-Nodes (24): queryScope(), canonical(), resolvePayrollRules(), accountingConfig, accountingSummary(), allocatePayment(), {AppError}, {assertBranchAccess,hasGlobalScope,queryScope} (+16 more)
+Cohesion: 0.14
+Nodes (23): queryScope(), defaultLegalEntityId(), resolvePayrollRules(), accountingConfig, accountingSummary(), allocatePayment(), {AppError}, {assertBranchAccess,hasGlobalScope,queryScope} (+15 more)
 
 ### Community 25 - "Seed, Boot & Approval Matrix"
-Cohesion: 0.10
-Nodes (16): envCore, environment, fs, http, path, PUBLIC_EXACT, PUBLIC_PREFIXES, resolvePublicFile() (+8 more)
+Cohesion: 0.06
+Nodes (35): ACTIONS, forEntity(), REASON_REQUIRED, { store }, { uid, nowIso }, ensureCounter(), next(), PREFIXES (+27 more)
 
 ### Community 26 - "Audit, Numbering & Store"
 Cohesion: 0.05
@@ -627,32 +633,32 @@ Cohesion: 0.09
 Nodes (22): { AppError }, { assertPermission }, businessOps, docRender, docTemplates, documentCore, docVerify, governance (+14 more)
 
 ### Community 29 - "DB Migrations"
-Cohesion: 0.13
-Nodes (20): checksum(), crypto, DIR, ensureTable(), fs, { getPool }, migrationFiles(), path (+12 more)
+Cohesion: 0.22
+Nodes (10): migrationFiles(), adminUrl, { Client }, fs, main(), { migrationFiles }, migrationsDir, path (+2 more)
 
 ### Community 30 - "Org Structure"
 Cohesion: 0.24
 Nodes (12): { AppError }, assertLegalEntityScope(), assertNotReferenced(), assertParents(), { camel }, create(), list(), NODES (+4 more)
 
 ### Community 31 - "Data Retention & Legal Holds"
-Cohesion: 0.17
-Nodes (15): ACTIONS, forEntity(), REASON_REQUIRED, { store }, { uid, nowIso }, createPending(), lookup(), save() (+7 more)
+Cohesion: 0.12
+Nodes (12): { AppError }, CATEGORIES, DEFAULT, getPreferences(), permissions, runtime, assert, { Client } (+4 more)
 
 ### Community 32 - "Postgres API Dispatcher"
-Cohesion: 0.09
-Nodes (27): apiMetrics, { AppError }, auth, authRoutes, dispatch(), domainRoutes, events, { getPool } (+19 more)
+Cohesion: 0.07
+Nodes (34): handle(), handleSse(), apiMetrics, { AppError }, auth, authRoutes, dispatch(), domainRoutes (+26 more)
 
 ### Community 33 - "Master Governance & FX Rates"
 Cohesion: 0.12
-Nodes (30): detail(), importDetail(), listRules(), decideSupplierDocument(), { AppError }, businessDate, calculateSupplierPerformance(), createExchangeRate() (+22 more)
+Nodes (29): detail(), importDetail(), listRules(), decideSupplierDocument(), { AppError }, businessDate, calculateSupplierPerformance(), createExchangeRate() (+21 more)
 
 ### Community 34 - "UI Components & Dialogs"
-Cohesion: 0.35
-Nodes (10): actionButtonsFor(), actionDialog(), closeLayers(), conversionButtonFor(), formDialog(), openDrawer(), rememberLayerFocus(), runDocAction() (+2 more)
+Cohesion: 0.31
+Nodes (11): actionButtonsFor(), actionDialog(), closeLayers(), conversionButtonFor(), formDialog(), openDrawer(), rememberLayerFocus(), runDocAction() (+3 more)
 
 ### Community 35 - "Permissions & Grants"
-Cohesion: 0.08
-Nodes (27): ACTIONS, { AppError }, APPROVAL_LEVEL_BY_ROLE, delegatedGrantFor(), effectiveGrants(), emergencyGrantFor(), emergencyScopeMatches(), grantsFor() (+19 more)
+Cohesion: 0.10
+Nodes (23): ACTIONS, { AppError }, APPROVAL_LEVEL_BY_ROLE, delegatedGrantFor(), effectiveGrants(), emergencyGrantFor(), emergencyScopeMatches(), grantsFor() (+15 more)
 
 ### Community 36 - "Organization Repo & Bank Secrets"
 Cohesion: 0.18
@@ -663,12 +669,12 @@ Cohesion: 0.21
 Nodes (21): { AppError }, approveRequest(), assertOwner(), classify(), classifyActor(), decide(), effectiveRoles(), evaluate() (+13 more)
 
 ### Community 38 - "Errors & Document Templates"
-Cohesion: 0.16
-Nodes (22): addDays(), formatter, periodOf(), toBusinessDate(), today(), capacityBoard(), createContract(), nextContractNumber() (+14 more)
+Cohesion: 0.10
+Nodes (31): addDays(), formatter, periodOf(), toBusinessDate(), today(), capacityBoard(), { AppError }, businessDate (+23 more)
 
 ### Community 39 - "DB Transactions & RLS"
-Cohesion: 0.10
-Nodes (17): CROSS_BRANCH_ROLES, { CROSS_BRANCH_ROLES }, { getPool }, setSessionTimezone(), { TIMEZONE }, withSerializableRetry(), withTransaction(), iamGrants (+9 more)
+Cohesion: 0.08
+Nodes (22): CROSS_BRANCH_ROLES, { CROSS_BRANCH_ROLES }, { getPool }, setSessionTimezone(), { TIMEZONE }, withSerializableRetry(), withTransaction(), iamGrants (+14 more)
 
 ### Community 40 - "Request Context & IP Trust"
 Cohesion: 0.15
@@ -695,24 +701,24 @@ Cohesion: 0.22
 Nodes (12): FINAL_FILES, fs, loadPack(), path, present(), readJson(), REQUIRED_RECONCILIATIONS, REQUIRED_ROLES (+4 more)
 
 ### Community 46 - "repositories/inventory.js"
-Cohesion: 0.06
-Nodes (32): { AppError }, camelLot(), consumeLots(), createOpname(), enterOpnameCounts(), listLots(), lotDetail(), lotMovement() (+24 more)
+Cohesion: 0.17
+Nodes (17): { AppError }, camelLot(), consumeLots(), createOpname(), enterOpnameCounts(), listLots(), lotDetail(), lotMovement() (+9 more)
 
 ### Community 47 - "util.js"
 Cohesion: 0.15
 Nodes (12): accountingConfig, { AppError }, { assertPermission, hasPermission }, businessDate, businessOps, financeReports, fixedAssets, { NO_MATCH } (+4 more)
 
 ### Community 48 - "core/documents.js"
-Cohesion: 0.08
-Nodes (27): ACTION_AUDIT, { AppError }, { approvalLevelsFor }, audit, events, numbering, pendingApprovalsFor(), STATUSES (+19 more)
+Cohesion: 0.13
+Nodes (20): docModule(), ACTION_AUDIT, { AppError }, { approvalLevelsFor }, audit, eventOf(), events, moduleOf() (+12 more)
 
 ### Community 49 - "authorization-matrix.test.js"
 Cohesion: 0.18
 Nodes (11): PUBLIC_ENDPOINTS, ROUTE_MATRIX, assert, fs, {hasPermission}, openapi, path, ROOT (+3 more)
 
 ### Community 50 - "pool.js"
-Cohesion: 0.22
-Nodes (10): dispatchBatch(), events, { getPool }, start(), config(), getPool(), healthCheck(), intEnv() (+2 more)
+Cohesion: 0.13
+Nodes (20): checksum(), crypto, DIR, ensureTable(), fs, { getPool }, path, status() (+12 more)
 
 ### Community 51 - "sprint17-final-audit.test.js"
 Cohesion: 0.20
@@ -724,7 +730,7 @@ Nodes (38): 1. Create a project, 2. Send a chat message, 3. Show the results, Ch
 
 ### Community 53 - "posting.js"
 Cohesion: 0.21
-Nodes (20): resolvePostingProfile(), accountingConfig, {AppError}, claimPosting(), dimensionEnforcement(), dimensionPolicy(), ensureOpenPeriod(), finishPosting() (+12 more)
+Nodes (20): accountingConfig, {AppError}, claimPosting(), dimensionEnforcement(), dimensionPolicy(), ensureOpenPeriod(), finishPosting(), loadAccounts() (+12 more)
 
 ### Community 54 - "quality-capa.js"
 Cohesion: 0.10
@@ -759,16 +765,16 @@ Cohesion: 0.17
 Nodes (13): activeContract(), assert, { Client }, contracts, plusDays(), po(), product(), { randomUUID } (+5 more)
 
 ### Community 62 - "fixed-assets.js"
-Cohesion: 0.25
-Nodes (13): { AppError }, { assertBranchAccess, queryScope, resolveBranch }, createAsset(), disposeAsset(), getCategory(), idr(), listAssets(), listCategories() (+5 more)
+Cohesion: 0.11
+Nodes (22): { AppError }, { assertBranchAccess, queryScope, resolveBranch }, createAsset(), disposeAsset(), getCategory(), idr(), listAssets(), listCategories() (+14 more)
 
 ### Community 63 - "routes/operations.js"
-Cohesion: 0.17
-Nodes (11): { AppError }, artifactStorage, { assertPermission, MODULES }, documentCore, { NO_MATCH }, operations, privateStorage, { readBody, readRawBody } (+3 more)
+Cohesion: 0.15
+Nodes (12): { AppError }, artifactStorage, { assertPermission, MODULES }, documentCore, { NO_MATCH }, notifPrefs, operations, privateStorage (+4 more)
 
 ### Community 64 - "finance-reports.js"
-Cohesion: 0.15
-Nodes (35): hasGlobalScope(), accountCode(), defaultLegalEntityId(), accountingConfig, { AppError }, assertPeriod(), { assertPermission }, { canonical } (+27 more)
+Cohesion: 0.16
+Nodes (31): hasGlobalScope(), canonical(), accountCode(), accountingConfig, { AppError }, assertPeriod(), { assertPermission }, { canonical } (+23 more)
 
 ### Community 65 - "purchase-contracts.js"
 Cohesion: 0.05
@@ -779,8 +785,8 @@ Cohesion: 0.20
 Nodes (9): assert, bins, { Client }, makeBin(), makeLot(), { randomUUID }, tag(), tasks (+1 more)
 
 ### Community 67 - "Security Model MAT ERP V2"
-Cohesion: 0.21
-Nodes (12): Immutable Approval Policy Snapshot, v0.34 Sales Commercial Controls, ATP/CTP Line Promise, Customer Contract/Blanket Release, Server-side Margin Assessment, Endpoint Authorization Matrix, Security Model MAT ERP V2, 13 Enterprise Roles (+4 more)
+Cohesion: 0.17
+Nodes (13): Immutable Approval Policy Snapshot, Idempotency + Advisory Lock, v0.30 P0.5 Transaction Correctness Closure, P0.5 Control Matrix, Migration 050 Transaction Correctness, v0.33 Organization & Workforce, Scoped Authority Delegation, Versioned Org Hierarchy Snapshot (+5 more)
 
 ### Community 68 - "predeploy-gate.js"
 Cohesion: 0.20
@@ -800,11 +806,11 @@ Nodes (9): 1. Tujuan, 2. Model data (`warehouse_tasks`), 3. Perilaku kunci, 4. E
 
 ### Community 72 - "PostgreSQL Schema MAT ERP V2"
 Cohesion: 0.17
-Nodes (16): PostgreSQL Schema MAT ERP V2, Branch-aware Document Numbering, Domain Event Outbox, Executive Cockpit KPI (mv_executive_monthly_kpis), Official Document HMAC Signature, Optimistic Locking (version to HTTP 409), Organization Identity Snapshot, mat_erp_app Runtime Least-Privilege (+8 more)
+Nodes (15): PostgreSQL Schema MAT ERP V2, Branch-aware Document Numbering, Domain Event Outbox, Executive Cockpit KPI (mv_executive_monthly_kpis), Official Document HMAC Signature, Optimistic Locking (version to HTTP 409), Organization Identity Snapshot, mat_erp_app Runtime Least-Privilege (+7 more)
 
 ### Community 73 - "seed-postgres-uat.js"
-Cohesion: 0.15
-Nodes (12): {assertDedicatedUatDatabase}, {Client}, customers, env, {hashPassword}, operations, posting, products (+4 more)
+Cohesion: 0.14
+Nodes (13): approve(), {assertDedicatedUatDatabase}, {Client}, customers, env, {hashPassword}, operations, posting (+5 more)
 
 ### Community 74 - "core.js"
 Cohesion: 0.22
@@ -815,8 +821,8 @@ Cohesion: 0.11
 Nodes (16): { AppError }, canAccessBranch(), SCOPES, assert, assets, businessOps, { Client }, dataScope (+8 more)
 
 ### Community 76 - "p0-three-way-match.test.js"
-Cohesion: 0.15
-Nodes (7): assert, { Client }, doc(), procurement, { randomUUID }, runtime, test
+Cohesion: 0.14
+Nodes (8): assert, { Client }, doc(), evaluate(), procurement, { randomUUID }, runtime, test
 
 ### Community 77 - "p1-fulfilment-lines.test.js"
 Cohesion: 0.14
@@ -827,12 +833,12 @@ Cohesion: 0.17
 Nodes (8): assert, { Client }, posting, product(), { randomUUID }, runtime, tag(), test
 
 ### Community 79 - "wave9-capacity-wip.test.js"
-Cohesion: 0.13
-Nodes (12): dispatch(), assert, businessDate, capacity, { Client }, operation(), { randomUUID }, runtime (+4 more)
+Cohesion: 0.15
+Nodes (10): assert, businessDate, capacity, { Client }, { randomUUID }, runtime, tag(), test (+2 more)
 
 ### Community 80 - "sales-o2c.js"
-Cohesion: 0.06
-Nodes (35): activePolicies(), { AppError }, { assertBranchAccess, queryScope }, businessDate, createRma(), idr(), listDunning(), listQuotationRevisions() (+27 more)
+Cohesion: 0.23
+Nodes (14): activePolicies(), { AppError }, { assertBranchAccess, queryScope }, businessDate, createRma(), idr(), listDunning(), listQuotationRevisions() (+6 more)
 
 ### Community 81 - "selftest.js"
 Cohesion: 0.09
@@ -867,16 +873,16 @@ Cohesion: 0.06
 Nodes (33): 10.1 My Home, 10.2 My Work, 10.3 Approval Center, 10.4 Notification Center, 10.5 Report Factory, 10. Page Design Blueprint, 11. Infrastructure and Release Findings, 13. Implementation Priorities (+25 more)
 
 ### Community 89 - "routes/auth.js"
-Cohesion: 0.12
-Nodes (17): { AppError }, auth, authResult(), docVerify, { grantsFor }, { NO_MATCH }, operations, ratelimit (+9 more)
+Cohesion: 0.20
+Nodes (10): { AppError }, auth, authResult(), docVerify, { grantsFor }, { NO_MATCH }, operations, ratelimit (+2 more)
 
 ### Community 90 - "masters.js"
-Cohesion: 0.08
-Nodes (26): abandon(), { AppError }, { assertPermission }, customerCandidates(), listSources(), masterData, operations, { randomUUID } (+18 more)
+Cohesion: 0.15
+Nodes (14): { AppError }, { assertPermission }, customerCandidates(), listSources(), masterData, operations, { randomUUID }, recover() (+6 more)
 
 ### Community 91 - "Official Master Update Backlog"
-Cohesion: 0.19
-Nodes (13): Append-only Audit, v0.31 LAN-UAT Technical Readiness, FINAL_SIGNOFF.json Gate, LAN-UAT Staff Database (mat_erp_v2_lan_uat), v0.32 Unified Business Partner MDM, Business Partner Golden Record, v0.33 Organization & Workforce, Scoped Authority Delegation (+5 more)
+Cohesion: 0.24
+Nodes (13): v0.31 LAN-UAT Technical Readiness, FINAL_SIGNOFF.json Gate, LAN-UAT Staff Database (mat_erp_v2_lan_uat), v0.36 Execution Control Workbenches, CAPA & Calibration Workbench, Capacity & WIP Control Tower, Migration 064 Execution RLS/Concurrency, Purchase Contract 360 (+5 more)
 
 ### Community 92 - "accessibility-audit.js"
 Cohesion: 0.17
@@ -891,8 +897,8 @@ Cohesion: 0.18
 Nodes (11): `132bb2e` — chore(release): reconcile release evidence, version, and tooling, `15f1402` — fix(security): close G1-G6 authorization audit findings, `3edb463` — feat(security,governance): privileged reset/MFA recovery + data retention (063+066), `627aaa4` — fix(execution): RLS + concurrency + workbenches (064), `78d3873` — feat(security): field-encryption rotation npm scripts (065), `7c0a29f` — feat(security): field encryption + key rotation (065), Closure v0.37.0 — migration 065–069 dan release governance, Closure v0.38.0 — migration 070–073 (+3 more)
 
 ### Community 95 - "sprint14-hr.test.js"
-Cohesion: 0.14
-Nodes (16): verifyOwnerPin(), crypto, derive(), format(), hashPassword(), LEGACY_SCRYPT, needsRehash(), parseHash() (+8 more)
+Cohesion: 0.33
+Nodes (4): assert, crypto, password, test
 
 ### Community 96 - "sprint8c-master-governance.test.js"
 Cohesion: 0.17
@@ -943,8 +949,8 @@ Cohesion: 0.22
 Nodes (5): assert, { Client }, fr, { randomUUID }, test
 
 ### Community 108 - "p1-dashboard-read-model.test.js"
-Cohesion: 0.05
-Nodes (49): pendingApprovals(), ACTIVE, { AppError }, assertActor(), cancelItem(), claimItem(), completeItem(), createWorkItem() (+41 more)
+Cohesion: 0.15
+Nodes (24): ACTIVE, { AppError }, assertActor(), cancelItem(), claimItem(), completeItem(), createWorkItem(), crossBranch() (+16 more)
 
 ### Community 109 - "sec-uat-001-password-reset.test.js"
 Cohesion: 0.32
@@ -955,8 +961,8 @@ Cohesion: 0.25
 Nodes (7): {Client}, envPath, fs, {hashPassword}, original, path, {randomBytes,randomUUID}
 
 ### Community 111 - "sprint13-finance.test.js"
-Cohesion: 0.18
-Nodes (9): assert, { Client }, fa, owner(), period, { randomUUID }, reports, runtime (+1 more)
+Cohesion: 0.15
+Nodes (8): assert, { Client }, openFor(), posting, production, { randomUUID }, runtime, test
 
 ### Community 112 - "wave12-execution-hardening.test.js"
 Cohesion: 0.18
@@ -967,8 +973,8 @@ Cohesion: 0.22
 Nodes (8): assert, bins, { Client }, makeBin(), makeLot(), { randomUUID }, tag(), test
 
 ### Community 114 - "env.js"
-Cohesion: 0.31
-Nodes (8): assertEnvironment(), assertSeedAllowed(), environmentName(), ENVIRONMENTS, fs, path, validateEnvironment(), weak()
+Cohesion: 0.20
+Nodes (11): assertEnvironment(), assertSeedAllowed(), environmentName(), ENVIRONMENTS, fs, path, validateEnvironment(), weak() (+3 more)
 
 ### Community 115 - "bin-execution.js"
 Cohesion: 0.07
@@ -1075,8 +1081,8 @@ Cohesion: 0.39
 Nodes (7): decodeImage(), decodeJpeg(), decodePng(), paeth(), PNG_SIG, unfilter(), { unzlibSync, zlibSync }
 
 ### Community 141 - "rotate-owner-password.js"
-Cohesion: 0.07
-Nodes (26): AppError, CATALOG, { AppError }, businessDate, FALLBACK, { randomUUID }, resolveTemplate(), { AppError } (+18 more)
+Cohesion: 0.05
+Nodes (34): AppError, CATALOG, { AppError }, businessDate, FALLBACK, { randomUUID }, resolveTemplate(), { AppError } (+26 more)
 
 ### Community 142 - "modular-architecture.test.js"
 Cohesion: 0.29
@@ -1115,8 +1121,8 @@ Cohesion: 0.40
 Nodes (4): install-release.sh script, rollback-release.sh script, Deployment & Rollback Runbook, Health/Liveness Check (/api/health, /api/live)
 
 ### Community 151 - "v0.36 Execution Control Workbenches"
-Cohesion: 0.53
-Nodes (6): v0.36 Execution Control Workbenches, CAPA & Calibration Workbench, Capacity & WIP Control Tower, Migration 064 Execution RLS/Concurrency, Purchase Contract 360, Inventory Reservation Workbench
+Cohesion: 0.20
+Nodes (11): pendingApprovals(), accountingConfig, { assertPermission, hasPermission }, cashOnHand(), dashboard(), DASHBOARD_CARDS, entitlementsFor(), { NO_MATCH } (+3 more)
 
 ### Community 152 - "generate-sbom.js"
 Cohesion: 0.33
@@ -1132,7 +1138,7 @@ Nodes (5): assert, auth, {Client}, {currentTotp}, test
 
 ### Community 156 - "postgres-concurrency.integration.test.js"
 Cohesion: 0.12
-Nodes (33): { AppError }, changePasswordWithToken(), completeMfa(), createPending(), createRecoveryCode(), createSession(), delegatedGrantsForUser(), digest() (+25 more)
+Nodes (33): { AppError }, assertPasswordPolicy(), changeOwnPassword(), changePasswordWithToken(), completeMfa(), createPending(), createRecoveryCode(), createSession() (+25 more)
 
 ### Community 157 - "document-types.js"
 Cohesion: 0.11
@@ -1147,8 +1153,8 @@ Cohesion: 0.40
 Nodes (4): {Client}, env, {hashPassword}, {randomUUID}
 
 ### Community 161 - "P0.5 Control Matrix"
-Cohesion: 0.67
-Nodes (4): Idempotency + Advisory Lock, v0.30 P0.5 Transaction Correctness Closure, P0.5 Control Matrix, Migration 050 Transaction Correctness
+Cohesion: 0.17
+Nodes (11): { assertPermission }, businessPartners, changeRequests, masterData, masterGovernance, masterModules, masterWizards, { NO_MATCH } (+3 more)
 
 ### Community 162 - "seed-postgres-uat-sprint4.js"
 Cohesion: 0.10
@@ -1163,8 +1169,8 @@ Cohesion: 0.29
 Nodes (7): Bukti otomatis, Endpoint utama, Gate manusia tersisa, Kontrol utama, Outcome, v0.39.0 — Finance End-to-End Closure, Workbench
 
 ### Community 176 - "design_system.py"
-Cohesion: 0.15
-Nodes (18): ansi_ljust(), format_ascii_box(), format_markdown(), format_master_md(), generate_design_system(), hex_to_ansi(), persist_design_system(), Convert hex color to ANSI True Color swatch (██) with fallback. (+10 more)
+Cohesion: 0.16
+Nodes (16): _detect_page_type(), format_markdown(), format_master_md(), format_page_override_md(), generate_design_system(), _generate_intelligent_overrides(), persist_design_system(), Format a page-specific override file with intelligent AI-generated content. (+8 more)
 
 ### Community 177 - "AUDIT CATEGORY FINANCE — MAT ERP V2"
 Cohesion: 0.10
@@ -1179,8 +1185,8 @@ Cohesion: 0.11
 Nodes (18): 10. Exchange Rate Governance, 15. Reference Data Hub, 20. Test Results, 22. Acceptance Gate, 23. Final Conclusion, 2. Current Master Data Menu, 9. Import and Data Migration, AUDIT FINAL CATEGORY MASTER DATA — MAT ERP V2 (+10 more)
 
 ### Community 180 - "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md"
-Cohesion: 0.09
-Nodes (21): 16.1 Environment Strategy, 16.2 Release Pipeline, 16.3 Release Hygiene, 16.4 Production Topology, 16. Infrastructure and Release Architecture, 19. Dependency Order, 1.1 Status readiness saat ini, 1.2 Arti “100%” untuk MAT ERP (+13 more)
+Cohesion: 0.10
+Nodes (20): 14.1 API, 14.2 Domain Events, 14.3 File and Document Management, 14. API and Integration Standards, 19. Dependency Order, 1.1 Status readiness saat ini, 1.2 Arti “100%” untuk MAT ERP, 1. Executive Summary (+12 more)
 
 ### Community 181 - "Grader Agent"
 Cohesion: 0.12
@@ -1239,8 +1245,8 @@ Cohesion: 0.29
 Nodes (13): blend(), derive_row(), derive_ui_reasoning(), h2r(), is_dark(), lum(), on_color(), r2h() (+5 more)
 
 ### Community 195 - "document-render.js"
-Cohesion: 0.33
-Nodes (6): _detect_page_type(), format_page_override_md(), _generate_intelligent_overrides(), Format a page-specific override file with intelligent AI-generated content., Generate intelligent overrides based on page type using layered search., Detect page type from context and search results.
+Cohesion: 0.17
+Nodes (7): assert, { Client }, inv, posting, { randomUUID }, runtime, test
 
 ### Community 196 - "aggregate_benchmark.py"
 Cohesion: 0.23
@@ -1263,8 +1269,8 @@ Cohesion: 0.15
 Nodes (13): 10.10 Financial Close, 10.11 Financial Reporting, 10.12 Linking, 10.1 Finance Control Center, 10.2 General Ledger, 10.3 Accounting Period, 10.4 Accounts Receivable, 10.5 Accounts Payable (+5 more)
 
 ### Community 201 - "p0-mrp-site-scope.test.js"
-Cohesion: 0.33
-Nodes (5): assert, businessDate, { Client }, test, { withTransaction }
+Cohesion: 0.18
+Nodes (6): assert, { Client }, dashboard(), { randomUUID }, test, workspace
 
 ### Community 203 - "AI Writing Detection"
 Cohesion: 0.17
@@ -1357,6 +1363,10 @@ Nodes (9): A practical filter pass on a list, CCN fit (does the idea serve all t
 ### Community 225 - "Mining"
 Cohesion: 0.20
 Nodes (9): A weekly mining loop (do this on a schedule), Comment and DM mining (start here, this is the highest-signal source), Competitor outlier study (where the format opportunities are), Mining, Podcast, interview, and review mining (where the language is unfiltered), Reddit mining (where the audience says what they actually think), Search and autocomplete mining (where the long tail lives), Swipe files (the long-term version of all of the above) (+1 more)
+
+### Community 226 - "sprint6-governance.test.js"
+Cohesion: 0.18
+Nodes (8): assert, { Client }, inv, owner(), posting, { randomUUID }, runtime, test
 
 ### Community 227 - "3. Critical Findings"
 Cohesion: 0.20
@@ -1459,8 +1469,8 @@ Cohesion: 0.22
 Nodes (6): assert, { Client }, operations, { randomUUID }, reporting, test
 
 ### Community 252 - "p0-runtime-authorization.test.js"
-Cohesion: 0.13
-Nodes (13): listWarehouses(), permissions, { AppError }, { assertPermission }, binExecution, inventoryLots, { NO_MATCH }, operations (+5 more)
+Cohesion: 0.14
+Nodes (12): permissions, { AppError }, { assertPermission }, binExecution, inventoryLots, { NO_MATCH }, operations, { readBody } (+4 more)
 
 ### Community 254 - "wave17-financial-report-signoff.test.js"
 Cohesion: 0.18
@@ -1503,8 +1513,8 @@ Cohesion: 0.25
 Nodes (8): 21. Final Acceptance Gate per Category, Finance, Master Data, Operations, Organization, Sales, System, Workspace
 
 ### Community 264 - "Files Changed — Konsolidasi v0.36.0"
-Cohesion: 0.15
-Nodes (13): 063–064 — Security recovery dan execution hardening, 065–066 — Field encryption dan retention, 067–069 — Finance control depth, 070 — `security_data_protection_tranche2`, 071 — `employee_null_scope_fail_closed`, 072 — `sensitive_history_least_privilege`, 073 — `identifier_token_capacity`, 074 — `finance_end_to_end_closure` (+5 more)
+Cohesion: 0.14
+Nodes (14): 063–064 — Security recovery dan execution hardening, 065–066 — Field encryption dan retention, 067–069 — Finance control depth, 070 — `security_data_protection_tranche2`, 071 — `employee_null_scope_fail_closed`, 072 — `sensitive_history_least_privilege`, 073 — `identifier_token_capacity`, 074 — `finance_end_to_end_closure` (+6 more)
 
 ### Community 265 - "Kebijakan MFA & Recovery Code"
 Cohesion: 0.09
@@ -1787,8 +1797,8 @@ Cohesion: 0.40
 Nodes (4): { Client }, ENCRYPTION_CONSTRAINTS, PROTECTED_HISTORIES, RLS_TABLES
 
 ### Community 335 - "cutover-opening-inventory.js"
-Cohesion: 0.06
-Nodes (36): payrollItems(), notify(), orderFulfilment(), { AppError }, APPROVAL_TIERS, approvalPolicy(), auditTrail(), businessDate (+28 more)
+Cohesion: 0.09
+Nodes (23): { AppError }, APPROVAL_TIERS, approvalPolicy(), auditTrail(), businessDate, CONVERSIONS, { createHash }, documentRelations() (+15 more)
 
 ### Community 336 - "Tips for Better Results"
 Cohesion: 0.50
@@ -1824,7 +1834,7 @@ Nodes (4): 14.1 API, 14.2 Domain Events, 14.3 File and Document Management, 14. 
 
 ### Community 346 - "14. API and Integration Standards"
 Cohesion: 0.24
-Nodes (8): { AppError }, businessDate, loadOn(), operationWithScope(), permissions, runtime, scheduleOperation(), wipSummary()
+Nodes (9): { AppError }, businessDate, loadOn(), operationWithScope(), permissions, recordActualHours(), runtime, scheduleOperation() (+1 more)
 
 ### Community 347 - "sprint10-s2p.test.js"
 Cohesion: 0.18
@@ -1863,16 +1873,16 @@ Cohesion: 0.50
 Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
 
 ### Community 356 - "totp.js"
-Cohesion: 0.50
-Nodes (4): 14.1 API, 14.2 Domain Events, 14.3 File and Document Management, 14. API and Integration Standards
+Cohesion: 0.24
+Nodes (10): Append-only Audit, Sprint 17 Final Audit & Assurance Evidence, v0.32 Unified Business Partner MDM, Business Partner Golden Record, Endpoint Authorization Matrix, Security Model MAT ERP V2, 13 Enterprise Roles, File Security Pipeline (quarantine to CLEAN) (+2 more)
 
 ### Community 357 - "v0.34 Sales Commercial Controls"
 Cohesion: 0.67
 Nodes (3): 18. Database Integrity Upgrade, Required constraints, Required mechanisms
 
 ### Community 358 - "bin-execution.js"
-Cohesion: 0.26
-Nodes (12): { AppError }, binContents(), getLot(), listBins(), locateProduct(), num(), permissions, putaway() (+4 more)
+Cohesion: 0.20
+Nodes (8): assert, { Client }, o2c, owner(), posting, { randomUUID }, runtime, test
 
 ### Community 359 - "11. Testing Results During Audit"
 Cohesion: 0.67
@@ -1918,6 +1928,10 @@ Nodes (3): Critical 4 — Role Notifications Share One Read State, Impact, Requi
 Cohesion: 0.67
 Nodes (3): 1. Executive Summary, Engineering assessment, Final verdict
 
+### Community 375 - "p0-dashboard-entitlement.test.js"
+Cohesion: 0.22
+Nodes (6): assert, { Client }, dashboard(), { randomUUID }, test, workspace
+
 ### Community 459 - "wave13-field-encryption.test.js"
 Cohesion: 0.22
 Nodes (7): assert, { Client }, encryption, masterData, organization, { randomUUID }, test
@@ -1934,33 +1948,53 @@ Nodes (7): cleanIp(), firstHeader(), ipv4Number(), matches(), net, requestContex
 Cohesion: 0.33
 Nodes (5): assert, fs, migrations, path, test
 
+### Community 463 - "sprint7-organization-employee.test.js"
+Cohesion: 0.22
+Nodes (8): assert, auth, {hasPermission}, masterData, organization, {randomUUID}, runtime, test
+
+### Community 464 - "format_ascii_box"
+Cohesion: 0.25
+Nodes (8): ansi_ljust(), format_ascii_box(), hex_to_ansi(), Convert hex color to ANSI True Color swatch (██) with fallback., Like str.ljust but accounts for zero-width ANSI escape sequences., Create a Unicode section separator: ├─── NAME ───...┤, Format design system as Unicode box with ANSI color swatches., section_header()
+
+### Community 465 - "v0.43.0 — Notification Preferences"
+Cohesion: 0.25
+Nodes (7): 1. Tujuan, 2. Model & keputusan, 3. Endpoint & UI, 4. Evidence, 5. Catatan terkait (temuan outbox), 6. Gate manusia (tidak berubah), v0.43.0 — Notification Preferences
+
 ### Community 466 - "2. Prinsip Arsitektur Final"
 Cohesion: 0.50
 Nodes (4): 2.1 Pertahankan Modular Monolith, 2.2 Shared Enterprise Engines, 2.3 Satu Security Context, 2. Prinsip Arsitektur Final
 
+### Community 467 - "p0-emergency-access.test.js"
+Cohesion: 0.25
+Nodes (6): assert, auth, { Client }, permissions, { randomUUID }, test
+
 ### Community 468 - "seed-postgres-uat-sprint4.js"
-Cohesion: 0.50
-Nodes (3): {Client}, env, operations
+Cohesion: 0.29
+Nodes (6): assert, { Client }, financeReports, { randomUUID }, runtime, test
+
+### Community 469 - "16. Infrastructure and Release Architecture"
+Cohesion: 0.40
+Nodes (5): 16.1 Environment Strategy, 16.2 Release Pipeline, 16.3 Release Hygiene, 16.4 Production Topology, 16. Infrastructure and Release Architecture
 
 ## Knowledge Gaps
-- **2866 isolated node(s):** `{ randomUUID }`, `{ parseCookies }`, `{ AppError }`, `{ getPool }`, `{ withTransaction, setRlsContext }` (+2861 more)
+- **2885 isolated node(s):** `{ randomUUID }`, `{ parseCookies }`, `{ AppError }`, `{ getPool }`, `{ withTransaction, setRlsContext }` (+2880 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **96 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **95 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AppError` connect `rotate-owner-password.js` to `Production & MRP Execution`, `Change-Request Governance`, `Business Partner MDM`, `Stock Reservations`, `Job Queue & Operations Repo`, `Reporting & Cockpit`, `Sessions, Events & Notifications`, `HR & Reporting Routes`, `API Dispatcher & Documents`, `CSV Import & Job Worker`, `Procurement Controls`, `Tax Compliance (eFaktur)`, `Master Data & Field Encryption`, `Governance Policies & Reviews`, `Organization Workforce`, `Core Auth & MFA`, `Business Ops & Payroll`, `Governance Routes & Health`, `postgres-concurrency.integration.test.js`, `Document Routes & Issuance`, `Org Structure`, `Postgres API Dispatcher`, `Master Governance & FX Rates`, `Permissions & Grants`, `Organization Repo & Bank Secrets`, `Privileged Password Reset`, `Errors & Document Templates`, `Private File Storage`, `HR Operations (Leave/Roster)`, `repositories/inventory.js`, `util.js`, `core/documents.js`, `posting.js`, `quality-capa.js`, `artifact-storage.js`, `accounting-config.js`, `fixed-assets.js`, `routes/operations.js`, `finance-reports.js`, `branch-isolation.test.js`, `cutover-opening-inventory.js`, `sales-o2c.js`, `selftest.js`, `routes/auth.js`, `14. API and Integration Standards`, `masters.js`, `bin-execution.js`, `p1-dashboard-read-model.test.js`, `p0-runtime-authorization.test.js`?**
-  _High betweenness centrality (0.041) - this node is a cross-community bridge._
-- **Why does `assertPermission()` connect `Procurement Controls` to `Production & MRP Execution`, `Stock Reservations`, `Job Queue & Operations Repo`, `Reporting & Cockpit`, `rotate-owner-password.js`, `HR & Reporting Routes`, `API Dispatcher & Documents`, `Master Data & Field Encryption`, `Governance Policies & Reviews`, `Organization Workforce`, `Governance Routes & Health`, `Document Routes & Issuance`, `Org Structure`, `Master Governance & FX Rates`, `Permissions & Grants`, `Organization Repo & Bank Secrets`, `Errors & Document Templates`, `util.js`, `quality-capa.js`, `routes/operations.js`, `finance-reports.js`, `cutover-opening-inventory.js`, `wave9-capacity-wip.test.js`, `sales-o2c.js`, `masters.js`, `14. API and Integration Standards`, `bin-execution.js`, `p1-dashboard-read-model.test.js`, `p0-runtime-authorization.test.js`?**
+- **Why does `AppError` connect `rotate-owner-password.js` to `Production & MRP Execution`, `Change-Request Governance`, `Business Partner MDM`, `Stock Reservations`, `Job Queue & Operations Repo`, `Reporting & Cockpit`, `Sessions, Events & Notifications`, `API Dispatcher & Documents`, `CSV Import & Job Worker`, `Procurement Controls`, `Tax Compliance (eFaktur)`, `Master Data & Field Encryption`, `Governance Policies & Reviews`, `Organization Workforce`, `Core Auth & MFA`, `Business Ops & Payroll`, `Governance Routes & Health`, `postgres-concurrency.integration.test.js`, `Document Routes & Issuance`, `Org Structure`, `Data Retention & Legal Holds`, `Postgres API Dispatcher`, `Master Governance & FX Rates`, `Permissions & Grants`, `Organization Repo & Bank Secrets`, `Privileged Password Reset`, `Errors & Document Templates`, `Private File Storage`, `HR Operations (Leave/Roster)`, `repositories/inventory.js`, `util.js`, `core/documents.js`, `posting.js`, `quality-capa.js`, `artifact-storage.js`, `accounting-config.js`, `fixed-assets.js`, `routes/operations.js`, `finance-reports.js`, `branch-isolation.test.js`, `cutover-opening-inventory.js`, `sales-o2c.js`, `selftest.js`, `routes/auth.js`, `14. API and Integration Standards`, `masters.js`, `p1-dashboard-read-model.test.js`, `p0-runtime-authorization.test.js`?**
+  _High betweenness centrality (0.040) - this node is a cross-community bridge._
+- **Why does `camel()` connect `Governance Policies & Reviews` to `Change-Request Governance`, `Business Partner MDM`, `Stock Reservations`, `sprint13-posting-config.test.js`, `Job Queue & Operations Repo`, `Reporting & Cockpit`, `wave2-procurement.test.js`, `Sales Commercial Controls`, `CSV Import & Job Worker`, `Procurement Controls`, `Tax Compliance (eFaktur)`, `Master Data & Field Encryption`, `Organization Workforce`, `v0.36 Execution Control Workbenches`, `Business Ops & Payroll`, `Document Routes & Issuance`, `Org Structure`, `Master Governance & FX Rates`, `Organization Repo & Bank Secrets`, `Errors & Document Templates`, `Private File Storage`, `sprint14-hr.test.js`, `quality-capa.js`, `artifact-storage.js`, `fixed-assets.js`, `sprint12-production.test.js`, `branch-isolation.test.js`, `cutover-opening-inventory.js`, `masters.js`, `sprint10-s2p.test.js`, `sprint6-governance.test.js`, `bin-execution.js`, `p1-dashboard-read-model.test.js`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
-- **Why does `camel()` connect `Governance Policies & Reviews` to `Change-Request Governance`, `Business Partner MDM`, `Stock Reservations`, `sprint13-posting-config.test.js`, `Job Queue & Operations Repo`, `Reporting & Cockpit`, `wave2-procurement.test.js`, `Sales Commercial Controls`, `CSV Import & Job Worker`, `Procurement Controls`, `Tax Compliance (eFaktur)`, `Master Data & Field Encryption`, `Organization Workforce`, `Business Ops & Payroll`, `Document Routes & Issuance`, `Org Structure`, `Master Governance & FX Rates`, `Organization Repo & Bank Secrets`, `Errors & Document Templates`, `Private File Storage`, `sprint14-hr.test.js`, `repositories/inventory.js`, `quality-capa.js`, `artifact-storage.js`, `finance-reports.js`, `sprint12-production.test.js`, `branch-isolation.test.js`, `cutover-opening-inventory.js`, `sales-o2c.js`, `masters.js`, `sprint10-s2p.test.js`, `bin-execution.js`, `p1-dashboard-read-model.test.js`, `sprint13-finance.test.js`?**
+- **Why does `assertPermission()` connect `Procurement Controls` to `Production & MRP Execution`, `Stock Reservations`, `Job Queue & Operations Repo`, `Reporting & Cockpit`, `rotate-owner-password.js`, `HR & Reporting Routes`, `API Dispatcher & Documents`, `Tax Compliance (eFaktur)`, `Master Data & Field Encryption`, `Governance Policies & Reviews`, `Organization Workforce`, `v0.36 Execution Control Workbenches`, `Governance Routes & Health`, `Document Routes & Issuance`, `Org Structure`, `Data Retention & Legal Holds`, `Postgres API Dispatcher`, `Master Governance & FX Rates`, `P0.5 Control Matrix`, `Permissions & Grants`, `Organization Repo & Bank Secrets`, `Errors & Document Templates`, `util.js`, `quality-capa.js`, `routes/operations.js`, `finance-reports.js`, `sales-o2c.js`, `masters.js`, `14. API and Integration Standards`, `p1-dashboard-read-model.test.js`, `p0-runtime-authorization.test.js`?**
   _High betweenness centrality (0.013) - this node is a cross-community bridge._
 - **Are the 36 inferred relationships involving `camel()` (e.g. with `list()` and `listAssignments()`) actually correct?**
   _`camel()` has 36 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 2 inferred relationships involving `dispatch()` (e.g. with `masters.js` and `entity()`) actually correct?**
   _`dispatch()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `{ randomUUID }`, `{ parseCookies }`, `{ AppError }` to the rest of the system?**
-  _2866 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _2885 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Authentication, Session & MFA` be split into smaller, more focused modules?**
   _Cohesion score 0.14130434782608695 - nodes in this community are weakly interconnected._

@@ -1517,8 +1517,8 @@
       "source_location": "L333",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_hex_to_ansi",
-      "community": 176,
-      "community_name": "design_system.py",
+      "community": 464,
+      "community_name": "format_ascii_box",
       "norm_label": "hex_to_ansi()"
     },
     {
@@ -1528,8 +1528,8 @@
       "source_location": "L347",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_ansi_ljust",
-      "community": 176,
-      "community_name": "design_system.py",
+      "community": 464,
+      "community_name": "format_ascii_box",
       "norm_label": "ansi_ljust()"
     },
     {
@@ -1539,8 +1539,8 @@
       "source_location": "L355",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_section_header",
-      "community": 176,
-      "community_name": "design_system.py",
+      "community": 464,
+      "community_name": "format_ascii_box",
       "norm_label": "section_header()"
     },
     {
@@ -1550,8 +1550,8 @@
       "source_location": "L362",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_format_ascii_box",
-      "community": 176,
-      "community_name": "design_system.py",
+      "community": 464,
+      "community_name": "format_ascii_box",
       "norm_label": "format_ascii_box()"
     },
     {
@@ -1605,8 +1605,8 @@
       "source_location": "L1067",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_format_page_override_md",
-      "community": 195,
-      "community_name": "document-render.js",
+      "community": 176,
+      "community_name": "design_system.py",
       "norm_label": "format_page_override_md()"
     },
     {
@@ -1616,8 +1616,8 @@
       "source_location": "L1176",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_generate_intelligent_overrides",
-      "community": 195,
-      "community_name": "document-render.js",
+      "community": 176,
+      "community_name": "design_system.py",
       "norm_label": "_generate_intelligent_overrides()"
     },
     {
@@ -1627,8 +1627,8 @@
       "source_location": "L1282",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_detect_page_type",
-      "community": 195,
-      "community_name": "document-render.js",
+      "community": 176,
+      "community_name": "design_system.py",
       "norm_label": "_detect_page_type()"
     },
     {
@@ -1737,8 +1737,8 @@
       "source_location": "L334",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_rationale_334",
-      "community": 176,
-      "community_name": "design_system.py",
+      "community": 464,
+      "community_name": "format_ascii_box",
       "norm_label": "convert hex color to ansi true color swatch (\u2588\u2588) with fallback."
     },
     {
@@ -1748,8 +1748,8 @@
       "source_location": "L348",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_rationale_348",
-      "community": 176,
-      "community_name": "design_system.py",
+      "community": 464,
+      "community_name": "format_ascii_box",
       "norm_label": "like str.ljust but accounts for zero-width ansi escape sequences."
     },
     {
@@ -1759,8 +1759,8 @@
       "source_location": "L356",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_rationale_356",
-      "community": 176,
-      "community_name": "design_system.py",
+      "community": 464,
+      "community_name": "format_ascii_box",
       "norm_label": "create a unicode section separator: \u251c\u2500\u2500\u2500 name \u2500\u2500\u2500...\u2524"
     },
     {
@@ -1770,8 +1770,8 @@
       "source_location": "L363",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_rationale_363",
-      "community": 176,
-      "community_name": "design_system.py",
+      "community": 464,
+      "community_name": "format_ascii_box",
       "norm_label": "format design system as unicode box with ansi color swatches."
     },
     {
@@ -1825,8 +1825,8 @@
       "source_location": "L1068",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_rationale_1068",
-      "community": 195,
-      "community_name": "document-render.js",
+      "community": 176,
+      "community_name": "design_system.py",
       "norm_label": "format a page-specific override file with intelligent ai-generated content."
     },
     {
@@ -1836,8 +1836,8 @@
       "source_location": "L1177",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_rationale_1177",
-      "community": 195,
-      "community_name": "document-render.js",
+      "community": 176,
+      "community_name": "design_system.py",
       "norm_label": "generate intelligent overrides based on page type using layered search."
     },
     {
@@ -1847,8 +1847,8 @@
       "source_location": "L1283",
       "_origin": "ast",
       "id": "agents_skills_ui_ux_pro_max_scripts_design_system_rationale_1283",
-      "community": 195,
-      "community_name": "document-render.js",
+      "community": 176,
+      "community_name": "design_system.py",
       "norm_label": "detect page type from context and search results."
     },
     {
@@ -2320,8 +2320,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "backend_api_tracklatency",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "tracklatency()"
     },
     {
@@ -2364,8 +2364,8 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "backend_api_docmodule",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 48,
+      "community_name": "core/documents.js",
       "norm_label": "docmodule()"
     },
     {
@@ -2408,8 +2408,8 @@
       "source_location": "L391",
       "_origin": "ast",
       "id": "backend_api_handlesse",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "handlesse()"
     },
     {
@@ -2419,8 +2419,8 @@
       "source_location": "L405",
       "_origin": "ast",
       "id": "backend_api_handle",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "handle()"
     },
     {
@@ -2441,8 +2441,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_audit",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "audit.js"
     },
     {
@@ -2452,8 +2452,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_core_audit_store",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "{ store }"
     },
     {
@@ -2463,8 +2463,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_audit_uid_nowiso",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "{ uid, nowiso }"
     },
     {
@@ -2474,8 +2474,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_core_audit_actions",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "actions"
     },
     {
@@ -2485,8 +2485,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_core_audit_reason_required",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "reason_required"
     },
     {
@@ -2507,8 +2507,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "backend_core_audit_forentity",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "forentity()"
     },
     {
@@ -2617,8 +2617,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "backend_core_auth_createpending",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "createpending()"
     },
     {
@@ -2749,8 +2749,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "backend_core_auth_resolvesession",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "resolvesession()"
     },
     {
@@ -2793,8 +2793,8 @@
       "source_location": "L212",
       "_origin": "ast",
       "id": "backend_core_auth_verifyownerpin",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "verifyownerpin()"
     },
     {
@@ -3079,8 +3079,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "backend_core_doc_verification_canonical",
-      "community": 24,
-      "community_name": "Business Ops & Payroll",
+      "community": 64,
+      "community_name": "finance-reports.js",
       "norm_label": "canonical()"
     },
     {
@@ -3343,8 +3343,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "backend_core_documents_moduleof",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 48,
+      "community_name": "core/documents.js",
       "norm_label": "moduleof()"
     },
     {
@@ -3354,8 +3354,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "backend_core_documents_eventof",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 48,
+      "community_name": "core/documents.js",
       "norm_label": "eventof()"
     },
     {
@@ -3365,8 +3365,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_core_documents_create",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "create()"
     },
     {
@@ -3376,8 +3376,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "backend_core_documents_update",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 48,
+      "community_name": "core/documents.js",
       "norm_label": "update()"
     },
     {
@@ -3398,8 +3398,8 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "backend_core_documents_transition",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 48,
+      "community_name": "core/documents.js",
       "norm_label": "transition()"
     },
     {
@@ -3585,8 +3585,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_events",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "events.js"
     },
     {
@@ -3596,8 +3596,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_events_clients",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "clients"
     },
     {
@@ -3607,8 +3607,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_core_events_subscribe",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "subscribe()"
     },
     {
@@ -3618,8 +3618,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_core_events_unsubscribe",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "unsubscribe()"
     },
     {
@@ -3629,8 +3629,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "backend_core_events_publish",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "publish()"
     },
     {
@@ -3640,8 +3640,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "backend_core_events_stats",
-      "community": 16,
-      "community_name": "API Dispatcher & Documents",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "stats()"
     },
     {
@@ -3805,8 +3805,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_idempotency",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "idempotency.js"
     },
     {
@@ -3816,8 +3816,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_idempotency_store",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "{ store }"
     },
     {
@@ -3827,8 +3827,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_core_idempotency_uid_sha256_nowiso",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "{ uid, sha256, nowiso }"
     },
     {
@@ -3838,8 +3838,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_core_idempotency_lookup",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "lookup()"
     },
     {
@@ -3849,8 +3849,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "backend_core_idempotency_save",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "save()"
     },
     {
@@ -3860,8 +3860,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "backend_core_idempotency_withidempotency",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "withidempotency()"
     },
     {
@@ -3926,8 +3926,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_core_notifications_notify",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "notify()"
     },
     {
@@ -3959,8 +3959,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "backend_core_notifications_markread",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "markread()"
     },
     {
@@ -3981,8 +3981,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_numbering",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "numbering.js"
     },
     {
@@ -3992,8 +3992,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_numbering_store",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "{ store }"
     },
     {
@@ -4003,8 +4003,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_core_numbering_prefixes",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "prefixes"
     },
     {
@@ -4014,8 +4014,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_core_numbering_next",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "next()"
     },
     {
@@ -4025,8 +4025,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "backend_core_numbering_ensurecounter",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "ensurecounter()"
     },
     {
@@ -4069,8 +4069,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "backend_core_openapi_spec",
-      "community": 32,
-      "community_name": "Postgres API Dispatcher",
+      "community": 19,
+      "community_name": "Tax Compliance (eFaktur)",
       "norm_label": "spec()"
     },
     {
@@ -4091,8 +4091,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_password",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "password.js"
     },
     {
@@ -4102,8 +4102,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_core_password_crypto",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "crypto"
     },
     {
@@ -4113,8 +4113,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_core_password_scrypt",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "scrypt"
     },
     {
@@ -4124,8 +4124,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_core_password_legacy_scrypt",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "legacy_scrypt"
     },
     {
@@ -4135,8 +4135,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "backend_core_password_derive",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "derive()"
     },
     {
@@ -4146,8 +4146,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "backend_core_password_format",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "format()"
     },
     {
@@ -4157,8 +4157,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "backend_core_password_hashpassword",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "hashpassword()"
     },
     {
@@ -4168,8 +4168,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "backend_core_password_parsehash",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "parsehash()"
     },
     {
@@ -4179,8 +4179,8 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "backend_core_password_verifypassword",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "verifypassword()"
     },
     {
@@ -4190,8 +4190,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "backend_core_password_needsrehash",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "needsrehash()"
     },
     {
@@ -4938,8 +4938,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_util",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "util.js"
     },
     {
@@ -4949,8 +4949,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backend_core_util_crypto",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "crypto"
     },
     {
@@ -4960,8 +4960,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_core_util_uid",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "uid()"
     },
     {
@@ -4971,8 +4971,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_util_token",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "token()"
     },
     {
@@ -4982,8 +4982,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_core_util_sha256",
-      "community": 31,
-      "community_name": "Data Retention & Legal Holds",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "sha256()"
     },
     {
@@ -4993,8 +4993,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_core_util_nowiso",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "nowiso()"
     },
     {
@@ -5004,8 +5004,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_core_util_readbody",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "readbody()"
     },
     {
@@ -5037,8 +5037,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_core_util_clone",
-      "community": 226,
-      "community_name": "sprint6-governance.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": "clone()"
     },
     {
@@ -5378,8 +5378,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "migrations.js"
     },
     {
@@ -5389,8 +5389,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_fs",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "fs"
     },
     {
@@ -5400,8 +5400,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_path",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "path"
     },
     {
@@ -5411,8 +5411,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_crypto",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "crypto"
     },
     {
@@ -5422,8 +5422,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_getpool",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "{ getpool }"
     },
     {
@@ -5433,8 +5433,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_dir",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "dir"
     },
     {
@@ -5444,8 +5444,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_checksum",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "checksum()"
     },
     {
@@ -5466,8 +5466,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_ensuretable",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "ensuretable()"
     },
     {
@@ -5477,8 +5477,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_status",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "status()"
     },
     {
@@ -5488,8 +5488,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_up",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "up()"
     },
     {
@@ -5499,8 +5499,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "backend_infrastructure_database_migrations_validate",
-      "community": 29,
-      "community_name": "DB Migrations",
+      "community": 50,
+      "community_name": "pool.js",
       "norm_label": "validate()"
     },
     {
@@ -5785,8 +5785,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_accounting_config_resolvepostingprofile",
-      "community": 53,
-      "community_name": "posting.js",
+      "community": 57,
+      "community_name": "accounting-config.js",
       "norm_label": "resolvepostingprofile()"
     },
     {
@@ -5917,8 +5917,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_accounting_config_defaultlegalentityid",
-      "community": 64,
-      "community_name": "finance-reports.js",
+      "community": 24,
+      "community_name": "Business Ops & Payroll",
       "norm_label": "defaultlegalentityid()"
     },
     {
@@ -6192,8 +6192,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_assertpasswordpolicy",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 156,
+      "community_name": "postgres-concurrency.integration.test.js",
       "norm_label": "assertpasswordpolicy()"
     },
     {
@@ -6368,8 +6368,8 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_changeownpassword",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 156,
+      "community_name": "postgres-concurrency.integration.test.js",
       "norm_label": "changeownpassword()"
     },
     {
@@ -6500,8 +6500,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "bin-execution.js"
     },
     {
@@ -6511,8 +6511,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_apperror",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "{ apperror }"
     },
     {
@@ -6522,8 +6522,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_permissions",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "permissions"
     },
     {
@@ -6533,8 +6533,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_num",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "num()"
     },
     {
@@ -6544,8 +6544,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_resolvebin",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "resolvebin()"
     },
     {
@@ -6555,8 +6555,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_getlot",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "getlot()"
     },
     {
@@ -6566,8 +6566,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_putaway",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "putaway()"
     },
     {
@@ -6577,8 +6577,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_bincontents",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "bincontents()"
     },
     {
@@ -6588,8 +6588,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_locateproduct",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "locateproduct()"
     },
     {
@@ -6599,8 +6599,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_listbins",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "listbins()"
     },
     {
@@ -6764,8 +6764,8 @@
       "source_location": "L84",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_business_operations_reversepayment",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "reversepayment()"
     },
     {
@@ -6819,8 +6819,8 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_business_operations_payrollitems",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "payrollitems()"
     },
     {
@@ -7347,8 +7347,8 @@
       "source_location": "L156",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_capacity_recordactualhours",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "recordactualhours()"
     },
     {
@@ -7864,8 +7864,8 @@
       "source_location": "L343",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_finance_reports_postinventoryopeningbalance",
-      "community": 57,
-      "community_name": "accounting-config.js",
+      "community": 64,
+      "community_name": "finance-reports.js",
       "norm_label": "postinventoryopeningbalance()"
     },
     {
@@ -8656,8 +8656,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_iam_grants_grantsforuser",
-      "community": 156,
-      "community_name": "postgres-concurrency.integration.test.js",
+      "community": 35,
+      "community_name": "Permissions & Grants",
       "norm_label": "grantsforuser()"
     },
     {
@@ -8667,8 +8667,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_iam_grants_rolesforuser",
-      "community": 156,
-      "community_name": "postgres-concurrency.integration.test.js",
+      "community": 35,
+      "community_name": "Permissions & Grants",
       "norm_label": "rolesforuser()"
     },
     {
@@ -9151,8 +9151,8 @@
       "source_location": "L367",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_master_data_activatecostrevision",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "activatecostrevision()"
     },
     {
@@ -9162,8 +9162,8 @@
       "source_location": "L386",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_master_data_promoterevision",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "promoterevision()"
     },
     {
@@ -9371,8 +9371,8 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_master_governance_resolvedimensions",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 15,
+      "community_name": "Sales Commercial Controls",
       "norm_label": "resolvedimensions()"
     },
     {
@@ -9591,8 +9591,8 @@
       "source_location": "L67",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_master_wizards_abandon",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "abandon()"
     },
     {
@@ -9605,6 +9605,94 @@
       "community": 33,
       "community_name": "Master Governance & FX Rates",
       "norm_label": "finalize()"
+    },
+    {
+      "label": "notification-preferences.js",
+      "file_type": "code",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "backend_infrastructure_database_repositories_notification_preferences",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "notification-preferences.js"
+    },
+    {
+      "label": "{ AppError }",
+      "file_type": "code",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L7",
+      "_origin": "ast",
+      "id": "backend_infrastructure_database_repositories_notification_preferences_apperror",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "{ apperror }"
+    },
+    {
+      "label": "permissions",
+      "file_type": "code",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L8",
+      "_origin": "ast",
+      "id": "backend_infrastructure_database_repositories_notification_preferences_permissions",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "permissions"
+    },
+    {
+      "label": "runtime",
+      "file_type": "code",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "backend_infrastructure_database_repositories_notification_preferences_runtime",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "runtime"
+    },
+    {
+      "label": "CATEGORIES",
+      "file_type": "code",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L11",
+      "_origin": "ast",
+      "id": "backend_infrastructure_database_repositories_notification_preferences_categories",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "categories"
+    },
+    {
+      "label": "DEFAULT",
+      "file_type": "code",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L13",
+      "_origin": "ast",
+      "id": "backend_infrastructure_database_repositories_notification_preferences_default",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "default"
+    },
+    {
+      "label": "getPreferences()",
+      "file_type": "code",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L15",
+      "_origin": "ast",
+      "id": "backend_infrastructure_database_repositories_notification_preferences_getpreferences",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "getpreferences()"
+    },
+    {
+      "label": "setPreference()",
+      "file_type": "code",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L26",
+      "_origin": "ast",
+      "id": "backend_infrastructure_database_repositories_notification_preferences_setpreference",
+      "community": 18,
+      "community_name": "Procurement Controls",
+      "norm_label": "setpreference()"
     },
     {
       "label": "repositories/operations.js",
@@ -9745,8 +9833,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_notify",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 8,
+      "community_name": "Job Queue & Operations Repo",
       "norm_label": "notify()"
     },
     {
@@ -9764,7 +9852,7 @@
       "label": "listNotifications()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L36",
+      "source_location": "L40",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_listnotifications",
       "community": 8,
@@ -9775,7 +9863,7 @@
       "label": "unreadCount()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L44",
+      "source_location": "L48",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_unreadcount",
       "community": 8,
@@ -9786,7 +9874,7 @@
       "label": "markRead()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L51",
+      "source_location": "L55",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_markread",
       "community": 8,
@@ -9797,7 +9885,7 @@
       "label": "markAllRead()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L57",
+      "source_location": "L61",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_markallread",
       "community": 8,
@@ -9808,7 +9896,7 @@
       "label": "enqueue()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L63",
+      "source_location": "L67",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_enqueue",
       "community": 8,
@@ -9819,7 +9907,7 @@
       "label": "claim()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L75",
+      "source_location": "L79",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_claim",
       "community": 8,
@@ -9830,7 +9918,7 @@
       "label": "startRunning()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L83",
+      "source_location": "L87",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_startrunning",
       "community": 8,
@@ -9841,7 +9929,7 @@
       "label": "heartbeat()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L84",
+      "source_location": "L88",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_heartbeat",
       "community": 17,
@@ -9852,7 +9940,7 @@
       "label": "complete()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L85",
+      "source_location": "L89",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_complete",
       "community": 8,
@@ -9863,7 +9951,7 @@
       "label": "fail()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L86",
+      "source_location": "L90",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_fail",
       "community": 8,
@@ -9874,7 +9962,7 @@
       "label": "recoverExpired()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L89",
+      "source_location": "L93",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_recoverexpired",
       "community": 8,
@@ -9885,7 +9973,7 @@
       "label": "requestCancel()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L90",
+      "source_location": "L94",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_requestcancel",
       "community": 8,
@@ -9896,7 +9984,7 @@
       "label": "retry()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L91",
+      "source_location": "L95",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_retry",
       "community": 8,
@@ -9907,7 +9995,7 @@
       "label": "cancellationRequested()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L92",
+      "source_location": "L96",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_cancellationrequested",
       "community": 8,
@@ -9918,7 +10006,7 @@
       "label": "listJobs()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L93",
+      "source_location": "L97",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_listjobs",
       "community": 8,
@@ -9929,7 +10017,7 @@
       "label": "MASTER",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L95",
+      "source_location": "L99",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_master",
       "community": 8,
@@ -9940,7 +10028,7 @@
       "label": "MASTER_FIELDS",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L96",
+      "source_location": "L100",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_master_fields",
       "community": 8,
@@ -9951,7 +10039,7 @@
       "label": "MASTER_SENSITIVE",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L106",
+      "source_location": "L110",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_master_sensitive",
       "community": 8,
@@ -9962,7 +10050,7 @@
       "label": "redactMasterRow()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L107",
+      "source_location": "L111",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_redactmasterrow",
       "community": 8,
@@ -9973,7 +10061,7 @@
       "label": "snake()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L113",
+      "source_location": "L117",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_snake",
       "community": 33,
@@ -9984,7 +10072,7 @@
       "label": "createMaster()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L114",
+      "source_location": "L118",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_createmaster",
       "community": 33,
@@ -9995,7 +10083,7 @@
       "label": "updateMaster()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L118",
+      "source_location": "L122",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_updatemaster",
       "community": 33,
@@ -10006,7 +10094,7 @@
       "label": "listMaster()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L151",
+      "source_location": "L155",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_listmaster",
       "community": 8,
@@ -10017,11 +10105,11 @@
       "label": "listInventory()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L157",
+      "source_location": "L161",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_listinventory",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 8,
+      "community_name": "Job Queue & Operations Repo",
       "norm_label": "listinventory()"
     },
     {
@@ -11021,8 +11109,8 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_orderfulfilment",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 53,
+      "community_name": "posting.js",
       "norm_label": "orderfulfilment()"
     },
     {
@@ -11835,8 +11923,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "purchase-contracts.js"
     },
     {
@@ -11846,8 +11934,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_randomuuid",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -11857,8 +11945,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_apperror",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "{ apperror }"
     },
     {
@@ -11868,8 +11956,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_permissions",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "permissions"
     },
     {
@@ -11879,8 +11967,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_runtime",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "runtime"
     },
     {
@@ -11890,8 +11978,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_businessdate",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "businessdate"
     },
     {
@@ -11901,8 +11989,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_round",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "round()"
     },
     {
@@ -11912,8 +12000,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_requirereason",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "requirereason()"
     },
     {
@@ -11923,8 +12011,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_getcontract",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "getcontract()"
     },
     {
@@ -11956,8 +12044,8 @@
       "source_location": "L105",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_decidecontract",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "decidecontract()"
     },
     {
@@ -11967,8 +12055,8 @@
       "source_location": "L136",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_purchase_contracts_releasecontract",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "releasecontract()"
     },
     {
@@ -12352,8 +12440,8 @@
       "source_location": "L47",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_reporting_scopefor",
-      "community": 64,
-      "community_name": "finance-reports.js",
+      "community": 9,
+      "community_name": "Reporting & Cockpit",
       "norm_label": "scopefor()"
     },
     {
@@ -12374,8 +12462,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_reporting_cockpit",
-      "community": 64,
-      "community_name": "finance-reports.js",
+      "community": 9,
+      "community_name": "Reporting & Cockpit",
       "norm_label": "cockpit()"
     },
     {
@@ -12462,8 +12550,8 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_reporting_refresh",
-      "community": 17,
-      "community_name": "CSV Import & Job Worker",
+      "community": 9,
+      "community_name": "Reporting & Cockpit",
       "norm_label": "refresh()"
     },
     {
@@ -12814,8 +12902,8 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_outbox",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "outbox()"
     },
     {
@@ -12858,8 +12946,8 @@
       "source_location": "L207",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_getdocument",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "getdocument()"
     },
     {
@@ -12891,8 +12979,8 @@
       "source_location": "L210",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_convertdocument",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "convertdocument()"
     },
     {
@@ -12924,8 +13012,8 @@
       "source_location": "L232",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_pendingapprovals",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "pendingapprovals()"
     },
     {
@@ -12979,8 +13067,8 @@
       "source_location": "L269",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_transitiondocument",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "transitiondocument()"
     },
     {
@@ -13001,8 +13089,8 @@
       "source_location": "L338",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_withidempotency",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "withidempotency()"
     },
     {
@@ -13650,8 +13738,8 @@
       "source_location": "L167",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_stock_reservations_listreservations",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "listreservations()"
     },
     {
@@ -13661,8 +13749,8 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_stock_reservations_releasereservation",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "releasereservation()"
     },
     {
@@ -13760,8 +13848,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_tax_compliance_listranges",
-      "community": 64,
-      "community_name": "finance-reports.js",
+      "community": 19,
+      "community_name": "Tax Compliance (eFaktur)",
       "norm_label": "listranges()"
     },
     {
@@ -13903,8 +13991,8 @@
       "source_location": "L212",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_tax_compliance_listtransactioncodes",
-      "community": 64,
-      "community_name": "finance-reports.js",
+      "community": 19,
+      "community_name": "Tax Compliance (eFaktur)",
       "norm_label": "listtransactioncodes()"
     },
     {
@@ -13936,8 +14024,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_warehouse_ledger_listwarehouses",
-      "community": 252,
-      "community_name": "p0-runtime-authorization.test.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "listwarehouses()"
     },
     {
@@ -14332,8 +14420,8 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_work_items_listworkitems",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "listworkitems()"
     },
     {
@@ -14464,8 +14552,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "store.js"
     },
     {
@@ -14475,8 +14563,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_clone",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "{ clone }"
     },
     {
@@ -14508,8 +14596,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_collection_insert",
-      "community": 226,
-      "community_name": "sprint6-governance.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": ".insert()"
     },
     {
@@ -14519,8 +14607,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_collection_get",
-      "community": 226,
-      "community_name": "sprint6-governance.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": ".get()"
     },
     {
@@ -14530,8 +14618,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_collection_update",
-      "community": 226,
-      "community_name": "sprint6-governance.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": ".update()"
     },
     {
@@ -14552,8 +14640,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_collection_all",
-      "community": 226,
-      "community_name": "sprint6-governance.test.js",
+      "community": 23,
+      "community_name": "Core Auth & MFA",
       "norm_label": ".all()"
     },
     {
@@ -14596,8 +14684,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_store",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "store"
     },
     {
@@ -14607,8 +14695,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_store_constructor",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": ".constructor()"
     },
     {
@@ -14618,8 +14706,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_store_collection",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": ".collection()"
     },
     {
@@ -14629,8 +14717,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_store_reset",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": ".reset()"
     },
     {
@@ -15718,8 +15806,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_modules_seed",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "seed.js"
     },
     {
@@ -15729,8 +15817,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_modules_seed_store",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "{ store }"
     },
     {
@@ -15740,8 +15828,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_modules_seed_hashpassword",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "{ hashpassword }"
     },
     {
@@ -15751,8 +15839,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_modules_seed_numbering",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "numbering"
     },
     {
@@ -15762,8 +15850,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_modules_seed_approvallevelsfor",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "{ approvallevelsfor }"
     },
     {
@@ -15773,8 +15861,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_modules_seed_uid",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "{ uid }"
     },
     {
@@ -15784,8 +15872,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_modules_seed_seed",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "seed()"
     },
     {
@@ -15795,8 +15883,8 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "backend_modules_seed_hasdefaultcredentials",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "hasdefaultcredentials()"
     },
     {
@@ -15806,8 +15894,8 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "backend_modules_seed_verifyseedcredential",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "verifyseedcredential()"
     },
     {
@@ -16180,8 +16268,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "backend_routes_documents_dispatch",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "dispatch()"
     },
     {
@@ -16191,8 +16279,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "backend_routes_documents_loadforofficial",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "loadforofficial()"
     },
     {
@@ -16378,8 +16466,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_routes_finance_dispatch",
-      "community": 64,
-      "community_name": "finance-reports.js",
+      "community": 19,
+      "community_name": "Tax Compliance (eFaktur)",
       "norm_label": "dispatch()"
     },
     {
@@ -16719,8 +16807,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_routes_hr_dispatch",
-      "community": 79,
-      "community_name": "wave9-capacity-wip.test.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "dispatch()"
     },
     {
@@ -16862,8 +16950,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_routes_inventory_dispatch",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "dispatch()"
     },
     {
@@ -16873,8 +16961,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_masters",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "masters.js"
     },
     {
@@ -16884,8 +16972,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backend_routes_masters_readbody",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "{ readbody }"
     },
     {
@@ -16895,8 +16983,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_routes_masters_assertpermission",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "{ assertpermission }"
     },
     {
@@ -16906,8 +16994,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_routes_masters_operations",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "operations"
     },
     {
@@ -16917,8 +17005,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_masters_runtime",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "runtime"
     },
     {
@@ -16928,8 +17016,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_masters_masterdata",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "masterdata"
     },
     {
@@ -16939,8 +17027,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_masters_mastergovernance",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "mastergovernance"
     },
     {
@@ -16950,8 +17038,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_routes_masters_masterwizards",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "masterwizards"
     },
     {
@@ -16961,8 +17049,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_routes_masters_businesspartners",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "businesspartners"
     },
     {
@@ -16972,8 +17060,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_routes_masters_changerequests",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "changerequests"
     },
     {
@@ -16983,8 +17071,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_routes_masters_mastermodules",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "mastermodules"
     },
     {
@@ -16994,8 +17082,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_routes_masters_no_match",
-      "community": 90,
-      "community_name": "masters.js",
+      "community": 161,
+      "community_name": "P0.5 Control Matrix",
       "norm_label": "{ no_match }"
     },
     {
@@ -17131,10 +17219,21 @@
       "norm_label": "reporting"
     },
     {
-      "label": "{ NO_MATCH }",
+      "label": "notifPrefs",
       "file_type": "code",
       "source_file": "backend/routes/operations.js",
       "source_location": "L12",
+      "_origin": "ast",
+      "id": "backend_routes_operations_notifprefs",
+      "community": 63,
+      "community_name": "routes/operations.js",
+      "norm_label": "notifprefs"
+    },
+    {
+      "label": "{ NO_MATCH }",
+      "file_type": "code",
+      "source_file": "backend/routes/operations.js",
+      "source_location": "L13",
       "_origin": "ast",
       "id": "backend_routes_operations_no_match",
       "community": 63,
@@ -17145,7 +17244,7 @@
       "label": "dispatch()",
       "file_type": "code",
       "source_file": "backend/routes/operations.js",
-      "source_location": "L14",
+      "source_location": "L15",
       "_origin": "ast",
       "id": "backend_routes_operations_dispatch",
       "community": 8,
@@ -17423,8 +17522,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_production",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 141,
+      "community_name": "rotate-owner-password.js",
       "norm_label": "routes/production.js"
     },
     {
@@ -17434,8 +17533,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_routes_production_readbody",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 141,
+      "community_name": "rotate-owner-password.js",
       "norm_label": "{ readbody }"
     },
     {
@@ -17445,8 +17544,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_production_assertpermission",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 141,
+      "community_name": "rotate-owner-password.js",
       "norm_label": "{ assertpermission }"
     },
     {
@@ -17456,8 +17555,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_production_apperror",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 141,
+      "community_name": "rotate-owner-password.js",
       "norm_label": "{ apperror }"
     },
     {
@@ -17467,8 +17566,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_production_runtime",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 141,
+      "community_name": "rotate-owner-password.js",
       "norm_label": "runtime"
     },
     {
@@ -17478,8 +17577,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_routes_production_production",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 141,
+      "community_name": "rotate-owner-password.js",
       "norm_label": "production"
     },
     {
@@ -17489,8 +17588,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_routes_production_capacity",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 141,
+      "community_name": "rotate-owner-password.js",
       "norm_label": "capacity"
     },
     {
@@ -17500,8 +17599,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_routes_production_qualitycapa",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 141,
+      "community_name": "rotate-owner-password.js",
       "norm_label": "qualitycapa"
     },
     {
@@ -17511,8 +17610,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_routes_production_no_match",
-      "community": 14,
-      "community_name": "HR & Reporting Routes",
+      "community": 141,
+      "community_name": "rotate-owner-password.js",
       "norm_label": "{ no_match }"
     },
     {
@@ -17610,8 +17709,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_sales",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "routes/sales.js"
     },
     {
@@ -17621,8 +17720,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_sales_readbody",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "{ readbody }"
     },
     {
@@ -17632,8 +17731,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_sales_assertpermission",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "{ assertpermission }"
     },
     {
@@ -17643,8 +17742,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_sales_runtime",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "runtime"
     },
     {
@@ -17654,8 +17753,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_routes_sales_saleso2c",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "saleso2c"
     },
     {
@@ -17665,8 +17764,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_routes_sales_commercial",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "commercial"
     },
     {
@@ -17676,8 +17775,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_routes_sales_no_match",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "{ no_match }"
     },
     {
@@ -17720,8 +17819,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_workspace",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "routes/workspace.js"
     },
     {
@@ -17731,8 +17830,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backend_routes_workspace_assertpermission_haspermission",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "{ assertpermission, haspermission }"
     },
     {
@@ -17742,8 +17841,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_routes_workspace_readbody",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "{ readbody }"
     },
     {
@@ -17753,8 +17852,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_routes_workspace_runtime",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "runtime"
     },
     {
@@ -17764,8 +17863,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_workspace_accountingconfig",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "accountingconfig"
     },
     {
@@ -17775,8 +17874,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_workspace_workitems",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "workitems"
     },
     {
@@ -17786,8 +17885,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_workspace_no_match",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "{ no_match }"
     },
     {
@@ -17797,8 +17896,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_routes_workspace_dashboard_cards",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "dashboard_cards"
     },
     {
@@ -17808,8 +17907,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "backend_routes_workspace_entitlementsfor",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "entitlementsfor()"
     },
     {
@@ -17819,8 +17918,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "backend_routes_workspace_dashboard",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "dashboard()"
     },
     {
@@ -17830,8 +17929,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "backend_routes_workspace_cashonhand",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 151,
+      "community_name": "v0.36 Execution Control Workbenches",
       "norm_label": "cashonhand()"
     },
     {
@@ -17841,8 +17940,8 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "backend_routes_workspace_dispatch",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "dispatch()"
     },
     {
@@ -18336,8 +18435,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "backend_workers_queue_enqueue",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "enqueue()"
     },
     {
@@ -18347,8 +18446,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "backend_workers_queue_pump",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "pump()"
     },
     {
@@ -18358,8 +18457,8 @@
       "source_location": "L85",
       "_origin": "ast",
       "id": "backend_workers_queue_execute",
-      "community": 23,
-      "community_name": "Core Auth & MFA",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "execute()"
     },
     {
@@ -21176,8 +21275,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scripts_seed_postgres_uat_sprint4",
-      "community": 468,
-      "community_name": "seed-postgres-uat-sprint4.js",
+      "community": 114,
+      "community_name": "env.js",
       "norm_label": "seed-postgres-uat-sprint4.js"
     },
     {
@@ -21187,8 +21286,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "scripts_seed_postgres_uat_sprint4_env",
-      "community": 468,
-      "community_name": "seed-postgres-uat-sprint4.js",
+      "community": 114,
+      "community_name": "env.js",
       "norm_label": "env"
     },
     {
@@ -21198,8 +21297,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "scripts_seed_postgres_uat_sprint4_client",
-      "community": 468,
-      "community_name": "seed-postgres-uat-sprint4.js",
+      "community": 114,
+      "community_name": "env.js",
       "norm_label": "{client}"
     },
     {
@@ -21209,8 +21308,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "scripts_seed_postgres_uat_sprint4_operations",
-      "community": 468,
-      "community_name": "seed-postgres-uat-sprint4.js",
+      "community": 114,
+      "community_name": "env.js",
       "norm_label": "operations"
     },
     {
@@ -21363,8 +21462,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "scripts_seed_postgres_uat_approve",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 73,
+      "community_name": "seed-postgres-uat.js",
       "norm_label": "approve()"
     },
     {
@@ -23827,8 +23926,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_cutover_opening_test",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 468,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "cutover-opening.test.js"
     },
     {
@@ -23838,8 +23937,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_cutover_opening_test_test",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 468,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "test"
     },
     {
@@ -23849,8 +23948,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_cutover_opening_test_assert",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 468,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "assert"
     },
     {
@@ -23860,8 +23959,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_cutover_opening_test_client",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 468,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "{ client }"
     },
     {
@@ -23871,8 +23970,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_cutover_opening_test_randomuuid",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 468,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -23882,8 +23981,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "test_cutover_opening_test_runtime",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 468,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "runtime"
     },
     {
@@ -23893,8 +23992,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "test_cutover_opening_test_financereports",
-      "community": 335,
-      "community_name": "cutover-opening-inventory.js",
+      "community": 468,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "financereports"
     },
     {
@@ -24146,8 +24245,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_modular_architecture_test",
-      "community": 89,
-      "community_name": "routes/auth.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "modular-architecture.test.js"
     },
     {
@@ -24157,8 +24256,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "test_modular_architecture_test_test",
-      "community": 89,
-      "community_name": "routes/auth.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "test"
     },
     {
@@ -24168,8 +24267,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "test_modular_architecture_test_assert",
-      "community": 89,
-      "community_name": "routes/auth.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "assert"
     },
     {
@@ -24179,8 +24278,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_modular_architecture_test_fs",
-      "community": 89,
-      "community_name": "routes/auth.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "fs"
     },
     {
@@ -24190,8 +24289,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_modular_architecture_test_path",
-      "community": 89,
-      "community_name": "routes/auth.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "path"
     },
     {
@@ -24201,8 +24300,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_modular_architecture_test_root",
-      "community": 89,
-      "community_name": "routes/auth.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "root"
     },
     {
@@ -24212,8 +24311,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_modular_architecture_test_read",
-      "community": 89,
-      "community_name": "routes/auth.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "read()"
     },
     {
@@ -24223,8 +24322,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_modular_architecture_test_linecount",
-      "community": 89,
-      "community_name": "routes/auth.js",
+      "community": 14,
+      "community_name": "HR & Reporting Routes",
       "norm_label": "linecount()"
     },
     {
@@ -24432,8 +24531,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_raw",
-      "community": 24,
-      "community_name": "Business Ops & Payroll",
+      "community": 34,
+      "community_name": "UI Components & Dialogs",
       "norm_label": "raw()"
     },
     {
@@ -24553,8 +24652,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p0_dashboard_entitlement_test",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 375,
+      "community_name": "p0-dashboard-entitlement.test.js",
       "norm_label": "p0-dashboard-entitlement.test.js"
     },
     {
@@ -24564,8 +24663,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_p0_dashboard_entitlement_test_test",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 375,
+      "community_name": "p0-dashboard-entitlement.test.js",
       "norm_label": "test"
     },
     {
@@ -24575,8 +24674,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p0_dashboard_entitlement_test_assert",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 375,
+      "community_name": "p0-dashboard-entitlement.test.js",
       "norm_label": "assert"
     },
     {
@@ -24586,8 +24685,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p0_dashboard_entitlement_test_client",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 375,
+      "community_name": "p0-dashboard-entitlement.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -24597,8 +24696,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p0_dashboard_entitlement_test_randomuuid",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 375,
+      "community_name": "p0-dashboard-entitlement.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -24608,8 +24707,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p0_dashboard_entitlement_test_workspace",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 375,
+      "community_name": "p0-dashboard-entitlement.test.js",
       "norm_label": "workspace"
     },
     {
@@ -24619,8 +24718,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "test_p0_dashboard_entitlement_test_rollback",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 375,
+      "community_name": "p0-dashboard-entitlement.test.js",
       "norm_label": "rollback()"
     },
     {
@@ -24630,8 +24729,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "test_p0_dashboard_entitlement_test_owner",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 375,
+      "community_name": "p0-dashboard-entitlement.test.js",
       "norm_label": "owner()"
     },
     {
@@ -24641,8 +24740,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "test_p0_dashboard_entitlement_test_dashboard",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 375,
+      "community_name": "p0-dashboard-entitlement.test.js",
       "norm_label": "dashboard()"
     },
     {
@@ -24652,8 +24751,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test",
-      "community": 35,
-      "community_name": "Permissions & Grants",
+      "community": 467,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "p0-emergency-access.test.js"
     },
     {
@@ -24663,8 +24762,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_test",
-      "community": 35,
-      "community_name": "Permissions & Grants",
+      "community": 467,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "test"
     },
     {
@@ -24674,8 +24773,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_assert",
-      "community": 35,
-      "community_name": "Permissions & Grants",
+      "community": 467,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "assert"
     },
     {
@@ -24685,8 +24784,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_client",
-      "community": 35,
-      "community_name": "Permissions & Grants",
+      "community": 467,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -24696,8 +24795,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_randomuuid",
-      "community": 35,
-      "community_name": "Permissions & Grants",
+      "community": 467,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -24707,8 +24806,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_permissions",
-      "community": 35,
-      "community_name": "Permissions & Grants",
+      "community": 467,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "permissions"
     },
     {
@@ -24718,8 +24817,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_auth",
-      "community": 35,
-      "community_name": "Permissions & Grants",
+      "community": 467,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "auth"
     },
     {
@@ -24729,8 +24828,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_rollback",
-      "community": 35,
-      "community_name": "Permissions & Grants",
+      "community": 467,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "rollback()"
     },
     {
@@ -24971,8 +25070,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "p0-mrp-site-scope.test.js"
     },
     {
@@ -24982,8 +25081,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_test",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "test"
     },
     {
@@ -24993,8 +25092,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_assert",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "assert"
     },
     {
@@ -25004,8 +25103,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_client",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -25015,8 +25114,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_randomuuid",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -25026,8 +25125,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_runtime",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "runtime"
     },
     {
@@ -25037,8 +25136,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_posting",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "posting"
     },
     {
@@ -25048,8 +25147,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_production",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "production"
     },
     {
@@ -25059,8 +25158,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_rollback",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "rollback()"
     },
     {
@@ -25070,8 +25169,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_owner",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "owner()"
     },
     {
@@ -25081,8 +25180,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_product",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "product()"
     },
     {
@@ -25103,8 +25202,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_setmin",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "setmin()"
     },
     {
@@ -25114,8 +25213,8 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_openfor",
-      "community": 1,
-      "community_name": "Production & MRP Execution",
+      "community": 111,
+      "community_name": "sprint13-finance.test.js",
       "norm_label": "openfor()"
     },
     {
@@ -25224,8 +25323,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "p0-operations-gates.test.js"
     },
     {
@@ -25235,8 +25334,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_test",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "test"
     },
     {
@@ -25246,8 +25345,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_assert",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "assert"
     },
     {
@@ -25257,8 +25356,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_client",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "{ client }"
     },
     {
@@ -25268,8 +25367,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_randomuuid",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -25279,8 +25378,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_runtime",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "runtime"
     },
     {
@@ -25290,8 +25389,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_production",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "production"
     },
     {
@@ -25301,8 +25400,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_o2c",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "o2c"
     },
     {
@@ -25312,8 +25411,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_rollback",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "rollback()"
     },
     {
@@ -25323,8 +25422,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_owner",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "owner()"
     },
     {
@@ -25334,8 +25433,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_product",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 1,
+      "community_name": "Production & MRP Execution",
       "norm_label": "product()"
     },
     {
@@ -25345,8 +25444,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "p0-opname-scope.test.js"
     },
     {
@@ -25356,8 +25455,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_test",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "test"
     },
     {
@@ -25367,8 +25466,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_assert",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "assert"
     },
     {
@@ -25378,8 +25477,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_client",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "{ client }"
     },
     {
@@ -25389,8 +25488,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_randomuuid",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -25400,8 +25499,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_runtime",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "runtime"
     },
     {
@@ -25411,8 +25510,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_posting",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "posting"
     },
     {
@@ -25422,8 +25521,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_inv",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "inv"
     },
     {
@@ -25433,8 +25532,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_rollback",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "rollback()"
     },
     {
@@ -25444,8 +25543,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_owner",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "owner()"
     },
     {
@@ -25455,8 +25554,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_product",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "product()"
     },
     {
@@ -25477,8 +25576,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_clearrunning",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 195,
+      "community_name": "document-render.js",
       "norm_label": "clearrunning()"
     },
     {
@@ -26005,8 +26104,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "test_p0_three_way_match_test_evaluate",
-      "community": 18,
-      "community_name": "Procurement Controls",
+      "community": 76,
+      "community_name": "p0-three-way-match.test.js",
       "norm_label": "evaluate()"
     },
     {
@@ -26016,8 +26115,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p1_business_date_test",
-      "community": 201,
-      "community_name": "p0-mrp-site-scope.test.js",
+      "community": 39,
+      "community_name": "DB Transactions & RLS",
       "norm_label": "p1-business-date.test.js"
     },
     {
@@ -26027,8 +26126,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p1_business_date_test_test",
-      "community": 201,
-      "community_name": "p0-mrp-site-scope.test.js",
+      "community": 39,
+      "community_name": "DB Transactions & RLS",
       "norm_label": "test"
     },
     {
@@ -26038,8 +26137,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p1_business_date_test_assert",
-      "community": 201,
-      "community_name": "p0-mrp-site-scope.test.js",
+      "community": 39,
+      "community_name": "DB Transactions & RLS",
       "norm_label": "assert"
     },
     {
@@ -26049,8 +26148,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p1_business_date_test_client",
-      "community": 201,
-      "community_name": "p0-mrp-site-scope.test.js",
+      "community": 39,
+      "community_name": "DB Transactions & RLS",
       "norm_label": "{ client }"
     },
     {
@@ -26060,8 +26159,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p1_business_date_test_businessdate",
-      "community": 201,
-      "community_name": "p0-mrp-site-scope.test.js",
+      "community": 39,
+      "community_name": "DB Transactions & RLS",
       "norm_label": "businessdate"
     },
     {
@@ -26071,8 +26170,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "test_p1_business_date_test_withtransaction",
-      "community": 201,
-      "community_name": "p0-mrp-site-scope.test.js",
+      "community": 39,
+      "community_name": "DB Transactions & RLS",
       "norm_label": "{ withtransaction }"
     },
     {
@@ -26203,8 +26302,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "p1-dashboard-read-model.test.js"
     },
     {
@@ -26214,8 +26313,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_test",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "test"
     },
     {
@@ -26225,8 +26324,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_assert",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "assert"
     },
     {
@@ -26236,8 +26335,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_client",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -26247,8 +26346,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_randomuuid",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -26258,8 +26357,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_workspace",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "workspace"
     },
     {
@@ -26269,8 +26368,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_rollback",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "rollback()"
     },
     {
@@ -26280,8 +26379,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_owner",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "owner()"
     },
     {
@@ -26291,8 +26390,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_dashboard",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "dashboard()"
     },
     {
@@ -26302,8 +26401,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_doc",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "doc()"
     },
     {
@@ -26313,8 +26412,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_isolate",
-      "community": 108,
-      "community_name": "p1-dashboard-read-model.test.js",
+      "community": 201,
+      "community_name": "p0-mrp-site-scope.test.js",
       "norm_label": "isolate()"
     },
     {
@@ -27655,8 +27754,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "sprint11-inventory-lots.test.js"
     },
     {
@@ -27666,8 +27765,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_test",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "test"
     },
     {
@@ -27677,8 +27776,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_assert",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "assert"
     },
     {
@@ -27688,8 +27787,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_client",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -27699,8 +27798,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_randomuuid",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -27710,8 +27809,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_runtime",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "runtime"
     },
     {
@@ -27721,8 +27820,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_posting",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "posting"
     },
     {
@@ -27732,8 +27831,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_inv",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "inv"
     },
     {
@@ -27743,8 +27842,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_withrollback",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "withrollback()"
     },
     {
@@ -27754,8 +27853,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_owner",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "owner()"
     },
     {
@@ -27765,8 +27864,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_fixtures",
-      "community": 46,
-      "community_name": "repositories/inventory.js",
+      "community": 226,
+      "community_name": "sprint6-governance.test.js",
       "norm_label": "fixtures()"
     },
     {
@@ -27952,8 +28051,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_sprint13_finance_test",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "sprint13-finance.test.js"
     },
     {
@@ -27963,8 +28062,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_test",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "test"
     },
     {
@@ -27974,8 +28073,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_assert",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "assert"
     },
     {
@@ -27985,8 +28084,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_client",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "{ client }"
     },
     {
@@ -27996,8 +28095,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_randomuuid",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -28007,8 +28106,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_runtime",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "runtime"
     },
     {
@@ -28018,8 +28117,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_fa",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "fa"
     },
     {
@@ -28029,8 +28128,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_reports",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "reports"
     },
     {
@@ -28040,8 +28139,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_withrollback",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "withrollback()"
     },
     {
@@ -28051,8 +28150,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_owner",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "owner()"
     },
     {
@@ -28062,8 +28161,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "test_sprint13_finance_test_period",
-      "community": 111,
-      "community_name": "sprint13-finance.test.js",
+      "community": 62,
+      "community_name": "fixed-assets.js",
       "norm_label": "period"
     },
     {
@@ -28799,8 +28898,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 463,
+      "community_name": "sprint7-organization-employee.test.js",
       "norm_label": "sprint7-organization-employee.test.js"
     },
     {
@@ -28810,8 +28909,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_test",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 463,
+      "community_name": "sprint7-organization-employee.test.js",
       "norm_label": "test"
     },
     {
@@ -28821,8 +28920,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_assert",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 463,
+      "community_name": "sprint7-organization-employee.test.js",
       "norm_label": "assert"
     },
     {
@@ -28832,8 +28931,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_randomuuid",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 463,
+      "community_name": "sprint7-organization-employee.test.js",
       "norm_label": "{randomuuid}"
     },
     {
@@ -28843,8 +28942,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_haspermission",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 463,
+      "community_name": "sprint7-organization-employee.test.js",
       "norm_label": "{haspermission}"
     },
     {
@@ -28854,8 +28953,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_organization",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 463,
+      "community_name": "sprint7-organization-employee.test.js",
       "norm_label": "organization"
     },
     {
@@ -28865,8 +28964,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_masterdata",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 463,
+      "community_name": "sprint7-organization-employee.test.js",
       "norm_label": "masterdata"
     },
     {
@@ -28876,8 +28975,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_runtime",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 463,
+      "community_name": "sprint7-organization-employee.test.js",
       "norm_label": "runtime"
     },
     {
@@ -28887,8 +28986,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_auth",
-      "community": 20,
-      "community_name": "Master Data & Field Encryption",
+      "community": 463,
+      "community_name": "sprint7-organization-employee.test.js",
       "norm_label": "auth"
     },
     {
@@ -29173,8 +29272,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "sprint9-o2c.test.js"
     },
     {
@@ -29184,8 +29283,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_test",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "test"
     },
     {
@@ -29195,8 +29294,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_assert",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "assert"
     },
     {
@@ -29206,8 +29305,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_client",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "{ client }"
     },
     {
@@ -29217,8 +29316,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_randomuuid",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -29228,8 +29327,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_runtime",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "runtime"
     },
     {
@@ -29239,8 +29338,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_posting",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "posting"
     },
     {
@@ -29250,8 +29349,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_o2c",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "o2c"
     },
     {
@@ -29261,8 +29360,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_withrollback",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "withrollback()"
     },
     {
@@ -29272,8 +29371,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_owner",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 358,
+      "community_name": "bin-execution.js",
       "norm_label": "owner()"
     },
     {
@@ -30861,6 +30960,116 @@
       "norm_label": "base()"
     },
     {
+      "label": "wave21-notification-preferences.test.js",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "wave21-notification-preferences.test.js"
+    },
+    {
+      "label": "test",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L6",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test_test",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "test"
+    },
+    {
+      "label": "assert",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L7",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test_assert",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "assert"
+    },
+    {
+      "label": "{ Client }",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L8",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test_client",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "{ client }"
+    },
+    {
+      "label": "{ randomUUID }",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test_randomuuid",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "{ randomuuid }"
+    },
+    {
+      "label": "prefs",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test_prefs",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "prefs"
+    },
+    {
+      "label": "operations",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L11",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test_operations",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "operations"
+    },
+    {
+      "label": "rollback()",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L14",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test_rollback",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "rollback()"
+    },
+    {
+      "label": "owner()",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L20",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test_owner",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "owner()"
+    },
+    {
+      "label": "tag()",
+      "file_type": "code",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L25",
+      "_origin": "ast",
+      "id": "test_wave21_notification_preferences_test_tag",
+      "community": 31,
+      "community_name": "Data Retention & Legal Holds",
+      "norm_label": "tag()"
+    },
+    {
       "label": "wave3-business-partner-mdm.test.js",
       "file_type": "code",
       "source_file": "test/wave3-business-partner-mdm.test.js",
@@ -31868,8 +32077,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "test_wave9_capacity_wip_test_operation",
-      "community": 79,
-      "community_name": "wave9-capacity-wip.test.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "operation()"
     },
     {
@@ -51305,8 +51514,8 @@
       "source_location": "L1690",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_14_api_and_integration_standards",
-      "community": 356,
-      "community_name": "totp.js",
+      "community": 180,
+      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
       "norm_label": "14. api and integration standards"
     },
     {
@@ -51316,8 +51525,8 @@
       "source_location": "L1692",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_14_1_api",
-      "community": 356,
-      "community_name": "totp.js",
+      "community": 180,
+      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
       "norm_label": "14.1 api"
     },
     {
@@ -51327,8 +51536,8 @@
       "source_location": "L1704",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_14_2_domain_events",
-      "community": 356,
-      "community_name": "totp.js",
+      "community": 180,
+      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
       "norm_label": "14.2 domain events"
     },
     {
@@ -51338,8 +51547,8 @@
       "source_location": "L1723",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_14_3_file_and_document_management",
-      "community": 356,
-      "community_name": "totp.js",
+      "community": 180,
+      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
       "norm_label": "14.3 file and document management"
     },
     {
@@ -51470,8 +51679,8 @@
       "source_location": "L1854",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_16_infrastructure_and_release_architecture",
-      "community": 180,
-      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
+      "community": 469,
+      "community_name": "16. Infrastructure and Release Architecture",
       "norm_label": "16. infrastructure and release architecture"
     },
     {
@@ -51481,8 +51690,8 @@
       "source_location": "L1856",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_16_1_environment_strategy",
-      "community": 180,
-      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
+      "community": 469,
+      "community_name": "16. Infrastructure and Release Architecture",
       "norm_label": "16.1 environment strategy"
     },
     {
@@ -51492,8 +51701,8 @@
       "source_location": "L1876",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_16_2_release_pipeline",
-      "community": 180,
-      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
+      "community": 469,
+      "community_name": "16. Infrastructure and Release Architecture",
       "norm_label": "16.2 release pipeline"
     },
     {
@@ -51503,8 +51712,8 @@
       "source_location": "L1899",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_16_3_release_hygiene",
-      "community": 180,
-      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
+      "community": 469,
+      "community_name": "16. Infrastructure and Release Architecture",
       "norm_label": "16.3 release hygiene"
     },
     {
@@ -51514,8 +51723,8 @@
       "source_location": "L1913",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_16_4_production_topology",
-      "community": 180,
-      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
+      "community": 469,
+      "community_name": "16. Infrastructure and Release Architecture",
       "norm_label": "16.4 production topology"
     },
     {
@@ -53081,10 +53290,21 @@
       "norm_label": "077 \u2014 `unified_work_items`"
     },
     {
-      "label": "Urutan aman",
+      "label": "078 \u2014 `notification_preferences`",
       "file_type": "document",
       "source_file": "docs/operations/MIGRATION_NOTES.md",
       "source_location": "L103",
+      "_origin": "ast",
+      "id": "docs_operations_migration_notes_078_notification_preferences",
+      "community": 264,
+      "community_name": "Files Changed \u2014 Konsolidasi v0.36.0",
+      "norm_label": "078 \u2014 `notification_preferences`"
+    },
+    {
+      "label": "Urutan aman",
+      "file_type": "document",
+      "source_file": "docs/operations/MIGRATION_NOTES.md",
+      "source_location": "L111",
       "_origin": "ast",
       "id": "docs_operations_migration_notes_urutan_aman",
       "community": 264,
@@ -53794,6 +54014,94 @@
       "community": 127,
       "community_name": "routes/production.js",
       "norm_label": "7. gate manusia (tidak berubah)"
+    },
+    {
+      "label": "v0.43-notification-preferences.md",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "docs_operations_v0_43_notification_preferences",
+      "community": 465,
+      "community_name": "v0.43.0 \u2014 Notification Preferences",
+      "norm_label": "v0.43-notification-preferences.md"
+    },
+    {
+      "label": "v0.43.0 \u2014 Notification Preferences",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "docs_operations_v0_43_notification_preferences_v0_43_0_notification_preferences",
+      "community": 465,
+      "community_name": "v0.43.0 \u2014 Notification Preferences",
+      "norm_label": "v0.43.0 \u2014 notification preferences"
+    },
+    {
+      "label": "1. Tujuan",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L7",
+      "_origin": "ast",
+      "id": "docs_operations_v0_43_notification_preferences_1_tujuan",
+      "community": 465,
+      "community_name": "v0.43.0 \u2014 Notification Preferences",
+      "norm_label": "1. tujuan"
+    },
+    {
+      "label": "2. Model & keputusan",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L14",
+      "_origin": "ast",
+      "id": "docs_operations_v0_43_notification_preferences_2_model_keputusan",
+      "community": 465,
+      "community_name": "v0.43.0 \u2014 Notification Preferences",
+      "norm_label": "2. model & keputusan"
+    },
+    {
+      "label": "3. Endpoint & UI",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L31",
+      "_origin": "ast",
+      "id": "docs_operations_v0_43_notification_preferences_3_endpoint_ui",
+      "community": 465,
+      "community_name": "v0.43.0 \u2014 Notification Preferences",
+      "norm_label": "3. endpoint & ui"
+    },
+    {
+      "label": "4. Evidence",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L40",
+      "_origin": "ast",
+      "id": "docs_operations_v0_43_notification_preferences_4_evidence",
+      "community": 465,
+      "community_name": "v0.43.0 \u2014 Notification Preferences",
+      "norm_label": "4. evidence"
+    },
+    {
+      "label": "5. Catatan terkait (temuan outbox)",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L54",
+      "_origin": "ast",
+      "id": "docs_operations_v0_43_notification_preferences_5_catatan_terkait_temuan_outbox",
+      "community": 465,
+      "community_name": "v0.43.0 \u2014 Notification Preferences",
+      "norm_label": "5. catatan terkait (temuan outbox)"
+    },
+    {
+      "label": "6. Gate manusia (tidak berubah)",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L64",
+      "_origin": "ast",
+      "id": "docs_operations_v0_43_notification_preferences_6_gate_manusia_tidak_berubah",
+      "community": 465,
+      "community_name": "v0.43.0 \u2014 Notification Preferences",
+      "norm_label": "6. gate manusia (tidak berubah)"
     },
     {
       "label": "AUTH_ORIGIN_CSRF_SESSION_DESIGN.md",
@@ -54894,9 +55202,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 72,
+      "community": 356,
       "norm_label": "sprint 17 final audit & assurance evidence",
-      "community_name": "PostgreSQL Schema MAT ERP V2",
+      "community_name": "totp.js",
       "id": "docs_operations_sprint17_final_audit_evidence"
     },
     {
@@ -54908,9 +55216,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 161,
+      "community": 67,
       "norm_label": "v0.30 p0.5 transaction correctness closure",
-      "community_name": "P0.5 Control Matrix",
+      "community_name": "Security Model MAT ERP V2",
       "id": "docs_operations_v0_30_p0_5_closure_evidence"
     },
     {
@@ -54936,9 +55244,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 91,
+      "community": 356,
       "norm_label": "v0.32 unified business partner mdm",
-      "community_name": "Official Master Update Backlog",
+      "community_name": "totp.js",
       "id": "docs_operations_v0_32_business_partner_mdm"
     },
     {
@@ -54950,9 +55258,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 91,
+      "community": 67,
       "norm_label": "v0.33 organization & workforce",
-      "community_name": "Official Master Update Backlog",
+      "community_name": "Security Model MAT ERP V2",
       "id": "docs_operations_v0_33_organization_workforce"
     },
     {
@@ -54992,9 +55300,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 151,
+      "community": 91,
       "norm_label": "v0.36 execution control workbenches",
-      "community_name": "v0.36 Execution Control Workbenches",
+      "community_name": "Official Master Update Backlog",
       "id": "docs_operations_v0_36_execution_control_workbenches"
     },
     {
@@ -55048,9 +55356,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 67,
+      "community": 356,
       "norm_label": "endpoint authorization matrix",
-      "community_name": "Security Model MAT ERP V2",
+      "community_name": "totp.js",
       "id": "docs_security_endpoint_authorization_matrix"
     },
     {
@@ -55062,9 +55370,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 67,
+      "community": 356,
       "norm_label": "security model mat erp v2",
-      "community_name": "Security Model MAT ERP V2",
+      "community_name": "totp.js",
       "id": "docs_security_security_model"
     },
     {
@@ -55105,9 +55413,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 91,
+      "community": 356,
       "norm_label": "append-only audit",
-      "community_name": "Official Master Update Backlog",
+      "community_name": "totp.js",
       "id": "docs_database_schema_audit_append_only"
     },
     {
@@ -55119,9 +55427,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 161,
+      "community": 67,
       "norm_label": "idempotency + advisory lock",
-      "community_name": "P0.5 Control Matrix",
+      "community_name": "Security Model MAT ERP V2",
       "id": "docs_database_schema_idempotency_advisory_lock"
     },
     {
@@ -55291,9 +55599,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 161,
+      "community": 67,
       "norm_label": "p0.5 control matrix",
-      "community_name": "P0.5 Control Matrix",
+      "community_name": "Security Model MAT ERP V2",
       "id": "docs_operations_v0_30_p0_5_closure_evidence_control_matrix"
     },
     {
@@ -55305,9 +55613,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 161,
+      "community": 67,
       "norm_label": "migration 050 transaction correctness",
-      "community_name": "P0.5 Control Matrix",
+      "community_name": "Security Model MAT ERP V2",
       "id": "docs_operations_v0_30_p0_5_closure_evidence_migration_050"
     },
     {
@@ -55349,9 +55657,9 @@
       "author": null,
       "contributor": null,
       "rationale": "exact NPWP is unified across roles but name/contact matches enter a duplicate queue and are never auto-merged; merge is non-destructive with survivor, decision, reason, actor and lineage.",
-      "community": 91,
+      "community": 356,
       "norm_label": "business partner golden record",
-      "community_name": "Official Master Update Backlog",
+      "community_name": "totp.js",
       "id": "docs_operations_v0_32_business_partner_mdm_golden_record"
     },
     {
@@ -55363,9 +55671,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 91,
+      "community": 67,
       "norm_label": "versioned org hierarchy snapshot",
-      "community_name": "Official Master Update Backlog",
+      "community_name": "Security Model MAT ERP V2",
       "id": "docs_operations_v0_33_organization_workforce_versioned_hierarchy"
     },
     {
@@ -55378,9 +55686,9 @@
       "author": null,
       "contributor": null,
       "rationale": "delegation is scoped and capped at 90 days, anti-escalation and SoD-checked, with runtime grant resolution ensuring the delegator still holds the permission.",
-      "community": 91,
+      "community": 67,
       "norm_label": "scoped authority delegation",
-      "community_name": "Official Master Update Backlog",
+      "community_name": "Security Model MAT ERP V2",
       "id": "docs_operations_v0_33_organization_workforce_authority_delegation"
     },
     {
@@ -55462,9 +55770,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 151,
+      "community": 91,
       "norm_label": "inventory reservation workbench",
-      "community_name": "v0.36 Execution Control Workbenches",
+      "community_name": "Official Master Update Backlog",
       "id": "docs_operations_v0_36_execution_control_workbenches_reservation_workbench"
     },
     {
@@ -55476,9 +55784,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 151,
+      "community": 91,
       "norm_label": "purchase contract 360",
-      "community_name": "v0.36 Execution Control Workbenches",
+      "community_name": "Official Master Update Backlog",
       "id": "docs_operations_v0_36_execution_control_workbenches_purchase_contract_360"
     },
     {
@@ -55490,9 +55798,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 151,
+      "community": 91,
       "norm_label": "capacity & wip control tower",
-      "community_name": "v0.36 Execution Control Workbenches",
+      "community_name": "Official Master Update Backlog",
       "id": "docs_operations_v0_36_execution_control_workbenches_capacity_wip"
     },
     {
@@ -55504,9 +55812,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 151,
+      "community": 91,
       "norm_label": "capa & calibration workbench",
-      "community_name": "v0.36 Execution Control Workbenches",
+      "community_name": "Official Master Update Backlog",
       "id": "docs_operations_v0_36_execution_control_workbenches_capa_calibration"
     },
     {
@@ -55518,9 +55826,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 151,
+      "community": 91,
       "norm_label": "migration 064 execution rls/concurrency",
-      "community_name": "v0.36 Execution Control Workbenches",
+      "community_name": "Official Master Update Backlog",
       "id": "docs_operations_v0_36_execution_control_workbenches_migration_064"
     },
     {
@@ -55622,9 +55930,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 67,
+      "community": 356,
       "norm_label": "security:rotate-owner recovery",
-      "community_name": "Security Model MAT ERP V2",
+      "community_name": "totp.js",
       "id": "docs_security_security_model_rotate_owner"
     },
     {
@@ -55664,9 +55972,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 67,
+      "community": 356,
       "norm_label": "rbac + abac authorization",
-      "community_name": "Security Model MAT ERP V2",
+      "community_name": "totp.js",
       "id": "docs_security_security_model_rbac_abac"
     },
     {
@@ -55693,9 +56001,9 @@
       "author": null,
       "contributor": null,
       "rationale": "System Admin cannot post transactions, Security Admin cannot run finance, Auditor is read/export only \u2014 least-privilege separation across executive/platform/control/business/self-service.",
-      "community": 67,
+      "community": 356,
       "norm_label": "13 enterprise roles",
-      "community_name": "Security Model MAT ERP V2",
+      "community_name": "totp.js",
       "id": "docs_security_security_model_enterprise_roles"
     },
     {
@@ -55721,9 +56029,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 67,
+      "community": 356,
       "norm_label": "file security pipeline (quarantine to clean)",
-      "community_name": "Security Model MAT ERP V2",
+      "community_name": "totp.js",
       "id": "docs_security_security_model_file_pipeline"
     },
     {
@@ -64149,7 +64457,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L69",
+      "source_location": "L73",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_enqueue",
@@ -66535,6 +66843,18 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_core_errors",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
       "source_location": "L2",
       "weight": 1.0,
@@ -67138,6 +67458,18 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_master_wizards",
+      "target": "backend_core_errors_apperror",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
       "target": "backend_core_errors_apperror",
       "confidence_score": 1.0
     },
@@ -69345,7 +69677,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L21",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -70273,6 +70605,18 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_core_permissions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
       "source_location": "L2",
       "weight": 1.0,
@@ -70755,7 +71099,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L27",
+      "source_location": "L32",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -71091,7 +71435,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L110",
+      "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_redactmasterrow",
@@ -72182,6 +72526,30 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences_getpreferences",
+      "target": "backend_core_permissions_assertpermission"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L27",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences_setpreference",
+      "target": "backend_core_permissions_assertpermission"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/org-structure.js",
       "source_location": "L130",
       "weight": 1.0,
@@ -73059,7 +73427,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -74535,7 +74903,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L21",
+      "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -74703,7 +75071,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L35",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -85913,7 +86281,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L114",
+      "source_location": "L118",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_createmaster",
@@ -85925,7 +86293,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L120",
+      "source_location": "L124",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_updatemaster",
@@ -85973,7 +86341,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L114",
+      "source_location": "L118",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_createmaster",
@@ -85985,7 +86353,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L145",
+      "source_location": "L149",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_updatemaster",
@@ -86633,6 +87001,133 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_infrastructure_database_repositories_notification_preferences_apperror",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_infrastructure_database_repositories_notification_preferences_categories",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_infrastructure_database_repositories_notification_preferences_default",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "indirect_call",
+      "confidence": "INFERRED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L56",
+      "weight": 1.0,
+      "_origin": "ast",
+      "context": "collection",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_infrastructure_database_repositories_notification_preferences_getpreferences",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_infrastructure_database_repositories_notification_preferences_permissions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_infrastructure_database_repositories_notification_preferences_runtime",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "indirect_call",
+      "confidence": "INFERRED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L56",
+      "weight": 1.0,
+      "_origin": "ast",
+      "context": "collection",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_infrastructure_database_repositories_notification_preferences_setpreference",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences",
+      "target": "backend_infrastructure_database_repositories_runtime",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/routes/operations.js",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_routes_operations",
+      "target": "backend_infrastructure_database_repositories_notification_preferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "backend_infrastructure_database_repositories_notification_preferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "backend/infrastructure/database/repositories/notification-preferences.js",
+      "source_location": "L48",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_notification_preferences_setpreference",
+      "target": "backend_infrastructure_database_repositories_runtime_audit"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
       "source_location": "L15",
       "weight": 1.0,
@@ -86656,7 +87151,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86679,7 +87174,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86702,7 +87197,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86714,7 +87209,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86726,7 +87221,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86749,7 +87244,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86761,7 +87256,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86773,7 +87268,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86796,7 +87291,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86808,7 +87303,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86820,7 +87315,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86832,7 +87327,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86844,7 +87339,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86856,7 +87351,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86868,7 +87363,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L95",
+      "source_location": "L99",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations",
@@ -86879,7 +87374,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L96",
+      "source_location": "L100",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations",
@@ -86890,7 +87385,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L106",
+      "source_location": "L110",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations",
@@ -86923,7 +87418,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86946,7 +87441,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86969,7 +87464,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -86981,7 +87476,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L107",
+      "source_location": "L111",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations",
@@ -86992,7 +87487,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -87004,7 +87499,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -87016,7 +87511,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L113",
+      "source_location": "L117",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations",
@@ -87027,7 +87522,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -87039,7 +87534,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -87051,7 +87546,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L159",
+      "source_location": "L163",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -87279,6 +87774,18 @@
       "relation": "imports_from",
       "context": "import",
       "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "backend_infrastructure_database_repositories_operations",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
       "source_file": "test/wave3-business-partner-mdm.test.js",
       "source_location": "L9",
       "weight": 1.0,
@@ -87305,7 +87812,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L21",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -87316,7 +87823,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L64",
+      "source_location": "L68",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_enqueue",
@@ -87352,7 +87859,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L40",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_listnotifications",
@@ -87364,7 +87871,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L60",
+      "source_location": "L64",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_markallread",
@@ -87376,7 +87883,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L52",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_markread",
@@ -87388,7 +87895,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L48",
+      "source_location": "L52",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_unreadcount",
@@ -87401,7 +87908,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L40",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_listnotifications",
@@ -87413,7 +87920,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -87437,7 +87944,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L17",
+      "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -87449,7 +87956,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L19",
+      "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -87461,7 +87968,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L18",
+      "source_location": "L19",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -87473,7 +87980,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L72",
+      "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_enqueue",
@@ -87485,7 +87992,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L21",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -87497,7 +88004,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L81",
+      "source_location": "L85",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_claim",
@@ -87509,7 +88016,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L83",
+      "source_location": "L87",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_startrunning",
@@ -87533,7 +88040,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L85",
+      "source_location": "L89",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_complete",
@@ -87545,7 +88052,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L88",
+      "source_location": "L92",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_fail",
@@ -87557,7 +88064,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L90",
+      "source_location": "L94",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_requestcancel",
@@ -87569,7 +88076,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L22",
+      "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -87581,7 +88088,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L91",
+      "source_location": "L95",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_retry",
@@ -87593,7 +88100,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L22",
+      "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -87605,7 +88112,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L93",
+      "source_location": "L97",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_listjobs",
@@ -87617,7 +88124,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L20",
+      "source_location": "L25",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -87628,7 +88135,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L151",
+      "source_location": "L155",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_listmaster",
@@ -87640,7 +88147,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L114",
+      "source_location": "L118",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_createmaster",
@@ -87652,7 +88159,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L121",
+      "source_location": "L125",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_updatemaster",
@@ -87665,7 +88172,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L114",
+      "source_location": "L118",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_createmaster",
@@ -87689,7 +88196,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L146",
+      "source_location": "L150",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_updatemaster",
@@ -87713,7 +88220,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L151",
+      "source_location": "L155",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_listmaster",
@@ -87737,7 +88244,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "backend/infrastructure/database/repositories/operations.js",
-      "source_location": "L157",
+      "source_location": "L161",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_operations_listinventory",
@@ -95229,7 +95736,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L21",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -95289,7 +95796,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L21",
+      "source_location": "L26",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -98208,7 +98715,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L22",
+      "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -98532,7 +99039,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L28",
+      "source_location": "L33",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -102909,7 +103416,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L24",
+      "source_location": "L29",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -104163,7 +104670,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L36",
+      "source_location": "L41",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -104199,7 +104706,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L39",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -104223,7 +104730,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L39",
+      "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -104259,7 +104766,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/routes/operations.js",
-      "source_location": "L40",
+      "source_location": "L45",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations_dispatch",
@@ -106119,7 +106626,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/routes/operations.js",
-      "source_location": "L44",
+      "source_location": "L49",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -106142,11 +106649,22 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/routes/operations.js",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations",
       "target": "backend_routes_operations_no_match",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/routes/operations.js",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_routes_operations",
+      "target": "backend_routes_operations_notifprefs",
       "confidence_score": 1.0
     },
     {
@@ -106220,7 +106738,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "backend/routes/operations.js",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations",
@@ -106232,7 +106750,7 @@
       "context": "import",
       "confidence": "EXTRACTED",
       "source_file": "backend/routes/operations.js",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_routes_operations",
@@ -120708,6 +121226,105 @@
       "_origin": "ast",
       "source": "test_wave20_work_items_test",
       "target": "test_wave20_work_items_test_wi",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "test_wave21_notification_preferences_test_assert",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "test_wave21_notification_preferences_test_client",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "test_wave21_notification_preferences_test_operations",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "test_wave21_notification_preferences_test_owner",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "test_wave21_notification_preferences_test_prefs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "test_wave21_notification_preferences_test_randomuuid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "test_wave21_notification_preferences_test_rollback",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "test_wave21_notification_preferences_test_tag",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave21-notification-preferences.test.js",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave21_notification_preferences_test",
+      "target": "test_wave21_notification_preferences_test_test",
       "confidence_score": 1.0
     },
     {
@@ -141483,6 +142100,17 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_operations_migration_notes_migration_notes_063_074",
+      "target": "docs_operations_migration_notes_078_notification_preferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/MIGRATION_NOTES.md",
+      "source_location": "L111",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_migration_notes_migration_notes_063_074",
       "target": "docs_operations_migration_notes_urutan_aman",
       "confidence_score": 1.0
     },
@@ -142122,6 +142750,83 @@
       "_origin": "ast",
       "source": "docs_operations_v0_42_unified_work_item_engine_v0_42_0_unified_work_item_engine",
       "target": "docs_operations_v0_42_unified_work_item_engine_7_gate_manusia_tidak_berubah",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_43_notification_preferences",
+      "target": "docs_operations_v0_43_notification_preferences_v0_43_0_notification_preferences",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_43_notification_preferences_v0_43_0_notification_preferences",
+      "target": "docs_operations_v0_43_notification_preferences_1_tujuan",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_43_notification_preferences_v0_43_0_notification_preferences",
+      "target": "docs_operations_v0_43_notification_preferences_2_model_keputusan",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L31",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_43_notification_preferences_v0_43_0_notification_preferences",
+      "target": "docs_operations_v0_43_notification_preferences_3_endpoint_ui",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L40",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_43_notification_preferences_v0_43_0_notification_preferences",
+      "target": "docs_operations_v0_43_notification_preferences_4_evidence",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L54",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_43_notification_preferences_v0_43_0_notification_preferences",
+      "target": "docs_operations_v0_43_notification_preferences_5_catatan_terkait_temuan_outbox",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.43-notification-preferences.md",
+      "source_location": "L64",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_43_notification_preferences_v0_43_0_notification_preferences",
+      "target": "docs_operations_v0_43_notification_preferences_6_gate_manusia_tidak_berubah",
       "confidence_score": 1.0
     },
     {
@@ -145330,5 +146035,5 @@
       "source_file": "docs/sop/09-user-access-iam.md"
     }
   ],
-  "built_at_commit": "f1505c865dbddf403a80210ef8d7ba3eb81d3438"
+  "built_at_commit": "518236cd66beca8c7982086afc7ec9e84e9ecadd"
 }

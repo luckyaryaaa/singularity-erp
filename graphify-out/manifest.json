@@ -30,8 +30,8 @@
     "semantic_hash": "807da2e2467d1cf22cf11ee22f9498cc"
   },
   "backend/core/authorization-matrix.js": {
-    "mtime": 1785315526.1947794,
-    "ast_hash": "f1f3cfb672fadd035c31a41e47d7c13d",
+    "mtime": 1785319427.3589003,
+    "ast_hash": "ea9f1318bf4436fd91aef0a79bba61d7",
     "semantic_hash": ""
   },
   "backend/core/business-date.js": {
@@ -265,9 +265,9 @@
     "semantic_hash": "4f3843293c98d9e74c6d45c6f4be30ea"
   },
   "backend/infrastructure/database/repositories/operations.js": {
-    "mtime": 1784697730.0,
-    "ast_hash": "cabc08520b05216c6a33b7fc9486e071",
-    "semantic_hash": "cabc08520b05216c6a33b7fc9486e071"
+    "mtime": 1785319379.6064477,
+    "ast_hash": "de25511add440a30912252574f8b72fb",
+    "semantic_hash": ""
   },
   "backend/infrastructure/database/repositories/org-structure.js": {
     "mtime": 1784697597.0,
@@ -425,9 +425,9 @@
     "semantic_hash": "ffd6be99c6f0c4b3c60bed0b2d25eaa8"
   },
   "backend/routes/operations.js": {
-    "mtime": 1784682914.0,
-    "ast_hash": "1a823e6274918fef1abc84ab8864ccae",
-    "semantic_hash": "1a823e6274918fef1abc84ab8864ccae"
+    "mtime": 1785319416.0657816,
+    "ast_hash": "b4274ff52c7b54aec9641df9bc123a8d",
+    "semantic_hash": ""
   },
   "backend/routes/organization.js": {
     "mtime": 1784703351.0,
@@ -535,8 +535,8 @@
     "semantic_hash": "be05576f659c9efbc3910ed5eae0f24c"
   },
   "package.json": {
-    "mtime": 1785316843.0592937,
-    "ast_hash": "ef809103c6da9dacb9485b63bff6a2b4",
+    "mtime": 1785319900.248875,
+    "ast_hash": "fecad3a04cb8acb3c2d380c6c1573265",
     "semantic_hash": ""
   },
   "sbom.cdx.json": {
@@ -805,9 +805,9 @@
     "semantic_hash": "89eaa87517c8d65d8f1d91ca6deb3882"
   },
   "src/modules/workspace.js": {
-    "mtime": 1784689118.0,
-    "ast_hash": "838eedddb7f20b2eab0308c1417ee14c",
-    "semantic_hash": "838eedddb7f20b2eab0308c1417ee14c"
+    "mtime": 1785320060.317549,
+    "ast_hash": "199a9f87755158b4da51883cd73b28a8",
+    "semantic_hash": ""
   },
   "src/pages.js": {
     "mtime": 1784560546.0,
@@ -825,8 +825,8 @@
     "semantic_hash": "de34dd7b428267d8f9dd14bc238a838e"
   },
   "test/authorization-matrix.test.js": {
-    "mtime": 1785315547.1201253,
-    "ast_hash": "d48e9bfc2d0f59297082a12f0dea1bd1",
+    "mtime": 1785319430.3619084,
+    "ast_hash": "e892c8fe44610a58414dc66926ba9c3e",
     "semantic_hash": ""
   },
   "test/branch-isolation.test.js": {
@@ -1150,8 +1150,8 @@
     "semantic_hash": "21ceb6533048be51308e69e7b74a35cf"
   },
   "CHANGELOG.md": {
-    "mtime": 1785316861.8710332,
-    "ast_hash": "3a0d06802dd482ec56b5cf6cce212401",
+    "mtime": 1785319919.193753,
+    "ast_hash": "6d0c0b23651c9e36b6711f1d74af183a",
     "semantic_hash": ""
   },
   "CLAUDE.md": {
@@ -1160,13 +1160,13 @@
     "semantic_hash": "8a6643a420fdad6bfb583523bc6cef16"
   },
   "README.md": {
-    "mtime": 1785316875.3930717,
-    "ast_hash": "d2397c184719e08659c9020644ab8513",
+    "mtime": 1785319928.854815,
+    "ast_hash": "e1d94e3619215631ba7ef1ced1bfc24d",
     "semantic_hash": ""
   },
   "docs/api/endpoints.md": {
-    "mtime": 1785316907.1278808,
-    "ast_hash": "5a5f90e12889aa2113f7f99b0ff8ab9a",
+    "mtime": 1785319976.3743892,
+    "ast_hash": "4ed7dd8370cb7e4572eb1b88b1772ef8",
     "semantic_hash": ""
   },
   "docs/architecture/overview.md": {
@@ -1270,8 +1270,8 @@
     "semantic_hash": "44fc8a0d5b0c0f8e7ec9922845b9e4c2"
   },
   "docs/roadmap/master-update-backlog.md": {
-    "mtime": 1785316919.0520053,
-    "ast_hash": "9925a1817cf383387186a808625c8742",
+    "mtime": 1785319968.6572013,
+    "ast_hash": "f3e515016cafd08c8fee0365ad7bdc82",
     "semantic_hash": ""
   },
   "docs/security/PASSWORD_RESET_POLICY.md": {
@@ -1285,13 +1285,13 @@
     "semantic_hash": "5dba01101aca604997dae3bc2f77be5c"
   },
   "docs/security/endpoint-authorization-matrix.md": {
-    "mtime": 1785316571.709679,
-    "ast_hash": "72d07905622ca610009b00c622c44339",
+    "mtime": 1785319898.761869,
+    "ast_hash": "a9126e6540d6112a2b29129fef62eda4",
     "semantic_hash": ""
   },
   "docs/security/security-model.md": {
-    "mtime": 1785315554.1272008,
-    "ast_hash": "877d4f36eb370d0bb1e4a687108c9103",
+    "mtime": 1785319437.6280007,
+    "ast_hash": "9e1445d9713e2da00ad40702ef0a97f6",
     "semantic_hash": ""
   },
   "docs/self-test/checklist.md": {
@@ -2935,8 +2935,8 @@
     "semantic_hash": ""
   },
   "docs/operations/MIGRATION_NOTES.md": {
-    "mtime": 1785316881.3391054,
-    "ast_hash": "8e4e157e66fa62d078b062066c092aca",
+    "mtime": 1785319933.6998272,
+    "ast_hash": "9b7e11a268d4767d3b21ff0a8df268dd",
     "semantic_hash": ""
   },
   "docs/operations/RELEASE_NOTES.md": {
@@ -3127,6 +3127,31 @@
   "docs/operations/v0.42-unified-work-item-engine.md": {
     "mtime": 1785316945.9516122,
     "ast_hash": "8e5616058b2b095832732c12261a494b",
+    "semantic_hash": ""
+  },
+  "backend/infrastructure/database/repositories/notification-preferences.js": {
+    "mtime": 1785319360.072716,
+    "ast_hash": "ac2ac98822f2672bba8a0ad8f90180a6",
+    "semantic_hash": ""
+  },
+  "data/migrations/078_notification_preferences.down.sql": {
+    "mtime": 1785319339.8113406,
+    "ast_hash": "545b634bd6c2a1d52c9462326ceb6ed4",
+    "semantic_hash": ""
+  },
+  "data/migrations/078_notification_preferences.sql": {
+    "mtime": 1785319338.7643387,
+    "ast_hash": "d0840419ef20a56babbd40bb900cd0e8",
+    "semantic_hash": ""
+  },
+  "test/wave21-notification-preferences.test.js": {
+    "mtime": 1785319629.402459,
+    "ast_hash": "f5e20200a3dc43ac56b6ef998a5c8f84",
+    "semantic_hash": ""
+  },
+  "docs/operations/v0.43-notification-preferences.md": {
+    "mtime": 1785319996.4265368,
+    "ast_hash": "091c1a6ad2276edaa2c54497d62af0f3",
     "semantic_hash": ""
   }
 }
