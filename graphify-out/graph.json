@@ -2320,8 +2320,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "backend_api_tracklatency",
-      "community": 32,
-      "community_name": "Postgres API Dispatcher",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "tracklatency()"
     },
     {
@@ -2364,8 +2364,8 @@
       "source_location": "L172",
       "_origin": "ast",
       "id": "backend_api_docmodule",
-      "community": 48,
-      "community_name": "core/documents.js",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "docmodule()"
     },
     {
@@ -2408,8 +2408,8 @@
       "source_location": "L391",
       "_origin": "ast",
       "id": "backend_api_handlesse",
-      "community": 32,
-      "community_name": "Postgres API Dispatcher",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "handlesse()"
     },
     {
@@ -2419,8 +2419,8 @@
       "source_location": "L405",
       "_origin": "ast",
       "id": "backend_api_handle",
-      "community": 32,
-      "community_name": "Postgres API Dispatcher",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "handle()"
     },
     {
@@ -2441,8 +2441,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_audit",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 494,
+      "community_name": "audit.js",
       "norm_label": "audit.js"
     },
     {
@@ -2452,8 +2452,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_core_audit_store",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 494,
+      "community_name": "audit.js",
       "norm_label": "{ store }"
     },
     {
@@ -2463,8 +2463,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_audit_uid_nowiso",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 494,
+      "community_name": "audit.js",
       "norm_label": "{ uid, nowiso }"
     },
     {
@@ -2474,8 +2474,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_core_audit_actions",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 494,
+      "community_name": "audit.js",
       "norm_label": "actions"
     },
     {
@@ -2485,8 +2485,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_core_audit_reason_required",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 494,
+      "community_name": "audit.js",
       "norm_label": "reason_required"
     },
     {
@@ -2507,8 +2507,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "backend_core_audit_forentity",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 494,
+      "community_name": "audit.js",
       "norm_label": "forentity()"
     },
     {
@@ -2694,8 +2694,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "backend_core_auth_changeownpassword",
-      "community": 112,
-      "community_name": "wave12-execution-hardening.test.js",
+      "community": 95,
+      "community_name": "sprint14-hr.test.js",
       "norm_label": "changeownpassword()"
     },
     {
@@ -2749,8 +2749,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "backend_core_auth_resolvesession",
-      "community": 112,
-      "community_name": "wave12-execution-hardening.test.js",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "resolvesession()"
     },
     {
@@ -2936,8 +2936,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_data_scope",
-      "community": 9,
-      "community_name": "Reporting & Cockpit",
+      "community": 75,
+      "community_name": "branch-isolation.test.js",
       "norm_label": "data-scope.js"
     },
     {
@@ -2947,8 +2947,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_core_data_scope_apperror",
-      "community": 9,
-      "community_name": "Reporting & Cockpit",
+      "community": 75,
+      "community_name": "branch-isolation.test.js",
       "norm_label": "{ apperror }"
     },
     {
@@ -2958,8 +2958,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_data_scope_scopes",
-      "community": 9,
-      "community_name": "Reporting & Cockpit",
+      "community": 75,
+      "community_name": "branch-isolation.test.js",
       "norm_label": "scopes"
     },
     {
@@ -2969,8 +2969,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "backend_core_data_scope_hasglobalscope",
-      "community": 9,
-      "community_name": "Reporting & Cockpit",
+      "community": 64,
+      "community_name": "finance-reports.js",
       "norm_label": "hasglobalscope()"
     },
     {
@@ -2991,8 +2991,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "backend_core_data_scope_canaccessbranch",
-      "community": 9,
-      "community_name": "Reporting & Cockpit",
+      "community": 75,
+      "community_name": "branch-isolation.test.js",
       "norm_label": "canaccessbranch()"
     },
     {
@@ -3013,8 +3013,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "backend_core_data_scope_resolvebranch",
-      "community": 62,
-      "community_name": "fixed-assets.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "resolvebranch()"
     },
     {
@@ -3365,8 +3365,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_core_documents_create",
-      "community": 112,
-      "community_name": "wave12-execution-hardening.test.js",
+      "community": 48,
+      "community_name": "core/documents.js",
       "norm_label": "create()"
     },
     {
@@ -3585,8 +3585,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_events",
-      "community": 32,
-      "community_name": "Postgres API Dispatcher",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "events.js"
     },
     {
@@ -3596,8 +3596,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_events_clients",
-      "community": 32,
-      "community_name": "Postgres API Dispatcher",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "clients"
     },
     {
@@ -3607,8 +3607,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_core_events_subscribe",
-      "community": 32,
-      "community_name": "Postgres API Dispatcher",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "subscribe()"
     },
     {
@@ -3618,8 +3618,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_core_events_unsubscribe",
-      "community": 32,
-      "community_name": "Postgres API Dispatcher",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "unsubscribe()"
     },
     {
@@ -3629,8 +3629,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "backend_core_events_publish",
-      "community": 112,
-      "community_name": "wave12-execution-hardening.test.js",
+      "community": 48,
+      "community_name": "core/documents.js",
       "norm_label": "publish()"
     },
     {
@@ -3640,8 +3640,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "backend_core_events_stats",
-      "community": 25,
-      "community_name": "Seed, Boot & Approval Matrix",
+      "community": 16,
+      "community_name": "API Dispatcher & Documents",
       "norm_label": "stats()"
     },
     {
@@ -3805,8 +3805,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_idempotency",
-      "community": 25,
-      "community_name": "Seed, Boot & Approval Matrix",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "idempotency.js"
     },
     {
@@ -3816,8 +3816,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_idempotency_store",
-      "community": 25,
-      "community_name": "Seed, Boot & Approval Matrix",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "{ store }"
     },
     {
@@ -3827,8 +3827,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_core_idempotency_uid_sha256_nowiso",
-      "community": 25,
-      "community_name": "Seed, Boot & Approval Matrix",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "{ uid, sha256, nowiso }"
     },
     {
@@ -3838,8 +3838,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_core_idempotency_lookup",
-      "community": 25,
-      "community_name": "Seed, Boot & Approval Matrix",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "lookup()"
     },
     {
@@ -3849,8 +3849,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "backend_core_idempotency_save",
-      "community": 112,
-      "community_name": "wave12-execution-hardening.test.js",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "save()"
     },
     {
@@ -3860,8 +3860,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "backend_core_idempotency_withidempotency",
-      "community": 25,
-      "community_name": "Seed, Boot & Approval Matrix",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "withidempotency()"
     },
     {
@@ -3871,8 +3871,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_notifications",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 480,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "notifications.js"
     },
     {
@@ -3882,8 +3882,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_core_notifications_store",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 480,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "{ store }"
     },
     {
@@ -3893,8 +3893,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_notifications_uid_nowiso",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 480,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "{ uid, nowiso }"
     },
     {
@@ -3904,8 +3904,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_core_notifications_events",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 480,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "events"
     },
     {
@@ -3915,8 +3915,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_core_notifications_categories",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 480,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "categories"
     },
     {
@@ -3937,8 +3937,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "backend_core_notifications_listfor",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 480,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "listfor()"
     },
     {
@@ -3948,8 +3948,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "backend_core_notifications_unreadcount",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 480,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "unreadcount()"
     },
     {
@@ -3970,8 +3970,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "backend_core_notifications_markallread",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 480,
+      "community_name": "seed-postgres-uat-sprint4.js",
       "norm_label": "markallread()"
     },
     {
@@ -3981,8 +3981,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_numbering",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "numbering.js"
     },
     {
@@ -3992,8 +3992,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_numbering_store",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "{ store }"
     },
     {
@@ -4003,8 +4003,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_core_numbering_prefixes",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "prefixes"
     },
     {
@@ -4014,8 +4014,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_core_numbering_next",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "next()"
     },
     {
@@ -4025,8 +4025,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "backend_core_numbering_ensurecounter",
-      "community": 112,
-      "community_name": "wave12-execution-hardening.test.js",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "ensurecounter()"
     },
     {
@@ -4036,8 +4036,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_openapi",
-      "community": 49,
-      "community_name": "authorization-matrix.test.js",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "openapi.js"
     },
     {
@@ -4047,8 +4047,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_core_openapi_endpoints",
-      "community": 49,
-      "community_name": "authorization-matrix.test.js",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "endpoints"
     },
     {
@@ -4058,8 +4058,8 @@
       "source_location": "L139",
       "_origin": "ast",
       "id": "backend_core_openapi_events",
-      "community": 49,
-      "community_name": "authorization-matrix.test.js",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "events"
     },
     {
@@ -4069,8 +4069,8 @@
       "source_location": "L154",
       "_origin": "ast",
       "id": "backend_core_openapi_spec",
-      "community": 49,
-      "community_name": "authorization-matrix.test.js",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "spec()"
     },
     {
@@ -4080,8 +4080,8 @@
       "source_location": "L185",
       "_origin": "ast",
       "id": "backend_core_openapi_eventscatalog",
-      "community": 49,
-      "community_name": "authorization-matrix.test.js",
+      "community": 32,
+      "community_name": "Postgres API Dispatcher",
       "norm_label": "eventscatalog()"
     },
     {
@@ -4421,8 +4421,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_permissions",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "permissions.js"
     },
     {
@@ -4432,8 +4432,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_core_permissions_apperror",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "{ apperror }"
     },
     {
@@ -4454,8 +4454,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_core_permissions_actions",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "actions"
     },
     {
@@ -4465,8 +4465,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "backend_core_permissions_role_grants",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "role_grants"
     },
     {
@@ -4476,8 +4476,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "backend_core_permissions_expand",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "expand()"
     },
     {
@@ -4487,8 +4487,8 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "backend_core_permissions_grantsfor",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "grantsfor()"
     },
     {
@@ -4498,8 +4498,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "backend_core_permissions_effectivegrants",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "effectivegrants()"
     },
     {
@@ -4509,8 +4509,8 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "backend_core_permissions_scope_context_keys",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "scope_context_keys"
     },
     {
@@ -4520,8 +4520,8 @@
       "source_location": "L88",
       "_origin": "ast",
       "id": "backend_core_permissions_emergencyscopematches",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "emergencyscopematches()"
     },
     {
@@ -4542,8 +4542,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "backend_core_permissions_emergencygrantfor",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "emergencygrantfor()"
     },
     {
@@ -4553,8 +4553,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "backend_core_permissions_delegatedgrantfor",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "delegatedgrantfor()"
     },
     {
@@ -4575,8 +4575,8 @@
       "source_location": "L125",
       "_origin": "ast",
       "id": "backend_core_permissions_withinbranchscope",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "withinbranchscope()"
     },
     {
@@ -4586,8 +4586,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "backend_core_permissions_assertbranchscope",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "assertbranchscope()"
     },
     {
@@ -4630,8 +4630,8 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "backend_core_permissions_owner_pin_actions",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "owner_pin_actions"
     },
     {
@@ -4905,8 +4905,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "backend_core_totp_verify",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 486,
+      "community_name": "totp.js",
       "norm_label": "verify()"
     },
     {
@@ -4938,8 +4938,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_core_util",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "util.js"
     },
     {
@@ -4949,8 +4949,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backend_core_util_crypto",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "crypto"
     },
     {
@@ -4982,8 +4982,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_core_util_sha256",
-      "community": 112,
-      "community_name": "wave12-execution-hardening.test.js",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "sha256()"
     },
     {
@@ -5004,8 +5004,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_core_util_readbody",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 80,
+      "community_name": "sales-o2c.js",
       "norm_label": "readbody()"
     },
     {
@@ -5037,8 +5037,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "backend_core_util_clone",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": "clone()"
     },
     {
@@ -5774,8 +5774,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_persistence",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 485,
+      "community_name": "persistence.js",
       "norm_label": "persistence.js"
     },
     {
@@ -5785,8 +5785,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_infrastructure_database_persistence_fs",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 485,
+      "community_name": "persistence.js",
       "norm_label": "fs"
     },
     {
@@ -5796,8 +5796,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_infrastructure_database_persistence_path",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 485,
+      "community_name": "persistence.js",
       "norm_label": "path"
     },
     {
@@ -5807,8 +5807,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_infrastructure_database_persistence_state",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 485,
+      "community_name": "persistence.js",
       "norm_label": "state"
     },
     {
@@ -5818,8 +5818,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "backend_infrastructure_database_persistence_init",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 485,
+      "community_name": "persistence.js",
       "norm_label": "init()"
     },
     {
@@ -5829,8 +5829,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "backend_infrastructure_database_persistence_markdirty",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 485,
+      "community_name": "persistence.js",
       "norm_label": "markdirty()"
     },
     {
@@ -5840,8 +5840,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "backend_infrastructure_database_persistence_flush",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 485,
+      "community_name": "persistence.js",
       "norm_label": "flush()"
     },
     {
@@ -5851,8 +5851,8 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "backend_infrastructure_database_persistence_stats",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 485,
+      "community_name": "persistence.js",
       "norm_label": "stats()"
     },
     {
@@ -6115,8 +6115,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_accounting_config_defaultlegalentityid",
-      "community": 64,
-      "community_name": "finance-reports.js",
+      "community": 24,
+      "community_name": "Business Ops & Payroll",
       "norm_label": "defaultlegalentityid()"
     },
     {
@@ -6291,8 +6291,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_rawtoken",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "rawtoken()"
     },
     {
@@ -6302,8 +6302,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_digest",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "digest()"
     },
     {
@@ -6313,8 +6313,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_expireassignments",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "expireassignments()"
     },
     {
@@ -6357,8 +6357,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_createpending",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "createpending()"
     },
     {
@@ -6379,8 +6379,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_findpending",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "findpending()"
     },
     {
@@ -6401,8 +6401,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_publicuser",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "publicuser()"
     },
     {
@@ -6412,8 +6412,8 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_createsession",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "createsession()"
     },
     {
@@ -6423,8 +6423,8 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_delegatedgrantsforuser",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "delegatedgrantsforuser()"
     },
     {
@@ -6434,8 +6434,8 @@
       "source_location": "L63",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_permissionsforuser",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "permissionsforuser()"
     },
     {
@@ -6445,8 +6445,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_login",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "login()"
     },
     {
@@ -6456,8 +6456,8 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_resolvesession",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "resolvesession()"
     },
     {
@@ -6478,8 +6478,8 @@
       "source_location": "L146",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_rotatecsrf",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "rotatecsrf()"
     },
     {
@@ -6533,8 +6533,8 @@
       "source_location": "L165",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_verifymfaorrecovery",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "verifymfaorrecovery()"
     },
     {
@@ -6544,8 +6544,8 @@
       "source_location": "L177",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_completemfa",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "completemfa()"
     },
     {
@@ -6555,8 +6555,8 @@
       "source_location": "L203",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_changepasswordwithtoken",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "changepasswordwithtoken()"
     },
     {
@@ -6566,8 +6566,8 @@
       "source_location": "L204",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_changeownpassword",
-      "community": 95,
-      "community_name": "sprint14-hr.test.js",
+      "community": 0,
+      "community_name": "Authentication, Session & MFA",
       "norm_label": "changeownpassword()"
     },
     {
@@ -6577,8 +6577,8 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_auth_startmfasetup",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 486,
+      "community_name": "totp.js",
       "norm_label": "startmfasetup()"
     },
     {
@@ -6698,8 +6698,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "bin-execution.js"
     },
     {
@@ -6709,8 +6709,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_apperror",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "{ apperror }"
     },
     {
@@ -6720,8 +6720,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_permissions",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "permissions"
     },
     {
@@ -6731,8 +6731,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_num",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "num()"
     },
     {
@@ -6742,8 +6742,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_resolvebin",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "resolvebin()"
     },
     {
@@ -6753,8 +6753,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_getlot",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "getlot()"
     },
     {
@@ -6764,8 +6764,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_putaway",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "putaway()"
     },
     {
@@ -6775,8 +6775,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_bincontents",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "bincontents()"
     },
     {
@@ -6786,8 +6786,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_locateproduct",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "locateproduct()"
     },
     {
@@ -6797,8 +6797,8 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_bin_execution_listbins",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "listbins()"
     },
     {
@@ -7677,8 +7677,8 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_change_requests_assertcandecide",
-      "community": 3,
-      "community_name": "Change-Request Governance",
+      "community": 33,
+      "community_name": "Master Governance & FX Rates",
       "norm_label": "assertcandecide()"
     },
     {
@@ -7721,8 +7721,8 @@
       "source_location": "L131",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_change_requests_decide",
-      "community": 3,
-      "community_name": "Change-Request Governance",
+      "community": 33,
+      "community_name": "Master Governance & FX Rates",
       "norm_label": "decide()"
     },
     {
@@ -8711,8 +8711,8 @@
       "source_location": "L77",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_hr_operations_upsertholiday",
-      "community": 9,
-      "community_name": "Reporting & Cockpit",
+      "community": 64,
+      "community_name": "finance-reports.js",
       "norm_label": "upsertholiday()"
     },
     {
@@ -8755,8 +8755,8 @@
       "source_location": "L151",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_hr_operations_listcorrections",
-      "community": 9,
-      "community_name": "Reporting & Cockpit",
+      "community": 64,
+      "community_name": "finance-reports.js",
       "norm_label": "listcorrections()"
     },
     {
@@ -8832,8 +8832,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_iam_grants",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "iam-grants.js"
     },
     {
@@ -8843,8 +8843,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_iam_grants_role_grants_grantsfor",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "{ role_grants, grantsfor }"
     },
     {
@@ -8865,8 +8865,8 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_iam_grants_grantsforuser",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "grantsforuser()"
     },
     {
@@ -8876,8 +8876,8 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_iam_grants_rolesforuser",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "rolesforuser()"
     },
     {
@@ -10262,8 +10262,8 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_redactmasterrow",
-      "community": 8,
-      "community_name": "Job Queue & Operations Repo",
+      "community": 33,
+      "community_name": "Master Governance & FX Rates",
       "norm_label": "redactmasterrow()"
     },
     {
@@ -10306,8 +10306,8 @@
       "source_location": "L155",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_listmaster",
-      "community": 8,
-      "community_name": "Job Queue & Operations Repo",
+      "community": 33,
+      "community_name": "Master Governance & FX Rates",
       "norm_label": "listmaster()"
     },
     {
@@ -10317,8 +10317,8 @@
       "source_location": "L161",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_operations_listinventory",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 54,
+      "community_name": "quality-capa.js",
       "norm_label": "listinventory()"
     },
     {
@@ -10328,8 +10328,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "org-structure.js"
     },
     {
@@ -10339,8 +10339,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_randomuuid",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -10350,8 +10350,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_apperror",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "{ apperror }"
     },
     {
@@ -10361,8 +10361,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_permissions",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "permissions"
     },
     {
@@ -10372,8 +10372,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_camel",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "{ camel }"
     },
     {
@@ -10383,8 +10383,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_nodes",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "nodes"
     },
     {
@@ -10394,8 +10394,8 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_snake",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "snake()"
     },
     {
@@ -10405,8 +10405,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_specfor",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "specfor()"
     },
     {
@@ -10416,8 +10416,8 @@
       "source_location": "L78",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_list",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "list()"
     },
     {
@@ -10427,8 +10427,8 @@
       "source_location": "L95",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_assertlegalentityscope",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "assertlegalentityscope()"
     },
     {
@@ -10438,8 +10438,8 @@
       "source_location": "L108",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_assertparents",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "assertparents()"
     },
     {
@@ -10449,8 +10449,8 @@
       "source_location": "L129",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_create",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "create()"
     },
     {
@@ -10460,8 +10460,8 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_update",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "update()"
     },
     {
@@ -10471,8 +10471,8 @@
       "source_location": "L217",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_org_structure_assertnotreferenced",
-      "community": 30,
-      "community_name": "Org Structure",
+      "community": 102,
+      "community_name": "load-lan.js",
       "norm_label": "assertnotreferenced()"
     },
     {
@@ -11439,26 +11439,26 @@
       "source_location": "L120",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_balance",
-      "community": 53,
-      "community_name": "posting.js",
+      "community": 54,
+      "community_name": "quality-capa.js",
       "norm_label": "balance()"
     },
     {
       "label": "postInventory()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L128",
+      "source_location": "L132",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_postinventory",
-      "community": 53,
-      "community_name": "posting.js",
+      "community": 54,
+      "community_name": "quality-capa.js",
       "norm_label": "postinventory()"
     },
     {
       "label": "POSTING_TRIGGER",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L179",
+      "source_location": "L183",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_posting_trigger",
       "community": 53,
@@ -11469,7 +11469,7 @@
       "label": "PERPETUAL_TRIGGER",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L186",
+      "source_location": "L190",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_perpetual_trigger",
       "community": 53,
@@ -11480,7 +11480,7 @@
       "label": "movementValue()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L190",
+      "source_location": "L194",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_movementvalue",
       "community": 53,
@@ -11491,7 +11491,7 @@
       "label": "postPerpetualInventory()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L199",
+      "source_location": "L203",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_postperpetualinventory",
       "community": 53,
@@ -11502,7 +11502,7 @@
       "label": "ensureOpenPeriod()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L216",
+      "source_location": "L220",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_ensureopenperiod",
       "community": 53,
@@ -11513,7 +11513,7 @@
       "label": "accountMap()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L217",
+      "source_location": "L221",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_accountmap",
       "community": 53,
@@ -11524,7 +11524,7 @@
       "label": "loadAccounts()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L222",
+      "source_location": "L226",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_loadaccounts",
       "community": 53,
@@ -11535,7 +11535,7 @@
       "label": "dimensionPolicy()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L226",
+      "source_location": "L230",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_dimensionpolicy",
       "community": 53,
@@ -11546,7 +11546,7 @@
       "label": "dimensionEnforcement()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L233",
+      "source_location": "L237",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_dimensionenforcement",
       "community": 53,
@@ -11557,7 +11557,7 @@
       "label": "resolveLineDimensions()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L236",
+      "source_location": "L240",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_resolvelinedimensions",
       "community": 53,
@@ -11568,7 +11568,7 @@
       "label": "resolveDefaultDocumentDimensions()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L253",
+      "source_location": "L257",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_resolvedefaultdocumentdimensions",
       "community": 53,
@@ -11579,7 +11579,7 @@
       "label": "postFromProfile()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L303",
+      "source_location": "L307",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_postfromprofile",
       "community": 53,
@@ -11590,7 +11590,7 @@
       "label": "postAccounting()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L324",
+      "source_location": "L328",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_postaccounting",
       "community": 53,
@@ -11601,7 +11601,7 @@
       "label": "postManualJournal()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L325",
+      "source_location": "L329",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_postmanualjournal",
       "community": 53,
@@ -11612,7 +11612,7 @@
       "label": "postPayroll()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L326",
+      "source_location": "L330",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_postpayroll",
       "community": 53,
@@ -11623,11 +11623,11 @@
       "label": "postDocument()",
       "file_type": "code",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L329",
+      "source_location": "L333",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_posting_postdocument",
-      "community": 53,
-      "community_name": "posting.js",
+      "community": 78,
+      "community_name": "wave11-perpetual-inventory.test.js",
       "norm_label": "postdocument()"
     },
     {
@@ -12363,8 +12363,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "quality-capa.js"
     },
     {
@@ -12374,8 +12374,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_randomuuid",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -12385,8 +12385,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_apperror",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "{ apperror }"
     },
     {
@@ -12396,8 +12396,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_permissions",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "permissions"
     },
     {
@@ -12407,8 +12407,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_runtime",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "runtime"
     },
     {
@@ -12418,8 +12418,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_businessdate",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "businessdate"
     },
     {
@@ -12429,8 +12429,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_requiretext",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "requiretext()"
     },
     {
@@ -12440,8 +12440,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_flow",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "flow"
     },
     {
@@ -12462,8 +12462,8 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_getcase",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "getcase()"
     },
     {
@@ -12473,8 +12473,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_opencase",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "opencase()"
     },
     {
@@ -12484,8 +12484,8 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_advancecase",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "advancecase()"
     },
     {
@@ -12495,8 +12495,8 @@
       "source_location": "L166",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_listcases",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "listcases()"
     },
     {
@@ -12506,8 +12506,8 @@
       "source_location": "L202",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_registerinstrument",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "registerinstrument()"
     },
     {
@@ -12539,8 +12539,8 @@
       "source_location": "L311",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_quality_capa_listinstruments",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 346,
+      "community_name": "14. API and Integration Standards",
       "norm_label": "listinstruments()"
     },
     {
@@ -13188,8 +13188,8 @@
       "source_location": "L89",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_assertactioncontract",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 15,
+      "community_name": "Sales Commercial Controls",
       "norm_label": "assertactioncontract()"
     },
     {
@@ -13210,8 +13210,8 @@
       "source_location": "L100",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_actionresolved",
-      "community": 22,
-      "community_name": "Organization Workforce",
+      "community": 15,
+      "community_name": "Sales Commercial Controls",
       "norm_label": "actionresolved()"
     },
     {
@@ -13221,8 +13221,8 @@
       "source_location": "L109",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_assertcustomerpovalid",
-      "community": 346,
-      "community_name": "14. API and Integration Standards",
+      "community": 15,
+      "community_name": "Sales Commercial Controls",
       "norm_label": "assertcustomerpovalid()"
     },
     {
@@ -13320,8 +13320,8 @@
       "source_location": "L250",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_runtime_pendingapprovals",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "pendingapprovals()"
     },
     {
@@ -13705,8 +13705,8 @@
       "source_location": "L240",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_sales_commercial_invoicemilestone",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 15,
+      "community_name": "Sales Commercial Controls",
       "norm_label": "invoicemilestone()"
     },
     {
@@ -14222,8 +14222,8 @@
       "source_location": "L205",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_stock_reservations_releasereservation",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 5,
+      "community_name": "Stock Reservations",
       "norm_label": "releasereservation()"
     },
     {
@@ -14332,8 +14332,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_tax_compliance_allocaterange",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "allocaterange()"
     },
     {
@@ -14387,8 +14387,8 @@
       "source_location": "L126",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_tax_compliance_canceltaxinvoice",
-      "community": 54,
-      "community_name": "quality-capa.js",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "canceltaxinvoice()"
     },
     {
@@ -14585,8 +14585,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_warehouse_ledger",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 254,
+      "community_name": "wave17-financial-report-signoff.test.js",
       "norm_label": "warehouse-ledger.js"
     },
     {
@@ -14596,8 +14596,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_warehouse_ledger_permissions",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 254,
+      "community_name": "wave17-financial-report-signoff.test.js",
       "norm_label": "permissions"
     },
     {
@@ -15212,8 +15212,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_work_items_maprow",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "maprow()"
     },
     {
@@ -15256,8 +15256,8 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_work_items_createworkitem",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "createworkitem()"
     },
     {
@@ -15267,8 +15267,8 @@
       "source_location": "L99",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_work_items_listworkitems",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "listworkitems()"
     },
     {
@@ -15278,8 +15278,8 @@
       "source_location": "L134",
       "_origin": "ast",
       "id": "backend_infrastructure_database_repositories_work_items_mywork",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "mywork()"
     },
     {
@@ -15399,8 +15399,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "store.js"
     },
     {
@@ -15410,8 +15410,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_clone",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "{ clone }"
     },
     {
@@ -15443,8 +15443,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_collection_insert",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": ".insert()"
     },
     {
@@ -15454,8 +15454,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_collection_get",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": ".get()"
     },
     {
@@ -15465,8 +15465,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_collection_update",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": ".update()"
     },
     {
@@ -15487,8 +15487,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_collection_all",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 83,
+      "community_name": "p0-opname-scope.test.js",
       "norm_label": ".all()"
     },
     {
@@ -15531,8 +15531,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_store",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "store"
     },
     {
@@ -15542,8 +15542,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_store_constructor",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": ".constructor()"
     },
     {
@@ -15553,8 +15553,8 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_store_collection",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": ".collection()"
     },
     {
@@ -15564,8 +15564,8 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "backend_infrastructure_database_store_store_reset",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": ".reset()"
     },
     {
@@ -15630,8 +15630,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_infrastructure_database_transaction_setsessiontimezone",
-      "community": 358,
-      "community_name": "bin-execution.js",
+      "community": 39,
+      "community_name": "DB Transactions & RLS",
       "norm_label": "setsessiontimezone()"
     },
     {
@@ -16466,8 +16466,8 @@
       "source_location": "L50",
       "_origin": "ast",
       "id": "backend_infrastructure_files_private_storage_list",
-      "community": 41,
-      "community_name": "Private File Storage",
+      "community": 64,
+      "community_name": "finance-reports.js",
       "norm_label": "list()"
     },
     {
@@ -16653,8 +16653,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_modules_seed",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "seed.js"
     },
     {
@@ -16664,8 +16664,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_modules_seed_store",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "{ store }"
     },
     {
@@ -16675,8 +16675,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_modules_seed_hashpassword",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "{ hashpassword }"
     },
     {
@@ -16686,8 +16686,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_modules_seed_numbering",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "numbering"
     },
     {
@@ -16697,8 +16697,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_modules_seed_approvallevelsfor",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "{ approvallevelsfor }"
     },
     {
@@ -16708,8 +16708,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_modules_seed_uid",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "{ uid }"
     },
     {
@@ -16719,8 +16719,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_modules_seed_seed",
-      "community": 112,
-      "community_name": "wave12-execution-hardening.test.js",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "seed()"
     },
     {
@@ -16730,8 +16730,8 @@
       "source_location": "L252",
       "_origin": "ast",
       "id": "backend_modules_seed_hasdefaultcredentials",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "hasdefaultcredentials()"
     },
     {
@@ -16741,8 +16741,8 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "backend_modules_seed_verifyseedcredential",
-      "community": 10,
-      "community_name": "Sessions, Events & Notifications",
+      "community": 132,
+      "community_name": "app.test.js",
       "norm_label": "verifyseedcredential()"
     },
     {
@@ -16873,8 +16873,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_routes_auth_dispatchpublic",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 59,
+      "community_name": "ui-smoke-cdp.js",
       "norm_label": "dispatchpublic()"
     },
     {
@@ -17313,8 +17313,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_routes_finance_dispatch",
-      "community": 64,
-      "community_name": "finance-reports.js",
+      "community": 38,
+      "community_name": "Errors & Document Templates",
       "norm_label": "dispatch()"
     },
     {
@@ -17665,8 +17665,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_routes_hr_dispatch",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "dispatch()"
     },
     {
@@ -17676,8 +17676,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_inventory",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "routes/inventory.js"
     },
     {
@@ -17687,8 +17687,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backend_routes_inventory_readbody",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "{ readbody }"
     },
     {
@@ -17698,8 +17698,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_routes_inventory_assertpermission",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "{ assertpermission }"
     },
     {
@@ -17709,8 +17709,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_routes_inventory_operations",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "operations"
     },
     {
@@ -17720,8 +17720,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_inventory_inventorylots",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "inventorylots"
     },
     {
@@ -17731,8 +17731,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_inventory_binexecution",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "binexecution"
     },
     {
@@ -17742,8 +17742,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_inventory_warehousetasks",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "warehousetasks"
     },
     {
@@ -17753,8 +17753,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_routes_inventory_warehousemobility",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "warehousemobility"
     },
     {
@@ -17764,8 +17764,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_routes_inventory_warehouseledger",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "warehouseledger"
     },
     {
@@ -17775,8 +17775,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_routes_inventory_warehousecutover",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "warehousecutover"
     },
     {
@@ -17786,8 +17786,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_routes_inventory_stockreservations",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "stockreservations"
     },
     {
@@ -17797,8 +17797,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_routes_inventory_runtime",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "runtime"
     },
     {
@@ -17808,8 +17808,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "backend_routes_inventory_apperror",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "{ apperror }"
     },
     {
@@ -17819,8 +17819,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "backend_routes_inventory_no_match",
-      "community": 5,
-      "community_name": "Stock Reservations",
+      "community": 156,
+      "community_name": "routes/inventory.js",
       "norm_label": "{ no_match }"
     },
     {
@@ -17841,8 +17841,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_masters",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "masters.js"
     },
     {
@@ -17852,8 +17852,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backend_routes_masters_readbody",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "{ readbody }"
     },
     {
@@ -17863,8 +17863,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_routes_masters_assertpermission",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "{ assertpermission }"
     },
     {
@@ -17874,8 +17874,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_routes_masters_operations",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "operations"
     },
     {
@@ -17885,8 +17885,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_masters_runtime",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "runtime"
     },
     {
@@ -17896,8 +17896,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_masters_masterdata",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "masterdata"
     },
     {
@@ -17907,8 +17907,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_masters_mastergovernance",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "mastergovernance"
     },
     {
@@ -17918,8 +17918,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_routes_masters_masterwizards",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "masterwizards"
     },
     {
@@ -17929,8 +17929,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_routes_masters_businesspartners",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "businesspartners"
     },
     {
@@ -17940,8 +17940,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_routes_masters_changerequests",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "changerequests"
     },
     {
@@ -17951,8 +17951,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_routes_masters_mastermodules",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "mastermodules"
     },
     {
@@ -17962,8 +17962,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_routes_masters_no_match",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 252,
+      "community_name": "masters.js",
       "norm_label": "{ no_match }"
     },
     {
@@ -18303,8 +18303,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_procurement",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "routes/procurement.js"
     },
     {
@@ -18314,8 +18314,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backend_routes_procurement_readbody",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "{ readbody }"
     },
     {
@@ -18325,8 +18325,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_routes_procurement_apperror",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "{ apperror }"
     },
     {
@@ -18336,8 +18336,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_routes_procurement_assertpermission",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "{ assertpermission }"
     },
     {
@@ -18347,8 +18347,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_procurement_runtime",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "runtime"
     },
     {
@@ -18358,8 +18358,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_procurement_procurement",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "procurement"
     },
     {
@@ -18369,8 +18369,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_procurement_purchasecontracts",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "purchasecontracts"
     },
     {
@@ -18380,8 +18380,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_routes_procurement_no_match",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "{ no_match }"
     },
     {
@@ -18402,8 +18402,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_production",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 475,
+      "community_name": "routes/production.js",
       "norm_label": "routes/production.js"
     },
     {
@@ -18413,8 +18413,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_routes_production_readbody",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 475,
+      "community_name": "routes/production.js",
       "norm_label": "{ readbody }"
     },
     {
@@ -18424,8 +18424,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_production_assertpermission",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 475,
+      "community_name": "routes/production.js",
       "norm_label": "{ assertpermission }"
     },
     {
@@ -18435,8 +18435,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_production_apperror",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 475,
+      "community_name": "routes/production.js",
       "norm_label": "{ apperror }"
     },
     {
@@ -18446,8 +18446,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_production_runtime",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 475,
+      "community_name": "routes/production.js",
       "norm_label": "runtime"
     },
     {
@@ -18457,8 +18457,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_routes_production_production",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 475,
+      "community_name": "routes/production.js",
       "norm_label": "production"
     },
     {
@@ -18468,8 +18468,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_routes_production_capacity",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 475,
+      "community_name": "routes/production.js",
       "norm_label": "capacity"
     },
     {
@@ -18479,8 +18479,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_routes_production_qualitycapa",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 475,
+      "community_name": "routes/production.js",
       "norm_label": "qualitycapa"
     },
     {
@@ -18490,8 +18490,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_routes_production_no_match",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 475,
+      "community_name": "routes/production.js",
       "norm_label": "{ no_match }"
     },
     {
@@ -18589,8 +18589,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_sales",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 488,
+      "community_name": "routes/sales.js",
       "norm_label": "routes/sales.js"
     },
     {
@@ -18600,8 +18600,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_sales_readbody",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 488,
+      "community_name": "routes/sales.js",
       "norm_label": "{ readbody }"
     },
     {
@@ -18611,8 +18611,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_sales_assertpermission",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 488,
+      "community_name": "routes/sales.js",
       "norm_label": "{ assertpermission }"
     },
     {
@@ -18622,8 +18622,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_sales_runtime",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 488,
+      "community_name": "routes/sales.js",
       "norm_label": "runtime"
     },
     {
@@ -18633,8 +18633,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "backend_routes_sales_saleso2c",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 488,
+      "community_name": "routes/sales.js",
       "norm_label": "saleso2c"
     },
     {
@@ -18644,8 +18644,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "backend_routes_sales_commercial",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 488,
+      "community_name": "routes/sales.js",
       "norm_label": "commercial"
     },
     {
@@ -18655,8 +18655,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "backend_routes_sales_pricing",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 488,
+      "community_name": "routes/sales.js",
       "norm_label": "pricing"
     },
     {
@@ -18666,8 +18666,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "backend_routes_sales_no_match",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 488,
+      "community_name": "routes/sales.js",
       "norm_label": "{ no_match }"
     },
     {
@@ -18710,8 +18710,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "backend_routes_workspace",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "routes/workspace.js"
     },
     {
@@ -18721,8 +18721,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "backend_routes_workspace_assertpermission_haspermission",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "{ assertpermission, haspermission }"
     },
     {
@@ -18732,8 +18732,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "backend_routes_workspace_readbody",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "{ readbody }"
     },
     {
@@ -18743,8 +18743,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "backend_routes_workspace_runtime",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "runtime"
     },
     {
@@ -18754,8 +18754,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "backend_routes_workspace_accountingconfig",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "accountingconfig"
     },
     {
@@ -18765,8 +18765,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "backend_routes_workspace_workitems",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "workitems"
     },
     {
@@ -18776,8 +18776,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "backend_routes_workspace_no_match",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "{ no_match }"
     },
     {
@@ -18787,8 +18787,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "backend_routes_workspace_dashboard_cards",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "dashboard_cards"
     },
     {
@@ -18798,8 +18798,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "backend_routes_workspace_entitlementsfor",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "entitlementsfor()"
     },
     {
@@ -18809,8 +18809,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "backend_routes_workspace_dashboard",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "dashboard()"
     },
     {
@@ -18820,8 +18820,8 @@
       "source_location": "L132",
       "_origin": "ast",
       "id": "backend_routes_workspace_cashonhand",
-      "community": 57,
-      "community_name": "accounting-config.js",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "cashonhand()"
     },
     {
@@ -18831,8 +18831,8 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "backend_routes_workspace_dispatch",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "dispatch()"
     },
     {
@@ -18963,8 +18963,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "backend_selftest_run",
-      "community": 25,
-      "community_name": "Seed, Boot & Approval Matrix",
+      "community": 48,
+      "community_name": "core/documents.js",
       "norm_label": "run()"
     },
     {
@@ -19359,8 +19359,8 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "backend_workers_queue_stats",
-      "community": 25,
-      "community_name": "Seed, Boot & Approval Matrix",
+      "community": 10,
+      "community_name": "Sessions, Events & Notifications",
       "norm_label": "stats()"
     },
     {
@@ -20945,8 +20945,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scripts_load_lan",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "load-lan.js"
     },
     {
@@ -20956,8 +20956,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "scripts_load_lan_spawn",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "{spawn}"
     },
     {
@@ -20967,8 +20967,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "scripts_load_lan_path",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "path"
     },
     {
@@ -20978,8 +20978,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "scripts_load_lan_randomuuid",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "{randomuuid}"
     },
     {
@@ -20989,8 +20989,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "scripts_load_lan_client",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "{client}"
     },
     {
@@ -21000,8 +21000,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "scripts_load_lan_loginhttp",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "{loginhttp}"
     },
     {
@@ -21011,8 +21011,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "scripts_load_lan_root",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "root"
     },
     {
@@ -21022,8 +21022,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "scripts_load_lan_stages",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "stages"
     },
     {
@@ -21033,8 +21033,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "scripts_load_lan_target",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "target"
     },
     {
@@ -21044,8 +21044,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "scripts_load_lan_percentile",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "percentile()"
     },
     {
@@ -21055,8 +21055,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "scripts_load_lan_main",
-      "community": 102,
-      "community_name": "load-lan.js",
+      "community": 148,
+      "community_name": "mfa-login.js",
       "norm_label": "main()"
     },
     {
@@ -22364,8 +22364,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scripts_smoke_sprint7",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 497,
+      "community_name": "smoke-sprint7.js",
       "norm_label": "smoke-sprint7.js"
     },
     {
@@ -22375,8 +22375,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "scripts_smoke_sprint7_client",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 497,
+      "community_name": "smoke-sprint7.js",
       "norm_label": "{ client }"
     },
     {
@@ -22386,8 +22386,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "scripts_smoke_sprint7_auth",
-      "community": 0,
-      "community_name": "Authentication, Session & MFA",
+      "community": 497,
+      "community_name": "smoke-sprint7.js",
       "norm_label": "auth"
     },
     {
@@ -22694,8 +22694,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "ui-smoke-cdp.js"
     },
     {
@@ -22705,8 +22705,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_fs",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "fs"
     },
     {
@@ -22716,8 +22716,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_path",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "path"
     },
     {
@@ -22727,8 +22727,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_os",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "os"
     },
     {
@@ -22738,8 +22738,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_spawn",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "{ spawn }"
     },
     {
@@ -22749,8 +22749,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_client",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -22760,8 +22760,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_demo_password",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "{ demo_password }"
     },
     {
@@ -22771,8 +22771,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_currenttotp",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "{ currenttotp }"
     },
     {
@@ -22782,8 +22782,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_dbmode",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "dbmode"
     },
     {
@@ -22793,8 +22793,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_delay",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "delay()"
     },
     {
@@ -22804,8 +22804,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_root",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "root"
     },
     {
@@ -22815,8 +22815,8 @@
       "source_location": "L27",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_output",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "output"
     },
     {
@@ -22826,8 +22826,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_profile",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "profile"
     },
     {
@@ -22837,8 +22837,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_baselinefile",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "baselinefile"
     },
     {
@@ -22848,8 +22848,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_target",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "target()"
     },
     {
@@ -22859,8 +22859,8 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "scripts_ui_smoke_cdp_run",
-      "community": 59,
-      "community_name": "ui-smoke-cdp.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "run()"
     },
     {
@@ -24179,8 +24179,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "src_modules_organization",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "modules/organization.js"
     },
     {
@@ -24190,8 +24190,8 @@
       "source_location": "L35",
       "_origin": "ast",
       "id": "src_modules_organization_render",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "render()"
     },
     {
@@ -24443,8 +24443,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_api_test",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "api.test.js"
     },
     {
@@ -24454,8 +24454,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_api_test_test",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "test"
     },
     {
@@ -24465,8 +24465,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_api_test_assert",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "assert"
     },
     {
@@ -24476,8 +24476,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_api_test_server",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "server"
     },
     {
@@ -24487,8 +24487,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_api_test_ratelimit",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "ratelimit"
     },
     {
@@ -24498,8 +24498,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "test_api_test_call",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "call()"
     },
     {
@@ -24509,8 +24509,8 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "test_api_test_login",
-      "community": 132,
-      "community_name": "app.test.js",
+      "community": 25,
+      "community_name": "Seed, Boot & Approval Matrix",
       "norm_label": "login()"
     },
     {
@@ -25202,8 +25202,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_modular_architecture_test",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 491,
+      "community_name": "modular-architecture.test.js",
       "norm_label": "modular-architecture.test.js"
     },
     {
@@ -25213,8 +25213,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "test_modular_architecture_test_test",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 491,
+      "community_name": "modular-architecture.test.js",
       "norm_label": "test"
     },
     {
@@ -25224,8 +25224,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "test_modular_architecture_test_assert",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 491,
+      "community_name": "modular-architecture.test.js",
       "norm_label": "assert"
     },
     {
@@ -25235,8 +25235,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_modular_architecture_test_fs",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 491,
+      "community_name": "modular-architecture.test.js",
       "norm_label": "fs"
     },
     {
@@ -25246,8 +25246,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_modular_architecture_test_path",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 491,
+      "community_name": "modular-architecture.test.js",
       "norm_label": "path"
     },
     {
@@ -25257,8 +25257,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_modular_architecture_test_root",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 491,
+      "community_name": "modular-architecture.test.js",
       "norm_label": "root"
     },
     {
@@ -25268,8 +25268,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_modular_architecture_test_read",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 491,
+      "community_name": "modular-architecture.test.js",
       "norm_label": "read()"
     },
     {
@@ -25279,8 +25279,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_modular_architecture_test_linecount",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 491,
+      "community_name": "modular-architecture.test.js",
       "norm_label": "linecount()"
     },
     {
@@ -25378,8 +25378,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "p0-credit-exposure.test.js"
     },
     {
@@ -25389,8 +25389,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_test",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "test"
     },
     {
@@ -25400,8 +25400,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_assert",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "assert"
     },
     {
@@ -25411,8 +25411,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_client",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -25422,8 +25422,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_randomuuid",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -25433,8 +25433,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_runtime",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "runtime"
     },
     {
@@ -25444,8 +25444,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_procurement",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "procurement"
     },
     {
@@ -25455,8 +25455,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_rollback",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "rollback()"
     },
     {
@@ -25466,8 +25466,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_owner",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "owner()"
     },
     {
@@ -25477,8 +25477,8 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_customerwithlimit",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 289,
+      "community_name": "p0-credit-exposure.test.js",
       "norm_label": "customerwithlimit()"
     },
     {
@@ -25488,8 +25488,8 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "test_p0_credit_exposure_test_raw",
-      "community": 34,
-      "community_name": "UI Components & Dialogs",
+      "community": 24,
+      "community_name": "Business Ops & Payroll",
       "norm_label": "raw()"
     },
     {
@@ -25708,8 +25708,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test",
-      "community": 86,
-      "community_name": "wave4-organization-workforce.test.js",
+      "community": 492,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "p0-emergency-access.test.js"
     },
     {
@@ -25719,8 +25719,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_test",
-      "community": 86,
-      "community_name": "wave4-organization-workforce.test.js",
+      "community": 492,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "test"
     },
     {
@@ -25730,8 +25730,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_assert",
-      "community": 86,
-      "community_name": "wave4-organization-workforce.test.js",
+      "community": 492,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "assert"
     },
     {
@@ -25741,8 +25741,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_client",
-      "community": 86,
-      "community_name": "wave4-organization-workforce.test.js",
+      "community": 492,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -25752,8 +25752,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_randomuuid",
-      "community": 86,
-      "community_name": "wave4-organization-workforce.test.js",
+      "community": 492,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -25763,8 +25763,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_permissions",
-      "community": 86,
-      "community_name": "wave4-organization-workforce.test.js",
+      "community": 492,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "permissions"
     },
     {
@@ -25774,8 +25774,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_auth",
-      "community": 86,
-      "community_name": "wave4-organization-workforce.test.js",
+      "community": 492,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "auth"
     },
     {
@@ -25785,8 +25785,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "test_p0_emergency_access_test_rollback",
-      "community": 86,
-      "community_name": "wave4-organization-workforce.test.js",
+      "community": 492,
+      "community_name": "p0-emergency-access.test.js",
       "norm_label": "rollback()"
     },
     {
@@ -26148,8 +26148,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "test_p0_mrp_site_scope_test_stockin",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 54,
+      "community_name": "quality-capa.js",
       "norm_label": "stockin()"
     },
     {
@@ -26280,8 +26280,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "p0-operations-gates.test.js"
     },
     {
@@ -26291,8 +26291,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_test",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "test"
     },
     {
@@ -26302,8 +26302,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_assert",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "assert"
     },
     {
@@ -26313,8 +26313,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_client",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -26324,8 +26324,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_randomuuid",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -26335,8 +26335,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_runtime",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "runtime"
     },
     {
@@ -26346,8 +26346,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_production",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "production"
     },
     {
@@ -26357,8 +26357,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_o2c",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "o2c"
     },
     {
@@ -26368,8 +26368,8 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_rollback",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "rollback()"
     },
     {
@@ -26379,8 +26379,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_owner",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "owner()"
     },
     {
@@ -26390,8 +26390,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "test_p0_operations_gates_test_product",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 286,
+      "community_name": "p0-operations-gates.test.js",
       "norm_label": "product()"
     },
     {
@@ -26522,8 +26522,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "test_p0_opname_scope_test_stockin",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 54,
+      "community_name": "quality-capa.js",
       "norm_label": "stockin()"
     },
     {
@@ -27347,8 +27347,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "test_p1_dashboard_read_model_test_dashboard",
-      "community": 109,
-      "community_name": "sec-uat-001-password-reset.test.js",
+      "community": 147,
+      "community_name": "routes/workspace.js",
       "norm_label": "dashboard()"
     },
     {
@@ -28843,8 +28843,8 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "test_sprint11_inventory_lots_test_completeddoc",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 54,
+      "community_name": "quality-capa.js",
       "norm_label": "completeddoc()"
     },
     {
@@ -29008,8 +29008,8 @@
       "source_location": "L33",
       "_origin": "ast",
       "id": "test_sprint12_production_test_completedinventorydocument",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 54,
+      "community_name": "quality-capa.js",
       "norm_label": "completedinventorydocument()"
     },
     {
@@ -29866,8 +29866,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "sprint7-organization-employee.test.js"
     },
     {
@@ -29877,8 +29877,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_test",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "test"
     },
     {
@@ -29888,8 +29888,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_assert",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "assert"
     },
     {
@@ -29899,8 +29899,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_randomuuid",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "{randomuuid}"
     },
     {
@@ -29910,8 +29910,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_haspermission",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "{haspermission}"
     },
     {
@@ -29921,8 +29921,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_organization",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "organization"
     },
     {
@@ -29932,8 +29932,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_masterdata",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "masterdata"
     },
     {
@@ -29943,8 +29943,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_runtime",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "runtime"
     },
     {
@@ -29954,8 +29954,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_sprint7_organization_employee_test_auth",
-      "community": 33,
-      "community_name": "Master Governance & FX Rates",
+      "community": 30,
+      "community_name": "Org Structure",
       "norm_label": "auth"
     },
     {
@@ -30240,8 +30240,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "sprint9-o2c.test.js"
     },
     {
@@ -30251,8 +30251,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_test",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "test"
     },
     {
@@ -30262,8 +30262,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_assert",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "assert"
     },
     {
@@ -30273,8 +30273,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_client",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -30284,8 +30284,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_randomuuid",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -30295,8 +30295,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_runtime",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "runtime"
     },
     {
@@ -30306,8 +30306,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_posting",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "posting"
     },
     {
@@ -30317,8 +30317,8 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_o2c",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "o2c"
     },
     {
@@ -30328,8 +30328,8 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_withrollback",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "withrollback()"
     },
     {
@@ -30339,8 +30339,8 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "test_sprint9_o2c_test_owner",
-      "community": 80,
-      "community_name": "sales-o2c.js",
+      "community": 469,
+      "community_name": "sprint9-o2c.test.js",
       "norm_label": "owner()"
     },
     {
@@ -30394,8 +30394,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_uat_evidence_test",
-      "community": 93,
-      "community_name": "run-uat-technical.js",
+      "community": 493,
+      "community_name": "uat-evidence.test.js",
       "norm_label": "uat-evidence.test.js"
     },
     {
@@ -30405,8 +30405,8 @@
       "source_location": "L2",
       "_origin": "ast",
       "id": "test_uat_evidence_test_test",
-      "community": 93,
-      "community_name": "run-uat-technical.js",
+      "community": 493,
+      "community_name": "uat-evidence.test.js",
       "norm_label": "test"
     },
     {
@@ -30416,8 +30416,8 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "test_uat_evidence_test_assert",
-      "community": 93,
-      "community_name": "run-uat-technical.js",
+      "community": 493,
+      "community_name": "uat-evidence.test.js",
       "norm_label": "assert"
     },
     {
@@ -30427,8 +30427,8 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "test_uat_evidence_test_path",
-      "community": 93,
-      "community_name": "run-uat-technical.js",
+      "community": 493,
+      "community_name": "uat-evidence.test.js",
       "norm_label": "path"
     },
     {
@@ -30438,8 +30438,8 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "test_uat_evidence_test_uat",
-      "community": 93,
-      "community_name": "run-uat-technical.js",
+      "community": 493,
+      "community_name": "uat-evidence.test.js",
       "norm_label": "uat"
     },
     {
@@ -30449,8 +30449,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "test_uat_evidence_test_dbguard",
-      "community": 93,
-      "community_name": "run-uat-technical.js",
+      "community": 493,
+      "community_name": "uat-evidence.test.js",
       "norm_label": "dbguard"
     },
     {
@@ -30460,8 +30460,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_uat_evidence_test_completepack",
-      "community": 93,
-      "community_name": "run-uat-technical.js",
+      "community": 493,
+      "community_name": "uat-evidence.test.js",
       "norm_label": "completepack()"
     },
     {
@@ -30867,8 +30867,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "test_wave11_perpetual_inventory_test_postdoc",
-      "community": 15,
-      "community_name": "Sales Commercial Controls",
+      "community": 78,
+      "community_name": "wave11-perpetual-inventory.test.js",
       "norm_label": "postdoc()"
     },
     {
@@ -31824,8 +31824,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "test_wave20_work_items_test",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "wave20-work-items.test.js"
     },
     {
@@ -31835,8 +31835,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "test_wave20_work_items_test_test",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "test"
     },
     {
@@ -31846,8 +31846,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "test_wave20_work_items_test_assert",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "assert"
     },
     {
@@ -31857,8 +31857,8 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "test_wave20_work_items_test_client",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "{ client }"
     },
     {
@@ -31868,8 +31868,8 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "test_wave20_work_items_test_randomuuid",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "{ randomuuid }"
     },
     {
@@ -31879,8 +31879,8 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "test_wave20_work_items_test_wi",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "wi"
     },
     {
@@ -31890,8 +31890,8 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "test_wave20_work_items_test_rollback",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "rollback()"
     },
     {
@@ -31901,8 +31901,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "test_wave20_work_items_test_owner",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "owner()"
     },
     {
@@ -31912,8 +31912,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "test_wave20_work_items_test_seconduser",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "seconduser()"
     },
     {
@@ -31923,8 +31923,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "test_wave20_work_items_test_base",
-      "community": 83,
-      "community_name": "p0-opname-scope.test.js",
+      "community": 108,
+      "community_name": "p1-dashboard-read-model.test.js",
       "norm_label": "base()"
     },
     {
@@ -32564,6 +32564,116 @@
       "community": 23,
       "community_name": "Core Auth & MFA",
       "norm_label": "makebalance()"
+    },
+    {
+      "label": "wave26-warehouse-terminal-grain-flip.test.js",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "wave26-warehouse-terminal-grain-flip.test.js"
+    },
+    {
+      "label": "test",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L8",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test_test",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "test"
+    },
+    {
+      "label": "assert",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test_assert",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "assert"
+    },
+    {
+      "label": "{ Client }",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L10",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test_client",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "{ client }"
+    },
+    {
+      "label": "{ randomUUID }",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L11",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test_randomuuid",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "{ randomuuid }"
+    },
+    {
+      "label": "rollback()",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L14",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test_rollback",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "rollback()"
+    },
+    {
+      "label": "owner()",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L20",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test_owner",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "owner()"
+    },
+    {
+      "label": "tag()",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L25",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test_tag",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "tag()"
+    },
+    {
+      "label": "makeProduct()",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L26",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test_makeproduct",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "makeproduct()"
+    },
+    {
+      "label": "defaultWh()",
+      "file_type": "code",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L32",
+      "_origin": "ast",
+      "id": "test_wave26_warehouse_terminal_grain_flip_test_defaultwh",
+      "community": 471,
+      "community_name": "wave26-warehouse-terminal-grain-flip.test.js",
+      "norm_label": "defaultwh()"
     },
     {
       "label": "wave3-business-partner-mdm.test.js",
@@ -33573,8 +33683,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "test_wave9_capacity_wip_test_operation",
-      "community": 369,
-      "community_name": "1. Executive Summary",
+      "community": 18,
+      "community_name": "Procurement Controls",
       "norm_label": "operation()"
     },
     {
@@ -51965,8 +52075,8 @@
       "source_location": "L69",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_2_prinsip_arsitektur_final",
-      "community": 480,
-      "community_name": "seed-postgres-uat-sprint4.js",
+      "community": 180,
+      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
       "norm_label": "2. prinsip arsitektur final"
     },
     {
@@ -51976,8 +52086,8 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_2_1_pertahankan_modular_monolith",
-      "community": 480,
-      "community_name": "seed-postgres-uat-sprint4.js",
+      "community": 180,
+      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
       "norm_label": "2.1 pertahankan modular monolith"
     },
     {
@@ -51987,8 +52097,8 @@
       "source_location": "L106",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_2_2_shared_enterprise_engines",
-      "community": 480,
-      "community_name": "seed-postgres-uat-sprint4.js",
+      "community": 180,
+      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
       "norm_label": "2.2 shared enterprise engines"
     },
     {
@@ -51998,8 +52108,8 @@
       "source_location": "L135",
       "_origin": "ast",
       "id": "blue_print_project_final_update_upgrade_mat_erp_v2_2_3_satu_security_context",
-      "community": 480,
-      "community_name": "seed-postgres-uat-sprint4.js",
+      "community": 180,
+      "community_name": "FINAL_UPDATE_UPGRADE_MAT_ERP_V2.md",
       "norm_label": "2.3 satu security context"
     },
     {
@@ -55127,15 +55237,15 @@
       "norm_label": "migration_notes.md"
     },
     {
-      "label": "Migration Notes \u2014 063 \u2192 082",
+      "label": "Migration Notes \u2014 063 \u2192 084",
       "file_type": "document",
       "source_file": "docs/operations/MIGRATION_NOTES.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "docs_operations_migration_notes_migration_notes_063_082",
+      "id": "docs_operations_migration_notes_migration_notes_063_084",
       "community": 264,
       "community_name": "Files Changed \u2014 Konsolidasi v0.36.0",
-      "norm_label": "migration notes \u2014 063 \u2192 082"
+      "norm_label": "migration notes \u2014 063 \u2192 084"
     },
     {
       "label": "082 \u2014 `warehouse_stage2a_mobility`",
@@ -55331,6 +55441,28 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "docs_operations_migration_notes_urutan_aman",
+      "community": 264,
+      "community_name": "Files Changed \u2014 Konsolidasi v0.36.0",
+      "norm_label": "urutan aman"
+    },
+    {
+      "label": "084 \u2014 `warehouse_terminal_grain_flip`",
+      "file_type": "document",
+      "source_file": "docs/operations/MIGRATION_NOTES.md",
+      "source_location": "L164",
+      "_origin": "ast",
+      "id": "docs_operations_migration_notes_084_warehouse_terminal_grain_flip",
+      "community": 264,
+      "community_name": "Files Changed \u2014 Konsolidasi v0.36.0",
+      "norm_label": "084 \u2014 `warehouse_terminal_grain_flip`"
+    },
+    {
+      "label": "Urutan aman",
+      "file_type": "document",
+      "source_file": "docs/operations/MIGRATION_NOTES.md",
+      "source_location": "L172",
+      "_origin": "ast",
+      "id": "docs_operations_migration_notes_urutan_aman_172",
       "community": 264,
       "community_name": "Files Changed \u2014 Konsolidasi v0.36.0",
       "norm_label": "urutan aman"
@@ -56455,6 +56587,94 @@
       "id": "docs_operations_v0_48_canonical_warehouse_stage2b_read_switch_gate_manusia_tidak_berubah",
       "community": 81,
       "community_name": "selftest.js",
+      "norm_label": "gate manusia (tidak berubah)"
+    },
+    {
+      "label": "v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip",
+      "community": 489,
+      "community_name": "v0.49.0 \u2014 Canonical Warehouse Terminal Grain-Flip (ledger write grain)",
+      "norm_label": "v0.49-canonical-warehouse-terminal-grain-flip.md"
+    },
+    {
+      "label": "v0.49.0 \u2014 Canonical Warehouse Terminal Grain-Flip (ledger write grain)",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_v0_49_0_canonical_warehouse_terminal_grain_flip_ledger_write_grain",
+      "community": 489,
+      "community_name": "v0.49.0 \u2014 Canonical Warehouse Terminal Grain-Flip (ledger write grain)",
+      "norm_label": "v0.49.0 \u2014 canonical warehouse terminal grain-flip (ledger write grain)"
+    },
+    {
+      "label": "Konteks",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L7",
+      "_origin": "ast",
+      "id": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_konteks",
+      "community": 489,
+      "community_name": "v0.49.0 \u2014 Canonical Warehouse Terminal Grain-Flip (ledger write grain)",
+      "norm_label": "konteks"
+    },
+    {
+      "label": "Yang berubah",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L15",
+      "_origin": "ast",
+      "id": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_yang_berubah",
+      "community": 489,
+      "community_name": "v0.49.0 \u2014 Canonical Warehouse Terminal Grain-Flip (ledger write grain)",
+      "norm_label": "yang berubah"
+    },
+    {
+      "label": "Perbaikan sampingan",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L34",
+      "_origin": "ast",
+      "id": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_perbaikan_sampingan",
+      "community": 489,
+      "community_name": "v0.49.0 \u2014 Canonical Warehouse Terminal Grain-Flip (ledger write grain)",
+      "norm_label": "perbaikan sampingan"
+    },
+    {
+      "label": "Evidence",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L41",
+      "_origin": "ast",
+      "id": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_evidence",
+      "community": 489,
+      "community_name": "v0.49.0 \u2014 Canonical Warehouse Terminal Grain-Flip (ledger write grain)",
+      "norm_label": "evidence"
+    },
+    {
+      "label": "Follow-up terakhir (belum dikerjakan)",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L54",
+      "_origin": "ast",
+      "id": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_follow_up_terakhir_belum_dikerjakan",
+      "community": 489,
+      "community_name": "v0.49.0 \u2014 Canonical Warehouse Terminal Grain-Flip (ledger write grain)",
+      "norm_label": "follow-up terakhir (belum dikerjakan)"
+    },
+    {
+      "label": "Gate manusia (tidak berubah)",
+      "file_type": "document",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L63",
+      "_origin": "ast",
+      "id": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_gate_manusia_tidak_berubah",
+      "community": 489,
+      "community_name": "v0.49.0 \u2014 Canonical Warehouse Terminal Grain-Flip (ledger write grain)",
       "norm_label": "gate manusia (tidak berubah)"
     },
     {
@@ -80384,7 +80604,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L304",
+      "source_location": "L308",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
@@ -80744,7 +80964,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L216",
+      "source_location": "L220",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_ensureopenperiod",
@@ -94802,7 +95022,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L217",
+      "source_location": "L221",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting",
@@ -94824,7 +95044,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94836,7 +95056,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94848,7 +95068,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94860,7 +95080,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94872,7 +95092,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94884,7 +95104,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94896,7 +95116,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94908,7 +95128,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94920,7 +95140,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94932,7 +95152,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94944,7 +95164,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94956,7 +95176,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94968,7 +95188,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94980,7 +95200,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -94992,7 +95212,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L186",
+      "source_location": "L190",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting",
@@ -95003,7 +95223,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95015,7 +95235,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95027,7 +95247,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95039,7 +95259,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L179",
+      "source_location": "L183",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting",
@@ -95050,7 +95270,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95062,7 +95282,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95074,7 +95294,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95086,7 +95306,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95109,7 +95329,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95121,7 +95341,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95133,7 +95353,7 @@
       "relation": "indirect_call",
       "confidence": "INFERRED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L330",
+      "source_location": "L334",
       "weight": 1.0,
       "_origin": "ast",
       "context": "collection",
@@ -95542,7 +95762,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L324",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postaccounting",
@@ -95554,7 +95774,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L133",
+      "source_location": "L137",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postinventory",
@@ -95566,7 +95786,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L325",
+      "source_location": "L329",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
@@ -95578,7 +95798,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L326",
+      "source_location": "L330",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postpayroll",
@@ -95590,47 +95810,11 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L206",
+      "source_location": "L210",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postperpetualinventory",
       "target": "backend_infrastructure_database_repositories_posting_claimposting",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L324",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postaccounting",
-      "target": "backend_infrastructure_database_repositories_posting_finishposting",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L136",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postinventory",
-      "target": "backend_infrastructure_database_repositories_posting_finishposting",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L325",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
-      "target": "backend_infrastructure_database_repositories_posting_finishposting",
       "confidence_score": 1.0
     },
     {
@@ -95641,6 +95825,42 @@
       "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postaccounting",
+      "target": "backend_infrastructure_database_repositories_posting_finishposting",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L140",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postinventory",
+      "target": "backend_infrastructure_database_repositories_posting_finishposting",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L329",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
+      "target": "backend_infrastructure_database_repositories_posting_finishposting",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L332",
+      "weight": 1.0,
+      "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postpayroll",
       "target": "backend_infrastructure_database_repositories_posting_finishposting",
       "confidence_score": 1.0
@@ -95650,7 +95870,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L209",
+      "source_location": "L213",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postperpetualinventory",
@@ -95662,7 +95882,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L163",
+      "source_location": "L167",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postinventory",
@@ -95674,7 +95894,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L329",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postdocument",
@@ -95687,7 +95907,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L164",
+      "source_location": "L168",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postinventory",
@@ -95746,7 +95966,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L202",
+      "source_location": "L206",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postperpetualinventory",
@@ -95758,7 +95978,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L324",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postaccounting",
@@ -95770,7 +95990,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L207",
+      "source_location": "L211",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postperpetualinventory",
@@ -95782,166 +96002,10 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L208",
+      "source_location": "L212",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postperpetualinventory",
-      "target": "backend_infrastructure_database_repositories_posting_postfromprofile",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L324",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postaccounting",
-      "target": "backend_infrastructure_database_repositories_posting_ensureopenperiod",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L325",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
-      "target": "backend_infrastructure_database_repositories_posting_ensureopenperiod",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L326",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postpayroll",
-      "target": "backend_infrastructure_database_repositories_posting_ensureopenperiod",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L306",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
-      "target": "backend_infrastructure_database_repositories_posting_loadaccounts",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L325",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
-      "target": "backend_infrastructure_database_repositories_posting_loadaccounts",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L309",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
-      "target": "backend_infrastructure_database_repositories_posting_dimensionpolicy",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L325",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
-      "target": "backend_infrastructure_database_repositories_posting_dimensionpolicy",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L309",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
-      "target": "backend_infrastructure_database_repositories_posting_dimensionenforcement",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L325",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
-      "target": "backend_infrastructure_database_repositories_posting_dimensionenforcement",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L319",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
-      "target": "backend_infrastructure_database_repositories_posting_resolvelinedimensions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L325",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
-      "target": "backend_infrastructure_database_repositories_posting_resolvelinedimensions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L317",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
-      "target": "backend_infrastructure_database_repositories_posting_resolvedefaultdocumentdimensions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L324",
-      "weight": 1.0,
-      "_origin": "ast",
-      "source": "backend_infrastructure_database_repositories_posting_postaccounting",
       "target": "backend_infrastructure_database_repositories_posting_postfromprofile",
       "confidence_score": 1.0
     },
@@ -95953,6 +96017,162 @@
       "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postaccounting",
+      "target": "backend_infrastructure_database_repositories_posting_ensureopenperiod",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L329",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
+      "target": "backend_infrastructure_database_repositories_posting_ensureopenperiod",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L330",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postpayroll",
+      "target": "backend_infrastructure_database_repositories_posting_ensureopenperiod",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L310",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
+      "target": "backend_infrastructure_database_repositories_posting_loadaccounts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L329",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
+      "target": "backend_infrastructure_database_repositories_posting_loadaccounts",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L313",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
+      "target": "backend_infrastructure_database_repositories_posting_dimensionpolicy",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L329",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
+      "target": "backend_infrastructure_database_repositories_posting_dimensionpolicy",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L313",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
+      "target": "backend_infrastructure_database_repositories_posting_dimensionenforcement",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L329",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
+      "target": "backend_infrastructure_database_repositories_posting_dimensionenforcement",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L323",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
+      "target": "backend_infrastructure_database_repositories_posting_resolvelinedimensions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L329",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postmanualjournal",
+      "target": "backend_infrastructure_database_repositories_posting_resolvelinedimensions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L321",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postfromprofile",
+      "target": "backend_infrastructure_database_repositories_posting_resolvedefaultdocumentdimensions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L328",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "backend_infrastructure_database_repositories_posting_postaccounting",
+      "target": "backend_infrastructure_database_repositories_posting_postfromprofile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "backend/infrastructure/database/repositories/posting.js",
+      "source_location": "L332",
+      "weight": 1.0,
+      "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postpayroll",
       "target": "backend_infrastructure_database_repositories_posting_postfromprofile",
       "confidence_score": 1.0
@@ -95962,7 +96182,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L324",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postaccounting",
@@ -95974,7 +96194,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L324",
+      "source_location": "L328",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postaccounting",
@@ -95986,7 +96206,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "backend/infrastructure/database/repositories/posting.js",
-      "source_location": "L329",
+      "source_location": "L333",
       "weight": 1.0,
       "_origin": "ast",
       "source": "backend_infrastructure_database_repositories_posting_postdocument",
@@ -127202,6 +127422,117 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_assert",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L10",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_client",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L32",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_defaultwh",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_makeproduct",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L20",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_owner",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_randomuuid",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_rollback",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L25",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_tag",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_test",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "test/wave26-warehouse-terminal-grain-flip.test.js",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "test_wave26_warehouse_terminal_grain_flip_test_makeproduct",
+      "target": "test_wave26_warehouse_terminal_grain_flip_test_tag",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "test/wave3-business-partner-mdm.test.js",
       "source_location": "L4",
       "weight": 1.0,
@@ -148291,7 +148622,7 @@
       "weight": 1.0,
       "_origin": "ast",
       "source": "docs_operations_migration_notes",
-      "target": "docs_operations_migration_notes_migration_notes_063_082",
+      "target": "docs_operations_migration_notes_migration_notes_063_084",
       "confidence_score": 1.0
     },
     {
@@ -148312,7 +148643,7 @@
       "source_location": "L30",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_063_064_security_recovery_dan_execution_hardening",
       "confidence_score": 1.0
     },
@@ -148323,7 +148654,7 @@
       "source_location": "L35",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_065_066_field_encryption_dan_retention",
       "confidence_score": 1.0
     },
@@ -148334,7 +148665,7 @@
       "source_location": "L42",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_067_069_finance_control_depth",
       "confidence_score": 1.0
     },
@@ -148345,7 +148676,7 @@
       "source_location": "L47",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_070_security_data_protection_tranche2",
       "confidence_score": 1.0
     },
@@ -148356,7 +148687,7 @@
       "source_location": "L58",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_071_employee_null_scope_fail_closed",
       "confidence_score": 1.0
     },
@@ -148367,7 +148698,7 @@
       "source_location": "L63",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_072_sensitive_history_least_privilege",
       "confidence_score": 1.0
     },
@@ -148378,7 +148709,7 @@
       "source_location": "L69",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_073_identifier_token_capacity",
       "confidence_score": 1.0
     },
@@ -148389,7 +148720,7 @@
       "source_location": "L76",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_074_finance_end_to_end_closure",
       "confidence_score": 1.0
     },
@@ -148400,7 +148731,7 @@
       "source_location": "L88",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_075_warehouse_task_engine",
       "confidence_score": 1.0
     },
@@ -148411,7 +148742,7 @@
       "source_location": "L101",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_076_canonical_warehouse_ledger",
       "confidence_score": 1.0
     },
@@ -148422,7 +148753,7 @@
       "source_location": "L114",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_077_unified_work_items",
       "confidence_score": 1.0
     },
@@ -148433,7 +148764,7 @@
       "source_location": "L125",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_078_notification_preferences",
       "confidence_score": 1.0
     },
@@ -148444,7 +148775,7 @@
       "source_location": "L133",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_079_pricing_conditions",
       "confidence_score": 1.0
     },
@@ -148455,7 +148786,7 @@
       "source_location": "L142",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_080_branch_default_warehouse_guard",
       "confidence_score": 1.0
     },
@@ -148466,7 +148797,7 @@
       "source_location": "L18",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_081_domain_event_work_item_projection",
       "confidence_score": 1.0
     },
@@ -148477,7 +148808,7 @@
       "source_location": "L9",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_082_warehouse_stage2a_mobility",
       "confidence_score": 1.0
     },
@@ -148488,8 +148819,19 @@
       "source_location": "L153",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_083_warehouse_stage2b_read_switch",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/MIGRATION_NOTES.md",
+      "source_location": "L164",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
+      "target": "docs_operations_migration_notes_084_warehouse_terminal_grain_flip",
       "confidence_score": 1.0
     },
     {
@@ -148499,8 +148841,19 @@
       "source_location": "L162",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "docs_operations_migration_notes_migration_notes_063_082",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
       "target": "docs_operations_migration_notes_urutan_aman",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/MIGRATION_NOTES.md",
+      "source_location": "L172",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_migration_notes_migration_notes_063_084",
+      "target": "docs_operations_migration_notes_urutan_aman_172",
       "confidence_score": 1.0
     },
     {
@@ -149502,6 +149855,83 @@
       "_origin": "ast",
       "source": "docs_operations_v0_48_canonical_warehouse_stage2b_read_switch_v0_48_0_canonical_warehouse_stage_2b_reconcile_read_switch",
       "target": "docs_operations_v0_48_canonical_warehouse_stage2b_read_switch_yang_ditambahkan",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip",
+      "target": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_v0_49_0_canonical_warehouse_terminal_grain_flip_ledger_write_grain",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_v0_49_0_canonical_warehouse_terminal_grain_flip_ledger_write_grain",
+      "target": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_evidence",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L54",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_v0_49_0_canonical_warehouse_terminal_grain_flip_ledger_write_grain",
+      "target": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_follow_up_terakhir_belum_dikerjakan",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L63",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_v0_49_0_canonical_warehouse_terminal_grain_flip_ledger_write_grain",
+      "target": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_gate_manusia_tidak_berubah",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_v0_49_0_canonical_warehouse_terminal_grain_flip_ledger_write_grain",
+      "target": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_konteks",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_v0_49_0_canonical_warehouse_terminal_grain_flip_ledger_write_grain",
+      "target": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_perbaikan_sampingan",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/operations/v0.49-canonical-warehouse-terminal-grain-flip.md",
+      "source_location": "L15",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_v0_49_0_canonical_warehouse_terminal_grain_flip_ledger_write_grain",
+      "target": "docs_operations_v0_49_canonical_warehouse_terminal_grain_flip_yang_berubah",
       "confidence_score": 1.0
     },
     {
@@ -152842,5 +153272,5 @@
       "source_file": "docs/sop/09-user-access-iam.md"
     }
   ],
-  "built_at_commit": "63e8c1b6fb7ab63f14927b457358dbb1ce3e64af"
+  "built_at_commit": "acc665d3211c24ae7ac77c9215f63e361524bf4c"
 }
