@@ -780,3 +780,160 @@ table tfoot th{border-top:2px solid var(--border);background:var(--surface-soft)
   .capa-detail .stat-row b,.reservation-detail .stat-row b{max-width:none;text-align:left}
   .utilization-cell{min-width:140px}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PREMIUM WHITE · LIQUID GLASS · CLAY 3D  —  reskin mewah full-white.
+   Layer terakhir: menang cascade tanpa mengubah aturan di atas. Semua lewat
+   stylesheet (CSP style-src 'self' memblokir atribut style= inline).
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Kanvas mutiara + cahaya pastel lembut agar kaca punya latar untuk mem-blur. */
+body{
+  background:
+    radial-gradient(1100px 680px at 8% -10%, rgba(159,190,255,.22), transparent 60%),
+    radial-gradient(980px 620px at 106% 2%, rgba(244,183,197,.17), transparent 55%),
+    radial-gradient(900px 640px at 60% 118%, rgba(150,224,196,.16), transparent 58%),
+    linear-gradient(180deg,#fcfdff 0%, #f4f7fd 100%);
+}
+
+/* ── Sidebar: white liquid glass ─────────────────────────────────────── */
+.sidebar{
+  background:linear-gradient(180deg,rgba(255,255,255,.82),rgba(255,255,255,.55));
+  -webkit-backdrop-filter:var(--glass-blur-strong);backdrop-filter:var(--glass-blur-strong);
+  color:var(--slate);border-right:1px solid var(--glass-hairline);
+  box-shadow:var(--glass-sheen),26px 0 64px -44px rgba(56,78,120,.32);
+}
+.brand b{color:var(--text)}
+.brand small{color:var(--muted)}
+.brand-mark{background:linear-gradient(150deg,#9cc0ff,#5f83c8);box-shadow:inset 2px 3px 6px rgba(255,255,255,.6),inset -3px -4px 7px rgba(60,90,150,.3),0 9px 20px -7px rgba(70,100,160,.55)}
+.company-chip{background:rgba(255,255,255,.6);border:1px solid var(--glass-hairline);box-shadow:var(--glass-sheen)}
+.company-chip b{color:var(--text)}
+.company-chip small{color:var(--muted)}
+.nav-label{color:var(--muted)}
+.nav-item{color:var(--slate)}
+.nav-item:hover{background:rgba(143,182,255,.13);color:var(--text)}
+.nav-item.active{color:var(--blue-ink);background:linear-gradient(100deg,rgba(143,182,255,.24),rgba(200,162,77,.08));box-shadow:inset 3px 0 var(--gold),0 8px 18px -12px rgba(143,182,255,.5)}
+.nav-item .count{background:var(--coral);color:#5a2420}
+.sidebar-foot{border-top:1px solid var(--glass-hairline)}
+.profile b{color:var(--text)}
+.profile small{color:var(--muted)}
+.icon-btn.ghost-dark{color:var(--muted)}
+.icon-btn.ghost-dark:hover{background:rgba(143,182,255,.15);color:var(--text)}
+nav#nav{scrollbar-color:#c7d0e0 transparent}
+@media(max-width:1100px){.sidebar{box-shadow:26px 0 64px -30px rgba(46,66,104,.4)}}
+
+/* ── Topbar: premium glass ───────────────────────────────────────────── */
+.topbar{
+  background:linear-gradient(180deg,rgba(255,255,255,.8),rgba(255,255,255,.5));
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-bottom:1px solid var(--glass-hairline);
+  box-shadow:var(--glass-sheen),0 16px 32px -28px rgba(56,78,120,.45);
+}
+.command{background:rgba(255,255,255,.55);border-color:var(--glass-hairline);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.command:hover{background:rgba(255,255,255,.82);border-color:var(--blue)}
+.icon-btn{background:rgba(255,255,255,.62);border-color:var(--glass-hairline);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);box-shadow:var(--glass-sheen)}
+.icon-btn:hover{background:#fff;color:var(--navy)}
+
+/* ── Kartu kaca: panel, metric, kpi, notif, report, template ─────────── */
+.panel,.metric,.kpi,.notif-card,.exec-control,.report-card,.tpl-card,.security-hero,.exec-sources .panel{
+  background:var(--glass-bg);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-border);
+  box-shadow:var(--glass-sheen),var(--glass-shadow);
+}
+.panel>header{border-bottom:1px solid var(--glass-hairline)}
+.metric:hover,.kpi:hover,.report-card:hover,.tpl-card:hover{box-shadow:var(--glass-sheen),var(--shadow-lift);transform:translateY(-3px)}
+.metric::before{background:linear-gradient(180deg,var(--gold-soft),var(--gold));opacity:.9}
+.cash-card,.drawer-kpi{background:rgba(234,242,255,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid var(--glass-hairline)}
+
+/* ── Tombol premium ──────────────────────────────────────────────────── */
+.btn.primary,.btn.ink,.pager button.active{
+  background:linear-gradient(180deg,#35446a,#1f2c46);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 12px 26px -13px rgba(30,43,68,.6);border-color:transparent;
+}
+.btn.primary:hover,.btn.ink:hover{background:linear-gradient(180deg,#3d4d70,#283753)}
+.btn.secondary{background:rgba(255,255,255,.62);border-color:var(--glass-border);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:var(--glass-sheen),0 8px 18px -12px rgba(56,78,120,.3);color:#3c4a63}
+.btn.secondary:hover{background:#fff;border-color:var(--blue)}
+
+/* ── Clay orb 3D cute + glossy specular highlight ────────────────────── */
+.clay-orb,.clay-icon,.attention-orb,.retention-boundary-mark{position:relative;isolation:isolate}
+.clay-orb::after,.clay-icon::after,.attention-orb::after{
+  content:"";position:absolute;top:11%;left:15%;width:46%;height:32%;border-radius:50%;
+  background:radial-gradient(120% 120% at 30% 20%,rgba(255,255,255,.96),rgba(255,255,255,0) 70%);
+  filter:blur(.4px);pointer-events:none;z-index:2;
+}
+.clay-orb>svg,.clay-icon>svg,.attention-orb>svg{position:relative;z-index:1;filter:drop-shadow(0 2px 2px rgba(70,95,140,.18))}
+
+/* ── Chip: pil kaca lembut ───────────────────────────────────────────── */
+.chip{box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}
+
+/* ── Drawer / dialog / popover / toast: kaca ─────────────────────────── */
+.drawer{background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur-strong);backdrop-filter:var(--glass-blur-strong);border-left:1px solid var(--glass-border);box-shadow:-30px 0 72px -40px rgba(46,66,104,.5)}
+.drawer>header{background:transparent;border-bottom:1px solid var(--glass-hairline)}
+dialog{background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur-strong);backdrop-filter:var(--glass-blur-strong);border:1px solid var(--glass-border);box-shadow:var(--glass-sheen),0 40px 92px -42px rgba(30,45,75,.55)}
+dialog::backdrop{background:rgba(28,40,66,.42);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.view-console-popover{background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);border-color:var(--glass-border)}
+.command-results button:hover,.command-results button:focus{background:rgba(143,182,255,.14)}
+.toast{background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);border-color:var(--glass-border);box-shadow:var(--glass-sheen),var(--shadow-lift)}
+
+/* ── Tabel: header kaca, garis lebih halus ───────────────────────────── */
+th{background:rgba(245,248,252,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#67748b;border-bottom:1px solid var(--glass-hairline)}
+td{border-top:1px solid rgba(210,221,238,.5)}
+tbody tr.clickable:hover{background:rgba(143,182,255,.08)}
+.mini-search{background:rgba(255,255,255,.6);border-color:var(--glass-hairline)}
+
+/* ── Field kaca ──────────────────────────────────────────────────────── */
+.field input,.field textarea,.field select,.select{background:rgba(255,255,255,.66);border-color:var(--glass-hairline)}
+.field input:focus-visible,.field textarea:focus-visible,.field select:focus-visible,.select:focus-visible{background:#fff}
+
+/* ── Hero eksekutif & exec-pulse: dari navy gelap → light luxury glass ── */
+.hero-exec,.exec-pulse{
+  background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-border);color:var(--text);
+  box-shadow:var(--glass-sheen),var(--shadow-lift);
+}
+.hero-exec h1,.exec-pulse h2{color:var(--text)}
+.hero-sub{color:var(--slate)}.hero-date{color:var(--muted)}
+.hero-glow{background:radial-gradient(circle,rgba(143,182,255,.24),transparent 68%)}
+.btn.light{background:linear-gradient(180deg,#35446a,#1f2c46);color:#fff;box-shadow:0 12px 26px -13px rgba(30,43,68,.55)}
+.btn.light:hover{background:linear-gradient(180deg,#3d4d70,#283753)}
+.btn.ghost-light{background:rgba(60,74,99,.06);color:var(--slate);border:1px solid var(--glass-hairline)}
+.btn.ghost-light:hover{background:rgba(60,74,99,.11)}
+.hero-stat{background:rgba(255,255,255,.5);border:1px solid var(--glass-border);box-shadow:var(--glass-sheen)}
+.hero-stat-label{color:var(--muted)}
+.hero-stat-value,.hero-mini b{color:var(--text)}
+.hero-mini small{color:var(--muted)}
+.hero-divider{background:var(--glass-hairline)}
+.hero-trend.up,.hero-mini b.pos{color:var(--mint-ink)}
+.hero-trend.down,.hero-mini b.neg{color:var(--coral-ink)}
+.exec-pulse:after{background-image:none}
+.exec-pulse>header{border-bottom:1px solid var(--glass-hairline)}
+.exec-pulse .eyebrow{color:var(--blue-ink)}
+.exec-pulse .chip{border:1px solid var(--glass-hairline)}
+.exec-pulse-grid article{border-right:1px solid var(--glass-hairline)}
+.exec-pulse-grid span{color:var(--muted)}
+.exec-pulse-grid strong{color:var(--text)}
+.exec-pulse-grid small{color:var(--muted)}
+.exec-pulse-grid small.up{color:var(--mint-ink)}
+.exec-signal{background:rgba(143,182,255,.28)}
+@media(max-width:1250px){.exec-pulse-grid article:nth-child(n+4){border-top:1px solid var(--glass-hairline)}}
+
+/* ── Layar login: full white luxury ──────────────────────────────────── */
+.login-layer{background:linear-gradient(180deg,#fcfdff,#f4f7fd)}
+.login-brand{background:linear-gradient(158deg,#eef3ff 0%,#f4eefb 52%,#eafaf3 100%);color:var(--text)}
+.login-brand-copy h1{color:var(--text)}
+.login-brand-copy p{color:var(--slate)}
+.login-points li{color:var(--slate)}
+.login-brand .brand-mark{box-shadow:inset 2px 3px 6px rgba(255,255,255,.7),inset -3px -4px 8px rgba(60,90,150,.28),0 12px 26px -8px rgba(70,100,160,.4)}
+
+/* ── Banner perhatian & release gate: kaca lembut ────────────────────── */
+.attention{background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);border:1px solid var(--glass-border);box-shadow:var(--glass-sheen),var(--glass-shadow)}
+.process-rail,.retention-boundary,.security-hero.secure,.security-hero.attention{background:var(--glass-bg);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);border-color:var(--glass-border)}
+
+/* Aksesibilitas: hormati preferensi kurangi-transparansi & gerak. */
+@media (prefers-reduced-transparency:reduce){
+  .sidebar,.topbar,.panel,.metric,.kpi,.notif-card,.report-card,.tpl-card,.drawer,dialog,.toast,.hero-exec,.exec-pulse,.attention{
+    -webkit-backdrop-filter:none;backdrop-filter:none;background:#fff;
+  }
+}

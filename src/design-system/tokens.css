@@ -1,44 +1,57 @@
 /* ============================================================================
-   MAT ERP V2 — Design System 2.0 · Design Tokens (§10.3)
-   Satu sumber token. styles.css & modul UI hanya boleh memakai var(--token),
-   dilarang menambah warna/radius/shadow literal baru di luar file ini.
-   Token existing dipertahankan (parity) + lapisan token semantik §10.3.
+   MAT ERP V2 — Design System 3.0 · Design Tokens
+   Full-white premium luxury · liquid glass · clay 3D.
+   Satu sumber token. styles.css & modul UI hanya boleh memakai var(--token).
+   Nama token existing dipertahankan (parity) — hanya nilai yang dimewahkan,
+   ditambah lapisan token kaca (glass) & clay.
    ========================================================================== */
 
 @font-face{font-family:"Manrope";src:url("../../assets/fonts/manrope-latin-variable.woff2") format("woff2-variations");font-style:normal;font-weight:500 800;font-display:swap}
 @font-face{font-family:"Plus Jakarta Sans";src:url("../../assets/fonts/plus-jakarta-sans-latin-variable.woff2") format("woff2-variations");font-style:normal;font-weight:400 700;font-display:swap}
 
 :root{
-  /* ── Base — §29.1 (existing, parity) ─────────────────────────────────── */
-  --cloud:#f8fafc; --ivory:#fffdf8; --soft-gray:#eef2f6;
-  --navy:#162033; --navy-2:#22304a; --navy-3:#2b3c5c;
-  --text:#20293a; --slate:#475569; --muted:#7c8799; --border:#e2e8f0;
+  /* ── Base — pearl white premium ──────────────────────────────────────── */
+  --cloud:#fbfcff; --ivory:#ffffff; --soft-gray:#eef1f7;
+  /* "navy" kini graphite-ink mewah untuk aksi primer + teks kuat */
+  --navy:#26324a; --navy-2:#2f3e5b; --navy-3:#3a4d72;
+  --text:#1b2436; --slate:#4c586f; --muted:#818da3; --border:#e7eaf2;
 
-  /* ── Accent — §29.2 ──────────────────────────────────────────────────── */
-  --blue:#8db9ff; --mint:#9edcc5; --amber:#f5c878; --lavender:#b8aef5; --coral:#f2a7a0;
+  /* ── Accent — pastel lembut + emas champagne (luxury) ────────────────── */
+  --blue:#8fb6ff; --mint:#93dcc0; --amber:#f0c877; --lavender:#b7aef2; --coral:#f2a49c;
+  --gold:#c8a24d; --gold-soft:#ecd7a4;
 
-  /* ── Tonal pairs (bg / teks kontras) ─────────────────────────────────── */
-  --blue-bg:#eaf3ff; --blue-ink:#3a6ea8;
-  --mint-bg:#e7f7f0; --mint-ink:#2e7d5f;
-  --amber-bg:#fdf3dc; --amber-ink:#9a6a15;
-  --coral-bg:#fdeeec; --coral-ink:#b04a42;
-  --lav-bg:#f0edfd;  --lav-ink:#6656b5;
-  --gray-bg:#eef2f6; --gray-ink:#5b6980;
+  /* ── Tonal pairs (bg / tinta kontras di atas kaca) ───────────────────── */
+  --blue-bg:#eaf2ff; --blue-ink:#3a67b6;
+  --mint-bg:#e6f7ef; --mint-ink:#2c7c5d;
+  --amber-bg:#fbf1da; --amber-ink:#93641a;
+  --coral-bg:#fceeec; --coral-ink:#b0463e;
+  --lav-bg:#efecfd;  --lav-ink:#6353b8;
+  --gray-bg:#eef1f7; --gray-ink:#5a6580;
 
-  /* ── Elevation & bentuk — §31 ────────────────────────────────────────── */
-  --shadow:0 10px 30px rgba(39,55,81,.07);
-  --shadow-lift:0 16px 38px rgba(39,55,81,.11);
-  --shadow-clay:inset 4px 4px 10px rgba(255,255,255,.65), inset -6px -6px 12px rgba(44,61,90,.14), 0 10px 22px rgba(37,50,74,.14);
-  --r-card:20px; --r-btn:11px; --r-input:10px; --r-chip:8px;
+  /* ── Liquid glass ────────────────────────────────────────────────────── */
+  --glass-bg:linear-gradient(180deg,rgba(255,255,255,.74),rgba(255,255,255,.56));
+  --glass-bg-strong:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.78));
+  --glass-border:rgba(255,255,255,.72);
+  --glass-hairline:rgba(203,214,234,.7);
+  --glass-blur:blur(20px) saturate(1.4);
+  --glass-blur-strong:blur(30px) saturate(1.5);
+  --glass-sheen:inset 0 1px 0 rgba(255,255,255,.95);
+  --glass-shadow:0 18px 44px -26px rgba(56,78,120,.42),0 2px 10px -6px rgba(56,78,120,.16);
 
-  /* ── Motion — §33 ────────────────────────────────────────────────────── */
+  /* ── Elevation & bentuk — lembut, mewah ──────────────────────────────── */
+  --shadow:0 14px 36px -24px rgba(56,78,120,.36),0 2px 8px -5px rgba(56,78,120,.14);
+  --shadow-lift:0 28px 60px -30px rgba(46,66,104,.44),0 5px 16px -9px rgba(46,66,104,.18);
+  --shadow-clay:inset 3px 4px 9px rgba(255,255,255,.92),inset -6px -7px 13px rgba(84,108,150,.20),0 14px 26px -10px rgba(70,95,140,.42);
+  --r-card:22px; --r-btn:13px; --r-input:12px; --r-chip:9px;
+
+  /* ── Motion ──────────────────────────────────────────────────────────── */
   --ease-fast:150ms cubic-bezier(.2,.8,.2,1);
-  --ease:180ms cubic-bezier(.2,.8,.2,1);
-  --ease-drawer:220ms cubic-bezier(.2,.8,.2,1);
+  --ease:200ms cubic-bezier(.2,.8,.2,1);
+  --ease-drawer:240ms cubic-bezier(.2,.8,.2,1);
   --font-display:"Manrope",system-ui,sans-serif;
   --font-body:"Plus Jakarta Sans",system-ui,sans-serif;
 
-  /* ── Lapisan semantik DS 2.0 — §10.3 (alias ke token dasar) ──────────── */
+  /* ── Lapisan semantik ────────────────────────────────────────────────── */
   --bg-canvas:var(--cloud);
   --bg-surface:#ffffff;
   --bg-subtle:var(--soft-gray);
@@ -46,23 +59,28 @@
   --text-secondary:var(--slate);
   --text-muted:var(--muted);
   --border-default:var(--border);
-  --border-strong:#cbd5e1;
+  --border-strong:#d3dbe8;
   --semantic-success:var(--mint-ink);
   --semantic-warning:var(--amber-ink);
   --semantic-danger:var(--coral-ink);
   --semantic-info:var(--blue-ink);
 
-  /* Skala spasi §10.3 */
+  /* Alias kompatibilitas (dipakai beberapa modul dengan/atau tanpa fallback) */
+  --surface:var(--bg-surface); --surface-soft:#f4f7fc; --bg-panel:#ffffff;
+  --ink:var(--navy); --blue-strong:var(--blue-ink); --line:var(--border);
+  --font:var(--font-body); --radius-2:8px;
+
+  /* Skala spasi */
   --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
   --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px; --space-12:48px;
 
-  /* Skala radius §10.3 */
+  /* Skala radius */
   --radius-sm:8px; --radius-md:10px; --radius-lg:12px; --radius-xl:16px; --radius-2xl:20px; --radius-3xl:24px;
 
-  /* Elevasi bernama §10.3 */
-  --elevation-xs:0 1px 2px rgba(39,55,81,.05);
+  /* Elevasi bernama */
+  --elevation-xs:0 1px 2px rgba(56,78,120,.06);
   --elevation-sm:var(--shadow);
   --elevation-md:var(--shadow-lift);
-  --elevation-floating:0 24px 60px rgba(17,27,44,.18);
+  --elevation-floating:0 30px 70px -34px rgba(30,45,75,.5);
   --elevation-clay:var(--shadow-clay);
 }
