@@ -119,10 +119,14 @@ async function claimPosting(client,doc,user,kind){const row=(await client.query(
 async function finishPosting(client,doc,kind,result){await client.query('UPDATE document_postings SET result=$3 WHERE document_id=$1 AND posting_kind=$2',[doc.id,kind,result]);}
 async function balance(client,productId,warehouseId,delta,user,doc,movementType){
   if(!productId||!warehouseId)throw new AppError('VALIDATION_ERROR','Produk dan gudang wajib untuk posting stok.');
+  // Grain-flip terminal (084): saldo ber-key gudang kanonik. Cabang di-resolve ke
+  // gudang defaultnya; advisory lock tetap per cabang agar selaras dgn syncBalance.
+  const owh=(await client.query(`SELECT id FROM org_warehouses WHERE branch_id=$1 AND is_default AND active LIMIT 1`,[warehouseId])).rows[0]?.id;
+  if(!owh)throw new AppError('RESOURCE_NOT_FOUND','Gudang kanonik untuk cabang tidak ditemukan.');
   await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`stock:${productId}:${warehouseId}`]);
-  await client.query(`INSERT INTO inventory_balances(id,product_id,warehouse_id) VALUES($1,$2,$3) ON CONFLICT(product_id,warehouse_id) DO NOTHING`,[randomUUID(),productId,warehouseId]);
-  const current=(await client.query(`SELECT i.*,p.hpp FROM inventory_balances i JOIN products p ON p.id=i.product_id WHERE i.product_id=$1 AND i.warehouse_id=$2 FOR UPDATE OF i`,[productId,warehouseId])).rows[0];if(!current)throw new AppError('RESOURCE_NOT_FOUND','Produk stok tidak ditemukan.');const next=Number(current.qty_on_hand)+delta;if(next<0)throw new AppError('VALIDATION_ERROR',`Stok ${productId} tidak mencukupi.`);const cost=Number(current.hpp||0),nextValue=Math.max(0,Number(current.value_idr)+delta*cost);
-  await client.query('UPDATE inventory_balances SET qty_on_hand=$3,value_idr=$4,version=version+1,updated_at=now() WHERE product_id=$1 AND warehouse_id=$2',[productId,warehouseId,next,nextValue]);
+  await client.query(`INSERT INTO inventory_balances(id,product_id,warehouse_id,org_warehouse_id) VALUES($1,$2,$3,$4) ON CONFLICT(product_id,org_warehouse_id) DO NOTHING`,[randomUUID(),productId,warehouseId,owh]);
+  const current=(await client.query(`SELECT i.*,p.hpp FROM inventory_balances i JOIN products p ON p.id=i.product_id WHERE i.product_id=$1 AND i.org_warehouse_id=$2 FOR UPDATE OF i`,[productId,owh])).rows[0];if(!current)throw new AppError('RESOURCE_NOT_FOUND','Produk stok tidak ditemukan.');const next=Number(current.qty_on_hand)+delta;if(next<0)throw new AppError('VALIDATION_ERROR',`Stok ${productId} tidak mencukupi.`);const cost=Number(current.hpp||0),nextValue=Math.max(0,Number(current.value_idr)+delta*cost);
+  await client.query('UPDATE inventory_balances SET qty_on_hand=$3,value_idr=$4,version=version+1,updated_at=now() WHERE product_id=$1 AND org_warehouse_id=$2',[productId,owh,next,nextValue]);
   await client.query(`INSERT INTO inventory_movements(product_id,warehouse_id,document_id,movement_type,qty,unit_cost,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)`,[productId,warehouseId,doc.id,movementType,Math.abs(delta),cost,user.id]);return{productId,warehouseId,delta,qtyOnHand:next,unitCost:cost};
 }
 async function postInventory(client,doc,user){

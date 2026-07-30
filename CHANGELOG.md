@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.49.0] — 2026-07-29
+
+### Canonical Warehouse Terminal Grain-Flip (ledger write grain)
+
+- Migration 084: grain OTORITATIF **tulis** saldo persediaan berpindah ke gudang
+  kanonik. `posting.applyBalance` dan `syncBalance` kini meng-key saldo pada
+  `(product, org_warehouse)` — cabang di-resolve ke gudang defaultnya; advisory
+  lock tetap per cabang agar selaras. Value-preserving pada 1:1 (080/082).
+- Menambah keunikan `(product_id, org_warehouse_id)` pada `inventory_balances`;
+  keunikan cabang `(product_id, warehouse_id)` **dipertahankan** sebagai
+  kompatibilitas (dipakai opening-inventory + sejumlah setup, dan menjaga 1:1).
+  Mengaktifkan multi-gudang-per-cabang sebenarnya (melepas keunikan cabang +
+  merapikan read-site ber-key cabang) adalah follow-up terminal terakhir.
+- Perbaikan bug laten: cleanup HTTP-E2E kini menghapus `work_items` yang
+  mereferensikan `domain_event_outbox` (FK 081 `source_event_id`) sebelum
+  menghapus outbox — mencegah pelanggaran FK saat proyeksi work-item aktif.
+
+### Assurance
+
+- Regression + isolated PostgreSQL gate **418/418** lulus (4 test grain-flip baru:
+  keunikan grain kanonik + kompatibilitas cabang, value-preserving, penegakan
+  satu-saldo-per-gudang, wiring). Seluruh jalur posting GR/issue/transfer/opname/
+  produksi/delivery tetap hijau di bawah keying kanonik.
+- Full-chain rollback lulus di database disposable: **84 up, 83 down, 83 re-up**.
+- Authorization matrix tetap **322 handler** (tidak ada endpoint baru).
+
 ## [0.48.0] — 2026-07-29
 
 ### Canonical Warehouse Stage 2B — Reconcile + Read-Switch (reversible)

@@ -1,5 +1,17 @@
 # Backlog Resmi — MAT ERP V2
 
+> **TECHNICAL RC v0.49 — 29 JULI 2026.** Canonical Warehouse Terminal Grain-Flip
+> (ledger write grain) selesai engineering: migration 001–084; grain otoritatif
+> TULIS saldo persediaan berpindah ke gudang kanonik (`posting.applyBalance`/
+> `syncBalance` meng-key `(product, org_warehouse)`), keunikan grain kanonik
+> ditegakkan, keunikan cabang dipertahankan (kompatibilitas, value-preserving 1:1).
+> Fresh isolated regression 418/418, rollback 84/83/83, authorization 322 handler.
+> Juga menutup bug laten cleanup HTTP-E2E vs FK `work_items.source_event_id` (081).
+> **Prioritas berikutnya: aktifkan multi-gudang-per-cabang (lepas keunikan cabang
+> + rapikan read-site ber-key cabang) + cutover rehearsal end-to-end**, lalu
+> feature freeze serta LAN-UAT/DR/Owner sign-off. Human/production gates tetap
+> terbuka.
+
 > **TECHNICAL RC v0.48 — 29 JULI 2026.** Canonical Warehouse Stage 2B (Reconcile
 > + Read-Switch) selesai engineering: migration 001–083; fase reconcile+read-switch
 > cutover kanonik yang REVERSIBEL — view rekonsiliasi membuktikan baca grain

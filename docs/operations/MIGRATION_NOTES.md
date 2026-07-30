@@ -1,4 +1,4 @@
-# Migration Notes — 063 → 082
+# Migration Notes — 063 → 084
 
 **Rilis:** v0.47.0 · migration incremental 002–082 memiliki `.down.sql`;
 001 adalah baseline foundation dan tidak di-rollback.
@@ -161,7 +161,17 @@ Terapkan berurutan dengan `npm run db:migrate`; checksum divalidasi melalui
 
 ## Urutan aman
 
-`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076 → 077 → 078 → 079 → 080 → 081 → 082 → 083`
+## 084 — `warehouse_terminal_grain_flip`
+
+- Grain otoritatif TULIS saldo persediaan → gudang kanonik: `posting.applyBalance`
+  dan `syncBalance` meng-key `inventory_balances` pada `(product, org_warehouse)`.
+  Menambah keunikan `(product_id, org_warehouse_id)`; keunikan cabang
+  `(product_id, warehouse_id)` dipertahankan (kompatibilitas + 1:1). Additive,
+  value-preserving, rollback aman (lepas keunikan kanonik).
+
+## Urutan aman
+
+`062 (existing) → 063 → 064 → 065 → 066 → 067 → 068 → 069 → 070 → 071 → 072 → 073 → 074 → 075 → 076 → 077 → 078 → 079 → 080 → 081 → 082 → 083 → 084`
 
 Setelah migration 070:
 

@@ -28,7 +28,7 @@ async function syncBalance(client, productId, warehouseId) {
      WHERE product_id=$1 AND warehouse_id=$2 AND status='ACTIVE'`, [productId, warehouseId])).rows[0].q);
   await client.query(
     `INSERT INTO inventory_balances(id,product_id,warehouse_id,qty_reserved) VALUES($1,$2,$3,$4)
-     ON CONFLICT(product_id,warehouse_id) DO UPDATE SET qty_reserved=$4,version=inventory_balances.version+1,updated_at=now()`,
+     ON CONFLICT(product_id,org_warehouse_id) DO UPDATE SET qty_reserved=$4,version=inventory_balances.version+1,updated_at=now()`,
     [randomUUID(), productId, warehouseId, reserved]);
   return reserved;
 }

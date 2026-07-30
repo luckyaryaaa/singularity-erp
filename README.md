@@ -3,6 +3,22 @@
 ERP internal multi-pengguna dengan identitas Soft Clay Enterprise. Runtime
 normal memakai Node.js 20+ dan PostgreSQL 16 sebagai sumber data tunggal.
 
+## Status v0.49.0 — Canonical Warehouse Terminal Grain-Flip (ledger write grain)
+
+- PostgreSQL source of truth berada pada migration 001–084.
+- Grain otoritatif **tulis** saldo persediaan berpindah ke gudang kanonik:
+  `posting.applyBalance`/`syncBalance` meng-key `inventory_balances` pada
+  `(product, org_warehouse)`; keunikan grain kanonik ditambahkan, keunikan cabang
+  dipertahankan (kompatibilitas, 1:1 value-preserving). Mengaktifkan
+  multi-gudang-per-cabang sebenarnya adalah follow-up terminal terakhir.
+- Authorization matrix tetap **322 handler** (tidak ada endpoint baru).
+
+Regression 418/418, migration 001–084, dan rollback full-chain 84/83/83 telah
+tervalidasi. Status ini adalah **engineering release candidate**, bukan izin
+production: UAT 13 role, security retest manual, persetujuan enam rekonsiliasi,
+training, DR RTO/RPO, offsite evidence, dan Owner sign-off tetap menjadi gate
+go-live.
+
 ## Status v0.48.0 — Canonical Warehouse Stage 2B (Reconcile + Read-Switch)
 
 - PostgreSQL source of truth berada pada migration 001–083.
