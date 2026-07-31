@@ -100,7 +100,7 @@
       const visible = items.filter(([, , , perm]) => can(perm));
       if (!visible.length) return '';
       return `<p class="nav-label">${esc(ti(GROUP_I18N[label], label))}</p>` + visible.map(([href, name, icon, , badge, i18nKey]) =>
-        `<a class="nav-item" data-nav href="${href}">${ICONS[icon]}<span>${esc(ti(i18nKey, name))}</span>${badge ? `<span class="count" id="navBadge" hidden>0</span>` : ''}</a>`
+        `<a class="nav-item" data-nav href="${href}"><span class="nav-ico">${ICONS[icon]}</span><span>${esc(ti(i18nKey, name))}</span>${badge ? `<span class="count" id="navBadge" hidden>0</span>` : ''}</a>`
       ).join('');
     }).join('');
   }
