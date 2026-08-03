@@ -40,7 +40,8 @@ test('dashboard decision cockpit is intelligent, personalizable, and accessible'
 test('enterprise spaces registry and navigation artwork are normalized and CSP-safe',()=>{
   const iconDir=path.join(__dirname,'..','assets','icons','navigation');
   const files=fs.readdirSync(iconDir).filter((file)=>file.endsWith('.png'));
-  assert.equal(files.length,54,'seluruh ikon navigasi 3D pilihan pengguna tersedia');
+  assert.equal(files.length,60,'seluruh ikon navigasi 3D pilihan pengguna tersedia (menu + 7 space-rail)');
+  for(const space of ['workspace','sales','operations','finance','organization','master-data','system']) assert.ok(files.includes(`${space}.png`),`ikon space-rail ${space}.png wajib tersedia`);
   for(const file of files){
     const png=fs.readFileSync(path.join(iconDir,file));
     assert.equal(png.readUInt32BE(16),96,`${file} wajib selebar 96px`);

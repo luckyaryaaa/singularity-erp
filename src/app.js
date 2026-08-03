@@ -246,7 +246,7 @@
     document.getElementById('spaceRail').innerHTML = spaces.map((space) => {
       const active = space.id === activeSpaceId;
       const count = visibleItems(space).length;
-      return `<button class="space-button ${active ? 'active' : ''}" type="button" data-space="${esc(space.id)}" data-tone="${esc(space.tone)}" aria-pressed="${active}" aria-label="${esc(`${space.label}, ${count} menu`)}" title="${esc(space.label)}" tabindex="${active ? '0' : '-1'}"><span class="space-orb">${ICONS[space.icon]}</span><span>${esc(space.shortLabel)}</span></button>`;
+      return `<button class="space-button ${active ? 'active' : ''}" type="button" data-space="${esc(space.id)}" data-tone="${esc(space.tone)}" aria-pressed="${active}" aria-label="${esc(`${space.label}, ${count} menu`)}" title="${esc(space.label)}" tabindex="${active ? '0' : '-1'}"><span class="space-orb"><img class="space-art" src="assets/icons/navigation/${esc(space.id)}.png" width="96" height="96" loading="lazy" decoding="async" alt="">${ICONS[space.icon]}</span><span>${esc(space.shortLabel)}</span></button>`;
     }).join('');
   }
 
@@ -527,6 +527,15 @@
     renderSpaceRail();
     renderContextNav();
     document.querySelector(`[data-space="${CSS.escape(activeSpaceId)}"]`)?.focus({ preventScroll: true });
+  });
+  // Memilih menu/workbench otomatis menciutkan rail di desktop → area kerja jauh
+  // lebih lebar. Klik space (rail) tetap membentangkan kembali untuk ganti menu.
+  sidebar.addEventListener('click', (event) => {
+    const link = event.target.closest('a.nav-item[data-nav]');
+    if (!link || !desktopRail.matches || railCollapsed) return;
+    railCollapsed = true;
+    try { localStorage.setItem('mat.sidebar.collapsed', 'true'); } catch { /* preferensi non-kritis */ }
+    requestAnimationFrame(paintRailControl);
   });
   document.getElementById('spaceRail').addEventListener('keydown', (event) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;

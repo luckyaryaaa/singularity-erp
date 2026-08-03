@@ -1516,3 +1516,20 @@ main[data-workbench]{--workbench-tint:color-mix(in srgb,var(--space-soft) 62%,#f
 .sk-w0{width:82%}.sk-w1{width:54%}.sk-w2{width:70%}.sk-w3{width:42%}
 @keyframes skeletonShimmer{0%{background-position:220% 0}100%{background-position:-220% 0}}
 @media (prefers-reduced-motion:reduce){.skeleton-bar{animation:none}}
+
+/* ============================================================================
+   LAYER 9 · SPACE-RAIL 3D ICONS + SMOOTH COLLAPSE
+   ========================================================================== */
+.space-orb:has(.space-art) svg{display:none}
+.space-orb:has(.space-art){background:transparent;box-shadow:none}
+.space-art{display:block;width:34px;height:34px;object-fit:contain;
+  filter:drop-shadow(0 4px 5px rgba(47,70,110,.22));
+  transition:transform .42s cubic-bezier(.34,1.56,.64,1),filter .25s ease}
+.space-button:hover .space-art{transform:translateY(-2px) scale(1.09) rotate(-3deg);filter:drop-shadow(0 7px 7px rgba(47,70,110,.28))}
+.space-button.active .space-art{transform:scale(1.05)}
+.sidebar-collapsed .space-art{width:30px;height:30px}
+/* transisi lebar area kerja saat rail menciutkan/membentang */
+.app{transition:grid-template-columns .44s cubic-bezier(.22,1,.36,1)}
+@media (prefers-reduced-motion:reduce){
+  .app{transition:none}.space-button:hover .space-art{transform:none}
+}
