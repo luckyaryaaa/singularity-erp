@@ -1613,3 +1613,7 @@ main[data-workbench]{--workbench-tint:color-mix(in srgb,var(--space-soft) 62%,#f
   .lx-mobile-brand b{font:800 15px var(--font-display);letter-spacing:.02em;color:var(--navy)}
 }
 @media (prefers-reduced-motion:reduce){ .lx-orb,.lx-badge{animation:none} }
+
+/* ── Layer 11 · Polish tipografi global (rendering lebih tajam & premium) ── */
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;font-feature-settings:"kern","liga","calt"}
+h1,h2,h3,.page-head h1,.lx-hero h1,.lx-card h2{font-optical-sizing:auto}
