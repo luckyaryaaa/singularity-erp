@@ -40,7 +40,7 @@ test('dashboard decision cockpit is intelligent, personalizable, and accessible'
 test('enterprise spaces registry and navigation artwork are normalized and CSP-safe',()=>{
   const iconDir=path.join(__dirname,'..','assets','icons','navigation');
   const files=fs.readdirSync(iconDir).filter((file)=>file.endsWith('.png'));
-  assert.equal(files.length,21,'seluruh ikon navigasi pilihan pengguna tersedia');
+  assert.equal(files.length,54,'seluruh ikon navigasi 3D pilihan pengguna tersedia');
   for(const file of files){
     const png=fs.readFileSync(path.join(iconDir,file));
     assert.equal(png.readUInt32BE(16),96,`${file} wajib selebar 96px`);
@@ -52,6 +52,9 @@ test('enterprise spaces registry and navigation artwork are normalized and CSP-s
   assert.match(app,/const NAVIGATION = \[/,'registry menjadi satu sumber navigasi');
   assert.equal((app.match(/route\('#\//g)||[]).length,63,'seluruh 63 route sidebar wajib terdaftar');
   assert.equal((app.match(/art: '/g)||[]).length,21,'21 artwork pengguna wajib dipetakan eksplisit');
+  assert.match(app,/const ART_BY_ROUTE = \{/,'peta rute→art memberi ikon 3D ke seluruh menu');
+  const artRefs=new Set([...app.matchAll(/art: '([^']+)'/g)].map((m)=>m[1]).concat([...app.matchAll(/'#\/[^']*': '([^']+)'/g)].map((m)=>m[1])));
+  for(const ref of artRefs) assert.ok(files.includes(`${ref}.png`),`ikon ${ref}.png wajib tersedia untuk referensi art`);
   assert.match(app,/nav-glyph/,'menu tanpa artwork raster wajib memakai glyph clay yang konsisten');
   assert.match(app,/mat\.nav\.pinned/); assert.match(app,/mat\.nav\.recent/);
   assert.match(html,/id="spaceRail"/); assert.match(html,/class="context-nav"/);

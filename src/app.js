@@ -177,9 +177,33 @@
   const visibleItems = (space) => space.sections.flatMap((section) => section.items).filter((item) => can(item.permission));
   const visibleSpaces = () => NAVIGATION.filter((space) => visibleItems(space).length);
   const entryForHash = (hash) => NAV_ENTRIES.find((entry) => routeMatches(hash, entry.href));
-  const navIcon = (item) => item.art
-    ? `<img class="nav-art" src="assets/icons/navigation/${item.art}.png" width="96" height="96" loading="lazy" decoding="async" alt="">`
-    : `<span class="nav-glyph" aria-hidden="true">${ICONS[item.icon] || ICONS.grid}</span>`;
+  // Ikon 3D per-rute (art). Item boleh menetapkan `art` sendiri; sisanya
+  // memakai peta rute→art ini agar seluruh menu punya ikon 3D yang konsisten.
+  const ART_BY_ROUTE = {
+    '#/procurement/orders': 'purchase-order', '#/procurement/contracts': 'contract',
+    '#/procurement/payment-proposals': 'payment-proposal', '#/procurement/budgets': 'budgets',
+    '#/warehouse/inventory': 'inventory', '#/warehouse/receipts': 'receipts', '#/warehouse/movements': 'movements',
+    '#/finance/invoices': 'invoice', '#/finance/collection': 'collections', '#/finance/payments': 'payments',
+    '#/finance/supplier-invoices': 'supplier-invoices', '#/finance/expenses': 'expenses', '#/finance/assets': 'assets',
+    '#/accounting': 'accounting', '#/accounting/statements': 'statement', '#/accounting/closing': 'closing', '#/tax': 'tax',
+    '#/organization': 'org-structure', '#/organization/workforce': 'job-positions',
+    '#/hr/employees': 'employees', '#/hr/attendance': 'attendance', '#/hr/workforce': 'shift-calendar', '#/hr/leave': 'leave',
+    '#/payroll': 'payroll',
+    '#/masters/business-partners': 'business-partner', '#/masters/governance': 'master-data',
+    '#/masters/customers/link': 'business-partner', '#/masters/customers': 'business-partner',
+    '#/masters/suppliers': 'suppliers', '#/masters/products': 'master-data',
+    '#/system/users': 'users', '#/system/iam': 'security', '#/system/sod': 'security',
+    '#/system/approval-policies': 'approvals', '#/system/access-reviews': 'audit',
+    '#/system/retention': 'audit', '#/system/audit': 'audit', '#/system/monitoring': 'monitoring',
+    '#/system/jobs': 'monitoring', '#/system/selftest': 'selftest',
+    '#/system/document-templates': 'statement', '#/system/settings': 'setting'
+  };
+  const navIcon = (item) => {
+    const art = item.art || ART_BY_ROUTE[item.href];
+    return art
+      ? `<img class="nav-art" src="assets/icons/navigation/${art}.png" width="96" height="96" loading="lazy" decoding="async" alt="">`
+      : `<span class="nav-glyph" aria-hidden="true">${ICONS[item.icon] || ICONS.grid}</span>`;
+  };
 
   let preferenceScope = 'anonymous';
   let activeSpaceId = 'workspace';
