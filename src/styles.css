@@ -1507,3 +1507,12 @@ main[data-workbench]{--workbench-tint:color-mix(in srgb,var(--space-soft) 62%,#f
   .space-rail{background:linear-gradient(180deg,#fbfcff,#eef4fb)}
   .company-chip{background:#fff}.nav-view-tabs{background:#eef2f9}
 }
+
+/* ── Layer 8 · Skeleton shimmer (loading state tabel enterprise) ─────── */
+.skeleton-row td{padding:14px 16px;border-bottom:1px solid rgba(231,234,242,.6)}
+.skeleton-bar{display:block;height:11px;border-radius:6px;
+  background:linear-gradient(100deg,rgba(203,214,234,.32) 30%,rgba(203,214,234,.72) 50%,rgba(203,214,234,.32) 70%);
+  background-size:220% 100%;animation:skeletonShimmer 1.25s ease-in-out infinite}
+.sk-w0{width:82%}.sk-w1{width:54%}.sk-w2{width:70%}.sk-w3{width:42%}
+@keyframes skeletonShimmer{0%{background-position:220% 0}100%{background-position:-220% 0}}
+@media (prefers-reduced-motion:reduce){.skeleton-bar{animation:none}}

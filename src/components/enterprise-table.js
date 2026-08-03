@@ -85,7 +85,7 @@
         queryState.sort = `${button.dataset.sort}:${current === button.dataset.sort && direction === 'asc' ? 'desc' : 'asc'}`;
         queryState.page = 1; syncUrl(); load();
       }));
-      body.innerHTML = `<tr><td colspan="${active.length}" class="table-loading"><span class="spinner"></span> Memuat data…</td></tr>`;
+      body.innerHTML = Array.from({ length: 7 }).map((_, r) => `<tr class="skeleton-row" aria-hidden="true">${active.map((column, i) => `<td><span class="skeleton-bar sk-w${(r + i) % 4}"></span></td>`).join('')}</tr>`).join('');
     };
 
     async function load(force = false) {
