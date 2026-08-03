@@ -6,6 +6,19 @@
 // Jalankan: npm run data:restore-config
 require('../backend/core/env').loadEnv();
 const { Client } = require('pg');
+const fs = require('node:fs');
+const path = require('node:path');
+
+// Template dokumen resmi di-seed migrasi 036. Diekstrak dari file migrasi (bukan
+// diduplikasi) agar isi seed pemulihan selalu identik dengan sumber aslinya.
+function documentTemplatesSeed() {
+  try {
+    const sql = fs.readFileSync(path.join(__dirname, '..', 'data', 'migrations', '036_document_templates.sql'), 'utf8');
+    const match = sql.match(/INSERT INTO document_templates[\s\S]*?;/);
+    if (!match) return null;
+    return match[0].replace(/;\s*$/, ' ON CONFLICT (document_type,version) DO NOTHING;');
+  } catch { return null; }
+}
 
 const SEEDS = [
   {
@@ -44,6 +57,10 @@ const SEEDS = [
       SELECT sl.id,'A-01-01' FROM storage_locations sl ON CONFLICT DO NOTHING`
   }
 ];
+
+// Sumber: migrasi 036 — template dokumen resmi (kop, warna, T&C, tanda tangan).
+const tplSeedSql = documentTemplatesSeed();
+if (tplSeedSql) SEEDS.push({ table: 'document_templates', sql: tplSeedSql });
 
 (async () => {
   const client = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL });
