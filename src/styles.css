@@ -1533,3 +1533,83 @@ main[data-workbench]{--workbench-tint:color-mix(in srgb,var(--space-soft) 62%,#f
 @media (prefers-reduced-motion:reduce){
   .app{transition:none}.space-button:hover .space-art{transform:none}
 }
+
+/* ============================================================================
+   LAYER 10 · LOGIN — WHITE PREMIUM LUXURY (rombak total)
+   Panel brand terang + emblem kaca-clay + kartu sign-in kaca. Class .lx-*
+   baru agar bebas dari CSS login lama.
+   ========================================================================== */
+#loginLayer{grid-template-columns:minmax(0,1.04fr) minmax(430px,.96fr);background:var(--cloud)}
+.lx-brand{position:relative;overflow:hidden;display:grid;place-items:center;padding:clamp(38px,4.5vw,72px);
+  background:linear-gradient(152deg,#fbfcff 0%,#f2f6fd 48%,#f8f2fb 100%)}
+.lx-brand .brand-mark.lg{box-shadow:inset 2px 3px 6px rgba(255,255,255,.85),inset -3px -4px 8px rgba(90,120,175,.22),0 14px 30px -10px rgba(70,100,160,.4)}
+.lx-orb{position:absolute;border-radius:50%;filter:blur(6px);opacity:.5;pointer-events:none;animation:lxFloat 9s ease-in-out infinite}
+.lx-orb.o1{width:340px;height:340px;top:-120px;right:-70px;background:radial-gradient(circle at 35% 30%,#e9f1ff,#bcd4fb)}
+.lx-orb.o2{width:220px;height:220px;bottom:-60px;left:-70px;background:radial-gradient(circle at 35% 30%,#fdf3e2,#f2dcae);animation-delay:-3s}
+.lx-orb.o3{width:150px;height:150px;top:44%;left:60%;background:radial-gradient(circle at 35% 30%,#f6ecfb,#e2d1f4);animation-delay:-5s}
+.lx-grid{position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(rgba(120,145,190,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(120,145,190,.06) 1px,transparent 1px);
+  background-size:44px 44px;-webkit-mask-image:radial-gradient(120% 90% at 30% 25%,#000,transparent 75%);mask-image:radial-gradient(120% 90% at 30% 25%,#000,transparent 75%)}
+.lx-brand-inner{position:relative;z-index:1;width:min(560px,100%);display:flex;flex-direction:column;gap:clamp(18px,3vh,30px)}
+.lx-lockup{display:flex;align-items:center;gap:13px}
+.lx-word{display:grid}.lx-word b{font:800 19px/1 var(--font-display);letter-spacing:.02em;color:var(--navy)}
+.lx-word small{margin-top:3px;font-size:8px;letter-spacing:.16em;color:var(--muted);font-weight:700}
+.lx-kicker{display:inline-flex;align-items:center;gap:8px;margin:0;font-size:10px;font-weight:800;letter-spacing:.15em;color:var(--blue-ink)}
+.lx-kicker i{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(200,162,77,.14)}
+.lx-hero h1{margin:9px 0 0;font:780 clamp(32px,3.4vw,46px)/1.05 var(--font-display);letter-spacing:-.03em;color:var(--text)}
+.lx-hero h1 em{font-style:normal;background:linear-gradient(100deg,var(--gold),#a9822f);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.lx-lead{max-width:440px;margin:14px 0 0;font-size:13.5px;line-height:1.7;color:var(--slate)}
+.lx-emblem{position:relative;width:min(300px,74%);aspect-ratio:1;margin:2px auto;display:grid;place-items:center}
+.lx-ering{position:absolute;border-radius:50%;border:1px solid rgba(150,175,215,.34)}
+.lx-ering.e1{inset:6%}.lx-ering.e2{inset:21%;border-color:rgba(200,162,77,.32)}
+.lx-core{width:98px;height:98px;border-radius:28px;display:grid;place-items:center;position:relative;z-index:2;
+  background:linear-gradient(150deg,#fff,#edf3fb);box-shadow:var(--shadow-clay)}
+.lx-core img{width:58px;height:58px;object-fit:contain;filter:drop-shadow(0 6px 8px rgba(47,70,110,.22))}
+.lx-badge{position:absolute;display:flex;align-items:center;gap:8px;padding:7px 12px 7px 7px;border-radius:15px;z-index:3;
+  background:var(--glass-bg-strong);border:1px solid var(--glass-hairline);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-sheen),0 14px 30px -18px rgba(56,78,120,.5);animation:lxFloat 6.5s ease-in-out infinite}
+.lx-badge img{width:30px;height:30px;object-fit:contain;flex:none}
+.lx-badge i{display:grid;font-style:normal;min-width:0}
+.lx-badge b{font-size:11px;color:var(--text);white-space:nowrap}
+.lx-badge small{font-size:9px;color:var(--muted)}
+.lx-badge.b1{top:-2%;left:-6%;animation-delay:-1s}
+.lx-badge.b2{top:40%;right:-14%;animation-delay:-3.4s}
+.lx-badge.b3{bottom:-4%;left:4%;animation-delay:-5s}
+.lx-points{list-style:none;margin:2px 0 0;padding:0;display:grid;gap:11px;max-width:430px}
+.lx-points li{position:relative;display:grid;padding-left:28px}
+.lx-points li::before{content:"";position:absolute;left:0;top:2px;width:17px;height:17px;border-radius:6px;
+  background:linear-gradient(145deg,#fff,#e6edf8);box-shadow:inset 1px 1px 2px #fff,inset -2px -2px 4px rgba(90,120,175,.2),0 4px 8px -3px rgba(70,100,160,.4)}
+.lx-points li::after{content:"";position:absolute;left:5px;top:7px;width:7px;height:4px;border-left:1.6px solid var(--gold);border-bottom:1.6px solid var(--gold);transform:rotate(-45deg)}
+.lx-points b{font-size:12.5px;color:var(--text);font-weight:700}
+.lx-points span{font-size:11px;color:var(--muted)}
+.lx-foot{margin:6px 0 0;font-size:10px;letter-spacing:.04em;color:var(--muted)}
+
+/* ── Sign-in side ─────────────────────────────────────────────────────── */
+.lx-form-side{display:grid;place-items:center;padding:clamp(26px,4vw,48px);position:relative;
+  background:linear-gradient(180deg,#ffffff,#f6f9fd)}
+.lx-card{position:relative;width:min(432px,100%);padding:clamp(28px,3vw,40px);border-radius:26px;
+  background:var(--glass-bg-strong);border:1px solid var(--glass-border);
+  box-shadow:var(--glass-sheen),0 34px 80px -40px rgba(46,66,104,.5),0 6px 18px -10px rgba(46,66,104,.16);overflow:hidden}
+.lx-card::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:64px;height:3px;border-radius:3px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.lx-shield{display:block;width:64px;height:64px;margin:2px auto 14px;filter:drop-shadow(0 12px 16px rgba(47,70,110,.2))}
+.lx-shield svg{width:100%;height:100%}
+.lx-mobile-brand{display:none}
+.lx-card .eyebrow.lx-eyebrow{color:var(--blue-ink);text-align:center;letter-spacing:.15em}
+.lx-card h2{margin:5px 0 6px;text-align:center;font:770 26px/1.15 var(--font-display);letter-spacing:-.02em;color:var(--text)}
+.lx-card .login-sub{text-align:center;margin:0 auto 20px;max-width:330px;color:var(--slate);font-size:12.5px;line-height:1.6}
+.lx-card .field{margin-bottom:14px}
+.lx-card .login-submit{margin-top:6px}
+
+/* ── Motion ───────────────────────────────────────────────────────────── */
+@keyframes lxFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width:900px){
+  #loginLayer{grid-template-columns:1fr}
+  .lx-brand{display:none}
+  .lx-mobile-brand{display:flex;align-items:center;gap:9px;justify-content:center;margin-bottom:14px}
+  .lx-mobile-brand b{font:800 15px var(--font-display);letter-spacing:.02em;color:var(--navy)}
+}
+@media (prefers-reduced-motion:reduce){ .lx-orb,.lx-badge{animation:none} }
