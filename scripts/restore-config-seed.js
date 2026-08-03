@@ -20,6 +20,19 @@ function documentTemplatesSeed() {
   } catch { return null; }
 }
 
+// Peta peran-akun (CASH_BANK, AR/AP_CONTROL, COGS, dst) → bagan akun. Di-seed
+// lintas migrasi 039/062/068; wajib ada agar Executive Cockpit & posting jalan.
+function accountRolesSeed() {
+  try {
+    const stmts = [];
+    for (const f of ['039_account_roles_tax_rates.sql', '062_perpetual_inventory_cogs.sql', '068_tax_reconciliation_role.sql']) {
+      const sql = fs.readFileSync(path.join(__dirname, '..', 'data', 'migrations', f), 'utf8');
+      for (const m of (sql.match(/INSERT INTO account_roles[\s\S]*?;/gi) || [])) stmts.push(m);
+    }
+    return stmts.length ? stmts.join('\n') : null;
+  } catch { return null; }
+}
+
 const SEEDS = [
   {
     table: 'permission_catalog',
@@ -61,6 +74,9 @@ const SEEDS = [
 // Sumber: migrasi 036 — template dokumen resmi (kop, warna, T&C, tanda tangan).
 const tplSeedSql = documentTemplatesSeed();
 if (tplSeedSql) SEEDS.push({ table: 'document_templates', sql: tplSeedSql });
+// Sumber: migrasi 039/062/068 — peta peran akun → bagan akun.
+const accRoleSql = accountRolesSeed();
+if (accRoleSql) SEEDS.push({ table: 'account_roles', sql: accRoleSql });
 
 (async () => {
   const client = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL });
