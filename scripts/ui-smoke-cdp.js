@@ -108,6 +108,24 @@ async function run() {
       if (i === 59) throw new Error('App shell tidak selesai bootstrap.');
       await delay(100);
     }
+    // Login adalah bagian dari produk, bukan layar sementara. Bekukan kedua
+    // breakpoint sebelum autentikasi agar regresi layout dan a11y ikut menjadi
+    // release gate, sama seperti seluruh workspace setelah login.
+    const loginResults = [];
+    for (const viewport of baseline.viewports) {
+      await send('Emulation.setDeviceMetricsOverride', { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile });
+      await delay(250);
+      const metrics = await evaluate(`(()=>{
+        const layer=document.getElementById('loginLayer'),form=document.getElementById('loginForm');
+        const unlabeled=[...document.querySelectorAll('button')].filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0&&!el.textContent.trim()&&!el.getAttribute('aria-label')&&!el.getAttribute('title')}).length;
+        return {loginVisible:!layer.hidden,bodyOverflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth),unlabeledButtons:unlabeled,formWidth:Math.round(form.getBoundingClientRect().width)};
+      })()`);
+      const file = `${viewport.name}-login.png`;
+      const capture = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+      await fs.writeFile(path.join(output, file), Buffer.from(capture.data, 'base64'));
+      const passed = metrics.loginVisible && metrics.bodyOverflow <= baseline.maxHorizontalOverflow && metrics.unlabeledButtons === 0 && metrics.formWidth >= 280;
+      loginResults.push({ viewport: viewport.name, file, passed, ...metrics });
+    }
     const credentialsJson = JSON.stringify(credentials);
     await evaluate(`(()=>{const c=${credentialsJson},f=document.getElementById('loginForm');f.username.value=c.username;f.password.value=c.password;f.requestSubmit();return true})()`);
     await delay(1500);
@@ -126,26 +144,55 @@ async function run() {
     }
     if (!session.appVisible) throw new Error(`Login UI gagal: ${JSON.stringify(session)}`);
 
+    const desktopViewport = baseline.viewports.find((viewport) => !viewport.mobile);
+    await send('Emulation.setDeviceMetricsOverride', { width: desktopViewport.width, height: desktopViewport.height, deviceScaleFactor: 1, mobile: false });
+    await evaluate(`location.hash='#/dashboard'`);
+    await delay(650);
+    await evaluate(`document.getElementById('menuBtn').click()`);
+    await delay(450);
+    const collapsedRail = await evaluate(`(()=>{const app=document.getElementById('app'),rail=document.getElementById('sidebar'),main=document.getElementById('main'),company=document.querySelector('.company-copy'),profile=document.querySelector('.profile-copy');return {collapsed:app.classList.contains('sidebar-collapsed'),railWidth:Math.round(rail.getBoundingClientRect().width),mainWidth:Math.round(main.getBoundingClientRect().width),bodyOverflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth),expanded:document.getElementById('menuBtn').getAttribute('aria-expanded'),compactCopyHidden:company.getBoundingClientRect().width===0&&profile.getBoundingClientRect().width===0}})()`);
+    const railCapture = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    await fs.writeFile(path.join(output, 'desktop-dashboard-collapsed.png'), Buffer.from(railCapture.data, 'base64'));
+    collapsedRail.passed = collapsedRail.collapsed && collapsedRail.railWidth <= 100 && collapsedRail.mainWidth >= baseline.minMainWidth.desktop && collapsedRail.bodyOverflow <= baseline.maxHorizontalOverflow && collapsedRail.expanded === 'false' && collapsedRail.compactCopyHidden;
+    await evaluate(`document.getElementById('menuBtn').click()`);
+    await delay(350);
+    const enterpriseNavigation = await evaluate(`(()=>{const rail=document.getElementById('spaceRail'),context=document.querySelector('.context-nav'),workbench=document.querySelector('.workbench-frame');return {spaces:rail.querySelectorAll('[data-space]').length,activeSpaces:rail.querySelectorAll('[data-space][aria-pressed="true"]').length,sections:document.querySelectorAll('.nav-section').length,currentPages:document.querySelectorAll('[data-nav][aria-current="page"]').length,pinButtons:document.querySelectorAll('[data-pin]').length,contextVisible:context.getBoundingClientRect().width>0,workbenchVisible:!!workbench&&workbench.getBoundingClientRect().width>0,densityControl:!!document.querySelector('[data-workbench-density]')}})()`);
+    enterpriseNavigation.passed = enterpriseNavigation.spaces === 7 && enterpriseNavigation.activeSpaces === 1 && enterpriseNavigation.sections >= 2 && enterpriseNavigation.currentPages === 1 && enterpriseNavigation.pinButtons >= 1 && enterpriseNavigation.contextVisible && enterpriseNavigation.workbenchVisible && enterpriseNavigation.densityControl;
+
     const results = [];
     for (const viewport of baseline.viewports) {
       await send('Emulation.setDeviceMetricsOverride', { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile });
       for (const pageCase of baseline.pages) {
-        await evaluate(`location.hash=${JSON.stringify(pageCase.hash)}`);
+        const resolvedHash = pageCase.hashFromApi
+          ? await evaluate(`(async()=>{const data=await fetch(${JSON.stringify(pageCase.hashFromApi)}).then(r=>r.json());const item=(data.items||[])[0];if(!item?.id)throw new Error('Fixture visual tidak tersedia');return ${JSON.stringify(pageCase.hashTemplate)}.replace('{id}',item.id)})()`)
+          : pageCase.hash;
+        await evaluate(`location.hash=${JSON.stringify(resolvedHash)}`);
         await delay(800);
         const metrics = await evaluate(`(()=>{
           const main=document.getElementById('main'),required=document.querySelector(${JSON.stringify(pageCase.selector)});
           const unlabeled=[...document.querySelectorAll('button')].filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0&&!el.textContent.trim()&&!el.getAttribute('aria-label')&&!el.getAttribute('title')}).length;
-          return {hash:location.hash,title:main.querySelector('h1')?.textContent||'',required:!!required,error:main.querySelector('.error-state')?.textContent||'',bodyOverflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth),mainOverflow:Math.max(0,main.scrollWidth-main.clientWidth),unlabeledButtons:unlabeled,mainWidth:Math.round(main.getBoundingClientRect().width)};
+          return {hash:location.hash,title:main.querySelector('h1')?.textContent||'',required:!!required,error:main.querySelector('.error-state')?.textContent||'',bodyOverflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth),mainOverflow:Math.max(0,main.scrollWidth-main.clientWidth),unlabeledButtons:unlabeled,mainWidth:Math.round(main.getBoundingClientRect().width),workbenchFrame:!!main.querySelector(':scope > .workbench-frame'),workbenchContext:!!main.querySelector('.workbench-context'),archetype:main.dataset.workbench||''};
         })()`);
         const file = `${viewport.name}-${pageCase.name}.png`;
         const capture = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
         await fs.writeFile(path.join(output, file), Buffer.from(capture.data, 'base64'));
-        const passed = metrics.required && !metrics.error && metrics.bodyOverflow <= baseline.maxHorizontalOverflow && metrics.unlabeledButtons === 0 && metrics.mainWidth >= baseline.minMainWidth[viewport.name];
+        const passed = metrics.required && !metrics.error && metrics.bodyOverflow <= baseline.maxHorizontalOverflow && metrics.unlabeledButtons === 0 && metrics.mainWidth >= baseline.minMainWidth[viewport.name] && metrics.workbenchFrame && metrics.workbenchContext && !!metrics.archetype;
         results.push({ viewport: viewport.name, page: pageCase.name, file, passed, ...metrics });
       }
     }
+    const mobileViewport = baseline.viewports.find((viewport) => viewport.mobile);
+    await send('Emulation.setDeviceMetricsOverride', { width: mobileViewport.width, height: mobileViewport.height, deviceScaleFactor: 1, mobile: true });
+    await evaluate(`location.hash='#/dashboard'`);
+    await delay(450);
+    await evaluate(`document.getElementById('menuBtn').click()`);
+    await delay(350);
+    const mobileNavigation = await evaluate(`(()=>{const sidebar=document.getElementById('sidebar'),rail=document.getElementById('spaceRail'),context=document.querySelector('.context-nav'),shell=document.querySelector('.shell');return {open:sidebar.classList.contains('open'),width:Math.round(sidebar.getBoundingClientRect().width),spaces:rail.querySelectorAll('[data-space]').length,activeSpaces:rail.querySelectorAll('[data-space][aria-pressed="true"]').length,contextVisible:context.getBoundingClientRect().width>0,ariaModal:sidebar.getAttribute('aria-modal'),backgroundInert:shell.inert,bodyOverflow:Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth)}})()`);
+    const mobileRailCapture = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    await fs.writeFile(path.join(output, 'mobile-enterprise-navigation.png'), Buffer.from(mobileRailCapture.data, 'base64'));
+    mobileNavigation.passed = mobileNavigation.open && mobileNavigation.width >= 320 && mobileNavigation.spaces === 7 && mobileNavigation.activeSpaces === 1 && mobileNavigation.contextVisible && mobileNavigation.ariaModal === 'true' && mobileNavigation.backgroundInert && mobileNavigation.bodyOverflow <= baseline.maxHorizontalOverflow;
+    await evaluate(`document.getElementById('scrim').click()`);
     const unexpected = consoleErrors.filter((message) => !message.includes('status of 401 (Unauthorized)'));
-    const report = { ok: results.every((item) => item.passed) && unexpected.length === 0, baselineVersion: baseline.version, base, results, consoleErrors: unexpected };
+    const report = { ok: loginResults.every((item) => item.passed) && collapsedRail.passed && enterpriseNavigation.passed && mobileNavigation.passed && results.every((item) => item.passed) && unexpected.length === 0, baselineVersion: baseline.version, base, loginResults, collapsedRail, enterpriseNavigation, mobileNavigation, results, consoleErrors: unexpected };
     await fs.writeFile(path.join(output, 'visual-regression-report.json'), `${JSON.stringify(report, null, 2)}\n`);
     console.log(JSON.stringify(report, null, 2));
     if (!report.ok) process.exitCode = 1;

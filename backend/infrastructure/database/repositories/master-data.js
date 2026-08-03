@@ -362,6 +362,41 @@ async function employeeAudit(client,employeeId,user){
     ORDER BY occurred_at DESC LIMIT 200`,[employeeId])).rows.map(runtime.camel);
 }
 
+// Foto Party 360 tetap berada di private storage. Master hanya menyimpan UUID
+// file; pengunggah harus sama, modul harus cocok, dan hanya gambar yang boleh
+// ditautkan. File belum CLEAN boleh ditautkan tetapi belum dapat ditampilkan
+// sampai background malware scan selesai.
+async function setProfilePhoto(client, master, id, fileId, user, requestId) {
+  const { m } = spec(master);
+  if (!['customers', 'suppliers'].includes(master)) throw new AppError('VALIDATION_ERROR', 'Foto profil hanya tersedia untuk Customer dan Supplier.');
+  assertPermission(user, `${m.module}.edit`);
+  const parent = await parentRow(client, master, id);
+  if (!fileId || !/^[0-9a-f-]{36}$/i.test(String(fileId))) throw new AppError('VALIDATION_ERROR', 'File foto profil tidak valid.');
+  const file = (await client.query(
+    `SELECT id,uploaded_by,related_module,mime_type,scan_status,is_deleted
+       FROM file_metadata WHERE id=$1`, [fileId])).rows[0];
+  if (!file || file.is_deleted) throw new AppError('RESOURCE_NOT_FOUND', 'File foto tidak tersedia.');
+  if (file.uploaded_by !== user.id && !hasPermission(user, '*')) throw new AppError('PERMISSION_DENIED', 'Foto hanya dapat ditautkan oleh pengunggahnya.');
+  const allowedPhotoMime = new Set(['image/png', 'image/jpeg', 'image/webp']);
+  if (file.related_module !== m.module || !allowedPhotoMime.has(String(file.mime_type || '').toLowerCase())) {
+    throw new AppError('VALIDATION_ERROR', `Gunakan PNG, JPG, atau WebP yang diunggah untuk modul ${m.module}.`);
+  }
+  await client.query(
+    `UPDATE file_metadata SET access_level='MASTER_PROFILE',confidentiality='INTERNAL',branch_id=NULL
+      WHERE id=$1`, [fileId]);
+  const updated = (await client.query(
+    `UPDATE ${m.parent} SET profile_file_id=$2,updated_at=now() WHERE id=$1 RETURNING *`,
+    [id, fileId])).rows[0];
+  await runtime.audit(client, {
+    userId: user.id, action: 'UPDATE', module: m.module,
+    entityType: `${master}.PROFILE_PHOTO`.toUpperCase(), entityId: id,
+    oldValue: { profileFileId: parent.profile_file_id || null },
+    newValue: { profileFileId: fileId, scanStatus: file.scan_status },
+    requestId, branchId: user.branchId
+  });
+  return { ...runtime.camel(updated), profileScanStatus: file.scan_status };
+}
+
 // Aktivasi HPP (§11.4): APPROVED → ACTIVE; revisi ACTIVE lama SUPERSEDED;
 // products.hpp menjadi snapshot Active HPP untuk transaksi.
 async function activateCostRevision(client, productId, revisionId, user, requestId) {
@@ -430,4 +465,4 @@ async function lifecycle(client, master, id, action, reason, user, requestId) {
   return runtime.camel(updated);
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, activateCostRevision, promoteRevision, lifecycle };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, activateCostRevision, promoteRevision, lifecycle };

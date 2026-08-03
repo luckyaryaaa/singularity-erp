@@ -14,12 +14,39 @@ const postgresAuth = require('../backend/infrastructure/database/repositories/au
 const { hashPassword } = require('../backend/core/auth');
 const businessOps = require('../backend/infrastructure/database/repositories/business-operations');
 const financeReports = require('../backend/infrastructure/database/repositories/finance-reports');
+const masterData = require('../backend/infrastructure/database/repositories/master-data');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
 const enabled = !!process.env.DATABASE_URL;
 const pgTest = enabled ? test : test.skip;
+
+pgTest('PostgreSQL integration: Party 360 profile photo is scanned, scoped, and auditable', async () => {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect(); let uploaded; let diskPath;
+  try {
+    await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");
+    const row = (await client.query(`SELECT u.id,u.role,u.branch_id FROM app_users u WHERE u.role='owner' AND u.active LIMIT 1`)).rows[0];
+    const customer = (await client.query('SELECT id FROM customers ORDER BY created_at LIMIT 1')).rows[0];
+    const supplier = (await client.query('SELECT id FROM suppliers ORDER BY created_at LIMIT 1')).rows[0];
+    assert.ok(row && customer && supplier, 'development seed harus menyediakan owner, customer, dan supplier');
+    const user = { id:row.id, role:row.role, branchId:row.branch_id, branchScope:'*' };
+    uploaded = await privateStorage.upload(client, { buffer:Buffer.from('89504e470d0a1a0a0000000d49484452','hex'), filename:'party-profile.png', mimeType:'image/png', user, module:'customer' });
+    diskPath = path.join(privateStorage.ROOT, uploaded.storagePath);
+    uploaded = await privateStorage.scan(client, uploaded.id);
+    assert.equal(uploaded.scanStatus, 'CLEAN');
+    const linked = await masterData.setProfilePhoto(client, 'customers', customer.id, uploaded.id, user, randomUUID());
+    assert.equal(linked.profileFileId, uploaded.id); assert.equal(linked.profileScanStatus, 'CLEAN');
+    const metadata = (await client.query('SELECT access_level,confidentiality,branch_id FROM file_metadata WHERE id=$1',[uploaded.id])).rows[0];
+    assert.deepEqual(metadata, { access_level:'MASTER_PROFILE', confidentiality:'INTERNAL', branch_id:null });
+    await assert.rejects(() => masterData.setProfilePhoto(client, 'suppliers', supplier.id, uploaded.id, user, randomUUID()), (error) => error.code === 'VALIDATION_ERROR');
+    assert.equal(Number((await client.query("SELECT count(*) n FROM audit_logs WHERE entity_id=$1 AND entity_type='CUSTOMERS.PROFILE_PHOTO'",[customer.id])).rows[0].n), 1);
+  } finally {
+    await client.query('ROLLBACK').catch(()=>{}); await client.end();
+    if (diskPath) await fs.unlink(diskPath).catch(()=>{});
+  }
+});
 
 pgTest('PostgreSQL integration: app role minimum, localhost, schema, dan CRUD transaction', async () => {
   const client = new Client({ connectionString: process.env.DATABASE_URL });

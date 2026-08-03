@@ -55,3 +55,16 @@ test('ambang mutu visual tidak boleh dilonggarkan', () => {
   assert.ok(baseline.viewports.some((v) => v.mobile), 'viewport mobile wajib diuji');
   assert.ok(baseline.viewports.some((v) => !v.mobile), 'viewport desktop wajib diuji');
 });
+
+test('layar login ikut release gate visual di setiap breakpoint', () => {
+  assert.match(smoke, /const loginResults = \[\]/, 'hasil login desktop/mobile wajib dicatat');
+  assert.match(smoke, /`\$\{viewport\.name\}-login\.png`/, 'screenshot login wajib dibuat per viewport');
+  assert.match(smoke, /loginResults\.every\(\(item\) => item\.passed\)/, 'kegagalan login wajib menggagalkan gerbang visual');
+});
+
+test('command rail ringkas ikut release gate visual dan semantik', () => {
+  assert.match(smoke, /desktop-dashboard-collapsed\.png/, 'screenshot command rail ringkas wajib dibuat');
+  assert.match(smoke, /collapsedRail\.railWidth <= 100/, 'command rail ringkas wajib benar-benar mengecil');
+  assert.match(smoke, /collapsedRail\.expanded === 'false'/, 'status aria-expanded wajib mengikuti rail ringkas');
+  assert.match(smoke, /collapsedRail\.compactCopyHidden/, 'teks cabang dan profil tidak boleh menyembul dari rail ringkas');
+});

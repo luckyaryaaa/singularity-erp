@@ -142,6 +142,26 @@
     }
   };
 
+  const partyInitials = (value) => String(value || 'MAT').trim().split(/\s+/).map((word) => word[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'MA';
+  const partyQualityTone = (score) => Number(score || 0) >= 85 ? 'quality-high' : Number(score || 0) >= 60 ? 'quality-medium' : 'quality-low';
+  const partyAvatar = (party, kind, large = false) => {
+    const name = party.name || party.legalName || party.code || 'Business Partner';
+    const photo = party.profileFileId ? `<img data-party-photo src="/api/files/${esc(party.profileFileId)}" width="${large ? 112 : 52}" height="${large ? 112 : 52}" alt="${large ? esc(`Foto profil ${name}`) : ''}" loading="lazy" decoding="async">` : '';
+    return `<span class="party-avatar ${large ? 'party-avatar-lg' : ''} ${partyQualityTone(party.dataQualityScore)}" data-party-avatar="${esc(kind)}"><span class="party-avatar-fallback" aria-hidden="true">${esc(partyInitials(name))}</span>${photo}<i aria-hidden="true"></i></span>`;
+  };
+  const partyIdentityCell = (party, kind) => `<span class="party-table-identity">${partyAvatar(party, kind)}<span><b>${esc(party.name || 'Tanpa nama')}</b><small>${esc(party.legalName || (kind === 'customer' ? 'Nama legal belum dilengkapi' : 'Legal entity belum dilengkapi'))}</small><em>${esc(party.code || 'NO-CODE')}</em></span></span>`;
+  const starRating = (rating) => `<span class="party-stars" aria-label="Rating ${Number(rating || 0)} dari 5">${Array.from({ length: 5 }, (_, index) => `<i class="${index < Number(rating || 0) ? 'filled' : ''}" aria-hidden="true">&#9733;</i>`).join('')}</span>`;
+  const bindPartyPhotoFallback = (root) => root.querySelectorAll('[data-party-photo]').forEach((image) => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
+  const partyIdentityHero = (party, type, editable) => {
+    const customer = type === 'customers';
+    const kind = customer ? 'customer' : 'supplier';
+    const status = party.lifecycleStatus || (party.active ? 'ACTIVE' : 'INACTIVE');
+    const facts = customer
+      ? [[ICONS.building, 'Lokasi utama', party.city || 'Belum ditentukan'], [ICONS.wallet, 'Kebijakan kredit', `${party.paymentTermDays || 0} hari · ${fmtIDR(party.creditLimitAmount || 0)}`], [ICONS.shield, 'Risk & collection', `${party.riskRating || 'LOW'} · ${party.collectionStatus || 'NORMAL'}`]]
+      : [[ICONS.box, 'Kategori pasokan', party.category || 'Belum diklasifikasi'], [ICONS.chart, 'Supplier score', `${Number(party.lastPerformanceScore || 0).toFixed(1)} · ${party.lastPerformancePeriod || 'belum dihitung'}`], [ICONS.shield, 'Risk & onboarding', `${party.riskLevel || 'LOW'} · ${party.onboardingStatus || 'REGISTERED'}`]];
+    return `<section class="party-profile-hero" data-party-kind="${kind}"><div class="party-profile-identity">${partyAvatar(party, kind, true)}<div class="party-profile-name"><span class="party-directory-kicker"><i aria-hidden="true"></i>${customer ? 'CUSTOMER IDENTITY' : 'SUPPLIER IDENTITY'}</span><h2>${esc(party.name || party.code)}</h2><p>${esc(party.legalName || 'Nama legal belum dilengkapi')}</p><div class="party-profile-tags"><span>${esc(party.code || 'NO-CODE')}</span>${chip(status)}${customer ? riskChip(party.riskRating) : starRating(party.rating)}</div></div>${editable ? `<div class="party-photo-action"><button class="btn secondary sm" id="partyPhotoButton" type="button">${ICONS.people} Ganti foto</button><input id="partyPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden><small>PNG, JPG, atau WebP · maks. 5 MB</small></div>` : ''}</div><div class="party-profile-facts">${facts.map(([icon, label, value]) => `<div><span>${icon}</span><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`).join('')}<div><span>${ICONS.audit}</span><small>Data governance</small><strong>${Number(party.dataQualityScore || 0)}% · v${Number(party.mdmVersion || 1)}</strong></div></div><span class="party-profile-orbit" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
+  };
+
   const fmtCell = (row, col) => {
     const [key, , type] = col; const v = row[key];
     if (type === 'money') return `<span class="money">${fmtIDR(Number(v) || 0)}</span>`;
@@ -164,16 +184,41 @@
 
       const lifeBtns = (LIFECYCLE_BTN[overview.lifecycleStatus] || []).filter(() => can(`${cfg.module}.edit`) || can(`${cfg.module}.approve`))
         .map(([a, label]) => `<button class="btn secondary sm" data-life="${a}">${esc(label)}</button>`).join('');
+      const isParty = ['customers', 'suppliers'].includes(params.type);
 
       main.innerHTML = pageHead({
-        eyebrow: `MASTER DATA · ${cfg.title.toUpperCase()}`, title: overview.name || overview.code || cfg.title,
-        sub: `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
+        eyebrow: isParty ? `PARTY 360 · ${cfg.title.toUpperCase()}` : `MASTER DATA · ${cfg.title.toUpperCase()}`, title: isParty ? `Profil ${cfg.title}` : (overview.name || overview.code || cfg.title),
+        sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
         actions: `<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
       }) + `
+        ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : ''}
         <div class="master-tabs" role="tablist">
           ${cfg.tabs.filter((t) => !t.perm || can(t.perm)).map((t) => `<button class="master-tab ${t.id === activeTab ? 'active' : ''}" data-tab="${t.id}" role="tab">${esc(t.label)}${overview.subCounts && overview.subCounts[t.sub] ? ` <span class="tab-count">${overview.subCounts[t.sub]}</span>` : ''}</button>`).join('')}
         </div>
         <section id="tabBody"></section>`;
+
+      if (isParty) {
+        bindPartyPhotoFallback(main);
+        const photoInput = main.querySelector('#partyPhotoInput');
+        main.querySelector('#partyPhotoButton')?.addEventListener('click', () => photoInput.click());
+        photoInput?.addEventListener('change', async () => {
+          const file = photoInput.files[0];
+          if (!file) return;
+          if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+            toast('Foto tidak valid', 'Gunakan PNG, JPG, atau WebP maksimal 5 MB.', 'coral'); return;
+          }
+          try {
+            const saved = await uploadFile(`/api/files?module=${encodeURIComponent(cfg.module)}`, file);
+            const linked = await api(`${cfg.base}/${params.id}/profile-photo`, { method: 'POST', body: { fileId: saved.id } });
+            invalidate(`master:${params.id}`);
+            toast('Foto profil diperbarui', linked.profileScanStatus === 'CLEAN' ? 'Foto siap digunakan.' : 'Foto ditautkan dan sedang melewati pemeriksaan keamanan.');
+            this.render(main, params);
+            if (linked.profileScanStatus !== 'CLEAN') setTimeout(() => {
+              if (state.route === `/masters/${params.type}/detail/${params.id}`) this.render(main, params);
+            }, 2200);
+          } catch (error) { toast('Unggah foto gagal', error.message, 'coral'); }
+        });
+      }
 
       const renderTab = async (tabId) => {
         this._tab = tabId;
@@ -193,8 +238,9 @@
           const detailRows = ov
             ? ov.detail(overview).filter(([, v]) => v != null && v !== '').map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')
             : Object.entries(overview).filter(([k, v]) => !['subCounts', 'id'].includes(k) && typeof v !== 'object' && v !== null && v !== '').slice(0, 12).map(([k, v]) => `<div><dt>${esc(k.replace(/([A-Z])/g, ' $1'))}</dt><dd>${esc(String(v))}</dd></div>`).join('');
-          const kpiHtml = ov ? `<section class="kpi-grid">${ov.kpis(overview).map(([label, val, note]) => `<article class="kpi"><span>${esc(label)}</span><strong>${val}</strong><small>${note || ''}</small></article>`).join('')}</section>` : '';
-          body.innerHTML = kpiHtml + `<div class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">RINGKASAN</p><h2>Informasi utama</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">KELENGKAPAN</p><h2>Sub-data</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
+          const partyClass = isParty ? ' party-profile-kpis' : '';
+          const kpiHtml = ov ? `<section class="kpi-grid${partyClass}">${ov.kpis(overview).map(([label, val, note]) => `<article class="kpi"><span>${esc(label)}</span><strong>${val}</strong><small>${note || ''}</small></article>`).join('')}</section>` : '';
+          body.innerHTML = kpiHtml + `<div class="dashboard-grid${isParty ? ' party-overview-grid' : ''}"><article class="panel"><header><div><p class="eyebrow">${isParty ? 'IDENTITY & POLICY' : 'RINGKASAN'}</p><h2>${isParty ? 'Profil bisnis terkendali' : 'Informasi utama'}</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">${isParty ? 'RELATIONSHIP COVERAGE' : 'KELENGKAPAN'}</p><h2>${isParty ? 'Data pendukung' : 'Sub-data'}</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
           return;
         }
         if (tabId === 'cost-trace') {
@@ -376,23 +422,26 @@
   R('/masters/:type/detail/:id', masterDetail);
   R('/masters/customers', masterPage({
     endpoint: '/api/customers', key: 'customers', permission: 'customer.view', title: 'Pelanggan', eyebrow: 'MASTER DATA', detailType: 'customers',
-    fields:[{name:'code',label:'Kode pelanggan',required:true},{name:'name',label:'Nama dagang',required:true},{name:'customerType',label:'Tipe',type:'select',options:[['COMPANY','Perusahaan'],['INDIVIDUAL','Perorangan']],required:true},{name:'legalName',label:'Nama legal',required:true},{name:'npwp',label:'NPWP'},{name:'ppnStatus',label:'Status PPN',type:'select',options:[['PKP','PKP'],['NON_PKP','Non-PKP']],required:true},{name:'businessCategory',label:'Kategori bisnis'},{name:'city',label:'Kota'},{name:'address',label:'Alamat',type:'textarea'},{name:'website',label:'Website'},{name:'paymentTermDays',label:'Termin pembayaran (hari)',type:'number',min:0,required:true},{name:'creditLimit',label:'Batas kredit',type:'number',min:0},{name:'currency',label:'Mata uang',value:'IDR',required:true},{name:'riskRating',label:'Rating risiko',type:'select',options:[['LOW','Rendah'],['MEDIUM','Sedang'],['HIGH','Tinggi']],required:true},{name:'collectionStatus',label:'Status koleksi',type:'select',options:[['NORMAL','Normal'],['WATCH','Watch'],['DUNNING','Dunning'],['LEGAL','Legal']],required:true},{name:'active',label:'Pelanggan aktif',type:'checkbox'}],
+    presentation:{party:'customer',pageTitle:'Master Customer',headline:'Customer portfolio yang siap ditindaklanjuti',description:'Identitas, kebijakan kredit, pajak, risiko, dan kualitas data dalam satu direktori enterprise.',tableEyebrow:'CUSTOMER INTELLIGENCE',tableTitle:'Customer portfolio'},
+    fields:[{name:'code',label:'Kode pelanggan',required:true},{name:'name',label:'Nama dagang',required:true},{name:'customerType',label:'Tipe',type:'select',options:[['COMPANY','Perusahaan'],['INDIVIDUAL','Perorangan']],required:true},{name:'legalName',label:'Nama legal',required:true},{name:'npwp',label:'NPWP'},{name:'ppnStatus',label:'Status PPN',type:'select',options:[['PKP','PKP'],['NON_PKP','Non-PKP']],required:true},{name:'businessCategory',label:'Kategori bisnis'},{name:'city',label:'Kota'},{name:'address',label:'Alamat',type:'textarea'},{name:'website',label:'Website'},{name:'paymentTermDays',label:'Termin pembayaran (hari)',type:'number',min:0,required:true},{name:'creditLimitAmount',label:'Batas kredit',type:'number',min:0},{name:'currency',label:'Mata uang',value:'IDR',required:true},{name:'riskRating',label:'Rating risiko',type:'select',options:[['LOW','Rendah'],['MEDIUM','Sedang'],['HIGH','Tinggi']],required:true},{name:'collectionStatus',label:'Status koleksi',type:'select',options:[['NORMAL','Normal'],['WATCH','Watch'],['DUNNING','Dunning'],['LEGAL','Legal']],required:true},{name:'active',label:'Pelanggan aktif',type:'checkbox'}],
     columns: [
-      { label: 'Pelanggan', render: (r) => `<b>${esc(r.name)}</b><small>${esc(r.code)}</small>` },
-      { label: 'Kota', render: (r) => esc(r.city) },
-      { label: 'NPWP', render: (r) => esc(r.npwp) },
-      { label: 'Termin', render: (r) => `${r.paymentTermDays} hari` },
-      { label: 'Status', render: (r) => r.active ? '<span class="chip mint">Aktif</span>' : '<span class="chip gray">Nonaktif</span>' }
+      { label: 'Customer identity', key:'identity', render: (r) => partyIdentityCell(r, 'customer') },
+      { label: 'Relasi bisnis', key:'relationship', render: (r) => `<span class="party-cell-stack"><b>${esc(r.businessCategory || 'Kategori umum')}</b><small>${esc(r.city || 'Lokasi belum diisi')} · ${esc(r.customerType === 'INDIVIDUAL' ? 'Perorangan' : 'Perusahaan')}</small></span>` },
+      { label: 'Commercial policy', key:'commercial', render: (r) => `<span class="party-cell-stack"><b>${Number(r.paymentTermDays || 0)} hari</b><small>${Number(r.creditLimitAmount || 0) > 0 ? fmtIDR(r.creditLimitAmount) : 'Tanpa batas kredit'} · ${esc(r.currency || 'IDR')}</small></span>` },
+      { label: 'Risk & trust', key:'risk', render: (r) => `<span class="party-cell-stack party-risk-cell"><span>${riskChip(r.riskRating)} <span class="party-quality ${partyQualityTone(r.dataQualityScore)}">${Number(r.dataQualityScore || 0)}%</span></span><small>Collection ${esc(r.collectionStatus || 'NORMAL')}</small></span>` },
+      { label: 'Governance', key:'governance', render: (r) => `<span class="party-cell-stack"><span>${r.active ? '<span class="chip mint">Aktif</span>' : '<span class="chip gray">Nonaktif</span>'} <span class="chip blue">${esc(r.ppnStatus || 'Pajak —')}</span></span><small>MDM v${Number(r.mdmVersion || 1)}</small></span>` }
     ]
   }));
   R('/masters/suppliers', masterPage({
     endpoint: '/api/suppliers', key: 'suppliers', permission: 'supplier.view', title: 'Supplier', eyebrow: 'MASTER DATA', detailType: 'suppliers',
+    presentation:{party:'supplier',pageTitle:'Master Supplier',headline:'Supplier network dengan kontrol menyeluruh',description:'Profil vendor, performa, onboarding, risiko, dan compliance disajikan dalam satu supplier cockpit.',tableEyebrow:'SUPPLIER INTELLIGENCE',tableTitle:'Supplier network'},
     fields:[{name:'code',label:'Kode supplier',required:true},{name:'name',label:'Nama dagang',required:true},{name:'supplierType',label:'Tipe',type:'select',options:[['COMPANY','Perusahaan'],['INDIVIDUAL','Perorangan']],required:true},{name:'legalName',label:'Nama legal',required:true},{name:'npwp',label:'NPWP'},{name:'category',label:'Kategori',required:true},{name:'rating',label:'Rating',type:'number',min:1,max:5},{name:'ppnTreatment',label:'Perlakuan PPN',type:'select',options:[['NON_PPN','Non-PPN'],['INCLUDE','Include'],['EXCLUDE','Exclude'],['MIXED','Campuran']],required:true},{name:'pphTreatment',label:'Perlakuan PPh'},{name:'withholdingEligible',label:'Objek withholding',type:'checkbox'},{name:'onboardingStatus',label:'Status onboarding',type:'select',options:[['REGISTERED','Terdaftar'],['UNDER_REVIEW','Ditinjau'],['APPROVED','Disetujui'],['SUSPENDED','Suspended'],['BLOCKED','Diblokir']],required:true},{name:'riskLevel',label:'Level risiko',type:'select',options:[['LOW','Rendah'],['MEDIUM','Sedang'],['HIGH','Tinggi']],required:true},{name:'coiDeclared',label:'COI telah dideklarasikan',type:'checkbox'},{name:'active',label:'Supplier aktif',type:'checkbox'}],
     columns: [
-      { label: 'Supplier', render: (r) => `<b>${esc(r.name)}</b><small>${esc(r.code)}</small>` },
-      { label: 'Kategori', render: (r) => esc(r.category) },
-      { label: 'Rating', render: (r) => '★'.repeat(r.rating || 0) + '<span class="muted">' + '★'.repeat(5 - (r.rating || 0)) + '</span>' },
-      { label: 'Status', render: (r) => r.active ? '<span class="chip mint">Aktif</span>' : '<span class="chip gray">Nonaktif</span>' }
+      { label: 'Supplier identity', key:'identity', render: (r) => partyIdentityCell(r, 'supplier') },
+      { label: 'Supply profile', key:'supply', render: (r) => `<span class="party-cell-stack"><b>${esc(r.category || 'Belum diklasifikasi')}</b><small>${esc(r.supplierType === 'INDIVIDUAL' ? 'Perorangan' : 'Perusahaan')} · ${esc(r.ppnTreatment || 'Pajak belum diatur')}</small></span>` },
+      { label: 'Performance', key:'performance', render: (r) => `<span class="party-cell-stack">${starRating(r.rating)}<small>Score ${Number(r.lastPerformanceScore || 0).toFixed(1)} · ${esc(r.lastPerformancePeriod || 'belum dihitung')}</small></span>` },
+      { label: 'Risk & onboarding', key:'risk', render: (r) => `<span class="party-cell-stack party-risk-cell"><span>${riskChip(r.riskLevel)} <span class="party-quality ${partyQualityTone(r.dataQualityScore)}">${Number(r.dataQualityScore || 0)}%</span></span><small>${esc(r.onboardingStatus || 'REGISTERED')}</small></span>` },
+      { label: 'Governance', key:'governance', render: (r) => `<span class="party-cell-stack"><span>${r.active ? '<span class="chip mint">Aktif</span>' : '<span class="chip gray">Nonaktif</span>'} ${r.coiDeclared ? '<span class="chip blue">COI</span>' : '<span class="chip amber">COI pending</span>'}</span><small>MDM v${Number(r.mdmVersion || 1)}</small></span>` }
     ]
   }));
   R('/masters/products', masterPage({

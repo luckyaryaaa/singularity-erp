@@ -1,6 +1,6 @@
 # Endpoint Authorization Matrix
 
-Baseline v0.48.0 mencakup 14 bounded router dan 322 handler HTTP.
+Baseline v0.49.0 mencakup 14 bounded router dan 323 handler HTTP.
 Seluruh domain router hanya dipanggil setelah validasi session terpusat di
 `backend/api-postgres.js`. Endpoint publik dibatasi oleh allowlist eksplisit.
 
@@ -12,7 +12,7 @@ Seluruh domain router hanya dipanggil setelah validasi session terpusat di
 | Sales | 27 | permission + repository branch | quotation, commercial control, dunning, RMA IDOR, pricing condition engine |
 | Procurement | 20 | permission + RLS + branch + SoD + version + idempotency | RFQ, kontrak/release replay, PO, proposal IDOR |
 | Operations | 14 | permission + ownership + branch | job, file, artifact isolation, notification preferences |
-| Masters | 47 | permission dinamis + repository scope | sensitive bank/employee/master |
+| Masters | 48 | permission dinamis + repository scope + private scanned profile media | sensitive bank/employee/master, Customer/Supplier Party 360 photo |
 | Organization | 30 | scope + Owner PIN + recent MFA | bank, hierarchy, workforce maker-checker |
 | Inventory | 33 | permission + RLS + canonical warehouse + version + idempotency | lot, bin, reservation, opname, WMS task, handling unit, immutable mobile scan, health reconciliation, reversible read-switch |
 | Production | 24 | permission + RLS + work-order branch + version + idempotency | WO, capacity/WIP, QC/CAPA/calibration, MRP isolation |

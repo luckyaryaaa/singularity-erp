@@ -16,6 +16,15 @@ async function rollback(fn) {
   try { await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)"); await fn(client); }
   finally { await client.query('ROLLBACK').catch(() => {}); await client.end(); }
 }
+async function ensurePrimaryAssignment(client, user, ownerId) {
+  const valid = (await client.query(`SELECT 1 FROM user_role_assignments
+    WHERE user_id=$1 AND role_code=$2 AND is_primary AND status='ACTIVE'
+      AND effective_from<=now() AND (effective_until IS NULL OR effective_until>now())`, [user.id, user.role])).rowCount;
+  if (valid) return;
+  await client.query(`INSERT INTO user_role_assignments(id,user_id,role_code,scope_type,scope_id,status,is_primary,reason,requested_by,approved_by,approved_at)
+    VALUES($1,$2,$3,$4,$5,'ACTIVE',true,'Fixture otorisasi runtime',$6,$6,now())`,
+  [randomUUID(), user.id, user.role, user.branch_id ? 'BRANCH' : 'GLOBAL', user.branch_id || null, ownerId]);
+}
 
 test('B1: tanpa grant database, baseline ROLE_GRANTS tetap dipakai (fail-safe)', () => {
   const legacy = { id: 'u', role: 'sales', branchId: 'b', branchScope: 'b' };
@@ -49,9 +58,10 @@ dbTest('B1: baseline ter-seed dan idempoten; penyesuaian admin tidak ditimpa', a
 }));
 
 dbTest('B2: pengguna dengan peran tambahan memperoleh gabungan kewenangan', async () => rollback(async (client) => {
-  const target = (await client.query(`SELECT u.id,u.role FROM app_users u WHERE u.role='sales' AND u.active LIMIT 1`)).rows[0];
+  const target = (await client.query(`SELECT u.id,u.role,u.branch_id FROM app_users u WHERE u.role='sales' AND u.active LIMIT 1`)).rows[0];
   assert.ok(target, 'butuh satu akun sales');
   const owner = (await client.query(`SELECT id FROM app_users WHERE role='owner' LIMIT 1`)).rows[0];
+  await ensurePrimaryAssignment(client, target, owner.id);
 
   const token = randomUUID();
   await client.query(`INSERT INTO user_sessions(id,user_id,token_hash,csrf_token_hash,expires_at,ip,device,last_ip,last_device)
@@ -77,8 +87,9 @@ dbTest('B2: pengguna dengan peran tambahan memperoleh gabungan kewenangan', asyn
 }));
 
 dbTest('B2: peran tambahan yang kedaluwarsa berhenti berlaku tanpa perlu logout', async () => rollback(async (client) => {
-  const target = (await client.query(`SELECT id FROM app_users WHERE role='sales' AND active LIMIT 1`)).rows[0];
+  const target = (await client.query(`SELECT id,role,branch_id FROM app_users WHERE role='sales' AND active LIMIT 1`)).rows[0];
   const owner = (await client.query(`SELECT id FROM app_users WHERE role='owner' LIMIT 1`)).rows[0];
+  await ensurePrimaryAssignment(client, target, owner.id);
   const token = randomUUID();
   await client.query(`INSERT INTO user_sessions(id,user_id,token_hash,csrf_token_hash,expires_at,ip,device,last_ip,last_device)
     VALUES($1,$2,$3,$4,now()+interval '1 hour','127.0.0.1','t','127.0.0.1','t')`,

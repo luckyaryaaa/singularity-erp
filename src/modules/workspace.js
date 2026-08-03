@@ -1,8 +1,42 @@
 'use strict';
 (() => {
   const { esc, fmtIDR, fmtIDRFull, fmtDate, fmtDateTime, relTime, api, uploadFile, query, invalidate, router, can, state, newIdemKey , asList } = window.MAT;
-  const { ICONS, chip, toast, formDialog, actionDialog, openDrawer, dataTable, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL, STATUS_META } = window.UI;
+  const { ICONS, chip, toast, formDialog, actionDialog, openDrawer, dataTable, clayOrb, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL, STATUS_META } = window.UI;
   const { progressBar, docCell, docListPage, masterPage } = window.PageKit;
+
+  const DASHBOARD_PREFS_KEY = 'mat.dashboard.preferences.v1';
+  const dashboardPreferenceKey = () => `${DASHBOARD_PREFS_KEY}:${state.user?.id || state.user?.username || 'user'}`;
+  const clampScore = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+  const dashboardPreferences = () => {
+    try {
+      return { insights: true, analytics: true, jobs: true, ...JSON.parse(localStorage.getItem(dashboardPreferenceKey()) || '{}') };
+    } catch { return { insights: true, analytics: true, jobs: true }; }
+  };
+  const dashboardScores = (data) => {
+    const k = data.kpi, h = data.health, attention = data.attention;
+    const overduePressure = Number(h.arTotal || 0) > 0 ? Number(k.arOverdue || 0) / Number(h.arTotal) * 28 : 0;
+    const target = Math.max(Number(k.utilizationTarget || 0), 1);
+    return {
+      sales: clampScore(76 + Math.max(-18, Math.min(18, Number(k.revenueGrowthPct || 0)))),
+      finance: clampScore(88 - overduePressure - (h.cashPosition == null ? 8 : Number(h.cashPosition) < 0 ? 24 : 0)),
+      operations: clampScore(Number(k.utilizationPct || 0) / target * 100),
+      control: clampScore(100 - Number(attention.pendingApprovals || 0) * 2.5 - Number(h.criticalStock || 0) * 4)
+    };
+  };
+  const dashboardInsights = (data, grant) => {
+    const k = data.kpi, h = data.health, items = [];
+    if (grant.revenue && k.revenueGrowthPct != null) items.push({
+      tone: Number(k.revenueGrowthPct) >= 0 ? 'mint' : 'coral', icon: 'trend', label: Number(k.revenueGrowthPct) >= 0 ? 'Peluang' : 'Perlu perhatian',
+      title: `Pendapatan ${Number(k.revenueGrowthPct) >= 0 ? 'bertumbuh' : 'menurun'} ${Math.abs(Number(k.revenueGrowthPct)).toLocaleString('id-ID')}%`,
+      detail: Number(k.revenueGrowthPct) >= 0 ? 'Pertahankan momentum dan periksa kontribusi pelanggan terbesar.' : 'Tinjau pipeline serta quotation yang belum dikonversi.', href: '#/reports'
+    });
+    if (grant.revenue && Number(k.arOverdueCount || 0) > 0) items.push({ tone: 'amber', icon: 'wallet', label: 'Risiko kas', title: `${k.arOverdueCount} invoice melewati jatuh tempo`, detail: `Eksposur ${fmtIDR(k.arOverdue)} perlu diprioritaskan oleh tim penagihan.`, href: '#/finance/invoices' });
+    if (grant.inventory && Number(h.criticalStock || 0) > 0) items.push({ tone: 'coral', icon: 'box', label: 'Risiko pasokan', title: `${h.criticalStock} stok berada pada level kritis`, detail: 'Periksa kebutuhan produksi dan rencana pengadaan sebelum terjadi kekurangan.', href: '#/warehouse/inventory' });
+    const gap = Number(k.utilizationTarget || 0) - Number(k.utilizationPct || 0);
+    if (gap > 0) items.push({ tone: gap > 15 ? 'coral' : 'lavender', icon: 'factory', label: 'Operasional', title: `Utilisasi ${gap.toLocaleString('id-ID')} poin di bawah target`, detail: 'Tinjau antrean work order, kapasitas, dan hambatan produksi aktif.', href: '#/production/work-orders' });
+    return items.slice(0, 3);
+  };
+  const dashboardSkeleton = () => `<section class="decision-skeleton" aria-label="Memuat dashboard" aria-busy="true"><div class="skeleton decision-skeleton-bar"></div><div class="skeleton decision-skeleton-hero"></div><div class="decision-skeleton-grid">${Array.from({ length: 4 }, () => '<div class="skeleton"></div>').join('')}</div></section>`;
 
   const dashboard = {
     permission: 'dashboard.view',
@@ -16,6 +50,7 @@
       return this.renderOverview(main, signal);
     },
     async renderOverview(main, signal) {
+      main.innerHTML = dashboardSkeleton();
       const rich = can('report.view') && window.MAT_PAGES && window.MAT_PAGES.cockpit;
       const data = await query('dashboard', () => api('/api/dashboard', { signal }), { staleMs: 30_000 });
       const hour = new Date().getHours();
@@ -36,56 +71,80 @@
       // Kartu hanya dirender bila server memberi entitlement-nya — data yang
       // tidak berhak memang TIDAK ADA di respons, jadi jangan pura-pura nol.
       const grant = data.entitlements || {};
-      const netFlow = grant.revenue && grant.payable ? Number(h.arTotal || 0) - Number(h.apTotal || 0) : null;
+      const prefs = dashboardPreferences();
+      const scores = dashboardScores(data);
+      const scoreEntries = [
+        ['Sales', scores.sales, 'blue'], ['Keuangan', scores.finance, 'mint'],
+        ['Operasi', scores.operations, 'lavender'], ['Kontrol', scores.control, 'amber']
+      ];
+      const overallScore = clampScore(scoreEntries.reduce((total, entry) => total + entry[1], 0) / scoreEntries.length);
+      const insights = dashboardInsights(data, grant);
+      const urgentCount = Number(data.attention.pendingApprovals || 0) + Number(k.arOverdueCount || 0) + Number(h.criticalStock || 0);
+      const summary = urgentCount
+        ? `Kinerja bisnis berada pada skor ${overallScore}%. Ada ${urgentCount} isu yang perlu diprioritaskan hari ini.`
+        : `Kinerja bisnis berada pada skor ${overallScore}%. Seluruh indikator utama dalam kondisi terkendali.`;
+      const priorities = [
+        data.attention.pendingApprovals ? { tone: data.attention.slaRisk ? 'coral' : 'amber', label: 'Persetujuan', value: `${data.attention.pendingApprovals} keputusan`, detail: `${fmtIDR(data.attention.pendingAmount)} menunggu keputusan`, href: '#/approvals', action: 'Tinjau' } : null,
+        grant.revenue && k.arOverdueCount ? { tone: 'amber', label: 'Piutang', value: `${k.arOverdueCount} invoice`, detail: `${fmtIDR(k.arOverdue)} melewati jatuh tempo`, href: '#/finance/invoices', action: 'Tagih' } : null,
+        grant.inventory && h.criticalStock ? { tone: 'coral', label: 'Persediaan', value: `${h.criticalStock} stok kritis`, detail: 'Berpotensi menghambat pemenuhan order', href: '#/warehouse/inventory', action: 'Periksa' } : null,
+        k.inProduction ? { tone: 'lavender', label: 'Produksi', value: `${k.inProduction} pekerjaan`, detail: `${k.utilizationPct}% utilisasi dari target ${k.utilizationTarget}%`, href: '#/production/work-orders', action: 'Pantau' } : null
+      ].filter(Boolean).slice(0, 4);
       // Pertumbuhan null berarti bulan lalu nihil — tidak ada dasar pembanding.
-      const growth = k.revenueGrowthPct == null
-        ? '<span class="hero-trend">Belum ada pembanding bulan lalu</span>'
-        : `<span class="hero-trend ${Number(k.revenueGrowthPct) >= 0 ? 'up' : 'down'}">${ICONS.trend} ${k.revenueGrowthPct}% dari bulan lalu</span>`;
       const growthNote = k.revenueGrowthPct == null ? 'Belum ada pembanding bulan lalu' : `${Number(k.revenueGrowthPct) >= 0 ? '↑' : '↓'} ${Math.abs(k.revenueGrowthPct)}% dari bulan lalu`;
       main.innerHTML = `
-        <section class="hero-exec">
-          <div class="hero-glow" aria-hidden="true"></div>
-          <div class="hero-main">
-            <p class="hero-date">${today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}</p>
-            <h1>${greet}, ${esc(firstName)}.</h1>
-            <p class="hero-sub">Berikut kondisi bisnis yang perlu Anda ketahui hari ini.</p>
-            <div class="hero-actions">
-              <button class="btn ghost-light" id="dashRefresh">${ICONS.refresh} Segarkan</button>
-              ${can('quotation.create') ? `<a class="btn light" href="#/sales/quotations/new">${ICONS.plus} Buat penawaran</a>` : ''}
-            </div>
-          </div>
-          <div class="hero-stat">
-            ${grant.revenue ? `<span class="hero-stat-label">Pendapatan ${monthName}</span>
-            <strong class="hero-stat-value">${fmtIDR(k.revenueMonth)}</strong>
-            ${growth}`
-        : `<span class="hero-stat-label">Pesanan aktif</span>
-            <strong class="hero-stat-value">${k.activeOrders}</strong>
-            <span class="hero-trend">${k.inProduction} dalam proses produksi</span>`}
-            <div class="hero-divider"></div>
-            <div class="hero-mini">
-              ${netFlow == null ? '' : `<span><small>Posisi kas bersih</small><b class="${netFlow >= 0 ? 'pos' : 'neg'}">${fmtIDR(netFlow)}</b></span>`}
-              <span><small>Pesanan aktif</small><b>${k.activeOrders}</b></span>
-            </div>
+        <section class="decision-context" aria-label="Konteks dashboard">
+          <div class="decision-context-copy"><span class="decision-live"><i></i> Data operasional aktif</span><b>${esc(state.user.branchName || 'Seluruh perusahaan')}</b><small>Diperbarui ${fmtDateTime(data.asOf)}</small></div>
+          <div class="decision-context-actions">
+            <button class="btn ghost sm" id="dashCustomize">${ICONS.settings || ICONS.monitor} Atur dashboard</button>
+            <button class="icon-btn" id="dashRefresh" aria-label="Segarkan dashboard" title="Segarkan dashboard">${ICONS.refresh}</button>
+            ${can('quotation.create') ? `<a class="btn primary sm" href="#/sales/quotations/new">${ICONS.plus} Buat penawaran</a>` : ''}
           </div>
         </section>
-        ${data.attention.pendingApprovals ? `
-        <section class="attention">
-          <div class="attention-orb">${ICONS.bell}</div>
-          <div><p class="eyebrow">PERLU PERHATIAN</p>
-            <h2>${data.attention.pendingApprovals} keputusan menunggu persetujuan Anda</h2>
-            <p>Nilai total ${fmtIDR(data.attention.pendingAmount)} · ${data.attention.slaRisk} dokumen bernilai besar menunggu keputusan.</p></div>
-          <a class="btn ink" href="#/approvals">Buka pusat persetujuan ${ICONS.arrow}</a>
-        </section>` : ''}
-        <div id="dashAnalytics"></div>
+        <section class="hero-exec decision-hero">
+          <div class="decision-aurora" aria-hidden="true"></div>
+          <div class="decision-hero-copy">
+            <div class="decision-kicker"><span>${today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}</span><i></i><span>DECISION COCKPIT</span></div>
+            <h1>${greet}, ${esc(firstName)}.</h1>
+            <p class="decision-summary">${esc(summary)}</p>
+            <div class="decision-hero-actions">
+              <a class="btn light" href="${priorities[0]?.href || '#/reports'}">${priorities.length ? 'Lihat prioritas' : 'Lihat laporan'} ${ICONS.arrow}</a>
+              <span class="decision-assurance">${ICONS.shield} Scope dan hak akses Anda aktif</span>
+            </div>
+          </div>
+          <div class="business-pulse" role="img" title="Skor komposit operasional berbasis KPI pada scope aktif; bukan angka akuntansi." aria-label="Skor kesehatan bisnis ${overallScore} persen. Sales ${scores.sales}, keuangan ${scores.finance}, operasi ${scores.operations}, kontrol ${scores.control}.">
+            <div class="pulse-orbit orbit-a" aria-hidden="true"></div><div class="pulse-orbit orbit-b" aria-hidden="true"></div>
+            <div class="pulse-core"><span>Business pulse</span><strong>${overallScore}</strong><small>${overallScore >= 85 ? 'Sangat sehat' : overallScore >= 70 ? 'Stabil' : 'Perlu fokus'}</small></div>
+            ${scoreEntries.map(([label, score, tone], index) => `<span class="pulse-node pulse-node-${index + 1} ${tone}" title="${esc(label)} ${score}%"><i></i><b>${esc(label)}</b><small>${score}%</small></span>`).join('')}
+          </div>
+        </section>
+        <section class="decision-kpis" aria-label="Indikator utama">
+          ${grant.revenue ? `<a class="decision-kpi blue" href="#/reports"><span>${ICONS.chart}</span><div><small>Pendapatan ${esc(monthName)}</small><strong>${fmtIDR(k.revenueMonth)}</strong><em class="${k.revenueGrowthPct != null && Number(k.revenueGrowthPct) < 0 ? 'down' : 'up'}">${growthNote}</em></div></a>` : ''}
+          ${grant.cash ? `<a class="decision-kpi mint" href="#/accounting"><span>${ICONS.ledger}</span><div><small>Kas & bank</small><strong>${h.cashPosition == null ? 'Belum diatur' : fmtIDR(h.cashPosition)}</strong><em>${h.cashPosition == null ? 'Konfigurasi akun kas diperlukan' : 'Posisi terkini'}</em></div></a>` : ''}
+          <a class="decision-kpi lavender" href="#/production/work-orders"><span>${ICONS.cart}</span><div><small>Order book</small><strong>${fmtIDR(h.orderBook)}</strong><em>${k.activeOrders} order aktif</em></div></a>
+          <a class="decision-kpi amber" href="#/production/work-orders"><span>${ICONS.factory}</span><div><small>Delivery readiness</small><strong>${k.utilizationPct}%</strong><em>Target operasi ${k.utilizationTarget}%</em></div></a>
+        </section>
+        <section class="decision-priority-layout">
+          <article class="panel decision-priority">
+            <header><div><p class="eyebrow">PRIORITY INBOX</p><h2>Keputusan hari ini</h2><p>Diurutkan berdasarkan urgensi dan dampak bisnis.</p></div><span class="chip ${priorities.length ? 'amber' : 'mint'}">${priorities.length} prioritas</span></header>
+            <div class="decision-priority-list">${priorities.map((item, index) => `<a href="${item.href}" class="decision-priority-item ${item.tone}"><span class="priority-rank">${String(index + 1).padStart(2, '0')}</span><span><small>${esc(item.label)}</small><b>${esc(item.value)}</b><em>${esc(item.detail)}</em></span><strong>${esc(item.action)} ${ICONS.arrow}</strong></a>`).join('') || `<div class="decision-clear">${clayOrb('mint', 'check')}<span><b>Semua indikator terkendali</b><small>Tidak ada tindakan prioritas pada scope Anda.</small></span></div>`}</div>
+          </article>
+          <article class="panel decision-snapshot">
+            <header><div><p class="eyebrow">BUSINESS SNAPSHOT</p><h2>Posisi terkini</h2></div><a class="text-btn" href="#/reports">Detail ${ICONS.arrow}</a></header>
+            <div class="decision-snapshot-grid">
+              ${grant.revenue ? `<div><span class="health-icon blue">${ICONS.wallet}</span><small>Piutang</small><b>${fmtIDR(h.arTotal)}</b><em>${h.arCount} invoice terbuka</em></div>` : ''}
+              ${grant.payable ? `<div><span class="health-icon amber">${ICONS.doc}</span><small>Utang</small><b>${fmtIDR(h.apTotal)}</b><em>${h.apCount} tagihan supplier</em></div>` : ''}
+              ${grant.inventory ? `<div><span class="health-icon mint">${ICONS.box}</span><small>Persediaan</small><b>${fmtIDR(h.inventoryValue)}</b><em>${h.skuCount} SKU aktif</em></div>` : ''}
+              <div><span class="health-icon lavender">${ICONS.project}</span><small>Pekerjaan</small><b>${h.orderCount}</b><em>Order aktif</em></div>
+            </div>
+          </article>
+        </section>
+        <section class="decision-insights ${prefs.insights ? '' : 'widget-hidden'}" data-dashboard-widget="insights">
+          <div class="decision-section-heading"><div><p class="eyebrow">SMART SIGNALS</p><h2>Insight yang dapat ditindaklanjuti</h2></div><span>Berbasis KPI dan rule bisnis yang dapat ditelusuri</span></div>
+          <div class="decision-insight-grid">${insights.map((item) => `<a class="decision-insight ${item.tone}" href="${item.href}"><span>${ICONS[item.icon] || ICONS.chart}</span><div><small>${esc(item.label)}</small><h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p><b>Buka sumber ${ICONS.arrow}</b></div></a>`).join('') || `<div class="decision-insight mint"><span>${ICONS.check}</span><div><small>TERKENDALI</small><h3>Tidak ada anomali utama</h3><p>Indikator pada scope Anda berada dalam rentang operasional.</p></div></div>`}</div>
+        </section>
+        <div id="dashAnalytics" class="${prefs.analytics ? '' : 'widget-hidden'}" data-dashboard-widget="analytics"></div>
         ${rich ? '' : `
-        <section class="metrics">
-          ${grant.revenue ? kpiCard({ label: `Pendapatan ${monthName}`, value: fmtIDR(k.revenueMonth), note: growthNote, tone: 'up', orb: 'chart', orbTone: 'blue' }) : ''}
-          ${grant.revenue ? kpiCard({ label: 'Piutang jatuh tempo', value: fmtIDR(k.arOverdue), note: `${k.arOverdueCount} invoice perlu ditagih`, tone: 'warn', orb: 'doc', orbTone: 'amber' }) : ''}
-          ${kpiCard({ label: 'Pesanan aktif', value: String(k.activeOrders), note: `${k.inProduction} dalam proses produksi`, orb: 'cart', orbTone: 'mint' })}
-          ${kpiCard({ label: 'Progres produksi', value: `${k.utilizationPct}%`, note: `Target operasional ${k.utilizationTarget}%`, orb: 'factory', orbTone: 'lavender' })}
-        </section>`}
-        ${rich ? '' : `
-        <section class="dashboard-grid">
+        <section class="decision-fallback-detail">
           ${!grant.revenue ? '' : `
           <article class="panel revenue-panel">
             <header><div><p class="eyebrow">KINERJA KEUANGAN</p><h2>Arus pendapatan</h2></div>
@@ -103,19 +162,8 @@
               </svg>
             </div>
           </article>`}
-          <article class="panel health-panel">
-            <header><div><p class="eyebrow">KESEHATAN BISNIS</p><h2>Posisi hari ini</h2></div>
-              ${can('journal.view') ? `<a class="text-btn" href="#/accounting">Lihat laporan ${ICONS.arrow}</a>` : ''}</header>
-            <div class="health-list">
-              ${grant.revenue ? `<div class="health-row"><span class="health-icon blue">${ICONS.wallet}</span><span><b>Piutang usaha</b><small>${h.arCount} invoice terbuka</small></span><strong>${fmtIDR(h.arTotal)}</strong></div>` : ''}
-              ${grant.payable ? `<div class="health-row"><span class="health-icon amber">${ICONS.doc}</span><span><b>Utang usaha</b><small>${h.apCount} tagihan supplier</small></span><strong>${fmtIDR(h.apTotal)}</strong></div>` : ''}
-              ${grant.inventory ? `<div class="health-row"><span class="health-icon mint">${ICONS.box}</span><span><b>Persediaan</b><small>${h.skuCount} SKU · ${h.criticalStock} stok kritis</small></span><strong>${fmtIDR(h.inventoryValue)}</strong></div>` : ''}
-              <div class="health-row"><span class="health-icon lavender">${ICONS.project}</span><span><b>Order book</b><small>${h.orderCount} pekerjaan aktif</small></span><strong>${fmtIDR(h.orderBook)}</strong></div>
-            </div>
-            ${!grant.cash ? '' : `<div class="cash-card"><span>Posisi kas & bank<small>Per ${fmtDateTime(data.asOf)}</small></span><strong>${h.cashPosition == null ? 'Belum dikonfigurasi' : fmtIDR(h.cashPosition)}</strong></div>`}
-          </article>
         </section>`}
-        <section class="panel work-panel">
+        <section class="panel work-panel decision-work ${prefs.jobs ? '' : 'widget-hidden'}" data-dashboard-widget="jobs">
           <header><div><p class="eyebrow">OPERASIONAL</p><h2>Pekerjaan aktif</h2></div>
             ${can('work_order.view') ? `<a class="text-btn" href="#/production/work-orders">Lihat semua ${ICONS.arrow}</a>` : ''}</header>
           <div class="table-wrap"><table>
@@ -140,6 +188,20 @@
         await shell();
         toast('Data disegarkan', 'Ringkasan terbaru sudah ditampilkan.');
       });
+      main.querySelector('#dashCustomize')?.addEventListener('click', async () => {
+        const value = await formDialog({
+          title: 'Atur dashboard', description: 'Pilih blok yang paling relevan untuk ruang kerja Anda.', submitLabel: 'Simpan tampilan', initial: prefs,
+          fields: [
+            { name: 'insights', label: 'Tampilkan smart signals', type: 'checkbox' },
+            { name: 'analytics', label: 'Tampilkan analitik eksekutif', type: 'checkbox' },
+            { name: 'jobs', label: 'Tampilkan pekerjaan aktif', type: 'checkbox' }
+          ]
+        });
+        if (!value) return;
+        localStorage.setItem(dashboardPreferenceKey(), JSON.stringify(value));
+        toast('Dashboard diperbarui', 'Preferensi tampilan tersimpan pada perangkat ini.');
+        shell();
+      });
       main.querySelectorAll('[data-doc]').forEach((tr) => {
         const open = () => openDrawer(tr.dataset.doc, { onChange: () => { invalidate('dashboard'); shell(); } });
         tr.addEventListener('click', open);
@@ -148,7 +210,7 @@
       // Blok analitik eksekutif dirender in-place — satu layar, bukan tab
       // terpisah. Kegagalan analitik tidak boleh mematikan seluruh dashboard.
       const slot = main.querySelector('#dashAnalytics');
-      if (rich && slot) {
+      if (rich && slot && prefs.analytics) {
         try { await window.MAT_PAGES.cockpit.render(slot, signal); }
         catch (error) {
           if (error?.name === 'AbortError') return;

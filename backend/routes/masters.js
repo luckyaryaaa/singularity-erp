@@ -92,6 +92,8 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m)return masterData.overview(client,m[1],m[2],ctx.user);
   m=p.match(/^\/api\/masters\/(employees|customers|suppliers|products)\/([0-9a-f-]{36})\/lifecycle$/);
   if(method==='POST'&&m){const body=await readBody(req);return masterData.lifecycle(client,m[1],m[2],body.action,body.reason,ctx.user,ctx.requestId);}
+  m=p.match(/^\/api\/masters\/(customers|suppliers)\/([0-9a-f-]{36})\/profile-photo$/);
+  if(method==='POST'&&m){const body=await readBody(req);return masterData.setProfilePhoto(client,m[1],m[2],body.fileId,ctx.user,ctx.requestId);}
   m=p.match(/^\/api\/masters\/suppliers\/([0-9a-f-]{36})\/bank-accounts\/([0-9a-f-]{36})\/approve$/);
   if(method==='POST'&&m)return masterData.approveSupplierBank(client,m[1],m[2],ctx.user,ctx.requestId);
   m=p.match(/^\/api\/masters\/suppliers\/([0-9a-f-]{36})\/documents\/([0-9a-f-]{36})\/(verify|reject)$/);

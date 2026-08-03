@@ -223,7 +223,7 @@
               <tbody>${capacity.items.map((item) => `<tr class="${item.overloaded ? 'row-risk' : ''}"><td><b>${esc(item.workCenterCode)}</b><small>${esc(item.workCenterName)} · ${item.operationCount} operasi</small></td>
                 <td>${fmtDate(item.date)}</td><td class="right">${item.capacityHours} j</td><td class="right"><b>${item.plannedHours} j</b></td>
                 <td class="right ${item.overloaded ? 'error-text' : ''}">${item.availableHours} j</td>
-                <td><div class="utilization-cell"><span class="chip ${item.overloaded ? 'coral' : item.utilizationPct >= 85 ? 'amber' : 'mint'}">${item.utilizationPct}%</span><div class="mini-meter"><i style="width:${Math.min(item.utilizationPct, 100)}%"></i></div></div></td></tr>`).join('')
+                <td><div class="utilization-cell"><span class="chip ${item.overloaded ? 'coral' : item.utilizationPct >= 85 ? 'amber' : 'mint'}">${item.utilizationPct}%</span><div class="mini-meter"><i class="exec-w-${Math.round(Math.min(item.utilizationPct, 100) / 5) * 5}"></i></div></div></td></tr>`).join('')
     || '<tr><td colspan="6" class="table-loading">Belum ada operasi terjadwal pada rentang ini.</td></tr>'}</tbody></table></div>
           </article>
           <article class="panel"><header><div><p class="eyebrow">WORK IN PROCESS</p><h2>Nilai pada lantai produksi</h2></div><span class="chip blue">${fmtIDR(wip.totals.materialCost)} material</span></header>

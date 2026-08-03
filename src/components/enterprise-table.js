@@ -43,8 +43,9 @@
       history.replaceState(null, '', `#${route}${params.size ? `?${params}` : ''}`);
     };
 
+    const extraClass = String(config.className || '').replace(/[^a-zA-Z0-9 _-]/g, '').trim();
     container.innerHTML = `
-      <div class="panel table-panel enterprise-table ${queryState.density === 'compact' ? 'density-compact' : ''}" data-enterprise-table>
+      <div class="panel table-panel enterprise-table ${queryState.density === 'compact' ? 'density-compact' : ''} ${extraClass}" data-enterprise-table>
         <header>
           <div><p class="eyebrow">${esc(config.eyebrow || 'DAFTAR')}</p><h2>${esc(config.title)}</h2></div>
           <div class="panel-tools">
@@ -120,6 +121,7 @@
       const pages = new Set([1, data.page - 1, data.page, data.page + 1, data.totalPages].filter((page) => page >= 1 && page <= data.totalPages)); let previous = 0;
       for (const page of [...pages].sort((a, b) => a - b)) { if (page - previous > 1) buttons.push('<span class="pager-gap">…</span>'); buttons.push(`<button class="${page === data.page ? 'active' : ''}" data-page="${page}" ${page === data.page ? 'aria-current="page"' : ''}>${page}</button>`); previous = page; }
       buttons.push(`<button ${data.page >= data.totalPages ? 'disabled' : ''} data-page="${data.page + 1}" aria-label="Halaman berikutnya">›</button>`); pager.innerHTML = buttons.join('');
+      if (typeof config.afterRender === 'function') config.afterRender({ container, panel, body, data });
       pager.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => { queryState.page = Number(button.dataset.page); syncUrl(); load(); }));
     }
 

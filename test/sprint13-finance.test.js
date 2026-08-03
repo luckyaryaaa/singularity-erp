@@ -21,6 +21,9 @@ async function withRollback(fn) {
 }
 const owner = async (c) => runtime.camel((await c.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' LIMIT 1`)).rows[0]);
 const period = new Date().toISOString().slice(0, 7);
+const nextPeriodDate = new Date(`${period}-01T00:00:00.000Z`);
+nextPeriodDate.setUTCMonth(nextPeriodDate.getUTCMonth() + 1);
+const nextPeriod = nextPeriodDate.toISOString().slice(0, 7);
 
 dbTest('fixed asset: depresiasi garis lurus configuration-driven + jurnal seimbang + idempoten', async () => {
   await withRollback(async (c) => {
@@ -37,7 +40,7 @@ dbTest('fixed asset: depresiasi garis lurus configuration-driven + jurnal seimba
     // Umur manfaat dari konfigurasi — ubah kategori mengubah hasil (§35)
     await c.query(`UPDATE asset_categories SET useful_life_months=48 WHERE code='MESIN'`);
     const asset2 = await fa.createAsset(c, { name: 'Mesin kedua', categoryCode: 'MESIN', acquisitionDate: '2026-01-01', acquisitionCost: 48_000_000, user: u, requestId: randomUUID() });
-    const run2 = await fa.runDepreciation(c, { period: '2026-08', user: u, requestId: randomUUID() });
+    const run2 = await fa.runDepreciation(c, { period: nextPeriod, user: u, requestId: randomUUID() });
     const entry2 = (await c.query(`SELECT amount FROM asset_depreciation_entries WHERE asset_id=$1`, [asset2.id])).rows[0];
     assert.equal(Number(entry2.amount), 1_000_000, '48jt/48bln — konfigurasi menentukan hasil');
   });
@@ -54,8 +57,8 @@ dbTest('fixed asset: disposal — jurnal seimbang, nilai buku benar, DISPOSED di
     const jl = (await c.query(`SELECT COALESCE(SUM(debit),0)::float d,COALESCE(SUM(credit),0)::float cr FROM journal_lines jl JOIN business_documents doc ON doc.id=jl.journal_document_id WHERE doc.document_number=$1`, [disp.journal])).rows[0];
     assert.ok(Math.abs(jl.d - jl.cr) < 0.01 && jl.d === 60_000_000);
     assert.equal((await fa.disposeAsset(c, { assetId: asset.id, reason: 'x', user: u, requestId: randomUUID() })).replay, true);
-    await fa.runDepreciation(c, { period: '2026-08', user: u, requestId: randomUUID() });
-    assert.equal(Number((await c.query(`SELECT count(*) n FROM asset_depreciation_entries WHERE asset_id=$1 AND period='2026-08'`, [asset.id])).rows[0].n), 0);
+    await fa.runDepreciation(c, { period: nextPeriod, user: u, requestId: randomUUID() });
+    assert.equal(Number((await c.query(`SELECT count(*) n FROM asset_depreciation_entries WHERE asset_id=$1 AND period=$2`, [asset.id, nextPeriod])).rows[0].n), 0);
   });
 });
 

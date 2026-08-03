@@ -289,9 +289,14 @@
     drawer.setAttribute('aria-hidden', 'true');
     document.getElementById('app').inert = false;
     document.getElementById('scrim').classList.remove('open');
-    document.querySelector('.sidebar').classList.remove('open');
+    const sidebar = document.querySelector('.sidebar');
+    sidebar.classList.remove('open');
+    sidebar.removeAttribute('role');
+    sidebar.removeAttribute('aria-modal');
+    document.querySelector('.shell').inert = false;
     const menuButton = document.getElementById('menuBtn');
-    menuButton.setAttribute('aria-expanded', 'false');
+    const desktopRail = window.matchMedia('(min-width:1101px)').matches;
+    menuButton.setAttribute('aria-expanded', desktopRail ? String(!document.getElementById('app').classList.contains('sidebar-collapsed')) : 'false');
     if (wasOpen && layerReturnFocus && layerReturnFocus.isConnected) layerReturnFocus.focus({ preventScroll: true });
     layerReturnFocus = null;
   }
