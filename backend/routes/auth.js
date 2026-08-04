@@ -4,6 +4,7 @@ const { AppError } = require('../core/errors');
 const { grantsFor } = require('../core/permissions');
 const auth = require('../infrastructure/database/repositories/auth');
 const operations = require('../infrastructure/database/repositories/operations');
+const runtime = require('../infrastructure/database/repositories/runtime');
 const ratelimit = require('../core/ratelimit');
 const docVerify = require('../core/doc-verification');
 const secureCookie=()=>process.env.NODE_ENV==='production'||process.env.MAT_COOKIE_SECURE==='1'?'; Secure':'';
@@ -38,6 +39,7 @@ async function dispatchPrivate(client,req,url,ctx){const p=url.pathname,method=r
   if(method==='GET'&&p==='/api/auth/session')return {user:ctx.user,csrfToken:await auth.rotateCsrf(client,ctx.session.id),permissions:[...grantsFor(ctx.user.role)],unreadNotifications:(await operations.unreadCount(client,ctx.user)).unread};
   if(method==='GET'&&p==='/api/auth/devices')return {items:await auth.devices(client,ctx.user.id)};
   if(method==='POST'&&p==='/api/auth/change-password'){const body=await readBody(req);await auth.changeOwnPassword(client,ctx.user,body.currentPassword,body.newPassword);ctx.cookie='mat_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';return{ok:true,reauthenticationRequired:true};}
+  if(method==='PATCH'&&p==='/api/auth/profile'){const body=await readBody(req);const updated=await auth.updateOwnProfile(client,ctx.user,body);await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'account',entityType:'USER_PROFILE',entityId:ctx.user.id,newValue:{displayName:updated.displayName},requestId:ctx.requestId,branchId:ctx.user.branchId});return{user:updated};}
   if(method==='POST'&&p==='/api/auth/mfa/setup'){const body=await readBody(req);return auth.startMfaSetup(client,ctx.user,body.currentCode);}
   if(method==='POST'&&p==='/api/auth/mfa/enable')return auth.enableMfa(client,ctx.user,(await readBody(req)).code);
   if(method==='GET'&&p==='/api/auth/mfa/recovery-codes')return auth.recoveryCodeStatus(client,ctx.user.id);

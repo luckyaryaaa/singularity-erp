@@ -3,7 +3,7 @@
 // Tidak ada render halaman sebelum sesi terverifikasi (tanpa flash).
 (() => {
   const { esc, api, state, router, can, startSse, refreshBadge, invalidate } = window.MAT;
-  const { ICONS, toast, closeLayers, rememberLayerFocus } = window.UI;
+  const { ICONS, toast, formDialog, closeLayers, rememberLayerFocus } = window.UI;
 
   const loginLayer = document.getElementById('loginLayer');
   const appShell = document.getElementById('app');
@@ -370,9 +370,8 @@
     state.unread = data.unreadNotifications || 0;
     loginLayer.hidden = true;
     appShell.hidden = false;
-    document.getElementById('profileName').textContent = data.user.displayName;
-    document.getElementById('profileRole').textContent = `${data.user.jobTitle || data.user.role} · ${data.user.role}`;
-    document.getElementById('profileAvatar').textContent = data.user.displayName.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+    state.user = data.user;
+    paintAccount(data.user);
     document.getElementById('branchLabel').textContent = data.user.branchName || 'Head Office';
     document.getElementById('topBranch').textContent = data.user.branchName || 'Head Office';
     hydrateNavPreferences(data.user);
@@ -447,7 +446,48 @@
   });
 
   // ── Topbar & lapisan global ───────────────────────────────────────────────
+  // Kartu akun di topbar: avatar + nama + peran, dengan menu edit-profil,
+  // keamanan, dan keluar. Profil dipindah dari sidebar agar rail fokus navigasi.
+  function paintAccount(user) {
+    const initials = (user.displayName || '?').split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+    const roleLine = `${user.jobTitle || user.role} · ${user.role}`;
+    const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    set('profileName', user.displayName); set('profileNameLg', user.displayName);
+    set('profileRole', roleLine); set('profileRoleLg', roleLine);
+    set('profileAvatar', initials); set('profileAvatarLg', initials);
+  }
+  const accountChip = document.getElementById('accountChip');
+  const accountBtn = document.getElementById('accountBtn');
+  const accountMenu = document.getElementById('accountMenu');
+  const closeAccountMenu = () => { if (accountMenu) { accountMenu.hidden = true; accountBtn.setAttribute('aria-expanded', 'false'); } };
+  accountBtn?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const willOpen = accountMenu.hidden;
+    accountMenu.hidden = !willOpen;
+    accountBtn.setAttribute('aria-expanded', String(willOpen));
+  });
+  document.addEventListener('click', (event) => { if (accountChip && !accountChip.contains(event.target)) closeAccountMenu(); });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeAccountMenu(); });
+  accountMenu?.addEventListener('click', (event) => { if (event.target.closest('a')) closeAccountMenu(); });
+  document.getElementById('editProfileBtn')?.addEventListener('click', async () => {
+    closeAccountMenu();
+    const user = state.user || {};
+    const value = await formDialog({
+      title: 'Edit profil',
+      description: 'Perbarui nama tampilan Anda. Peran, cabang, dan hak akses dikelola oleh admin/IAM.',
+      fields: [{ name: 'displayName', label: 'Nama tampilan', required: true, value: user.displayName || '' }],
+      submitLabel: 'Simpan profil'
+    });
+    if (!value) return;
+    try {
+      const res = await api('/api/auth/profile', { method: 'PATCH', body: value });
+      state.user = { ...state.user, ...res.user };
+      paintAccount(state.user);
+      toast('Profil diperbarui', 'Nama tampilan Anda telah disimpan.');
+    } catch (error) { toast('Gagal menyimpan profil', error.message, 'coral'); }
+  });
   document.getElementById('logoutBtn').addEventListener('click', async () => {
+    closeAccountMenu();
     try { await api('/api/auth/logout', { method: 'POST' }); } catch { /* sesi mungkin sudah habis */ }
     window.MAT.sessionLost();
   });

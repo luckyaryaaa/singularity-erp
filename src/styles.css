@@ -1192,8 +1192,32 @@ nav#nav{margin:0 -4px;padding:1px 4px 14px;scrollbar-gutter:stable}
 .command::after{content:"Command center";margin-left:3px;color:#9aa5b5;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .top-actions{gap:8px}
 .top-actions .icon-btn{width:40px;height:40px;border-radius:12px}
-.branch{display:inline-flex;height:40px;padding:0 14px;background:rgba(255,255,255,.74);border-color:rgba(202,214,231,.8)}
+.branch{display:inline-flex;height:40px;padding:0 14px;background:rgba(255,255,255,.74);border-color:rgba(202,214,231,.8);white-space:nowrap}
+.branch #topBranch{white-space:nowrap}
 .lang-toggle{font-size:10px;font-weight:750;letter-spacing:.04em}
+/* Kartu akun di topbar — avatar + identitas + menu (edit profil, keamanan, keluar). */
+.account{position:relative;flex:none}
+.account-btn{display:flex;align-items:center;gap:9px;height:40px;padding:0 10px 0 5px;border:1px solid var(--glass-hairline);border-radius:999px;background:rgba(255,255,255,.72);color:var(--text);cursor:pointer;transition:transform var(--spring),background var(--ease-fast),border-color var(--ease-fast),box-shadow var(--ease-fast);box-shadow:var(--glass-sheen)}
+.account-btn:hover{background:#fff;border-color:rgba(143,182,255,.55);transform:translateY(-1px);box-shadow:0 10px 22px -14px rgba(71,107,169,.6)}
+.account-avatar{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:10px;background:linear-gradient(145deg,#dcd2f7,#a98fd8);color:#3b2756;font-size:10px;font-weight:800;box-shadow:inset 2px 2px 4px rgba(255,255,255,.62),inset -2px -3px 5px rgba(59,39,86,.22)}
+.account-avatar.lg{width:40px;height:40px;border-radius:13px;font-size:13px}
+.account-copy{display:grid;min-width:0;text-align:left;line-height:1.18}
+.account-copy b{font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:124px}
+.account-copy small{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:124px}
+.account-caret{width:14px;height:14px;flex:none;color:var(--muted);transition:transform var(--ease-fast)}
+.account-btn[aria-expanded="true"] .account-caret{transform:rotate(180deg)}
+.account-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:80;width:252px;padding:8px;border:1px solid var(--glass-hairline);border-radius:16px;background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px);box-shadow:0 26px 50px -20px rgba(31,51,84,.5),inset 0 1px 0 #fff;animation:accountPop .18s cubic-bezier(.22,1,.36,1)}
+@keyframes accountPop{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.account-menu-head{display:flex;align-items:center;gap:11px;padding:8px 10px 12px;margin-bottom:6px;border-bottom:1px solid var(--glass-hairline)}
+.account-menu-head .account-copy b{font-size:13px;max-width:172px}
+.account-menu-head .account-copy small{font-size:10px;max-width:172px}
+.account-menu-item{display:flex;align-items:center;gap:11px;width:100%;padding:9px 11px;border:0;border-radius:11px;background:transparent;color:var(--slate);font:600 12px var(--font);text-align:left;text-decoration:none;cursor:pointer;transition:background var(--ease-fast),color var(--ease-fast)}
+.account-menu-item svg{width:17px;height:17px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.account-menu-item:hover{background:rgba(143,182,255,.14);color:var(--blue-ink)}
+.account-menu-item.danger{color:#b5443b}
+.account-menu-item.danger:hover{background:#fdeceb;color:#b5443b}
+/* Layar sempit: kartu akun jadi avatar-only agar topbar tetap lapang. */
+@media(max-width:1180px){.account-copy{display:none}.account-btn{padding:0 6px;gap:6px}.account-caret{display:none}}
 .command-ico{display:grid;place-items:center;width:32px;height:32px;flex:none}
 .command-ico .nav-art{width:31px;height:31px}
 .command-ico svg{width:18px;height:18px}

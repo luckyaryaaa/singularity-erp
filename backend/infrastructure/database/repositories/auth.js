@@ -202,6 +202,15 @@ async function completeMfa(client,{mfaToken,code,ip,device}){
 }
 async function changePasswordWithToken(client,{changeToken,newPassword,ip,device}){const pending=await findPending(client,'password_change',changeToken);if(!pending)throw new AppError('SESSION_EXPIRED','Sesi ganti sandi kedaluwarsa. Masuk ulang.');const valid=(await client.query(`SELECT 1 FROM app_users u WHERE u.id=$1 AND u.active AND EXISTS(SELECT 1 FROM user_role_assignments a WHERE a.user_id=u.id AND a.role_code=u.role AND a.is_primary AND a.status='ACTIVE' AND a.effective_from<=now() AND (a.effective_until IS NULL OR a.effective_until>now()))`,[pending.user_id])).rowCount;if(!valid)throw new AppError('SESSION_EXPIRED','Assignment akses sudah tidak aktif.');assertPasswordPolicy(newPassword);await client.query('UPDATE app_users SET password_hash=$2,must_change_password=false,updated_at=now() WHERE id=$1',[pending.user_id,hashPassword(newPassword)]);await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);const row=(await client.query(`SELECT u.*,b.name branch_name FROM app_users u LEFT JOIN branches b ON b.id=u.branch_id WHERE u.id=$1`,[pending.user_id])).rows[0];if(row.mfa_enabled&&row.totp_secret_ciphertext)return{mfaRequired:true,mfaToken:await createPending(client,'mfa',row.id)};const user=publicUser(row),session=await createSession(client,user,{ip,device});return{session,user,permissions:await permissionsForUser(client,user)};}
 async function changeOwnPassword(client,user,currentPassword,newPassword){const row=(await client.query('SELECT password_hash FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];if(!verifyPassword(currentPassword||'',row?.password_hash))throw new AppError('AUTH_FAILED','Kata sandi saat ini salah.');assertPasswordPolicy(newPassword);await client.query('UPDATE app_users SET password_hash=$2,updated_at=now() WHERE id=$1',[user.id,hashPassword(newPassword)]);await client.query("UPDATE user_sessions SET active=false,ended_at=now(),end_reason='password_changed' WHERE user_id=$1 AND active",[user.id]);}
+// Self-service: pengguna boleh memperbarui nama tampilannya sendiri. Kolom
+// sensitif (peran, cabang, akses) tetap dikendalikan admin/IAM, bukan di sini.
+async function updateOwnProfile(client,user,body){
+  const name=String((body&&body.displayName)||'').trim();
+  if(name.length<2||name.length>80)throw new AppError('VALIDATION_ERROR','Nama tampilan harus 2–80 karakter.');
+  const row=(await client.query('UPDATE app_users SET display_name=$2,updated_at=now() WHERE id=$1 RETURNING id,username,display_name,role,department,job_title,branch_id',[user.id,name])).rows[0];
+  if(!row)throw new AppError('RESOURCE_NOT_FOUND');
+  return {id:row.id,username:row.username,displayName:row.display_name,role:row.role,department:row.department,jobTitle:row.job_title,branchId:row.branch_id};
+}
 async function startMfaSetup(client,user,currentCode){
   const current=(await client.query(
     'SELECT mfa_enabled,totp_secret_ciphertext FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
@@ -302,4 +311,4 @@ async function logoutAll(client,userId){return client.query("UPDATE user_session
 async function devices(client,userId){return (await client.query(`SELECT id,created_at,last_seen_at,expires_at,ip,device,active,ended_at,end_reason
   FROM user_sessions WHERE user_id=$1 ORDER BY last_seen_at DESC LIMIT 20`,[userId])).rows;}
 
-module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,delegatedGrantsForUser,permissionsForUser,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,issuePasswordReset,startMfaSetup,enableMfa,recoveryCodeStatus,regenerateRecoveryCodes,disableMfa,assertRecentMfa,mfaMandatory,PRIVILEGED_ROLES,logout,logoutAll,devices,hashPassword};
+module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,delegatedGrantsForUser,permissionsForUser,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,updateOwnProfile,issuePasswordReset,startMfaSetup,enableMfa,recoveryCodeStatus,regenerateRecoveryCodes,disableMfa,assertRecentMfa,mfaMandatory,PRIVILEGED_ROLES,logout,logoutAll,devices,hashPassword};

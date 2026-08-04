@@ -11,7 +11,7 @@
 // tidak bisa lolos diam-diam. Kolom `delegated` mengunci hasil audit manual
 // (verifikasi handler-per-handler repo tier) menjadi kontrak yang ditegakkan CI.
 const ROUTE_MATRIX = Object.freeze([
-  { file:'auth.js', handlers:15, directGuards:0, delegated:0, public:15, strategy:'PUBLIC_OR_SESSION_SELF_SERVICE_MFA_RECOVERY', evidence:['test/api.test.js','test/postgres-auth.integration.test.js','test/postgres.http.test.js'] },
+  { file:'auth.js', handlers:16, directGuards:0, delegated:0, public:16, strategy:'PUBLIC_OR_SESSION_SELF_SERVICE_MFA_RECOVERY', evidence:['test/api.test.js','test/postgres-auth.integration.test.js','test/postgres.http.test.js'] },
   { file:'workspace.js', handlers:7, directGuards:7, delegated:0, public:0, strategy:'PERMISSION_AND_USER_SCOPE_OWNERSHIP_VERSION_AND_IDEMPOTENCY', evidence:['test/api.test.js','test/wave20-work-items.test.js'] },
   { file:'documents.js', handlers:9, directGuards:9, delegated:0, public:0, strategy:'DYNAMIC_DOCUMENT_PERMISSION_AND_BRANCH', evidence:['test/api.test.js','test/branch-isolation.test.js'] },
   { file:'sales.js', handlers:27, directGuards:27, delegated:0, public:0, strategy:'PERMISSION_REPOSITORY_BRANCH_RLS_SOD_AND_IDEMPOTENCY', evidence:['test/sprint9-o2c.test.js','test/branch-isolation.test.js','test/wave5-sales-commercial.test.js','test/wave22-pricing-conditions.test.js'] },
