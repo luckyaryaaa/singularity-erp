@@ -177,52 +177,11 @@
   const visibleItems = (space) => space.sections.flatMap((section) => section.items).filter((item) => can(item.permission));
   const visibleSpaces = () => NAVIGATION.filter((space) => visibleItems(space).length);
   const entryForHash = (hash) => NAV_ENTRIES.find((entry) => routeMatches(hash, entry.href));
-  // Ikon 3D per-rute (art). Item boleh menetapkan `art` sendiri; sisanya
-  // memakai peta rute→art ini agar seluruh menu punya ikon 3D yang konsisten.
-  const ART_BY_ROUTE = {
-    '#/procurement/orders': 'purchase-order', '#/procurement/contracts': 'contract',
-    '#/procurement/payment-proposals': 'payment-proposal', '#/procurement/budgets': 'budgets',
-    '#/warehouse/inventory': 'inventory', '#/warehouse/receipts': 'receipts', '#/warehouse/movements': 'movements',
-    '#/finance/invoices': 'invoice', '#/finance/collection': 'collections', '#/finance/payments': 'payments',
-    '#/finance/supplier-invoices': 'supplier-invoices', '#/finance/expenses': 'expenses', '#/finance/assets': 'assets',
-    '#/accounting': 'accounting', '#/accounting/statements': 'statement', '#/accounting/closing': 'closing', '#/tax': 'tax',
-    '#/organization': 'org-structure', '#/organization/workforce': 'job-positions',
-    '#/hr/employees': 'employees', '#/hr/attendance': 'attendance', '#/hr/workforce': 'shift-calendar', '#/hr/leave': 'leave',
-    '#/payroll': 'payroll',
-    '#/masters/business-partners': 'business-partner', '#/masters/governance': 'master-data',
-    '#/masters/customers/link': 'business-partner', '#/masters/customers': 'business-partner',
-    '#/masters/suppliers': 'suppliers', '#/masters/products': 'master-data',
-    '#/system/users': 'users', '#/system/iam': 'security', '#/system/sod': 'security',
-    '#/system/approval-policies': 'approvals', '#/system/access-reviews': 'audit',
-    '#/system/retention': 'audit', '#/system/audit': 'audit', '#/system/monitoring': 'monitoring',
-    '#/system/jobs': 'monitoring', '#/system/selftest': 'selftest',
-    '#/system/document-templates': 'statement', '#/system/settings': 'setting'
-  };
-  // Ikon navigasi berasal dari koleksi visual yang telah dinormalisasi di
-  // /assets/icons/navigation. Rute spesifik mendapat art sendiri; rute lain
-  // memakai pasangan semantik dari glyph agar rail tetap konsisten, bahkan
-  // ketika sebuah modul baru belum memiliki ilustrasi khusus.
-  const ART_BY_ICON = {
-    grid: 'dashboard', inbox: 'my-work', checkCircle: 'approvals', bell: 'notification',
-    chart: 'reports', search: 'inquiry', doc: 'statement', list: 'customer-po',
-    cart: 'sales', folder: 'project', workOrder: 'work-order', quality: 'quality-control',
-    request: 'purchase-request', purchaseOrder: 'purchase-order', box: 'master-data',
-    receipt: 'receipts', swap: 'movements', truck: 'suppliers', wallet: 'payments',
-    book: 'accounting', building: 'organization', people: 'employees', clock: 'attendance',
-    payslip: 'payroll', lock: 'security', shield: 'security', approval: 'approvals',
-    audit: 'audit', monitor: 'monitoring', job: 'monitoring', gear: 'setting',
-    settings: 'setting', finance: 'finance', tax: 'tax', inventory: 'inventory'
-  };
-  const SPACE_ART = {
-    workspace: 'workspace', sales: 'sales', operations: 'operations', finance: 'finance',
-    organization: 'organization', 'master-data': 'master-data', system: 'system'
-  };
-  const artFor = (item) => item.art || ART_BY_ROUTE[item.href] || ART_BY_ICON[item.icon] || null;
-  const artImage = (art, fallback) => art
-    ? `<span class="nav-art-wrap"><span class="nav-glyph nav-glyph-fallback" aria-hidden="true">${fallback}</span><img class="nav-art" src="/assets/icons/navigation/${esc(art)}.png" width="48" height="48" alt="" decoding="async"></span>`
-    : `<span class="nav-glyph" aria-hidden="true">${fallback}</span>`;
-  const navIcon = (item) => artImage(artFor(item), ICONS[item.icon] || ICONS.grid);
-  const spaceIcon = (space) => artImage(SPACE_ART[space.id], ICONS[space.icon] || ICONS.grid);
+  // Ikon di-render sebagai ubin claymorph 3D lewat CSS (.nav-glyph) dari glyph
+  // SVG inline. Tanpa aset PNG eksternal: ERP tetap ringan, tajam di segala DPI,
+  // dan konsisten lintas modul.
+  const navIcon = (item) => `<span class="nav-glyph" aria-hidden="true">${ICONS[item.icon] || ICONS.grid}</span>`;
+  const spaceIcon = (space) => `<span class="nav-glyph" aria-hidden="true">${ICONS[space.icon] || ICONS.grid}</span>`;
 
   let preferenceScope = 'anonymous';
   let activeSpaceId = 'workspace';
