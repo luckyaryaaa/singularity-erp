@@ -1191,12 +1191,13 @@ nav#nav{margin:0 -4px;padding:1px 4px 14px;scrollbar-gutter:stable}
 
 /* Topbar: command deck */
 .topbar{height:70px;padding:0 clamp(18px,2.2vw,34px);gap:12px;background:linear-gradient(180deg,rgba(255,255,255,.91),rgba(248,251,255,.72));border-color:rgba(199,211,230,.72);box-shadow:0 14px 32px -29px rgba(31,51,84,.52)}
-.menu-btn{display:grid;flex:none;width:42px;height:42px;border-color:rgba(197,210,229,.88);background:linear-gradient(145deg,#fff,#eef3fb);color:#435879}
+.menu-btn{display:grid;flex:none;width:40px;height:40px;border-color:rgba(197,210,229,.88);background:linear-gradient(145deg,#fff,#eef3fb);color:#435879}
 .menu-btn .rail-icon{width:19px;height:19px;transition:transform .38s cubic-bezier(.22,1,.36,1)}
-.command{width:min(480px,42vw);height:42px;padding-inline:13px;border-radius:14px;background:rgba(255,255,255,.8);border-color:rgba(197,210,229,.82)}
+.command{width:min(480px,42vw);height:40px;padding-inline:13px;border-radius:12px;background:rgba(255,255,255,.8);border-color:rgba(197,210,229,.82)}
 .command::after{content:"Command center";margin-left:3px;color:#9aa5b5;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .top-actions{gap:8px}
-.branch{display:inline-flex;padding:7px 12px;background:rgba(255,255,255,.74);border-color:rgba(202,214,231,.8)}
+.top-actions .icon-btn{width:40px;height:40px;border-radius:12px}
+.branch{display:inline-flex;height:40px;padding:0 14px;background:rgba(255,255,255,.74);border-color:rgba(202,214,231,.8)}
 .lang-toggle{font-size:10px;font-weight:750;letter-spacing:.04em}
 .command-ico{display:grid;place-items:center;width:32px;height:32px;flex:none}
 .command-ico .nav-art{width:31px;height:31px}
