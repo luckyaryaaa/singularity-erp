@@ -4,6 +4,13 @@
   const { ICONS, chip, toast, formDialog, actionDialog, openDrawer, dataTable, clayOrb, kpiCard, pageHead, runDocAction, runDocConversion, actionButtonsFor, conversionButtonFor, MODULE_OF_TYPE, TYPE_LABEL, AUDIT_LABEL, STATUS_META } = window.UI;
   const { progressBar, docCell, docListPage, masterPage } = window.PageKit;
 
+  // Field master inti — satu sumber untuk form Tambah (list) DAN Edit/Revisi (360).
+  const EDIT_FIELDS = {
+    customers: [{name:'code',label:'Kode pelanggan',required:true},{name:'name',label:'Nama dagang',required:true},{name:'customerType',label:'Tipe',type:'select',options:[['COMPANY','Perusahaan'],['INDIVIDUAL','Perorangan']],required:true},{name:'legalName',label:'Nama legal',required:true},{name:'npwp',label:'NPWP'},{name:'ppnStatus',label:'Status PPN',type:'select',options:[['PKP','PKP'],['NON_PKP','Non-PKP']],required:true},{name:'businessCategory',label:'Kategori bisnis'},{name:'city',label:'Kota'},{name:'address',label:'Alamat',type:'textarea'},{name:'website',label:'Website'},{name:'paymentTermDays',label:'Termin pembayaran (hari)',type:'number',min:0,required:true},{name:'creditLimitAmount',label:'Batas kredit',type:'number',min:0},{name:'currency',label:'Mata uang',value:'IDR',required:true},{name:'riskRating',label:'Rating risiko',type:'select',options:[['LOW','Rendah'],['MEDIUM','Sedang'],['HIGH','Tinggi']],required:true},{name:'collectionStatus',label:'Status koleksi',type:'select',options:[['NORMAL','Normal'],['WATCH','Watch'],['DUNNING','Dunning'],['LEGAL','Legal']],required:true},{name:'active',label:'Pelanggan aktif',type:'checkbox'}],
+    suppliers: [{name:'code',label:'Kode supplier',required:true},{name:'name',label:'Nama dagang',required:true},{name:'supplierType',label:'Tipe',type:'select',options:[['COMPANY','Perusahaan'],['INDIVIDUAL','Perorangan']],required:true},{name:'legalName',label:'Nama legal',required:true},{name:'npwp',label:'NPWP'},{name:'category',label:'Kategori',required:true},{name:'rating',label:'Rating',type:'number',min:1,max:5},{name:'ppnTreatment',label:'Perlakuan PPN',type:'select',options:[['NON_PPN','Non-PPN'],['INCLUDE','Include'],['EXCLUDE','Exclude'],['MIXED','Campuran']],required:true},{name:'pphTreatment',label:'Perlakuan PPh'},{name:'withholdingEligible',label:'Objek withholding',type:'checkbox'},{name:'onboardingStatus',label:'Status onboarding',type:'select',options:[['REGISTERED','Terdaftar'],['UNDER_REVIEW','Ditinjau'],['APPROVED','Disetujui'],['SUSPENDED','Suspended'],['BLOCKED','Diblokir']],required:true},{name:'riskLevel',label:'Level risiko',type:'select',options:[['LOW','Rendah'],['MEDIUM','Sedang'],['HIGH','Tinggi']],required:true},{name:'coiDeclared',label:'COI telah dideklarasikan',type:'checkbox'},{name:'active',label:'Supplier aktif',type:'checkbox'}],
+    products: [{name:'code',label:'Kode produk',required:true},{name:'name',label:'Nama produk/jasa',required:true},{name:'productType',label:'Tipe',type:'select',options:[['PRODUCT','Produk'],['SERVICE','Jasa'],['RAW_MATERIAL','Bahan baku'],['CONSUMABLE','Consumable'],['SPARE_PART','Spare part'],['TOOLING','Tooling']],required:true},{name:'category',label:'Kategori',required:true},{name:'materialType',label:'Material'},{name:'grade',label:'Grade'},{name:'specification',label:'Spesifikasi',type:'textarea'},{name:'dimensions',label:'Dimensi'},{name:'weightKg',label:'Berat (kg)',type:'number',min:0},{name:'drawingNumber',label:'Nomor drawing'},{name:'drawingRevision',label:'Revisi drawing'},{name:'uom',label:'Satuan',required:true},{name:'hpp',label:'Harga pokok awal',type:'number',min:0,required:true},{name:'price',label:'Harga jual',type:'number',min:0,required:true},{name:'makeOrBuy',label:'Sourcing',type:'select',options:[['MAKE','Produksi'],['BUY','Beli'],['SUBCONTRACT','Subkontrak']],required:true},{name:'isStock',label:'Item persediaan',type:'checkbox'},{name:'serialRequired',label:'Wajib serial number',type:'checkbox'},{name:'lotRequired',label:'Wajib lot/batch',type:'checkbox'},{name:'inspectionRequired',label:'Wajib inspeksi',type:'checkbox'},{name:'active',label:'Produk aktif',type:'checkbox'}]
+  };
+
   const MASTER_DETAIL = {
     employees: {
       module: 'employee', title: 'Karyawan', base: '/api/masters/employees', listRoute: '#/hr/employees',
@@ -197,11 +204,12 @@
       const isParty = ['customers', 'suppliers'].includes(params.type);
       const isProduct = params.type === 'products';
       const hasPhoto = isParty || isProduct;
+      const editBtn = EDIT_FIELDS[params.type] && can(`${cfg.module}.edit`) ? `<button class="btn primary" id="masterEditBtn">${ICONS.gear} Edit / Revisi</button>` : '';
 
       main.innerHTML = pageHead({
         eyebrow: isParty ? `PARTY 360 · ${cfg.title.toUpperCase()}` : isProduct ? `PRODUCT 360 · ${cfg.title.toUpperCase()}` : `MASTER DATA · ${cfg.title.toUpperCase()}`, title: isParty ? `Profil ${cfg.title}` : (overview.name || overview.code || cfg.title),
         sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : isProduct ? 'Foto, spesifikasi, harga, dan riwayat dalam satu profil produk & jasa.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
-        actions: `<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
+        actions: `${editBtn}<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
       }) + `
         ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : isProduct ? productIdentityHero(overview, can(`${cfg.module}.edit`)) : ''}
         <div class="master-tabs" role="tablist">
@@ -231,6 +239,24 @@
           } catch (error) { toast('Unggah foto gagal', error.message, 'coral'); }
         });
       }
+
+      main.querySelector('#masterEditBtn')?.addEventListener('click', async () => {
+        const value = await formDialog({
+          title: `Edit / Revisi — ${overview.name || overview.code || cfg.title}`,
+          description: 'Perubahan data umum langsung dicatat pada audit trail. Field sensitif (harga, batas kredit, termin, pajak) menjadi usulan yang menunggu persetujuan (maker-checker).',
+          fields: [...EDIT_FIELDS[params.type], { name: 'changeReason', label: 'Alasan revisi', type: 'textarea', rows: 2, hint: 'Wajib diisi bila mengubah field sensitif (harga, batas kredit, termin, pajak). Dicatat pada usulan maker-checker.' }],
+          initial: overview, submitLabel: 'Simpan revisi'
+        });
+        if (!value) return;
+        try {
+          const result = await api(`/api/${params.type}/${params.id}`, { method: 'PATCH', body: value });
+          invalidate(`master:${params.id}`); invalidate(params.type);
+          const pending = result && result.pendingChanges && result.pendingChanges.fields;
+          if (pending && pending.length) toast('Sebagian menunggu persetujuan', `${pending.length} field sensitif diajukan sebagai usulan (maker-checker).`, 'amber');
+          else toast('Revisi tersimpan', 'Perubahan tercatat di audit trail.');
+          this.render(main, params);
+        } catch (error) { toast('Gagal menyimpan revisi', error.message, 'coral'); }
+      });
 
       const renderTab = async (tabId) => {
         this._tab = tabId;
@@ -435,7 +461,7 @@
   R('/masters/customers', masterPage({
     endpoint: '/api/customers', key: 'customers', permission: 'customer.view', title: 'Pelanggan', eyebrow: 'MASTER DATA', detailType: 'customers',
     presentation:{party:'customer',pageTitle:'Master Customer',headline:'Customer portfolio yang siap ditindaklanjuti',description:'Identitas, kebijakan kredit, pajak, risiko, dan kualitas data dalam satu direktori enterprise.',tableEyebrow:'CUSTOMER INTELLIGENCE',tableTitle:'Customer portfolio'},
-    fields:[{name:'code',label:'Kode pelanggan',required:true},{name:'name',label:'Nama dagang',required:true},{name:'customerType',label:'Tipe',type:'select',options:[['COMPANY','Perusahaan'],['INDIVIDUAL','Perorangan']],required:true},{name:'legalName',label:'Nama legal',required:true},{name:'npwp',label:'NPWP'},{name:'ppnStatus',label:'Status PPN',type:'select',options:[['PKP','PKP'],['NON_PKP','Non-PKP']],required:true},{name:'businessCategory',label:'Kategori bisnis'},{name:'city',label:'Kota'},{name:'address',label:'Alamat',type:'textarea'},{name:'website',label:'Website'},{name:'paymentTermDays',label:'Termin pembayaran (hari)',type:'number',min:0,required:true},{name:'creditLimitAmount',label:'Batas kredit',type:'number',min:0},{name:'currency',label:'Mata uang',value:'IDR',required:true},{name:'riskRating',label:'Rating risiko',type:'select',options:[['LOW','Rendah'],['MEDIUM','Sedang'],['HIGH','Tinggi']],required:true},{name:'collectionStatus',label:'Status koleksi',type:'select',options:[['NORMAL','Normal'],['WATCH','Watch'],['DUNNING','Dunning'],['LEGAL','Legal']],required:true},{name:'active',label:'Pelanggan aktif',type:'checkbox'}],
+    fields: EDIT_FIELDS.customers,
     columns: [
       { label: 'Customer identity', key:'identity', render: (r) => partyIdentityCell(r, 'customer') },
       { label: 'Relasi bisnis', key:'relationship', render: (r) => `<span class="party-cell-stack"><b>${esc(r.businessCategory || 'Kategori umum')}</b><small>${esc(r.city || 'Lokasi belum diisi')} · ${esc(r.customerType === 'INDIVIDUAL' ? 'Perorangan' : 'Perusahaan')}</small></span>` },
@@ -447,7 +473,7 @@
   R('/masters/suppliers', masterPage({
     endpoint: '/api/suppliers', key: 'suppliers', permission: 'supplier.view', title: 'Supplier', eyebrow: 'MASTER DATA', detailType: 'suppliers',
     presentation:{party:'supplier',pageTitle:'Master Supplier',headline:'Supplier network dengan kontrol menyeluruh',description:'Profil vendor, performa, onboarding, risiko, dan compliance disajikan dalam satu supplier cockpit.',tableEyebrow:'SUPPLIER INTELLIGENCE',tableTitle:'Supplier network'},
-    fields:[{name:'code',label:'Kode supplier',required:true},{name:'name',label:'Nama dagang',required:true},{name:'supplierType',label:'Tipe',type:'select',options:[['COMPANY','Perusahaan'],['INDIVIDUAL','Perorangan']],required:true},{name:'legalName',label:'Nama legal',required:true},{name:'npwp',label:'NPWP'},{name:'category',label:'Kategori',required:true},{name:'rating',label:'Rating',type:'number',min:1,max:5},{name:'ppnTreatment',label:'Perlakuan PPN',type:'select',options:[['NON_PPN','Non-PPN'],['INCLUDE','Include'],['EXCLUDE','Exclude'],['MIXED','Campuran']],required:true},{name:'pphTreatment',label:'Perlakuan PPh'},{name:'withholdingEligible',label:'Objek withholding',type:'checkbox'},{name:'onboardingStatus',label:'Status onboarding',type:'select',options:[['REGISTERED','Terdaftar'],['UNDER_REVIEW','Ditinjau'],['APPROVED','Disetujui'],['SUSPENDED','Suspended'],['BLOCKED','Diblokir']],required:true},{name:'riskLevel',label:'Level risiko',type:'select',options:[['LOW','Rendah'],['MEDIUM','Sedang'],['HIGH','Tinggi']],required:true},{name:'coiDeclared',label:'COI telah dideklarasikan',type:'checkbox'},{name:'active',label:'Supplier aktif',type:'checkbox'}],
+    fields: EDIT_FIELDS.suppliers,
     columns: [
       { label: 'Supplier identity', key:'identity', render: (r) => partyIdentityCell(r, 'supplier') },
       { label: 'Supply profile', key:'supply', render: (r) => `<span class="party-cell-stack"><b>${esc(r.category || 'Belum diklasifikasi')}</b><small>${esc(r.supplierType === 'INDIVIDUAL' ? 'Perorangan' : 'Perusahaan')} · ${esc(r.ppnTreatment || 'Pajak belum diatur')}</small></span>` },
@@ -458,7 +484,7 @@
   }));
   R('/masters/products', masterPage({
     endpoint: '/api/products', key: 'products', permission: 'product.view', title: 'Produk & jasa', eyebrow: 'MASTER DATA', detailType: 'products',
-    fields:[{name:'code',label:'Kode produk',required:true},{name:'name',label:'Nama produk/jasa',required:true},{name:'productType',label:'Tipe',type:'select',options:[['PRODUCT','Produk'],['SERVICE','Jasa'],['RAW_MATERIAL','Bahan baku'],['CONSUMABLE','Consumable'],['SPARE_PART','Spare part'],['TOOLING','Tooling']],required:true},{name:'category',label:'Kategori',required:true},{name:'materialType',label:'Material'},{name:'grade',label:'Grade'},{name:'specification',label:'Spesifikasi',type:'textarea'},{name:'dimensions',label:'Dimensi'},{name:'weightKg',label:'Berat (kg)',type:'number',min:0},{name:'drawingNumber',label:'Nomor drawing'},{name:'drawingRevision',label:'Revisi drawing'},{name:'uom',label:'Satuan',required:true},{name:'hpp',label:'Harga pokok awal',type:'number',min:0,required:true},{name:'price',label:'Harga jual',type:'number',min:0,required:true},{name:'makeOrBuy',label:'Sourcing',type:'select',options:[['MAKE','Produksi'],['BUY','Beli'],['SUBCONTRACT','Subkontrak']],required:true},{name:'isStock',label:'Item persediaan',type:'checkbox'},{name:'serialRequired',label:'Wajib serial number',type:'checkbox'},{name:'lotRequired',label:'Wajib lot/batch',type:'checkbox'},{name:'inspectionRequired',label:'Wajib inspeksi',type:'checkbox'},{name:'active',label:'Produk aktif',type:'checkbox'}],
+    fields: EDIT_FIELDS.products,
     columns: [
       { label: 'Produk', render: (r) => `<b>${esc(r.name)}</b><small>${esc(r.code)}</small>` },
       { label: 'Satuan', render: (r) => esc(r.uom) },
