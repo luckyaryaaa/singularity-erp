@@ -162,6 +162,16 @@
     return `<section class="party-profile-hero" data-party-kind="${kind}"><div class="party-profile-identity">${partyAvatar(party, kind, true)}<div class="party-profile-name"><span class="party-directory-kicker"><i aria-hidden="true"></i>${customer ? 'CUSTOMER IDENTITY' : 'SUPPLIER IDENTITY'}</span><h2>${esc(party.name || party.code)}</h2><p>${esc(party.legalName || 'Nama legal belum dilengkapi')}</p><div class="party-profile-tags"><span>${esc(party.code || 'NO-CODE')}</span>${chip(status)}${customer ? riskChip(party.riskRating) : starRating(party.rating)}</div></div>${editable ? `<div class="party-photo-action"><button class="btn secondary sm" id="partyPhotoButton" type="button">${ICONS.people} Ganti foto</button><input id="partyPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden><small>PNG, JPG, atau WebP · maks. 5 MB</small></div>` : ''}</div><div class="party-profile-facts">${facts.map(([icon, label, value]) => `<div><span>${icon}</span><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`).join('')}<div><span>${ICONS.audit}</span><small>Data governance</small><strong>${Number(party.dataQualityScore || 0)}% · v${Number(party.mdmVersion || 1)}</strong></div></div><span class="party-profile-orbit" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
   };
 
+  const productIdentityHero = (product, editable) => {
+    const status = product.lifecycleStatus || (product.active ? 'ACTIVE' : 'INACTIVE');
+    const facts = [
+      [ICONS.box, 'Kategori', product.category || product.productType || 'Umum'],
+      [ICONS.wallet, 'Harga & HPP', `${fmtIDR(product.price || 0)} · HPP ${fmtIDR(product.hpp || 0)}`],
+      [ICONS.gear, 'Satuan & tipe', `${product.uom || '—'} · ${product.productType || 'PRODUCT'}`]
+    ];
+    return `<section class="party-profile-hero" data-party-kind="product"><div class="party-profile-identity">${partyAvatar(product, 'product', true)}<div class="party-profile-name"><span class="party-directory-kicker"><i aria-hidden="true"></i>PRODUCT IDENTITY</span><h2>${esc(product.name || product.code)}</h2><p>${esc(product.specification || product.materialType || 'Spesifikasi belum dilengkapi')}</p><div class="party-profile-tags"><span>${esc(product.code || 'NO-CODE')}</span>${chip(status)}${product.isStock ? '<span class="chip mint">Stok</span>' : '<span class="chip lavender">Jasa / Non-stok</span>'}</div></div>${editable ? `<div class="party-photo-action"><button class="btn secondary sm" id="partyPhotoButton" type="button">${ICONS.box} Ganti foto</button><input id="partyPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden><small>PNG, JPG, atau WebP · maks. 5 MB</small></div>` : ''}</div><div class="party-profile-facts">${facts.map(([icon, label, value]) => `<div><span>${icon}</span><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`).join('')}<div><span>${ICONS.audit}</span><small>Data governance</small><strong>${Number(product.dataQualityScore || 0)}% · v${Number(product.mdmVersion || 1)}</strong></div></div><span class="party-profile-orbit" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
+  };
+
   const fmtCell = (row, col) => {
     const [key, , type] = col; const v = row[key];
     if (type === 'money') return `<span class="money">${fmtIDR(Number(v) || 0)}</span>`;
@@ -185,19 +195,21 @@
       const lifeBtns = (LIFECYCLE_BTN[overview.lifecycleStatus] || []).filter(() => can(`${cfg.module}.edit`) || can(`${cfg.module}.approve`))
         .map(([a, label]) => `<button class="btn secondary sm" data-life="${a}">${esc(label)}</button>`).join('');
       const isParty = ['customers', 'suppliers'].includes(params.type);
+      const isProduct = params.type === 'products';
+      const hasPhoto = isParty || isProduct;
 
       main.innerHTML = pageHead({
-        eyebrow: isParty ? `PARTY 360 · ${cfg.title.toUpperCase()}` : `MASTER DATA · ${cfg.title.toUpperCase()}`, title: isParty ? `Profil ${cfg.title}` : (overview.name || overview.code || cfg.title),
-        sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
+        eyebrow: isParty ? `PARTY 360 · ${cfg.title.toUpperCase()}` : isProduct ? `PRODUCT 360 · ${cfg.title.toUpperCase()}` : `MASTER DATA · ${cfg.title.toUpperCase()}`, title: isParty ? `Profil ${cfg.title}` : (overview.name || overview.code || cfg.title),
+        sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : isProduct ? 'Foto, spesifikasi, harga, dan riwayat dalam satu profil produk & jasa.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
         actions: `<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
       }) + `
-        ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : ''}
+        ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : isProduct ? productIdentityHero(overview, can(`${cfg.module}.edit`)) : ''}
         <div class="master-tabs" role="tablist">
           ${cfg.tabs.filter((t) => !t.perm || can(t.perm)).map((t) => `<button class="master-tab ${t.id === activeTab ? 'active' : ''}" data-tab="${t.id}" role="tab">${esc(t.label)}${overview.subCounts && overview.subCounts[t.sub] ? ` <span class="tab-count">${overview.subCounts[t.sub]}</span>` : ''}</button>`).join('')}
         </div>
         <section id="tabBody"></section>`;
 
-      if (isParty) {
+      if (hasPhoto) {
         bindPartyPhotoFallback(main);
         const photoInput = main.querySelector('#partyPhotoInput');
         main.querySelector('#partyPhotoButton')?.addEventListener('click', () => photoInput.click());

@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE products DROP COLUMN IF EXISTS profile_file_id;
+COMMIT;
