@@ -1622,28 +1622,83 @@ body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-r
 h1,h2,h3,.page-head h1,.lx-hero h1,.lx-card h2{font-optical-sizing:auto}
 
 /* ============================================================================
-   LAYER 12 · IKON DEFAULT BERSIH + SIDEBAR LIQUID-GLASS + WORKSPACE LEBIH LEBAR
+   LAYER 12 · ENTERPRISE NAVIGATION STUDIO
+   Ikon 3D yang telah dikurasi dipakai sebagai identitas visual; label, state,
+   dan fokus tetap tenang supaya cocok untuk pekerjaan ERP berjam-jam.
    ========================================================================== */
-/* Ikon nav: glyph bersih tanpa tile 3D (default, profesional, tidak ramai) */
-.nav-ico{width:28px;height:28px;background:transparent!important;box-shadow:none!important;color:var(--slate);transform:none!important}
-.nav-glyph{display:grid;place-items:center}
-.nav-glyph svg{width:19px;height:19px}
-.nav-item:hover .nav-ico{color:var(--blue-ink)}
-.nav-item.active .nav-ico{color:var(--blue-ink)}
-/* Space-rail: glyph bersih */
-.space-orb{background:transparent!important;box-shadow:none!important}
-.space-orb svg{width:22px;height:22px;display:block}
-.space-button.active .space-orb{color:var(--space-accent-ink,var(--blue-ink))}
+.app{grid-template-columns:324px minmax(0,1fr)}
+.nav-ico{width:40px;height:40px;overflow:visible;background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(225,235,249,.92))!important;box-shadow:inset 1px 1px 1px rgba(255,255,255,.95),inset -3px -4px 8px rgba(64,91,142,.16),0 10px 18px -13px rgba(47,70,110,.55)!important;color:var(--slate);transform:none!important}
+.nav-art-wrap{position:relative;display:grid;place-items:center;width:46px;height:46px;isolation:isolate}
+.nav-glyph{display:grid;place-items:center}.nav-glyph svg{width:19px;height:19px}
+.nav-glyph-fallback{position:absolute;z-index:0;color:#61728c}
+.nav-art{position:relative;z-index:1;display:block;width:46px;height:46px;max-width:none;object-fit:contain;filter:drop-shadow(0 7px 7px rgba(47,70,110,.2));transition:transform .34s cubic-bezier(.22,1,.36,1),filter .22s ease}
+.nav-item:hover .nav-art{transform:translateY(-2px) rotate(-3deg) scale(1.075);filter:drop-shadow(0 11px 9px rgba(47,70,110,.25))}
+.nav-item.active .nav-ico{background:linear-gradient(145deg,#f9fcff,#dceafe)!important;box-shadow:inset 1px 1px 1px #fff,inset -3px -4px 8px rgba(74,111,173,.17),0 12px 21px -14px rgba(62,102,164,.6)!important}
+.nav-item.active .nav-art{transform:translateY(-1px) scale(1.04);filter:drop-shadow(0 9px 8px rgba(58,91,148,.27))}
+.nav-item:focus-visible .nav-ico,.space-button:focus-visible .space-orb{outline:3px solid color-mix(in srgb,var(--space-accent,#78a8f2) 46%,white);outline-offset:3px}
 
-/* Sidebar: liquid glass lebih transparan + blur lebih kuat */
-.sidebar{background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(242,246,253,.32))!important;
-  -webkit-backdrop-filter:blur(34px) saturate(1.6);backdrop-filter:blur(34px) saturate(1.6)}
-.space-rail{background:linear-gradient(180deg,rgba(255,255,255,.44),rgba(234,242,251,.28))!important}
+/* Space rail memakai seal yang sama, dalam ukuran lebih padat. */
+.space-orb{overflow:visible;background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(226,235,248,.86))!important;box-shadow:inset 1px 1px 1px #fff,inset -3px -4px 7px rgba(63,87,130,.14),0 8px 16px -12px rgba(47,70,110,.62)!important}
+.space-orb .nav-art-wrap{width:38px;height:38px}.space-orb .nav-art{width:38px;height:38px}.space-orb .nav-glyph-fallback svg{width:17px;height:17px}
+.space-button.active .space-orb{background:linear-gradient(145deg,color-mix(in srgb,var(--space-soft) 44%,#fff),color-mix(in srgb,var(--space-accent) 25%,#fff))!important;color:var(--space-accent-ink,var(--blue-ink));box-shadow:inset 1px 1px 1px #fff,0 10px 18px -12px var(--space-accent)!important}
+
+/* Sidebar: liquid glass dalam dengan pemisah dan permukaan yang tidak berisik. */
+.sidebar{background:linear-gradient(180deg,rgba(255,255,255,.74),rgba(242,246,253,.53))!important;
+  -webkit-backdrop-filter:blur(34px) saturate(1.45);backdrop-filter:blur(34px) saturate(1.45)}
+.space-rail{background:linear-gradient(180deg,rgba(255,255,255,.58),rgba(234,242,251,.4))!important}
 @media (prefers-reduced-transparency:reduce){
   .sidebar{-webkit-backdrop-filter:none;backdrop-filter:none;background:linear-gradient(180deg,#fff,#f5f8fd)!important}
 }
 
-/* Workspace lebih lebar: sidebar sedikit ramping + padding konten lebih tipis.
-   Kelebaran maksimal dicapai lewat auto-collapse (klik menu → rail saja → penuh). */
-.app{grid-template-columns:260px minmax(0,1fr)}
+/* Konten tetap luas; mode collapse menyimpan preferensi pengguna. */
 main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
+@media(max-width:1100px){.app{grid-template-columns:minmax(0,1fr)}.sidebar,.sidebar-collapsed .sidebar{width:min(340px,92vw)}}
+@media(prefers-reduced-motion:reduce){.nav-art{transition:none}.nav-item:hover .nav-art,.nav-item.active .nav-art{transform:none}}
+
+/* ============================================================================
+   LAYER 13 · CONTEXT-NAV = FLYOUT LIQUID GLASS (menimpa workspace)
+   Rail selalu ringkas + workspace full-width; klik space → context muncul
+   sebagai overlay kaca transparan di atas workbench; klik menu → auto-collapse.
+   ========================================================================== */
+.sidebar-collapsed.nav-flyout .context-nav{
+  display:flex!important;
+  /* .sidebar ber-backdrop-filter → jadi containing block untuk position:fixed,
+     maka left:100% = tepi kanan rail; flyout muncul menimpa workspace. */
+  position:fixed;left:calc(100% + 6px);top:14px;bottom:14px;width:256px;z-index:120;
+  padding:14px 13px 6px;border-radius:24px;
+  background:linear-gradient(180deg,rgba(255,255,255,.58),rgba(238,244,252,.38));
+  -webkit-backdrop-filter:blur(40px) saturate(1.7);backdrop-filter:blur(40px) saturate(1.7);
+  border:1px solid rgba(255,255,255,.6);
+  box-shadow:var(--glass-sheen),0 40px 90px -34px rgba(28,48,88,.66),0 10px 26px -14px rgba(28,48,88,.32);
+  overflow:hidden;animation:flyoutIn .34s cubic-bezier(.22,1,.36,1)}
+.sidebar-collapsed.nav-flyout nav#nav{flex:1;min-height:0;overflow-y:auto}
+@keyframes flyoutIn{from{opacity:0;transform:translateX(-14px) scale(.985)}to{opacity:1;transform:none}}
+@media (max-width:1100px){ .sidebar-collapsed.nav-flyout .context-nav{position:static;width:auto;box-shadow:none;backdrop-filter:none;background:transparent;animation:none} }
+@media (prefers-reduced-transparency:reduce){ .sidebar-collapsed.nav-flyout .context-nav{-webkit-backdrop-filter:none;backdrop-filter:none;background:linear-gradient(180deg,#fff,#f4f8fd)} }
+@media (prefers-reduced-motion:reduce){ .sidebar-collapsed.nav-flyout .context-nav{animation:none} }
+
+/* ── Layer 13b · Flyout: nav PENUH (ikon+label) + panel lebih jelas ─────── */
+.sidebar-collapsed.nav-flyout .context-nav{
+  border:1px solid rgba(150,172,210,.55)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(236,243,252,.56))!important}
+.sidebar-collapsed.nav-flyout .context-nav .nav-item{width:100%!important;justify-content:flex-start!important;min-height:44px!important;margin:1px 0!important;padding:4px!important;border-radius:14px!important}
+.sidebar-collapsed.nav-flyout .context-nav .nav-item .nav-text{display:block!important}
+.sidebar-collapsed.nav-flyout .context-nav .nav-ico{width:34px!important;height:34px!important;margin:0!important}
+.sidebar-collapsed.nav-flyout .context-nav .nav-row{margin:1px 0!important}
+
+/* ── Layer 13c · Angkat stacking context sidebar saat flyout (agar flyout di ATAS workspace) ── */
+.sidebar-collapsed.nav-flyout .sidebar{z-index:200}
+
+/* ── Layer 13d · Flyout keluar dari stacking-trap sidebar (guaranteed on-top) ── */
+.sidebar-collapsed.nav-flyout .sidebar{
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  background:transparent!important;z-index:200;overflow:visible}
+.sidebar-collapsed.nav-flyout .context-nav{position:fixed!important;left:90px!important;z-index:9999!important}
+/* Rail tetap kaca via elemennya sendiri */
+.sidebar-collapsed.nav-flyout .space-rail{
+  -webkit-backdrop-filter:blur(30px) saturate(1.5);backdrop-filter:blur(30px) saturate(1.5);
+  background:linear-gradient(180deg,rgba(255,255,255,.62),rgba(236,243,252,.42))!important}
+
+/* ── Layer 13e · Rapikan jarak ikon–label di flyout ────────────────────── */
+.sidebar-collapsed.nav-flyout .context-nav .nav-item{gap:11px!important;padding:4px 6px 4px 4px!important}
+.sidebar-collapsed.nav-flyout .context-nav .nav-text{padding-left:1px}

@@ -198,10 +198,31 @@
     '#/system/jobs': 'monitoring', '#/system/selftest': 'selftest',
     '#/system/document-templates': 'statement', '#/system/settings': 'setting'
   };
-  // Ikon default (glyph SVG) — bersih & profesional. Peta ART_BY_ROUTE + aset PNG
-  // dipertahankan (dorman) bila sewaktu-waktu ingin dikembalikan ke ikon 3D.
-  const navIcon = (item) => `<span class="nav-glyph" aria-hidden="true">${ICONS[item.icon] || ICONS.grid}</span>`;
-  void ART_BY_ROUTE;
+  // Ikon navigasi berasal dari koleksi visual yang telah dinormalisasi di
+  // /assets/icons/navigation. Rute spesifik mendapat art sendiri; rute lain
+  // memakai pasangan semantik dari glyph agar rail tetap konsisten, bahkan
+  // ketika sebuah modul baru belum memiliki ilustrasi khusus.
+  const ART_BY_ICON = {
+    grid: 'dashboard', inbox: 'my-work', checkCircle: 'approvals', bell: 'notification',
+    chart: 'reports', search: 'inquiry', doc: 'statement', list: 'customer-po',
+    cart: 'sales', folder: 'project', workOrder: 'work-order', quality: 'quality-control',
+    request: 'purchase-request', purchaseOrder: 'purchase-order', box: 'master-data',
+    receipt: 'receipts', swap: 'movements', truck: 'suppliers', wallet: 'payments',
+    book: 'accounting', building: 'organization', people: 'employees', clock: 'attendance',
+    payslip: 'payroll', lock: 'security', shield: 'security', approval: 'approvals',
+    audit: 'audit', monitor: 'monitoring', job: 'monitoring', gear: 'setting',
+    settings: 'setting', finance: 'finance', tax: 'tax', inventory: 'inventory'
+  };
+  const SPACE_ART = {
+    workspace: 'workspace', sales: 'sales', operations: 'operations', finance: 'finance',
+    organization: 'organization', 'master-data': 'master-data', system: 'system'
+  };
+  const artFor = (item) => item.art || ART_BY_ROUTE[item.href] || ART_BY_ICON[item.icon] || null;
+  const artImage = (art, fallback) => art
+    ? `<span class="nav-art-wrap"><span class="nav-glyph nav-glyph-fallback" aria-hidden="true">${fallback}</span><img class="nav-art" src="/assets/icons/navigation/${esc(art)}.png" width="48" height="48" alt="" decoding="async"></span>`
+    : `<span class="nav-glyph" aria-hidden="true">${fallback}</span>`;
+  const navIcon = (item) => artImage(artFor(item), ICONS[item.icon] || ICONS.grid);
+  const spaceIcon = (space) => artImage(SPACE_ART[space.id], ICONS[space.icon] || ICONS.grid);
 
   let preferenceScope = 'anonymous';
   let activeSpaceId = 'workspace';
@@ -244,7 +265,7 @@
     document.getElementById('spaceRail').innerHTML = spaces.map((space) => {
       const active = space.id === activeSpaceId;
       const count = visibleItems(space).length;
-      return `<button class="space-button ${active ? 'active' : ''}" type="button" data-space="${esc(space.id)}" data-tone="${esc(space.tone)}" aria-pressed="${active}" aria-label="${esc(`${space.label}, ${count} menu`)}" title="${esc(space.label)}" tabindex="${active ? '0' : '-1'}"><span class="space-orb">${ICONS[space.icon]}</span><span>${esc(space.shortLabel)}</span></button>`;
+      return `<button class="space-button ${active ? 'active' : ''}" type="button" data-space="${esc(space.id)}" data-tone="${esc(space.tone)}" aria-pressed="${active}" aria-label="${esc(`${space.label}, ${count} menu`)}" title="${esc(space.label)}" tabindex="${active ? '0' : '-1'}"><span class="space-orb">${spaceIcon(space)}</span><span>${esc(space.shortLabel)}</span></button>`;
     }).join('');
   }
 
@@ -474,12 +495,15 @@
   const sidebar = document.getElementById('sidebar');
   const menuBtn = document.getElementById('menuBtn');
   const desktopRail = window.matchMedia('(min-width:1101px)');
-  let railCollapsed = false;
-  try { railCollapsed = localStorage.getItem('mat.sidebar.collapsed') === 'true'; } catch { /* storage dapat diblokir browser */ }
+  // Default: rail ringkas + context sebagai FLYOUT kaca yang menimpa workspace.
+  // railCollapsed=true → flyout tertutup (workspace penuh); false → flyout terbuka.
+  let railCollapsed = true;
+  try { const s = localStorage.getItem('mat.sidebar.collapsed'); railCollapsed = s === null ? true : s === 'true'; } catch { /* storage dapat diblokir browser */ }
   function paintRailControl() {
     const desktop = desktopRail.matches;
     if (desktop) {
-      appShell.classList.toggle('sidebar-collapsed', railCollapsed);
+      appShell.classList.add('sidebar-collapsed');            // rail selalu ringkas
+      appShell.classList.toggle('nav-flyout', !railCollapsed); // context = overlay kaca
       sidebar.classList.remove('open');
       document.getElementById('scrim').classList.remove('open');
       menuBtn.setAttribute('aria-expanded', String(!railCollapsed));
@@ -487,6 +511,7 @@
       menuBtn.title = railCollapsed ? 'Bentangkan navigasi' : 'Ciutkan navigasi';
     } else {
       appShell.classList.remove('sidebar-collapsed');
+      appShell.classList.remove('nav-flyout');
       menuBtn.setAttribute('aria-expanded', String(sidebar.classList.contains('open')));
       menuBtn.setAttribute('aria-label', 'Buka menu navigasi');
       menuBtn.title = 'Buka menu navigasi';
