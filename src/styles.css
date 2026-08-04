@@ -1201,6 +1201,8 @@ nav#nav{margin:0 -4px;padding:1px 4px 14px;scrollbar-gutter:stable}
 .account-btn:hover{background:#fff;border-color:rgba(143,182,255,.55);transform:translateY(-1px);box-shadow:0 10px 22px -14px rgba(71,107,169,.6)}
 .account-avatar{display:grid;place-items:center;width:30px;height:30px;flex:none;border-radius:10px;background:linear-gradient(145deg,#dcd2f7,#a98fd8);color:#3b2756;font-size:10px;font-weight:800;box-shadow:inset 2px 2px 4px rgba(255,255,255,.62),inset -2px -3px 5px rgba(59,39,86,.22)}
 .account-avatar.lg{width:40px;height:40px;border-radius:13px;font-size:13px}
+.account-avatar.has-photo{background:none;box-shadow:inset 0 0 0 1px rgba(20,30,50,.1)}
+.account-photo{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .account-copy{display:grid;min-width:0;text-align:left;line-height:1.18}
 .account-copy b{font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:124px}
 .account-copy small{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:124px}

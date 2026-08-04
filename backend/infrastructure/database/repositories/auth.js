@@ -211,6 +211,22 @@ async function updateOwnProfile(client,user,body){
   if(!row)throw new AppError('RESOURCE_NOT_FOUND');
   return {id:row.id,username:row.username,displayName:row.display_name,role:row.role,department:row.department,jobTitle:row.job_title,branchId:row.branch_id};
 }
+// Foto profil self-service: biner masuk ke private storage (di-scan), app_users
+// hanya menyimpan referensi. Ditaut & dibaca hanya oleh pemiliknya sendiri.
+const PROFILE_PHOTO_MIME=new Set(['image/png','image/jpeg','image/webp']);
+async function setOwnProfilePhoto(client,user,{buffer,filename,mimeType}){
+  if(!PROFILE_PHOTO_MIME.has(String(mimeType||'').toLowerCase()))throw new AppError('VALIDATION_ERROR','Gunakan foto PNG, JPG, atau WebP.');
+  const privateStorage=require('../../files/private-storage');
+  const file=await privateStorage.upload(client,{buffer,filename:filename||'avatar',mimeType,user,module:'account',accessLevel:'MASTER_PROFILE',confidentiality:'INTERNAL',branchId:null});
+  await client.query('UPDATE app_users SET profile_file_id=$2,updated_at=now() WHERE id=$1',[user.id,file.id]);
+  return {fileId:file.id,scanStatus:file.scanStatus};
+}
+async function ownProfilePhoto(client,user){
+  const row=(await client.query('SELECT profile_file_id FROM app_users WHERE id=$1',[user.id])).rows[0];
+  if(!row||!row.profile_file_id)return null;
+  const privateStorage=require('../../files/private-storage');
+  try{return await privateStorage.download(client,row.profile_file_id);}catch{return null;}
+}
 async function startMfaSetup(client,user,currentCode){
   const current=(await client.query(
     'SELECT mfa_enabled,totp_secret_ciphertext FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
@@ -311,4 +327,4 @@ async function logoutAll(client,userId){return client.query("UPDATE user_session
 async function devices(client,userId){return (await client.query(`SELECT id,created_at,last_seen_at,expires_at,ip,device,active,ended_at,end_reason
   FROM user_sessions WHERE user_id=$1 ORDER BY last_seen_at DESC LIMIT 20`,[userId])).rows;}
 
-module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,delegatedGrantsForUser,permissionsForUser,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,updateOwnProfile,issuePasswordReset,startMfaSetup,enableMfa,recoveryCodeStatus,regenerateRecoveryCodes,disableMfa,assertRecentMfa,mfaMandatory,PRIVILEGED_ROLES,logout,logoutAll,devices,hashPassword};
+module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,delegatedGrantsForUser,permissionsForUser,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,updateOwnProfile,setOwnProfilePhoto,ownProfilePhoto,issuePasswordReset,startMfaSetup,enableMfa,recoveryCodeStatus,regenerateRecoveryCodes,disableMfa,assertRecentMfa,mfaMandatory,PRIVILEGED_ROLES,logout,logoutAll,devices,hashPassword};

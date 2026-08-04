@@ -2,7 +2,7 @@
 // Bootstrap aplikasi: verifikasi sesi → render shell → router → SSE.
 // Tidak ada render halaman sebelum sesi terverifikasi (tanpa flash).
 (() => {
-  const { esc, api, state, router, can, startSse, refreshBadge, invalidate } = window.MAT;
+  const { esc, api, uploadFile, state, router, can, startSse, refreshBadge, invalidate } = window.MAT;
   const { ICONS, toast, formDialog, closeLayers, rememberLayerFocus } = window.UI;
 
   const loginLayer = document.getElementById('loginLayer');
@@ -454,7 +454,19 @@
     const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
     set('profileName', user.displayName); set('profileNameLg', user.displayName);
     set('profileRole', roleLine); set('profileRoleLg', roleLine);
-    set('profileAvatar', initials); set('profileAvatarLg', initials);
+    // Avatar: coba foto profil privat (di-scan); bila belum ada / belum CLEAN,
+    // biner 404 dan inisial deterministik tetap tampil sebagai fallback.
+    const bust = Date.now();
+    for (const id of ['profileAvatar', 'profileAvatarLg']) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.textContent = initials;
+      el.classList.remove('has-photo');
+      const img = new Image();
+      img.alt = ''; img.className = 'account-photo';
+      img.addEventListener('load', () => { el.textContent = ''; el.classList.add('has-photo'); el.appendChild(img); });
+      img.src = `/api/auth/profile-photo?v=${bust}`;
+    }
   }
   const accountChip = document.getElementById('accountChip');
   const accountBtn = document.getElementById('accountBtn');
@@ -485,6 +497,22 @@
       paintAccount(state.user);
       toast('Profil diperbarui', 'Nama tampilan Anda telah disimpan.');
     } catch (error) { toast('Gagal menyimpan profil', error.message, 'coral'); }
+  });
+  const accountPhotoInput = document.getElementById('accountPhotoInput');
+  document.getElementById('changePhotoBtn')?.addEventListener('click', () => { closeAccountMenu(); accountPhotoInput?.click(); });
+  accountPhotoInput?.addEventListener('change', async () => {
+    const file = accountPhotoInput.files[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      toast('Foto tidak valid', 'Gunakan PNG, JPG, atau WebP maksimal 5 MB.', 'coral'); accountPhotoInput.value = ''; return;
+    }
+    try {
+      const saved = await uploadFile('/api/auth/profile-photo', file);
+      toast('Foto profil diperbarui', saved.scanStatus === 'CLEAN' ? 'Foto siap digunakan.' : 'Foto ditautkan dan sedang melewati pemeriksaan keamanan.');
+      if (state.user) paintAccount(state.user);
+      if (saved.scanStatus !== 'CLEAN') setTimeout(() => { if (state.user) paintAccount(state.user); }, 2600);
+    } catch (error) { toast('Unggah foto gagal', error.message, 'coral'); }
+    finally { accountPhotoInput.value = ''; }
   });
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     closeAccountMenu();

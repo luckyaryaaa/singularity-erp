@@ -1,12 +1,12 @@
 # Endpoint Authorization Matrix
 
-Baseline v0.49.0 mencakup 14 bounded router dan 324 handler HTTP.
+Baseline v0.49.0 mencakup 14 bounded router dan 326 handler HTTP.
 Seluruh domain router hanya dipanggil setelah validasi session terpusat di
 `backend/api-postgres.js`. Endpoint publik dibatasi oleh allowlist eksplisit.
 
 | Domain router | Handler | Enforcement utama | Negative evidence |
 |---|---:|---|---|
-| Auth | 16 | public allowlist atau own authenticated session | login, lockout, MFA, recovery code sekali pakai, session expiry, edit profil sendiri |
+| Auth | 18 | public allowlist atau own authenticated session | login, lockout, MFA, recovery code sekali pakai, session expiry, edit profil & foto sendiri |
 | Workspace | 7 | permission + user scope + ownership + version + idempotency | dashboard, My Work, approvals, unified Work Item engine |
 | Documents | 9 | permission dinamis per tipe + branch | cross-branch read/mutation |
 | Sales | 27 | permission + repository branch | quotation, commercial control, dunning, RMA IDOR, pricing condition engine |

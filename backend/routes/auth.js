@@ -1,6 +1,7 @@
 'use strict';
-const { readBody } = require('../core/util');
+const { readBody, readRawBody } = require('../core/util');
 const { AppError } = require('../core/errors');
+const privateStorage = require('../infrastructure/files/private-storage');
 const { grantsFor } = require('../core/permissions');
 const auth = require('../infrastructure/database/repositories/auth');
 const operations = require('../infrastructure/database/repositories/operations');
@@ -40,6 +41,8 @@ async function dispatchPrivate(client,req,url,ctx){const p=url.pathname,method=r
   if(method==='GET'&&p==='/api/auth/devices')return {items:await auth.devices(client,ctx.user.id)};
   if(method==='POST'&&p==='/api/auth/change-password'){const body=await readBody(req);await auth.changeOwnPassword(client,ctx.user,body.currentPassword,body.newPassword);ctx.cookie='mat_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';return{ok:true,reauthenticationRequired:true};}
   if(method==='PATCH'&&p==='/api/auth/profile'){const body=await readBody(req);const updated=await auth.updateOwnProfile(client,ctx.user,body);await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'account',entityType:'USER_PROFILE',entityId:ctx.user.id,newValue:{displayName:updated.displayName},requestId:ctx.requestId,branchId:ctx.user.branchId});return{user:updated};}
+  if(method==='POST'&&p==='/api/auth/profile-photo'){let buffer;try{buffer=await readRawBody(req,privateStorage.MAX_BYTES+1);}catch(error){if(error.message==='BODY_TOO_LARGE')throw new AppError('FILE_TOO_LARGE');throw error;}const filename=decodeURIComponent(req.headers['x-file-name']||'avatar'),mimeType=String(req.headers['content-type']||'').split(';')[0].toLowerCase();const result=await auth.setOwnProfilePhoto(client,ctx.user,{buffer,filename,mimeType});await operations.enqueue(client,{type:'FILE_SCAN',user:ctx.user,params:{fileId:result.fileId},executionKey:`file:${result.fileId}`,system:true});await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'account',entityType:'USER_PROFILE_PHOTO',entityId:ctx.user.id,newValue:{fileId:result.fileId,scanStatus:result.scanStatus},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=202;return result;}
+  if(method==='GET'&&p==='/api/auth/profile-photo'){const dl=await auth.ownProfilePhoto(client,ctx.user);if(!dl)throw new AppError('RESOURCE_NOT_FOUND');ctx.download=dl;ctx.download.item.disposition='inline';return null;}
   if(method==='POST'&&p==='/api/auth/mfa/setup'){const body=await readBody(req);return auth.startMfaSetup(client,ctx.user,body.currentCode);}
   if(method==='POST'&&p==='/api/auth/mfa/enable')return auth.enableMfa(client,ctx.user,(await readBody(req)).code);
   if(method==='GET'&&p==='/api/auth/mfa/recovery-codes')return auth.recoveryCodeStatus(client,ctx.user.id);
