@@ -1620,3 +1620,30 @@ main[data-workbench]{--workbench-tint:color-mix(in srgb,var(--space-soft) 62%,#f
 /* ── Layer 11 · Polish tipografi global (rendering lebih tajam & premium) ── */
 body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;font-feature-settings:"kern","liga","calt"}
 h1,h2,h3,.page-head h1,.lx-hero h1,.lx-card h2{font-optical-sizing:auto}
+
+/* ============================================================================
+   LAYER 12 · IKON DEFAULT BERSIH + SIDEBAR LIQUID-GLASS + WORKSPACE LEBIH LEBAR
+   ========================================================================== */
+/* Ikon nav: glyph bersih tanpa tile 3D (default, profesional, tidak ramai) */
+.nav-ico{width:28px;height:28px;background:transparent!important;box-shadow:none!important;color:var(--slate);transform:none!important}
+.nav-glyph{display:grid;place-items:center}
+.nav-glyph svg{width:19px;height:19px}
+.nav-item:hover .nav-ico{color:var(--blue-ink)}
+.nav-item.active .nav-ico{color:var(--blue-ink)}
+/* Space-rail: glyph bersih */
+.space-orb{background:transparent!important;box-shadow:none!important}
+.space-orb svg{width:22px;height:22px;display:block}
+.space-button.active .space-orb{color:var(--space-accent-ink,var(--blue-ink))}
+
+/* Sidebar: liquid glass lebih transparan + blur lebih kuat */
+.sidebar{background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(242,246,253,.32))!important;
+  -webkit-backdrop-filter:blur(34px) saturate(1.6);backdrop-filter:blur(34px) saturate(1.6)}
+.space-rail{background:linear-gradient(180deg,rgba(255,255,255,.44),rgba(234,242,251,.28))!important}
+@media (prefers-reduced-transparency:reduce){
+  .sidebar{-webkit-backdrop-filter:none;backdrop-filter:none;background:linear-gradient(180deg,#fff,#f5f8fd)!important}
+}
+
+/* Workspace lebih lebar: sidebar sedikit ramping + padding konten lebih tipis.
+   Kelebaran maksimal dicapai lewat auto-collapse (klik menu → rail saja → penuh). */
+.app{grid-template-columns:260px minmax(0,1fr)}
+main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}

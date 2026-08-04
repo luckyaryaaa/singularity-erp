@@ -198,12 +198,10 @@
     '#/system/jobs': 'monitoring', '#/system/selftest': 'selftest',
     '#/system/document-templates': 'statement', '#/system/settings': 'setting'
   };
-  const navIcon = (item) => {
-    const art = item.art || ART_BY_ROUTE[item.href];
-    return art
-      ? `<img class="nav-art" src="assets/icons/navigation/${art}.png" width="96" height="96" loading="lazy" decoding="async" alt="">`
-      : `<span class="nav-glyph" aria-hidden="true">${ICONS[item.icon] || ICONS.grid}</span>`;
-  };
+  // Ikon default (glyph SVG) — bersih & profesional. Peta ART_BY_ROUTE + aset PNG
+  // dipertahankan (dorman) bila sewaktu-waktu ingin dikembalikan ke ikon 3D.
+  const navIcon = (item) => `<span class="nav-glyph" aria-hidden="true">${ICONS[item.icon] || ICONS.grid}</span>`;
+  void ART_BY_ROUTE;
 
   let preferenceScope = 'anonymous';
   let activeSpaceId = 'workspace';
@@ -246,7 +244,7 @@
     document.getElementById('spaceRail').innerHTML = spaces.map((space) => {
       const active = space.id === activeSpaceId;
       const count = visibleItems(space).length;
-      return `<button class="space-button ${active ? 'active' : ''}" type="button" data-space="${esc(space.id)}" data-tone="${esc(space.tone)}" aria-pressed="${active}" aria-label="${esc(`${space.label}, ${count} menu`)}" title="${esc(space.label)}" tabindex="${active ? '0' : '-1'}"><span class="space-orb"><img class="space-art" src="assets/icons/navigation/${esc(space.id)}.png" width="96" height="96" loading="lazy" decoding="async" alt="">${ICONS[space.icon]}</span><span>${esc(space.shortLabel)}</span></button>`;
+      return `<button class="space-button ${active ? 'active' : ''}" type="button" data-space="${esc(space.id)}" data-tone="${esc(space.tone)}" aria-pressed="${active}" aria-label="${esc(`${space.label}, ${count} menu`)}" title="${esc(space.label)}" tabindex="${active ? '0' : '-1'}"><span class="space-orb">${ICONS[space.icon]}</span><span>${esc(space.shortLabel)}</span></button>`;
     }).join('');
   }
 
