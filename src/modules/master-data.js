@@ -119,6 +119,23 @@
   // Overview enterprise per-master: KPI ringkas + panel informasi rapi (bukan
   // dump mentah). Nilai boleh HTML (chip); teks mentah wajib di-esc di sini.
   const riskChip = (v) => v ? `<span class="chip ${{ LOW: 'mint', MEDIUM: 'amber', HIGH: 'coral' }[v] || 'gray'}">${esc(v)}</span>` : '—';
+  // Data-quality gauge — cincin skor + checklist gap yang dapat ditindaklanjuti.
+  // stroke-dasharray dipasang sebagai ATRIBUT SVG (bukan inline style) → CSP-safe.
+  const qualityRing = (score) => {
+    const s = Math.max(0, Math.min(100, Math.round(Number(score) || 0)));
+    const r = 30, circ = 2 * Math.PI * r, dash = (s / 100 * circ).toFixed(1);
+    const tone = s >= 80 ? 'mint' : s >= 50 ? 'amber' : 'coral';
+    return `<span class="quality-ring quality-ring-${tone}"><svg viewBox="0 0 72 72" aria-hidden="true"><circle class="qr-track" cx="36" cy="36" r="${r}"/><circle class="qr-arc" cx="36" cy="36" r="${r}" stroke-dasharray="${dash} ${circ.toFixed(1)}" transform="rotate(-90 36 36)"/></svg><b>${s}<i>%</i></b></span>`;
+  };
+  const qualitySection = (overview, canEdit) => {
+    const flags = Array.isArray(overview.qualityFlags) ? overview.qualityFlags : [];
+    const items = flags.length
+      ? flags.map((f) => `<li class="quality-flag quality-${String(f.severity || 'WARNING').toLowerCase()}"><span class="quality-dot"></span><span>${esc(f.detail || f.code || 'Kolom belum lengkap')}</span></li>`).join('')
+      : '<li class="quality-flag quality-ok"><span class="quality-dot"></span><span>Seluruh kontrol data inti sudah lengkap.</span></li>';
+    const score = Math.round(Number(overview.dataQualityScore) || 0);
+    const verdict = score >= 80 ? 'Golden record — siap dipakai lintas modul.' : score >= 50 ? 'Cukup, tapi masih ada gap yang perlu dilengkapi.' : 'Data belum lengkap — lengkapi agar akurat & audit-ready.';
+    return `<section class="panel quality-panel"><header><div><p class="eyebrow">DATA QUALITY · GOVERNANCE</p><h2>Skor kelengkapan data</h2></div>${canEdit && flags.length ? `<button class="btn secondary sm" id="qualityFix">${ICONS.gear} Lengkapi data</button>` : chip(score >= 80 ? 'TERKENDALI' : 'PERLU DILENGKAPI')}</header><div class="panel-body quality-body">${qualityRing(overview.dataQualityScore)}<div class="quality-detail"><p class="quality-verdict">${verdict}</p><ul class="quality-list">${items}</ul></div></div></section>`;
+  };
   const OVERVIEW = {
     customers: {
       kpis: (o) => [
@@ -278,7 +295,8 @@
             : Object.entries(overview).filter(([k, v]) => !['subCounts', 'id'].includes(k) && typeof v !== 'object' && v !== null && v !== '').slice(0, 12).map(([k, v]) => `<div><dt>${esc(k.replace(/([A-Z])/g, ' $1'))}</dt><dd>${esc(String(v))}</dd></div>`).join('');
           const partyClass = isParty ? ' party-profile-kpis' : '';
           const kpiHtml = ov ? `<section class="kpi-grid${partyClass}">${ov.kpis(overview).map(([label, val, note]) => `<article class="kpi"><span>${esc(label)}</span><strong>${val}</strong><small>${note || ''}</small></article>`).join('')}</section>` : '';
-          body.innerHTML = kpiHtml + `<div class="dashboard-grid${isParty ? ' party-overview-grid' : ''}"><article class="panel"><header><div><p class="eyebrow">${isParty ? 'IDENTITY & POLICY' : 'RINGKASAN'}</p><h2>${isParty ? 'Profil bisnis terkendali' : 'Informasi utama'}</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">${isParty ? 'RELATIONSHIP COVERAGE' : 'KELENGKAPAN'}</p><h2>${isParty ? 'Data pendukung' : 'Sub-data'}</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
+          body.innerHTML = kpiHtml + qualitySection(overview, can(`${cfg.module}.edit`)) + `<div class="dashboard-grid${isParty ? ' party-overview-grid' : ''}"><article class="panel"><header><div><p class="eyebrow">${isParty ? 'IDENTITY & POLICY' : 'RINGKASAN'}</p><h2>${isParty ? 'Profil bisnis terkendali' : 'Informasi utama'}</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">${isParty ? 'RELATIONSHIP COVERAGE' : 'KELENGKAPAN'}</p><h2>${isParty ? 'Data pendukung' : 'Sub-data'}</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
+          body.querySelector('#qualityFix')?.addEventListener('click', () => main.querySelector('#masterEditBtn')?.click());
           return;
         }
         if (tabId === 'cost-trace') {
