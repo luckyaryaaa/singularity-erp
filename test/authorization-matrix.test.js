@@ -27,7 +27,7 @@ test('authorization matrix mencakup seluruh bounded router dan 323 handler',()=>
     assert.equal(row.directGuards+row.delegated+row.public,row.handlers,`${row.file}: akuntansi handler tidak lengkap (direct ${row.directGuards}+delegasi ${row.delegated}+publik ${row.public} != ${row.handlers})`);
     total+=handlers;
   }
-  assert.equal(total,332);
+  assert.equal(total,333);
 });
 
 test('semua permission literal mempunyai jalur allow dan deny',()=>{

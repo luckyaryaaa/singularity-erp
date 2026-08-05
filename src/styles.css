@@ -1888,3 +1888,11 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .doc-exp-badge{flex:none;padding:4px 10px;border-radius:999px;font-size:10px;font-weight:750;white-space:nowrap}
 .doc-exp-badge.coral{background:#fdeceb;color:#c0554b}.doc-exp-badge.amber{background:#fdf3e2;color:#b7791f}
 @media(max-width:640px){.compliance-stats{grid-template-columns:repeat(2,1fr)}}
+/* Employee tax automation (PPh 21 TER) panel */
+.tax-auto-panel{margin-bottom:16px}
+.tax-auto-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:11px}
+.tax-auto-grid>div{padding:12px 13px;border-radius:14px;background:var(--surface-soft,#f5f7fb);border:1px solid var(--border)}
+.tax-auto-grid span{display:block;font-size:9px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px}
+.tax-auto-grid b{font:800 17px var(--font-display);color:var(--text);letter-spacing:-.02em}
+.tax-auto-note{margin:0;font-size:11px;color:var(--muted);line-height:1.55}
+@media(max-width:640px){.tax-auto-grid{grid-template-columns:repeat(2,1fr)}}

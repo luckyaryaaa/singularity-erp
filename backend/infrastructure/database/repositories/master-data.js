@@ -201,6 +201,9 @@ async function overview(client, master, id, user) {
       { encrypted: { field: 'account_number', purpose: 'employee_bank.account_number' } },
       summary.payroll_bank, id);
     const enterprise=runtime.camel(summary);
+    // row_to_json mengembalikan snake_case; runtime.camel hanya dangkal, jadi
+    // objek nested (posisi, kompensasi, pajak, bank) di-camel-kan satu tingkat.
+    for(const k of ['currentPosition','employment','compensation','tax','payrollBank'])if(enterprise[k]&&typeof enterprise[k]==='object')enterprise[k]=runtime.camel(enterprise[k]);
     if(!canSeeSalary(user)){parent.baseSalary=maskMoney();if(enterprise.compensation){enterprise.compensation.baseSalary=maskMoney();enterprise.compensation.fixedAllowance=maskMoney();enterprise.compensation.variableAllowance=maskMoney();}}
     if(enterprise.payrollBank&&!canSeeBank(user))enterprise.payrollBank.accountNumber=maskAccount(enterprise.payrollBank.accountNumber);
     parent.enterpriseSummary=enterprise;
@@ -479,4 +482,25 @@ async function lifecycle(client, master, id, action, reason, user, requestId) {
   return runtime.camel(updated);
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, activateCostRevision, promoteRevision, lifecycle };
+// Otomasi profil pajak karyawan: dari status kawin + tanggungan + gaji bruto →
+// status PTKP, kategori TER (A/B/C), tarif TER bulanan (PP 58/2023). Preview
+// selalu, dan bila apply=true dibuat profil pajak effective-dated baru.
+async function autoTaxProfile(client, employeeId, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  const emp = (await client.query('SELECT id,base_salary FROM employees WHERE id=$1', [employeeId])).rows[0];
+  if (!emp) throw new AppError('RESOURCE_NOT_FOUND', 'Karyawan tidak ditemukan.');
+  const idTax = require('../../../core/id-tax');
+  const monthlyGross = Number(body.monthlyGross) > 0 ? Number(body.monthlyGross) : Number(emp.base_salary) || 0;
+  const calc = idTax.autoTaxProfile({ maritalStatus: body.maritalStatus, dependents: body.dependents, monthlyGross });
+  if (body.apply) {
+    const effectiveFrom = body.effectiveFrom || new Date().toISOString().slice(0, 10);
+    await client.query('UPDATE employee_tax_profiles SET effective_to=$2::date - 1 WHERE employee_id=$1 AND (effective_to IS NULL OR effective_to>=$2::date)', [employeeId, effectiveFrom]);
+    await client.query("INSERT INTO employee_tax_profiles(id,employee_id,npwp,tax_scheme,ptkp_status,ter_category,ter_rate,tax_method,effective_from) VALUES(gen_random_uuid(),$1,$2,'PPH21',$3,$4,$5,COALESCE(NULLIF($6,''),'GROSS'),$7)",
+      [employeeId, body.npwp || null, calc.ptkpStatus, calc.terCategory, calc.terRate, body.taxMethod, effectiveFrom]);
+    await runtime.audit(client, { userId: user.id, action: 'AUTO_TAX', module: 'employee', entityType: 'EMPLOYEE_TAX_PROFILE', entityId: employeeId, newValue: { ...calc, effectiveFrom }, requestId, branchId: user.branchId });
+    calc.applied = true; calc.effectiveFrom = effectiveFrom;
+  }
+  return calc;
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle };

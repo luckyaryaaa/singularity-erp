@@ -100,6 +100,8 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m)return masterData.decideSupplierDocument(client,m[1],m[2],m[3],ctx.user,ctx.requestId);
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/audit$/);
   if(method==='GET'&&m)return{items:await masterData.employeeAudit(client,m[1],ctx.user)};
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/tax-auto$/);
+  if(method==='POST'&&m){const body=await readBody(req);return masterData.autoTaxProfile(client,m[1],body,ctx.user,ctx.requestId);}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/(bank-accounts|compensation)\/([0-9a-f-]{36})\/(approve|reject)$/);
   if(method==='POST'&&m){const body=await readBody(req);return masterData.decideEmployeeSensitive(client,{employeeId:m[1],kind:m[2],rowId:m[3],decision:m[4],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
   m=p.match(/^\/api\/masters\/products\/([0-9a-f-]{36})\/cost-revisions\/([0-9a-f-]{36})\/(review|approve|lock|activate)$/);
