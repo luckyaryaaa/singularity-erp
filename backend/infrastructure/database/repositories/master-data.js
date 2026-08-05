@@ -205,6 +205,20 @@ async function overview(client, master, id, user) {
     if(enterprise.payrollBank&&!canSeeBank(user))enterprise.payrollBank.accountNumber=maskAccount(enterprise.payrollBank.accountNumber);
     parent.enterpriseSummary=enterprise;
   }
+  if (master === 'suppliers') {
+    // Kepatuhan dokumen vendor (sertifikat/kontrak) dgn deteksi kedaluwarsa —
+    // pola SAP vendor compliance: kadaluwarsa, ≤90 hari, wajib belum verified.
+    parent.documentCompliance = runtime.camel((await client.query(`SELECT
+      count(*)::int total,
+      count(*) FILTER(WHERE expiry_date IS NOT NULL AND expiry_date < current_date)::int expired,
+      count(*) FILTER(WHERE expiry_date BETWEEN current_date AND current_date + interval '90 days')::int expiring,
+      count(*) FILTER(WHERE verification_status='VERIFIED')::int verified,
+      count(*) FILTER(WHERE required AND COALESCE(verification_status,'') <> 'VERIFIED')::int required_pending
+      FROM supplier_documents WHERE supplier_id=$1`, [id])).rows[0]);
+    parent.expiringDocumentList = (await client.query(`SELECT title,document_type,expiry_date,verification_status
+      FROM supplier_documents WHERE supplier_id=$1 AND expiry_date IS NOT NULL AND expiry_date < current_date + interval '90 days'
+      ORDER BY expiry_date ASC LIMIT 5`, [id])).rows.map(runtime.camel);
+  }
   return { ...parent, subCounts: counts };
 }
 

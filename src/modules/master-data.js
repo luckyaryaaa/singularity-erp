@@ -136,6 +136,19 @@
     const verdict = score >= 80 ? 'Golden record — siap dipakai lintas modul.' : score >= 50 ? 'Cukup, tapi masih ada gap yang perlu dilengkapi.' : 'Data belum lengkap — lengkapi agar akurat & audit-ready.';
     return `<section class="panel quality-panel"><header><div><p class="eyebrow">DATA QUALITY · GOVERNANCE</p><h2>Skor kelengkapan data</h2></div>${canEdit && flags.length ? `<button class="btn secondary sm" id="qualityFix">${ICONS.gear} Lengkapi data</button>` : chip(score >= 80 ? 'TERKENDALI' : 'PERLU DILENGKAPI')}</header><div class="panel-body quality-body">${qualityRing(overview.dataQualityScore)}<div class="quality-detail"><p class="quality-verdict">${verdict}</p><ul class="quality-list">${items}</ul></div></div></section>`;
   };
+  // Panel kepatuhan dokumen: ringkasan kedaluwarsa + daftar dokumen yang
+  // segera/sudah habis masa berlaku (pola vendor compliance SAP/Oracle).
+  const compliancePanel = (overview) => {
+    const dc = overview.documentCompliance;
+    if (!dc || !Number(dc.total)) return '';
+    const list = Array.isArray(overview.expiringDocumentList) ? overview.expiringDocumentList : [];
+    const statusLabel = dc.expired ? 'ADA KEDALUWARSA' : dc.expiring ? 'SEGERA HABIS' : dc.requiredPending ? 'PERLU VERIFIKASI' : 'PATUH';
+    const daysBadge = (d) => { const days = Math.round((new Date(d).getTime() - Date.now()) / 86400000); return days < 0 ? `<span class="doc-exp-badge coral">Kedaluwarsa ${-days} hari lalu</span>` : `<span class="doc-exp-badge amber">${days} hari lagi</span>`; };
+    const rows = list.length
+      ? list.map((d) => `<li class="doc-exp-row"><span class="doc-exp-name"><b>${esc(d.title || d.documentType || 'Dokumen')}</b><small>${esc(d.documentType || '')}${d.verificationStatus ? ' · ' + esc(d.verificationStatus) : ''}</small></span>${daysBadge(d.expiryDate)}</li>`).join('')
+      : '<li class="doc-exp-row doc-exp-clean">Tidak ada dokumen yang segera kedaluwarsa.</li>';
+    return `<article class="panel compliance-panel"><header><div><p class="eyebrow">DOCUMENT COMPLIANCE · EXPIRY</p><h2>Kepatuhan dokumen</h2></div>${chip(statusLabel)}</header><div class="panel-body"><div class="compliance-stats"><div><b>${Number(dc.total)}</b><span>Total</span></div><div class="${dc.expired ? 'stat-coral' : ''}"><b>${Number(dc.expired)}</b><span>Kedaluwarsa</span></div><div class="${dc.expiring ? 'stat-amber' : ''}"><b>${Number(dc.expiring)}</b><span>≤ 90 hari</span></div><div class="stat-mint"><b>${Number(dc.verified)}</b><span>Terverifikasi</span></div></div><ul class="doc-exp-list">${rows}</ul></div></article>`;
+  };
   const OVERVIEW = {
     customers: {
       kpis: (o) => [
@@ -295,7 +308,7 @@
             : Object.entries(overview).filter(([k, v]) => !['subCounts', 'id'].includes(k) && typeof v !== 'object' && v !== null && v !== '').slice(0, 12).map(([k, v]) => `<div><dt>${esc(k.replace(/([A-Z])/g, ' $1'))}</dt><dd>${esc(String(v))}</dd></div>`).join('');
           const partyClass = isParty ? ' party-profile-kpis' : '';
           const kpiHtml = ov ? `<section class="kpi-grid${partyClass}">${ov.kpis(overview).map(([label, val, note]) => `<article class="kpi"><span>${esc(label)}</span><strong>${val}</strong><small>${note || ''}</small></article>`).join('')}</section>` : '';
-          body.innerHTML = kpiHtml + qualitySection(overview, can(`${cfg.module}.edit`)) + `<div class="dashboard-grid${isParty ? ' party-overview-grid' : ''}"><article class="panel"><header><div><p class="eyebrow">${isParty ? 'IDENTITY & POLICY' : 'RINGKASAN'}</p><h2>${isParty ? 'Profil bisnis terkendali' : 'Informasi utama'}</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">${isParty ? 'RELATIONSHIP COVERAGE' : 'KELENGKAPAN'}</p><h2>${isParty ? 'Data pendukung' : 'Sub-data'}</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
+          body.innerHTML = kpiHtml + qualitySection(overview, can(`${cfg.module}.edit`)) + compliancePanel(overview) + `<div class="dashboard-grid${isParty ? ' party-overview-grid' : ''}"><article class="panel"><header><div><p class="eyebrow">${isParty ? 'IDENTITY & POLICY' : 'RINGKASAN'}</p><h2>${isParty ? 'Profil bisnis terkendali' : 'Informasi utama'}</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">${isParty ? 'RELATIONSHIP COVERAGE' : 'KELENGKAPAN'}</p><h2>${isParty ? 'Data pendukung' : 'Sub-data'}</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
           body.querySelector('#qualityFix')?.addEventListener('click', () => main.querySelector('#masterEditBtn')?.click());
           return;
         }
