@@ -10,6 +10,9 @@ const ratelimit = require('../core/ratelimit');
 const docVerify = require('../core/doc-verification');
 const secureCookie=()=>process.env.NODE_ENV==='production'||process.env.MAT_COOKIE_SECURE==='1'?'; Secure':'';
 function authResult(ctx,result){if(result.mfaRequired||result.passwordChangeRequired)return result;ctx.cookie=`mat_session=${result.session.token}; Path=/; HttpOnly; SameSite=Strict${secureCookie()}; Max-Age=${Math.floor(auth.SESSION_ABSOLUTE_MS/1000)}`;return{user:result.user,csrfToken:result.session.csrfToken,permissions:result.permissions};}
+// rpId = domain efektif; origin = asal request. Diambil dari header dan
+// ditegakkan oleh verifikasi WebAuthn (tanda tangan mencakup keduanya).
+function rpFrom(req){const origin=req.headers.origin||'';let rpId;try{rpId=new URL(origin).hostname;}catch{rpId=String(req.headers.host||'localhost').split(':')[0];}return{rpId:rpId||'localhost',origin};}
 const { NO_MATCH } = require('./shared');
 async function dispatchPublic(client,req,url,ctx){const p=url.pathname,method=req.method;
   if(method==='GET'&&p==='/api/runtime') return {demoMode:false,database:'postgres'};
@@ -35,6 +38,8 @@ async function dispatchPublic(client,req,url,ctx){const p=url.pathname,method=re
   }
   if(method==='POST'&&p==='/api/auth/mfa'){const body=await readBody(req);ratelimit.consume('login',`${body.mfaToken||'anon'}:${ctx.ip}`);return authResult(ctx,await auth.completeMfa(client,{...body,ip:ctx.ip,device:ctx.device}));}
   if(method==='POST'&&p==='/api/auth/change-password-required'){const body=await readBody(req);ratelimit.consume('login',`${body.changeToken||'anon'}:${ctx.ip}`);return authResult(ctx,await auth.changePasswordWithToken(client,{...body,ip:ctx.ip,device:ctx.device}));}
+  if(method==='POST'&&p==='/api/auth/passkey/login/options'){const body=await readBody(req);ratelimit.consume('login',`pko:${ctx.ip}`);return auth.passkeyLoginOptions(client,body.username);}
+  if(method==='POST'&&p==='/api/auth/passkey/login'){const body=await readBody(req);ratelimit.consume('login',`pk:${body.username||'anon'}:${ctx.ip}`);return authResult(ctx,await auth.passkeyLogin(client,{username:body.username,credential:body.credential,ip:ctx.ip,device:ctx.device},rpFrom(req)));}
 return NO_MATCH;}
 async function dispatchPrivate(client,req,url,ctx){const p=url.pathname,method=req.method;
   if(method==='GET'&&p==='/api/auth/session')return {user:ctx.user,csrfToken:await auth.rotateCsrf(client,ctx.session.id),permissions:[...grantsFor(ctx.user.role)],unreadNotifications:(await operations.unreadCount(client,ctx.user)).unread};
@@ -43,6 +48,10 @@ async function dispatchPrivate(client,req,url,ctx){const p=url.pathname,method=r
   if(method==='PATCH'&&p==='/api/auth/profile'){const body=await readBody(req);const updated=await auth.updateOwnProfile(client,ctx.user,body);await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'account',entityType:'USER_PROFILE',entityId:ctx.user.id,newValue:{displayName:updated.displayName},requestId:ctx.requestId,branchId:ctx.user.branchId});return{user:updated};}
   if(method==='POST'&&p==='/api/auth/profile-photo'){let buffer;try{buffer=await readRawBody(req,privateStorage.MAX_BYTES+1);}catch(error){if(error.message==='BODY_TOO_LARGE')throw new AppError('FILE_TOO_LARGE');throw error;}const filename=decodeURIComponent(req.headers['x-file-name']||'avatar'),mimeType=String(req.headers['content-type']||'').split(';')[0].toLowerCase();const result=await auth.setOwnProfilePhoto(client,ctx.user,{buffer,filename,mimeType});await operations.enqueue(client,{type:'FILE_SCAN',user:ctx.user,params:{fileId:result.fileId},executionKey:`file:${result.fileId}`,system:true});await runtime.audit(client,{userId:ctx.user.id,action:'UPDATE',module:'account',entityType:'USER_PROFILE_PHOTO',entityId:ctx.user.id,newValue:{fileId:result.fileId,scanStatus:result.scanStatus},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=202;return result;}
   if(method==='GET'&&p==='/api/auth/profile-photo'){const dl=await auth.ownProfilePhoto(client,ctx.user);if(!dl)throw new AppError('RESOURCE_NOT_FOUND');ctx.download=dl;ctx.download.item.disposition='inline';return null;}
+  if(method==='POST'&&p==='/api/auth/passkey/register/options')return auth.passkeyRegisterOptions(client,ctx.user);
+  if(method==='POST'&&p==='/api/auth/passkey/register'){const body=await readBody(req);const r=await auth.passkeyRegister(client,ctx.user,body,rpFrom(req));await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module:'account',entityType:'PASSKEY',entityId:ctx.user.id,newValue:{credentialId:r.credentialId},requestId:ctx.requestId,branchId:ctx.user.branchId});return r;}
+  if(method==='GET'&&p==='/api/auth/passkey')return {items:await auth.passkeyList(client,ctx.user.id)};
+  {const pkId=p.match(/^\/api\/auth\/passkey\/([0-9a-f-]{36})$/);if(method==='DELETE'&&pkId){const r=await auth.passkeyDelete(client,ctx.user.id,pkId[1]);await runtime.audit(client,{userId:ctx.user.id,action:'DELETE',module:'account',entityType:'PASSKEY',entityId:pkId[1],requestId:ctx.requestId,branchId:ctx.user.branchId});return r;}}
   if(method==='POST'&&p==='/api/auth/mfa/setup'){const body=await readBody(req);return auth.startMfaSetup(client,ctx.user,body.currentCode);}
   if(method==='POST'&&p==='/api/auth/mfa/enable')return auth.enableMfa(client,ctx.user,(await readBody(req)).code);
   if(method==='GET'&&p==='/api/auth/mfa/recovery-codes')return auth.recoveryCodeStatus(client,ctx.user.id);

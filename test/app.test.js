@@ -37,26 +37,18 @@ test('dashboard decision cockpit is intelligent, personalizable, and accessible'
   assert.match(css,/@keyframes pulseCoreBreath/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)[\s\S]*pulse-core/,'motion dashboard wajib dapat dinonaktifkan');
 });
-test('enterprise spaces registry and navigation artwork are normalized and CSP-safe',()=>{
-  const iconDir=path.join(__dirname,'..','assets','icons','navigation');
-  const files=fs.readdirSync(iconDir).filter((file)=>file.endsWith('.png'));
-  assert.equal(files.length,60,'seluruh ikon navigasi 3D pilihan pengguna tersedia (menu + 7 space-rail)');
-  for(const space of ['workspace','sales','operations','finance','organization','master-data','system']) assert.ok(files.includes(`${space}.png`),`ikon space-rail ${space}.png wajib tersedia`);
-  for(const file of files){
-    const png=fs.readFileSync(path.join(iconDir,file));
-    assert.equal(png.readUInt32BE(16),96,`${file} wajib selebar 96px`);
-    assert.equal(png.readUInt32BE(20),96,`${file} wajib setinggi 96px`);
-  }
+test('enterprise spaces registry and navigation icons are glyph-only and CSP-safe',()=>{
   const app=fs.readFileSync(path.join(__dirname,'..','src','app.js'),'utf8');
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   const css=fs.readFileSync(path.join(__dirname,'..','src','styles.css'),'utf8');
   assert.match(app,/const NAVIGATION = \[/,'registry menjadi satu sumber navigasi');
   assert.equal((app.match(/route\('#\//g)||[]).length,63,'seluruh 63 route sidebar wajib terdaftar');
-  assert.equal((app.match(/art: '/g)||[]).length,21,'21 artwork pengguna wajib dipetakan eksplisit');
-  assert.match(app,/const ART_BY_ROUTE = \{/,'peta rute→art memberi ikon 3D ke seluruh menu');
-  const artRefs=new Set([...app.matchAll(/art: '([^']+)'/g)].map((m)=>m[1]).concat([...app.matchAll(/'#\/[^']*': '([^']+)'/g)].map((m)=>m[1])));
-  for(const ref of artRefs) assert.ok(files.includes(`${ref}.png`),`ikon ${ref}.png wajib tersedia untuk referensi art`);
-  assert.match(app,/nav-glyph/,'menu tanpa artwork raster wajib memakai glyph clay yang konsisten');
+  // Ikon 3D PNG raster ("tempelan") sudah dibuang atas permintaan pengguna:
+  // navigasi kini glyph SVG claymorph — ringan, tajam di segala DPI, konsisten.
+  assert.match(app,/nav-glyph/,'menu & space-rail memakai glyph clay yang konsisten');
+  assert.doesNotMatch(app,/ART_BY_ROUTE|nav-art|assets\/icons\/navigation/,'sistem artwork PNG lama dihapus dari shell');
+  assert.doesNotMatch(html,/assets\/icons\/navigation/,'tidak ada referensi PNG navigasi yang rusak di HTML');
+  assert.ok(!fs.existsSync(path.join(__dirname,'..','assets','icons','navigation')),'folder aset ikon PNG 3D sudah dihapus agar ERP tetap ringan');
   assert.match(app,/mat\.nav\.pinned/); assert.match(app,/mat\.nav\.recent/);
   assert.match(html,/id="spaceRail"/); assert.match(html,/class="context-nav"/);
   assert.match(css,/VISUAL SYSTEM 5\.0 · MAT ENTERPRISE SPACES/);

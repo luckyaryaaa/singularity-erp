@@ -227,6 +227,65 @@ async function ownProfilePhoto(client,user){
   const privateStorage=require('../../files/private-storage');
   try{return await privateStorage.download(client,row.profile_file_id);}catch{return null;}
 }
+// ── WebAuthn / passkey (fingerprint) ────────────────────────────────────────
+async function passkeyRegisterOptions(client,user){
+  const webauthn=require('../../../core/webauthn');
+  const challenge=webauthn.randomChallenge();
+  await createPending(client,'passkey_reg',user.id,{challenge});
+  const existing=(await client.query('SELECT credential_id FROM webauthn_credentials WHERE user_id=$1',[user.id])).rows;
+  return {challenge,rp:{name:'MAT ERP V2'},
+    user:{id:webauthn.b64url(Buffer.from(user.id)),name:user.username,displayName:user.displayName},
+    pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+    excludeCredentials:existing.map(c=>({type:'public-key',id:c.credential_id})),
+    authenticatorSelection:{userVerification:'preferred',residentKey:'preferred'},timeout:60000,attestation:'none'};
+}
+async function passkeyRegister(client,user,body,{rpId,origin}){
+  const webauthn=require('../../../core/webauthn');
+  const pending=(await client.query("SELECT * FROM auth_pending WHERE user_id=$1 AND kind='passkey_reg' AND expires_at>now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE",[user.id])).rows[0];
+  if(!pending)throw new AppError('SESSION_EXPIRED','Sesi pendaftaran passkey kedaluwarsa. Coba lagi.');
+  const result=webauthn.verifyRegistration({attestationObject:body.attestationObject,clientDataJSON:body.clientDataJSON,expectedChallenge:pending.payload.challenge,expectedOrigin:origin,rpId});
+  await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);
+  await client.query('INSERT INTO webauthn_credentials(user_id,credential_id,public_key,sign_count,transports,label,user_verified) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (credential_id) DO NOTHING',
+    [user.id,result.credentialId,JSON.stringify(result.publicKeyJwk),result.signCount,(body.transports||[]).join(','),String(body.label||'Passkey').slice(0,60),result.userVerified]);
+  return {ok:true,credentialId:result.credentialId};
+}
+async function passkeyList(client,userId){
+  return (await client.query('SELECT id,label,transports,user_verified,created_at,last_used_at FROM webauthn_credentials WHERE user_id=$1 ORDER BY created_at DESC',[userId])).rows
+    .map(r=>({id:r.id,label:r.label,transports:r.transports,userVerified:r.user_verified,createdAt:r.created_at,lastUsedAt:r.last_used_at}));
+}
+async function passkeyDelete(client,userId,id){
+  const r=await client.query('DELETE FROM webauthn_credentials WHERE id=$1 AND user_id=$2 RETURNING id',[id,userId]);
+  if(!r.rowCount)throw new AppError('RESOURCE_NOT_FOUND','Passkey tidak ditemukan.');
+  return {ok:true};
+}
+async function passkeyLoginOptions(client,username){
+  const webauthn=require('../../../core/webauthn');
+  const challenge=webauthn.randomChallenge();
+  const user=(await client.query('SELECT id FROM app_users WHERE lower(username)=lower($1) AND active',[username||''])).rows[0];
+  let allowCredentials=[];
+  if(user){
+    await createPending(client,'passkey_login',user.id,{challenge});
+    allowCredentials=(await client.query('SELECT credential_id,transports FROM webauthn_credentials WHERE user_id=$1',[user.id])).rows
+      .map(c=>({type:'public-key',id:c.credential_id,transports:c.transports?c.transports.split(',').filter(Boolean):undefined}));
+  }
+  return {challenge,allowCredentials,userVerification:'preferred',timeout:60000};
+}
+async function passkeyLogin(client,{username,credential,ip,device},{rpId,origin}){
+  const webauthn=require('../../../core/webauthn');
+  const user=(await client.query('SELECT u.*,b.name branch_name FROM app_users u LEFT JOIN branches b ON b.id=u.branch_id WHERE lower(u.username)=lower($1) AND u.active',[username||''])).rows[0];
+  if(!user)throw new AppError('AUTH_FAILED','Pengguna atau passkey tidak dikenal.');
+  const pending=(await client.query("SELECT * FROM auth_pending WHERE user_id=$1 AND kind='passkey_login' AND expires_at>now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE",[user.id])).rows[0];
+  if(!pending)throw new AppError('SESSION_EXPIRED','Sesi login passkey kedaluwarsa. Coba lagi.');
+  const cred=(await client.query('SELECT * FROM webauthn_credentials WHERE credential_id=$1 AND user_id=$2',[credential&&credential.id,user.id])).rows[0];
+  if(!cred)throw new AppError('AUTH_FAILED','Passkey tidak terdaftar untuk akun ini.');
+  const result=webauthn.verifyAssertion({authenticatorData:credential.authenticatorData,clientDataJSON:credential.clientDataJSON,signature:credential.signature,publicKeyJwk:cred.public_key,expectedChallenge:pending.payload.challenge,expectedOrigin:origin,rpId,storedSignCount:Number(cred.sign_count)});
+  await client.query('DELETE FROM auth_pending WHERE id=$1',[pending.id]);
+  await client.query('UPDATE webauthn_credentials SET sign_count=$2,last_used_at=now() WHERE id=$1',[cred.id,result.newSignCount]);
+  const valid=(await client.query("SELECT EXISTS(SELECT 1 FROM user_role_assignments a WHERE a.user_id=$1 AND a.role_code=$2 AND a.is_primary AND a.status='ACTIVE' AND a.effective_from<=now() AND (a.effective_until IS NULL OR a.effective_until>now())) ok",[user.id,user.role])).rows[0].ok;
+  if(!valid)throw new AppError('AUTH_FAILED','Assignment akses akun tidak aktif.');
+  const pub=publicUser(user),session=await createSession(client,pub,{ip,device});
+  return {session,user:pub,permissions:await permissionsForUser(client,pub)};
+}
 async function startMfaSetup(client,user,currentCode){
   const current=(await client.query(
     'SELECT mfa_enabled,totp_secret_ciphertext FROM app_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
@@ -327,4 +386,4 @@ async function logoutAll(client,userId){return client.query("UPDATE user_session
 async function devices(client,userId){return (await client.query(`SELECT id,created_at,last_seen_at,expires_at,ip,device,active,ended_at,end_reason
   FROM user_sessions WHERE user_id=$1 ORDER BY last_seen_at DESC LIMIT 20`,[userId])).rows;}
 
-module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,delegatedGrantsForUser,permissionsForUser,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,updateOwnProfile,setOwnProfilePhoto,ownProfilePhoto,issuePasswordReset,startMfaSetup,enableMfa,recoveryCodeStatus,regenerateRecoveryCodes,disableMfa,assertRecentMfa,mfaMandatory,PRIVILEGED_ROLES,logout,logoutAll,devices,hashPassword};
+module.exports={SESSION_IDLE_MS,SESSION_ABSOLUTE_MS,SESSION_TOUCH_MS,digest,expireAssignments,publicUser,createSession,delegatedGrantsForUser,permissionsForUser,login,resolveSession,verifyCsrf,rotateCsrf,completeMfa,changePasswordWithToken,changeOwnPassword,updateOwnProfile,setOwnProfilePhoto,ownProfilePhoto,passkeyRegisterOptions,passkeyRegister,passkeyList,passkeyDelete,passkeyLoginOptions,passkeyLogin,issuePasswordReset,startMfaSetup,enableMfa,recoveryCodeStatus,regenerateRecoveryCodes,disableMfa,assertRecentMfa,mfaMandatory,PRIVILEGED_ROLES,logout,logoutAll,devices,hashPassword};
