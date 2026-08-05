@@ -587,6 +587,15 @@
     try { localStorage.setItem('mat.sidebar.collapsed', 'true'); } catch { /* preferensi non-kritis */ }
     requestAnimationFrame(paintRailControl);
   });
+  // Klik di mana pun pada area kerja (bukan hanya menu) menutup flyout enterprise
+  // space secara otomatis — sidebar terasa adaptif dan area kerja tetap bersih.
+  const collapseFlyout = () => {
+    if (!desktopRail.matches || railCollapsed) return;
+    railCollapsed = true;
+    try { localStorage.setItem('mat.sidebar.collapsed', 'true'); } catch { /* preferensi non-kritis */ }
+    requestAnimationFrame(paintRailControl);
+  };
+  document.getElementById('main').addEventListener('pointerdown', collapseFlyout, true);
   document.getElementById('spaceRail').addEventListener('keydown', (event) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     const buttons = [...document.querySelectorAll('[data-space]')];
