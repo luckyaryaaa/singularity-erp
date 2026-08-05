@@ -493,12 +493,14 @@ async function autoTaxProfile(client, employeeId, body, user, requestId) {
   const monthlyGross = Number(body.monthlyGross) > 0 ? Number(body.monthlyGross) : Number(emp.base_salary) || 0;
   const calc = idTax.autoTaxProfile({ maritalStatus: body.maritalStatus, dependents: body.dependents, monthlyGross });
   if (body.apply) {
-    const effectiveFrom = body.effectiveFrom || new Date().toISOString().slice(0, 10);
-    await client.query('UPDATE employee_tax_profiles SET effective_to=$2::date - 1 WHERE employee_id=$1 AND (effective_to IS NULL OR effective_to>=$2::date)', [employeeId, effectiveFrom]);
-    await client.query("INSERT INTO employee_tax_profiles(id,employee_id,npwp,tax_scheme,ptkp_status,ter_category,ter_rate,tax_method,effective_from) VALUES(gen_random_uuid(),$1,$2,'PPH21',$3,$4,$5,COALESCE(NULLIF($6,''),'GROSS'),$7)",
-      [employeeId, body.npwp || null, calc.ptkpStatus, calc.terCategory, calc.terRate, body.taxMethod, effectiveFrom]);
-    await runtime.audit(client, { userId: user.id, action: 'AUTO_TAX', module: 'employee', entityType: 'EMPLOYEE_TAX_PROFILE', entityId: employeeId, newValue: { ...calc, effectiveFrom }, requestId, branchId: user.branchId });
-    calc.applied = true; calc.effectiveFrom = effectiveFrom;
+    // Tanggal berlaku default = current_date (zona bisnis via withTransaction),
+    // BUKAN tanggal UTC klien — konsisten dengan aturan tanggal bisnis tunggal.
+    const eff = body.effectiveFrom || null;
+    await client.query('UPDATE employee_tax_profiles SET effective_to=COALESCE($2::date,current_date) - 1 WHERE employee_id=$1 AND (effective_to IS NULL OR effective_to>=COALESCE($2::date,current_date))', [employeeId, eff]);
+    const row = (await client.query("INSERT INTO employee_tax_profiles(id,employee_id,npwp,tax_scheme,ptkp_status,ter_category,ter_rate,tax_method,effective_from) VALUES(gen_random_uuid(),$1,$2,'PPH21',$3,$4,$5,COALESCE(NULLIF($6,''),'GROSS'),COALESCE($7::date,current_date)) RETURNING effective_from::text ef",
+      [employeeId, body.npwp || null, calc.ptkpStatus, calc.terCategory, calc.terRate, body.taxMethod, eff])).rows[0];
+    await runtime.audit(client, { userId: user.id, action: 'AUTO_TAX', module: 'employee', entityType: 'EMPLOYEE_TAX_PROFILE', entityId: employeeId, newValue: { ...calc, effectiveFrom: row.ef }, requestId, branchId: user.branchId });
+    calc.applied = true; calc.effectiveFrom = row.ef;
   }
   return calc;
 }
