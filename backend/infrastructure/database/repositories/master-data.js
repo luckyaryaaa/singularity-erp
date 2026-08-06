@@ -208,6 +208,30 @@ async function overview(client, master, id, user) {
     if(enterprise.payrollBank&&!canSeeBank(user))enterprise.payrollBank.accountNumber=maskAccount(enterprise.payrollBank.accountNumber);
     parent.enterpriseSummary=enterprise;
   }
+  if (master === 'customers') {
+    // Credit cockpit: eksposur AR (faktur belum lunas) vs batas kredit + aging —
+    // pola SAP FSCM credit management. OUT = sisa tagihan (amount - paid numerik).
+    const OUT = "(amount - COALESCE(NULLIF(payload->>'paid','')::numeric,0))";
+    const OPEN = "status NOT IN('CLOSED','CANCELLED','VOID','REJECTED')";
+    const cp = runtime.camel((await client.query(`SELECT
+      count(*) FILTER(WHERE ${OPEN})::int open_invoices,
+      COALESCE(SUM(${OUT}) FILTER(WHERE ${OPEN}),0)::bigint exposure,
+      COALESCE(SUM(${OUT}) FILTER(WHERE ${OPEN} AND due_date < current_date),0)::bigint overdue,
+      COALESCE(SUM(${OUT}) FILTER(WHERE ${OPEN} AND (due_date IS NULL OR due_date >= current_date)),0)::bigint bucket_current,
+      COALESCE(SUM(${OUT}) FILTER(WHERE ${OPEN} AND due_date BETWEEN current_date-30 AND current_date-1),0)::bigint bucket_1_30,
+      COALESCE(SUM(${OUT}) FILTER(WHERE ${OPEN} AND due_date BETWEEN current_date-60 AND current_date-31),0)::bigint bucket_31_60,
+      COALESCE(SUM(${OUT}) FILTER(WHERE ${OPEN} AND due_date BETWEEN current_date-90 AND current_date-61),0)::bigint bucket_61_90,
+      COALESCE(SUM(${OUT}) FILTER(WHERE ${OPEN} AND due_date < current_date-90),0)::bigint bucket_over90,
+      COALESCE(SUM(amount) FILTER(WHERE status='CLOSED' AND created_at >= current_date - interval '365 days'),0)::bigint sales12m
+      FROM business_documents WHERE document_type='INVOICE' AND party_id=$1`, [id])).rows[0]);
+    const limit = Number(parent.creditLimitAmount) || 0, exposure = Number(cp.exposure);
+    cp.creditLimit = limit;
+    cp.available = limit > 0 ? limit - exposure : null;
+    cp.utilizationPct = limit > 0 ? Math.round(exposure / limit * 100) : null;
+    cp.status = (limit > 0 && exposure > limit) ? 'OVER_LIMIT' : Number(cp.overdue) > 0 ? 'OVERDUE' : (cp.utilizationPct != null && cp.utilizationPct >= 80) ? 'WATCH' : 'OK';
+    cp.aging = { current: Number(cp.bucketCurrent) || 0, d1_30: Number(cp.bucket_1_30) || 0, d31_60: Number(cp.bucket_31_60) || 0, d61_90: Number(cp.bucket_61_90) || 0, over90: Number(cp.bucketOver90) || 0 };
+    parent.creditProfile = cp;
+  }
   if (master === 'suppliers') {
     // Kepatuhan dokumen vendor (sertifikat/kontrak) dgn deteksi kedaluwarsa —
     // pola SAP vendor compliance: kadaluwarsa, ≤90 hari, wajib belum verified.

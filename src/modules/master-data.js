@@ -149,6 +149,23 @@
       : '<li class="doc-exp-row doc-exp-clean">Tidak ada dokumen yang segera kedaluwarsa.</li>';
     return `<article class="panel compliance-panel"><header><div><p class="eyebrow">DOCUMENT COMPLIANCE · EXPIRY</p><h2>Kepatuhan dokumen</h2></div>${chip(statusLabel)}</header><div class="panel-body"><div class="compliance-stats"><div><b>${Number(dc.total)}</b><span>Total</span></div><div class="${dc.expired ? 'stat-coral' : ''}"><b>${Number(dc.expired)}</b><span>Kedaluwarsa</span></div><div class="${dc.expiring ? 'stat-amber' : ''}"><b>${Number(dc.expiring)}</b><span>≤ 90 hari</span></div><div class="stat-mint"><b>${Number(dc.verified)}</b><span>Terverifikasi</span></div></div><ul class="doc-exp-list">${rows}</ul></div></article>`;
   };
+  // Credit cockpit customer (SAP FSCM): batas kredit vs eksposur AR + aging.
+  const creditCockpit = (overview) => {
+    const cp = overview.creditProfile;
+    if (!cp) return '';
+    const limit = Number(cp.creditLimit) || 0, exposure = Number(cp.exposure) || 0, ag = cp.aging || {};
+    const label = { OK: 'Sehat', WATCH: 'Perhatian', OVERDUE: 'Ada jatuh tempo', OVER_LIMIT: 'Lewat batas kredit' }[cp.status] || esc(cp.status || '—');
+    const tone = { OK: 'mint', WATCH: 'amber', OVERDUE: 'coral', OVER_LIMIT: 'coral' }[cp.status] || 'gray';
+    const cell = (l, v, cls) => `<div class="aging-cell ${cls}"><span>${l}</span><b>${fmtIDR(v || 0)}</b></div>`;
+    const barPct = limit > 0 ? Math.min(100, Math.round(exposure / limit * 100)) : 0;
+    return `<article class="panel credit-panel"><header><div><p class="eyebrow">CREDIT COCKPIT · PIUTANG (AR)</p><h2>Manajemen kredit &amp; piutang</h2></div>${chip(label)}</header><div class="panel-body"><div class="credit-stats"><div><span>Batas kredit</span><b>${limit > 0 ? fmtIDR(limit) : 'Tanpa batas'}</b></div><div class="${cp.status === 'OVER_LIMIT' ? 'stat-coral' : ''}"><span>Eksposur (AR terbuka)</span><b>${fmtIDR(exposure)}</b></div><div class="stat-mint"><span>Sisa kredit</span><b>${cp.available != null ? fmtIDR(cp.available) : '—'}</b></div><div class="${Number(cp.overdue) > 0 ? 'stat-coral' : ''}"><span>Jatuh tempo</span><b>${fmtIDR(cp.overdue || 0)}</b></div></div>${limit > 0 ? `<div class="credit-bar"><div class="credit-bar-track"><span class="credit-bar-fill credit-bar-${tone}" data-w="${barPct}"></span></div><small>Utilisasi ${cp.utilizationPct}% · ${Number(cp.openInvoices) || 0} faktur terbuka · penjualan 12 bln ${fmtIDR(cp.sales12m || 0)}</small></div>` : `<p class="credit-note">Belum ada batas kredit — tetapkan lewat Edit/Revisi untuk kontrol eksposur.</p>`}<div class="aging-grid"><p class="aging-title">Aging piutang</p>${cell('Belum jatuh tempo', ag.current, 'aging-ok')}${cell('1–30 hari', ag.d1_30, 'aging-warn')}${cell('31–60 hari', ag.d31_60, 'aging-warn')}${cell('61–90 hari', ag.d61_90, 'aging-bad')}${cell('> 90 hari', ag.over90, 'aging-bad')}</div></div></article>`;
+  };
+  // Vendor scorecard supplier (AVL): skor kinerja + kelayakan.
+  const vendorScorecard = (overview) => {
+    const s = Number(overview.lastPerformanceScore) || 0, hold = !!overview.performanceHold, has = overview.lastPerformanceScore != null;
+    const label = hold ? 'Performance hold' : !has ? 'Belum dinilai' : s >= 80 ? 'Preferred vendor' : s >= 60 ? 'Approved' : 'Perlu review';
+    return `<article class="panel vendor-panel"><header><div><p class="eyebrow">VENDOR SCORECARD · AVL</p><h2>Kinerja &amp; kelayakan vendor</h2></div>${chip(label)}</header><div class="panel-body vendor-body">${qualityRing(has ? s : 0)}<div class="quality-meta"><p class="quality-caption">${has ? `Skor kinerja periode ${esc(overview.lastPerformancePeriod || '—')}` : 'Belum ada evaluasi kinerja — hitung di tab Performance.'}${hold ? ` · HOLD: ${esc(overview.performanceHoldReason || '-')}` : ''}</p><ul class="vendor-facts"><li><span>Rating master</span><b>${overview.rating ? '★'.repeat(overview.rating) : '—'}</b></li><li><span>Onboarding</span><b>${esc(overview.onboardingStatus || '—')}</b></li><li><span>Level risiko</span><b>${esc(overview.riskLevel || '—')}</b></li></ul></div></div></article>`;
+  };
   const OVERVIEW = {
     customers: {
       kpis: (o) => [
@@ -322,8 +339,9 @@
             : Object.entries(overview).filter(([k, v]) => !['subCounts', 'id'].includes(k) && typeof v !== 'object' && v !== null && v !== '').slice(0, 12).map(([k, v]) => `<div><dt>${esc(k.replace(/([A-Z])/g, ' $1'))}</dt><dd>${esc(String(v))}</dd></div>`).join('');
           const partyClass = isParty ? ' party-profile-kpis' : '';
           const kpiHtml = ov ? `<section class="kpi-grid${partyClass}">${ov.kpis(overview).map(([label, val, note]) => `<article class="kpi"><span>${esc(label)}</span><strong>${val}</strong><small>${note || ''}</small></article>`).join('')}</section>` : '';
-          body.innerHTML = kpiHtml + qualitySection(overview, can(`${cfg.module}.edit`)) + compliancePanel(overview) + `<div class="dashboard-grid${isParty ? ' party-overview-grid' : ''}"><article class="panel"><header><div><p class="eyebrow">${isParty ? 'IDENTITY & POLICY' : 'RINGKASAN'}</p><h2>${isParty ? 'Profil bisnis terkendali' : 'Informasi utama'}</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">${isParty ? 'RELATIONSHIP COVERAGE' : 'KELENGKAPAN'}</p><h2>${isParty ? 'Data pendukung' : 'Sub-data'}</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
+          body.innerHTML = kpiHtml + qualitySection(overview, can(`${cfg.module}.edit`)) + (params.type === 'customers' ? creditCockpit(overview) : '') + (params.type === 'suppliers' ? vendorScorecard(overview) : '') + compliancePanel(overview) + `<div class="dashboard-grid${isParty ? ' party-overview-grid' : ''}"><article class="panel"><header><div><p class="eyebrow">${isParty ? 'IDENTITY & POLICY' : 'RINGKASAN'}</p><h2>${isParty ? 'Profil bisnis terkendali' : 'Informasi utama'}</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">${isParty ? 'RELATIONSHIP COVERAGE' : 'KELENGKAPAN'}</p><h2>${isParty ? 'Data pendukung' : 'Sub-data'}</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
           body.querySelector('#qualityFix')?.addEventListener('click', () => main.querySelector('#masterEditBtn')?.click());
+          body.querySelectorAll('.credit-bar-fill[data-w]').forEach((el) => el.style.setProperty('width', `${el.dataset.w}%`));
           return;
         }
         if (tabId === 'cost-trace') {

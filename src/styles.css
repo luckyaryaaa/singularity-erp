@@ -1896,3 +1896,28 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .tax-auto-grid b{font:800 17px var(--font-display);color:var(--text);letter-spacing:-.02em}
 .tax-auto-note{margin:0;font-size:11px;color:var(--muted);line-height:1.55}
 @media(max-width:640px){.tax-auto-grid{grid-template-columns:repeat(2,1fr)}}
+/* Credit cockpit (customer AR) + Vendor scorecard (supplier AVL) */
+.credit-panel,.vendor-panel{margin-bottom:16px}
+.credit-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.credit-stats>div{padding:12px 13px;border-radius:14px;background:var(--surface-soft,#f5f7fb);border:1px solid var(--border)}
+.credit-stats span{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.credit-stats b{font:800 15px var(--font-display);color:var(--text);letter-spacing:-.02em}
+.credit-stats .stat-coral{background:#fdeceb;border-color:#f6cdc9}.credit-stats .stat-coral b{color:#c0554b}
+.credit-stats .stat-mint b{color:#2f9e78}
+.credit-bar{margin-bottom:14px}
+.credit-bar-track{height:9px;border-radius:999px;background:rgba(148,163,184,.22);overflow:hidden;margin-bottom:6px}
+.credit-bar-fill{display:block;height:100%;width:0;border-radius:999px;transition:width .7s cubic-bezier(.22,1,.36,1)}
+.credit-bar-mint{background:linear-gradient(90deg,#57b791,#2f9e78)}.credit-bar-amber{background:linear-gradient(90deg,#e6a23c,#b7791f)}.credit-bar-coral{background:linear-gradient(90deg,#e2766c,#c0554b)}.credit-bar-gray{background:#a8b1bf}
+.credit-bar small{font-size:11px;color:var(--muted)}
+.credit-note{margin:0 0 14px;font-size:11px;color:var(--muted)}
+.aging-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.aging-title{grid-column:1/-1;margin:0 0 2px;font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.aging-cell{padding:9px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface-soft,#f7f9fb)}
+.aging-cell span{display:block;font-size:9px;color:var(--muted);margin-bottom:3px}
+.aging-cell b{font:800 12.5px var(--font-display);color:var(--text)}
+.aging-cell.aging-bad b{color:#c0554b}.aging-cell.aging-warn b{color:#b7791f}.aging-cell.aging-ok b{color:#2f9e78}
+.vendor-body{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.vendor-facts{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;min-width:180px}
+.vendor-facts li{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;color:var(--slate)}
+.vendor-facts b{color:var(--text);font-weight:700}
+@media(max-width:700px){.credit-stats{grid-template-columns:repeat(2,1fr)}.aging-grid{grid-template-columns:repeat(2,1fr)}}
