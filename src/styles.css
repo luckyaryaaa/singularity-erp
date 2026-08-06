@@ -1921,3 +1921,16 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .vendor-facts li{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;color:var(--slate)}
 .vendor-facts b{color:var(--text);font-weight:700}
 @media(max-width:700px){.credit-stats{grid-template-columns:repeat(2,1fr)}.aging-grid{grid-template-columns:repeat(2,1fr)}}
+/* Material master multi-view (product 360, SAP-style function views) */
+.material-views{margin-bottom:16px}
+.mv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.mv-card{padding:14px;border-radius:15px;background:var(--surface-soft,#f6f8fc);border:1px solid var(--border)}
+.mv-title{margin:0 0 9px;display:flex;align-items:center;gap:7px;font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--blue-ink)}
+.mv-title svg{width:15px;height:15px}
+.mv-dl{margin:0}
+.mv-dl>div{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px solid rgba(148,163,184,.14)}
+.mv-dl>div:last-child{border-bottom:0}
+.mv-dl dt{font-size:11px;color:var(--muted)}
+.mv-dl dd{margin:0;font-size:11.5px;font-weight:650;color:var(--text);text-align:right}
+@media(max-width:900px){.mv-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.mv-grid{grid-template-columns:1fr}}

@@ -166,6 +166,24 @@
     const label = hold ? 'Performance hold' : !has ? 'Belum dinilai' : s >= 80 ? 'Preferred vendor' : s >= 60 ? 'Approved' : 'Perlu review';
     return `<article class="panel vendor-panel"><header><div><p class="eyebrow">VENDOR SCORECARD · AVL</p><h2>Kinerja &amp; kelayakan vendor</h2></div>${chip(label)}</header><div class="panel-body vendor-body">${qualityRing(has ? s : 0)}<div class="quality-meta"><p class="quality-caption">${has ? `Skor kinerja periode ${esc(overview.lastPerformancePeriod || '—')}` : 'Belum ada evaluasi kinerja — hitung di tab Performance.'}${hold ? ` · HOLD: ${esc(overview.performanceHoldReason || '-')}` : ''}</p><ul class="vendor-facts"><li><span>Rating master</span><b>${overview.rating ? '★'.repeat(overview.rating) : '—'}</b></li><li><span>Onboarding</span><b>${esc(overview.onboardingStatus || '—')}</b></li><li><span>Level risiko</span><b>${esc(overview.riskLevel || '—')}</b></li></ul></div></div></article>`;
   };
+  // Material master multi-view (SAP): satu produk dilihat per fungsi bisnis —
+  // Sales, Purchasing, Costing, Quality, Warehouse, Engineering.
+  const materialViews = (o) => {
+    if (!o) return '';
+    const yn = (b) => b ? '<span class="chip mint">Ya</span>' : '<span class="chip">Tidak</span>';
+    const view = (title, icon, rows) => {
+      const cells = rows.filter(([, v]) => v != null && v !== '' && v !== '—').map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('');
+      return `<div class="mv-card"><p class="mv-title">${icon || ''} ${esc(title)}</p><dl class="detail-dl mv-dl">${cells || '<div><dt>—</dt><dd>Belum diisi</dd></div>'}</dl></div>`;
+    };
+    return `<article class="panel material-views"><header><div><p class="eyebrow">MATERIAL MASTER · MULTI-VIEW</p><h2>Tampilan per fungsi (SAP-style)</h2></div>${chip(esc(o.makeOrBuy || o.productType || '—'))}</header><div class="panel-body"><div class="mv-grid">${[
+      view('Sales', ICONS.cart, [['Harga jual', o.price ? fmtIDR(o.price) : null], ['Satuan', esc(o.uom)], ['Tipe', esc(o.productType)]]),
+      view('Purchasing', ICONS.truck, [['Sourcing', esc(o.makeOrBuy)], ['Kategori', esc(o.category)], ['Material', esc(o.materialType)]]),
+      view('Costing', ICONS.wallet, [['HPP awal', o.hpp ? fmtIDR(o.hpp) : null], ['Grade', esc(o.grade)]]),
+      view('Quality', ICONS.checkCircle, [['Wajib inspeksi', o.inspectionRequired ? yn(true) : null], ['Wajib serial', o.serialRequired ? yn(true) : null], ['Wajib lot/batch', o.lotRequired ? yn(true) : null], ['Spesifikasi', esc(o.specification)]]),
+      view('Warehouse', ICONS.box, [['Item persediaan', yn(o.isStock)], ['Dimensi', esc(o.dimensions)], ['Berat', o.weightKg ? `${o.weightKg} kg` : null]]),
+      view('Engineering', ICONS.doc, [['No. drawing', esc(o.drawingNumber)], ['Rev. drawing', esc(o.drawingRevision)], ['Garansi', o.warrantyMonths ? `${o.warrantyMonths} bln` : null]]),
+    ].join('')}</div></div></article>`;
+  };
   const OVERVIEW = {
     customers: {
       kpis: (o) => [
@@ -339,7 +357,7 @@
             : Object.entries(overview).filter(([k, v]) => !['subCounts', 'id'].includes(k) && typeof v !== 'object' && v !== null && v !== '').slice(0, 12).map(([k, v]) => `<div><dt>${esc(k.replace(/([A-Z])/g, ' $1'))}</dt><dd>${esc(String(v))}</dd></div>`).join('');
           const partyClass = isParty ? ' party-profile-kpis' : '';
           const kpiHtml = ov ? `<section class="kpi-grid${partyClass}">${ov.kpis(overview).map(([label, val, note]) => `<article class="kpi"><span>${esc(label)}</span><strong>${val}</strong><small>${note || ''}</small></article>`).join('')}</section>` : '';
-          body.innerHTML = kpiHtml + qualitySection(overview, can(`${cfg.module}.edit`)) + (params.type === 'customers' ? creditCockpit(overview) : '') + (params.type === 'suppliers' ? vendorScorecard(overview) : '') + compliancePanel(overview) + `<div class="dashboard-grid${isParty ? ' party-overview-grid' : ''}"><article class="panel"><header><div><p class="eyebrow">${isParty ? 'IDENTITY & POLICY' : 'RINGKASAN'}</p><h2>${isParty ? 'Profil bisnis terkendali' : 'Informasi utama'}</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">${isParty ? 'RELATIONSHIP COVERAGE' : 'KELENGKAPAN'}</p><h2>${isParty ? 'Data pendukung' : 'Sub-data'}</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
+          body.innerHTML = kpiHtml + qualitySection(overview, can(`${cfg.module}.edit`)) + (params.type === 'customers' ? creditCockpit(overview) : '') + (params.type === 'suppliers' ? vendorScorecard(overview) : '') + (params.type === 'products' ? materialViews(overview) : '') + compliancePanel(overview) + `<div class="dashboard-grid${isParty ? ' party-overview-grid' : ''}"><article class="panel"><header><div><p class="eyebrow">${isParty ? 'IDENTITY & POLICY' : 'RINGKASAN'}</p><h2>${isParty ? 'Profil bisnis terkendali' : 'Informasi utama'}</h2></div>${chip(overview.lifecycleStatus || 'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl">${detailRows}</dl></div></article><article class="panel"><header><div><p class="eyebrow">${isParty ? 'RELATIONSHIP COVERAGE' : 'KELENGKAPAN'}</p><h2>${isParty ? 'Data pendukung' : 'Sub-data'}</h2></div></header><div class="panel-body stack">${rows}</div></article></div>`;
           body.querySelector('#qualityFix')?.addEventListener('click', () => main.querySelector('#masterEditBtn')?.click());
           body.querySelectorAll('.credit-bar-fill[data-w]').forEach((el) => el.style.setProperty('width', `${el.dataset.w}%`));
           return;
