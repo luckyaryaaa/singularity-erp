@@ -17,7 +17,7 @@ httpTest('PostgreSQL HTTP E2E: transaksi dan sesi bertahan setelah restart serve
     // Sprint 8B: liveness terpisah dari readiness — tanpa auth, tanpa detail sensitif.
     let response=await fetch(`${base}/api/live`);assert.equal(response.status,200);let body=await response.json();assert.equal(body.ok,true);assert.deepEqual(Object.keys(body).sort(),['at','ok','uptimeSeconds']);
     // Owner kini ber-MFA (penegakan B4): login helper menyelesaikan langkah TOTP.
-    {const dbc=new Client({connectionString:process.env.DATABASE_URL});await dbc.connect();await dbc.query("SELECT set_config('app.is_system','on',false)");
+    {const dbc=new Client({connectionString:process.env.DATABASE_URL});await dbc.connect();await dbc.query("SELECT set_config('app.is_system','on',false),set_config('app.is_platform','on',false),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',false)");
      try{const s=await loginHttp(base,process.env.MAT_BOOTSTRAP_OWNER_USERNAME,process.env.MAT_BOOTSTRAP_OWNER_PASSWORD,dbc);cookie=s.cookie;csrf=s.csrf;}finally{await dbc.end();}}
     const contracts=[
       ['/api/dashboard',x=>x.kpi&&x.health&&x.attention&&Array.isArray(x.activeJobs)],['/api/approvals',x=>Array.isArray(x.items)],['/api/notifications',x=>Array.isArray(x.items)],

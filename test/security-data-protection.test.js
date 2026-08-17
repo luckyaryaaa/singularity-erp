@@ -46,7 +46,7 @@ async function session(fn) {
     await client.end();
   }
 }
-const asSystem = (client) => client.query("SELECT set_config('app.is_system','on',true)");
+const asSystem = (client) => client.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
 async function asBranch(client, branchId) {
   await client.query("SELECT set_config('app.is_system','off',true)");
   await client.query("SELECT set_config('app.cross_branch','off',true)");

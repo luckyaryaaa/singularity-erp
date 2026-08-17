@@ -37,7 +37,7 @@ test('katalog 18 SOP lengkap, unik, dan tanpa placeholder',()=>{
 });
 
 const enabled=!!process.env.DATABASE_URL,dbTest=enabled?test:test.skip;
-async function rollback(fn){const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();try{await c.query('BEGIN'); await c.query("SELECT set_config('app.is_system','on',true)");await fn(c);}finally{await c.query('ROLLBACK').catch(()=>{});await c.end();}}
+async function rollback(fn){const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();try{await c.query('BEGIN'); await c.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");await fn(c);}finally{await c.query('ROLLBACK').catch(()=>{});await c.end();}}
 async function owner(c){return(await c.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope",employee_id "employeeId" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0];}
 
 dbTest('final assurance membaca rekonsiliasi, partition health, dan orphan aktual',async()=>rollback(async c=>{

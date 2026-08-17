@@ -13,8 +13,27 @@ async function setSessionTimezone(client) {
   await client.query('SELECT set_config($1,$2,true)', ['TimeZone', TIMEZONE]);
 }
 
-async function setRlsContext(client, user) {
+// Fase 0 · Tenantize — dimensi tenant di atas konteks branch yang sudah ada
+// (migrasi 090: app_tenant_visible membaca app.tenant_id & app.is_platform).
+// Enforcement dinaikkan BERTAHAP agar rollout tidak memutus operasi:
+//   • user-less (boot/worker/outbox/lookup login) → PLATFORM (lihat semua
+//     tenant) — mempertahankan semantik is_system pada dimensi tenant;
+//   • pengguna terautentikasi → ter-scope ke user.tenantId (diisi auth layer);
+//   • job ter-scope tenant → withTransaction(work, { tenantId });
+//   • maintenance lintas-tenant sadar-risiko → withTransaction(work, { platform:true }).
+// Bypass tenant (app.is_platform) SENGAJA terpisah dari bypass branch
+// (app.is_system): peran cross-branch (owner/admin/auditor) tetap terkurung
+// di tenant-nya. Gerbang fail-closed penuh aktif via TENANT_ENFORCEMENT=strict
+// setelah auth layer mengisi tenantId dan tranche 091+ memasang policy tabel bisnis.
+async function setRlsContext(client, user, options = {}) {
   const crossBranch = !user || CROSS_BRANCH_ROLES.includes(user.role) || user.branchScope === '*';
+  const tenantId = user?.tenantId || options.tenantId || '';
+  const platform = options.platform === true || (!user && !options.tenantId);
+  if (process.env.TENANT_ENFORCEMENT === 'strict' && !platform && !tenantId) {
+    throw new Error('Tenant context wajib untuk transaksi non-platform.');
+  }
+  await client.query('SELECT set_config($1,$2,true)', ['app.tenant_id', tenantId ? String(tenantId) : '']);
+  await client.query('SELECT set_config($1,$2,true)', ['app.is_platform', platform ? 'on' : 'off']);
   await client.query('SELECT set_config($1,$2,true)', ['app.user_id', user?.id ? String(user.id) : '']);
   await client.query('SELECT set_config($1,$2,true)', ['app.branch_id', user?.branchId ? String(user.branchId) : '']);
   await client.query('SELECT set_config($1,$2,true)', ['app.cross_branch', crossBranch ? 'on' : 'off']);
@@ -35,7 +54,7 @@ async function withTransaction(work, options = {}) {
     // aplikasi. SET LOCAL berarti nilainya hilang saat transaksi selesai, jadi
     // koneksi yang kembali ke pool tidak pernah membawa konteks pengguna lain.
     await setSessionTimezone(client);
-    await setRlsContext(client, options.user);
+    await setRlsContext(client, options.user, options);
     const result = await work(client);
     await client.query('COMMIT');
     return result;
@@ -45,9 +64,9 @@ async function withTransaction(work, options = {}) {
   } finally { client.release(); }
 }
 
-async function withSerializableRetry(work, { attempts = 3, timeoutMs = 30_000 } = {}) {
+async function withSerializableRetry(work, { attempts = 3, timeoutMs = 30_000, user, tenantId, platform } = {}) {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try { return await withTransaction(work, { isolation: 'SERIALIZABLE', timeoutMs }); }
+    try { return await withTransaction(work, { isolation: 'SERIALIZABLE', timeoutMs, user, tenantId, platform }); }
     catch (error) {
       if (!['40001','40P01'].includes(error.code) || attempt === attempts) throw error;
       await new Promise((resolve) => setTimeout(resolve, 25 * attempt));

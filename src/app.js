@@ -5,7 +5,6 @@
   const { esc, api, uploadFile, state, router, can, startSse, refreshBadge, invalidate } = window.MAT;
   const { ICONS, toast, formDialog, closeLayers, rememberLayerFocus } = window.UI;
 
-  const loginLayer = document.getElementById('loginLayer');
   const appShell = document.getElementById('app');
   const mainOutlet = document.getElementById('main');
 
@@ -368,11 +367,15 @@
     state.permissions = data.permissions;
     state.csrfToken = data.csrfToken;
     state.unread = data.unreadNotifications || 0;
-    loginLayer.hidden = true;
     appShell.hidden = false;
     state.user = data.user;
     paintAccount(data.user);
     document.getElementById('branchLabel').textContent = data.user.branchName || 'Head Office';
+    // Nama tenant dinamis per-tenant (bukan hardcode) — tiap tenant lihat identitasnya.
+    const tName = data.user.tenantName || 'Workspace';
+    const cName = document.getElementById('companyName'); if (cName) cName.textContent = tName;
+    const cAva = document.getElementById('companyAvatar'); if (cAva) cAva.textContent = tName.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'W';
+    const cChip = document.getElementById('companyChip'); if (cChip) cChip.title = tName;
     document.getElementById('topBranch').textContent = data.user.branchName || 'Head Office';
     hydrateNavPreferences(data.user);
     renderNav();
@@ -386,11 +389,8 @@
   }
 
   function showLogin() {
-    appShell.hidden = true;
-    loginLayer.hidden = false;
-    if (typeof resetLoginChallenge === 'function') resetLoginChallenge();
-    const input = document.querySelector('#loginForm input[name=username]');
-    if (input) setTimeout(() => input.focus(), 60);
+    // Gateway (/login/) adalah pintu depan — arahkan pengguna tak terautentikasi ke sana.
+    window.location.replace('/login/');
   }
 
   function updateBadge(count) {
@@ -403,139 +403,10 @@
     notifBtn.setAttribute('aria-label', count ? `Notifikasi, ${count} belum dibaca` : 'Notifikasi');
   }
 
-  // ── Login form ────────────────────────────────────────────────────────────
-  // Tidak ada kredensial demo di klien: akun dikelola administrator via seed
-  // UAT/produksi, dan reset sandi berjalan lewat tautan sekali pakai.
-  const loginForm = document.getElementById('loginForm');
-  const loginCredentials = document.getElementById('loginCredentials');
-  const loginChallenge = document.getElementById('loginChallenge');
-  const loginModern = document.getElementById('loginModern');
-  const loginSuccess = document.getElementById('loginSuccess');
-  const lxBtn = document.getElementById('loginBtn');
-  const lxBtnText = lxBtn.querySelector('.lx-btn-text');
-  const lxOtp = document.getElementById('lxOtp');
-  const otpBoxes = [...lxOtp.querySelectorAll('.lx-otp-box')];
-  const lxChallengeField = document.getElementById('lxChallengeField');
-  const lxShield = document.getElementById('lxShield');
-  const lxShieldIcon = document.getElementById('lxShieldIcon');
-  const errorEl = document.getElementById('loginError');
-  let pendingChallenge = null;
-  let otpMode = true;
-  const stepDots = ['lxDot1', 'lxDot2', 'lxDot3'].map((id) => document.getElementById(id));
-  const setKicker = (t) => { document.getElementById('lxKicker').textContent = t; };
-  function setStep(n) { stepDots.forEach((d, i) => { d.classList.toggle('active', i === n - 1 && n < 3); d.classList.toggle('done', i < n - 1 || (n === 3)); }); }
-  function setShield(state, title, desc, ok) { lxShieldIcon.dataset.state = state; lxShield.classList.toggle('ok', !!ok); if (title) document.getElementById('lxTitle').innerHTML = title; if (desc) document.getElementById('lxDesc').textContent = desc; }
-  function setBtn(text, loading) { if (text) lxBtnText.textContent = text; lxBtn.classList.toggle('loading', !!loading); lxBtn.disabled = !!loading; }
-  const syncOtp = () => { loginForm.challenge.value = otpBoxes.map((b) => b.value).join(''); };
-  const clearOtp = () => { otpBoxes.forEach((b) => { b.value = ''; b.classList.remove('filled'); }); loginForm.challenge.value = ''; };
-  otpBoxes.forEach((box, i) => {
-    box.addEventListener('input', () => {
-      box.value = box.value.replace(/\D/g, '').slice(0, 1);
-      box.classList.toggle('filled', !!box.value);
-      if (box.value && i < otpBoxes.length - 1) otpBoxes[i + 1].focus();
-      syncOtp();
-      if (otpMode && otpBoxes.every((b) => b.value)) loginForm.requestSubmit();
-    });
-    box.addEventListener('keydown', (e) => { if (e.key === 'Backspace' && !box.value && i > 0) otpBoxes[i - 1].focus(); });
-  });
-  lxOtp.addEventListener('paste', (e) => {
-    const t = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
-    if (!t) return; e.preventDefault();
-    otpBoxes.forEach((b, i) => { b.value = t[i] || ''; b.classList.toggle('filled', !!b.value); }); syncOtp();
-    if (t.length === 6) loginForm.requestSubmit();
-  });
-  document.getElementById('lxEye').addEventListener('click', () => { const p = loginForm.password; p.type = p.type === 'password' ? 'text' : 'password'; });
-  document.getElementById('lxOtpToggle').addEventListener('click', () => {
-    otpMode = !otpMode; lxOtp.hidden = !otpMode; lxChallengeField.hidden = otpMode; clearOtp();
-    document.getElementById('lxOtpToggle').textContent = otpMode ? 'Gunakan recovery code' : 'Gunakan kode authenticator';
-    document.getElementById('challengeLabel').textContent = 'Recovery code';
-    (otpMode ? otpBoxes[0] : loginForm.challenge).focus();
-  });
-  (() => { const ua = navigator.userAgent; let os = 'Desktop / Web'; if (/Android/.test(ua)) os = 'Android'; else if (/iPhone|iPad/.test(ua)) os = 'iOS'; else if (/Windows/.test(ua)) os = 'Windows PC'; else if (/Mac/.test(ua)) os = 'macOS'; else if (/Linux/.test(ua)) os = 'Linux'; document.getElementById('lxDevice').textContent = os; })();
-
-  function resetLoginChallenge() {
-    pendingChallenge = null; otpMode = true;
-    loginCredentials.hidden = false; loginModern.hidden = false; loginChallenge.hidden = true; loginSuccess.hidden = true; lxBtn.hidden = false;
-    clearOtp();
-    setStep(1); setShield('lock', 'Portal Login<br><em>Enterprise.</em>', 'Sistem keamanan multi-faktor pintar untuk melindungi kerahasiaan data operasional perusahaan Anda.', false);
-    setKicker('ENTERPRISE CONTROL SYSTEM'); setBtn('Lanjutkan login', false);
-  }
-  function showLoginChallenge(data) {
-    pendingChallenge = data.passwordChangeRequired ? { type: 'password', token: data.changeToken } : { type: 'mfa', token: data.mfaToken };
-    const isMfa = pendingChallenge.type === 'mfa'; otpMode = isMfa;
-    loginCredentials.hidden = true; loginModern.hidden = true; loginChallenge.hidden = false; loginSuccess.hidden = true; lxBtn.hidden = false;
-    document.getElementById('challengeTitle').textContent = isMfa ? 'Verifikasi 2-Langkah' : 'Buat kata sandi baru';
-    document.getElementById('challengeDescription').textContent = isMfa ? 'Masukkan 6 digit kode dari aplikasi authenticator Anda.' : 'Kata sandi baru minimal 12 karakter: huruf besar, kecil, angka, dan simbol.';
-    document.getElementById('lxOtpToggle').hidden = !isMfa; document.getElementById('lxOtpToggle').textContent = 'Gunakan recovery code';
-    lxOtp.hidden = !isMfa; lxChallengeField.hidden = isMfa;
-    loginForm.challenge.type = isMfa ? 'text' : 'password'; loginForm.challenge.autocomplete = isMfa ? 'one-time-code' : 'new-password';
-    document.getElementById('challengeLabel').textContent = isMfa ? 'Kode verifikasi' : 'Kata sandi baru';
-    clearOtp();
-    setStep(2); setShield('mfa', isMfa ? 'Verifikasi 2-Langkah' : 'Amankan akun', 'Lapisan keamanan tambahan aktif. Verifikasi identitas Anda untuk melanjutkan.', false);
-    setKicker('MULTI-FACTOR AUTHENTICATION'); setBtn(isMfa ? 'Verifikasi & masuk' : 'Simpan & masuk', false);
-    (isMfa ? otpBoxes[0] : loginForm.challenge).focus();
-  }
-  function loginSucceed(data) {
-    loginCredentials.hidden = true; loginModern.hidden = true; loginChallenge.hidden = true; loginSuccess.hidden = false; lxBtn.hidden = true;
-    setStep(3); setShield('done', 'Akses disetujui!', 'Selamat datang kembali. Anda berada di lingkungan kerja yang aman.', true); setKicker('SECURE SESSION');
-    const u = data.user || {};
-    document.getElementById('lxSuccessName').textContent = u.displayName || u.username || '';
-    document.getElementById('lxSuccessRole').textContent = `${u.jobTitle || u.role || ''} · ${u.role || ''}`;
-    document.getElementById('lxSuccessAva').textContent = (u.displayName || u.username || '?').split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
-    setTimeout(() => { loginForm.reset(); applySession({ ...data, unreadNotifications: data.unreadNotifications || 0 }); resetLoginChallenge(); }, 1300);
-  }
-  document.getElementById('challengeBack').addEventListener('click', () => { resetLoginChallenge(); loginForm.username.focus(); });
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errorEl.textContent = '';
-    if (!pendingChallenge && !loginForm.username.value.trim()) { errorEl.textContent = 'Isi nama pengguna terlebih dahulu.'; loginForm.username.focus(); return; }
-    if (!pendingChallenge && !loginForm.password.value) { errorEl.textContent = 'Isi kata sandi terlebih dahulu.'; loginForm.password.focus(); return; }
-    if (pendingChallenge && !loginForm.challenge.value) { errorEl.textContent = pendingChallenge.type === 'password' ? 'Isi kata sandi baru.' : 'Isi kode verifikasi.'; if (otpMode) otpBoxes[0].focus(); else loginForm.challenge.focus(); return; }
-    setBtn('', true);
-    try {
-      const data = pendingChallenge
-        ? await api(pendingChallenge.type === 'password' ? '/api/auth/change-password-required' : '/api/auth/mfa', { method: 'POST', body: pendingChallenge.type === 'password' ? { changeToken: pendingChallenge.token, newPassword: loginForm.challenge.value } : { mfaToken: pendingChallenge.token, code: loginForm.challenge.value } })
-        : await api('/api/auth/login', { method: 'POST', body: { username: loginForm.username.value.trim(), password: loginForm.password.value } });
-      if (data.passwordChangeRequired || data.mfaRequired) { showLoginChallenge(data); return; }
-      loginSucceed(data);
-    } catch (error) {
-      errorEl.textContent = error.message + (error.data && error.data.retryAfterSeconds ? ` Coba lagi dalam ${error.data.retryAfterSeconds} detik.` : '');
-      if (pendingChallenge && otpMode) { lxOtp.classList.remove('shake'); void lxOtp.offsetWidth; lxOtp.classList.add('shake'); clearOtp(); otpBoxes[0].focus(); }
-      else (pendingChallenge ? loginForm.challenge : loginForm.password).focus();
-      setBtn(pendingChallenge ? (pendingChallenge.type === 'password' ? 'Simpan & masuk' : 'Verifikasi & masuk') : 'Lanjutkan login', false);
-    }
-  });
-  resetLoginChallenge();
-
   // ── WebAuthn / passkey (fingerprint) ──────────────────────────────────────
   const b64urlToBuf = (s) => { const bin = atob(String(s).replace(/-/g, '+').replace(/_/g, '/')); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
   const bufToB64url = (buf) => { const u = new Uint8Array(buf); let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   window.MAT.passkey = { b64urlToBuf, bufToB64url };
-  document.getElementById('lxPasskey')?.addEventListener('click', async () => {
-    const btn = document.getElementById('lxPasskey');
-    errorEl.textContent = '';
-    if (!window.PublicKeyCredential) { errorEl.textContent = 'Browser/perangkat ini belum mendukung passkey.'; return; }
-    const username = loginForm.username.value.trim();
-    if (!username) { errorEl.textContent = 'Isi nama pengguna dulu untuk masuk dengan fingerprint.'; loginForm.username.focus(); return; }
-    btn.classList.add('busy');
-    try {
-      const opts = await api('/api/auth/passkey/login/options', { method: 'POST', body: { username } });
-      const assertion = await navigator.credentials.get({ publicKey: {
-        challenge: b64urlToBuf(opts.challenge),
-        allowCredentials: (opts.allowCredentials || []).map((c) => ({ type: 'public-key', id: b64urlToBuf(c.id), transports: c.transports })),
-        userVerification: opts.userVerification, timeout: opts.timeout, rpId: location.hostname
-      } });
-      const data = await api('/api/auth/passkey/login', { method: 'POST', body: { username, credential: {
-        id: assertion.id,
-        authenticatorData: bufToB64url(assertion.response.authenticatorData),
-        clientDataJSON: bufToB64url(assertion.response.clientDataJSON),
-        signature: bufToB64url(assertion.response.signature)
-      } } });
-      loginSucceed(data);
-    } catch (error) {
-      errorEl.textContent = (error && error.name === 'NotAllowedError') ? 'Login fingerprint dibatalkan atau tidak ada passkey pada perangkat ini.' : (error.message || 'Login passkey gagal.');
-    } finally { btn.classList.remove('busy'); }
-  });
 
   // ── Topbar & lapisan global ───────────────────────────────────────────────
   // Kartu akun di topbar: avatar + nama + peran, dengan menu edit-profil,
@@ -834,20 +705,6 @@
     window.MAT_I18N.setLocale(window.MAT_I18N.locale === 'en-US' ? 'id-ID' : 'en-US');
   });
 
-  // Parallax 3D terkuantisasi: tanpa inline style, ringan, dan menghormati reduced motion.
-  const canParallax = window.matchMedia('(prefers-reduced-motion: no-preference) and (pointer: fine)');
-  loginLayer.addEventListener('pointermove', (event) => {
-    if (!canParallax.matches || loginLayer.hidden) return;
-    const box = loginLayer.getBoundingClientRect();
-    const x = (event.clientX - box.left) / box.width;
-    const y = (event.clientY - box.top) / box.height;
-    loginLayer.dataset.parallaxX = x < .38 ? 'left' : x > .62 ? 'right' : 'center';
-    loginLayer.dataset.parallaxY = y < .38 ? 'up' : y > .62 ? 'down' : 'center';
-  });
-  loginLayer.addEventListener('pointerleave', () => {
-    loginLayer.dataset.parallaxX = 'center';
-    loginLayer.dataset.parallaxY = 'center';
-  });
 
   // ── Boot ──────────────────────────────────────────────────────────────────
   (async () => {

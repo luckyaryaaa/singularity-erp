@@ -1,0 +1,4 @@
+BEGIN;
+DROP TABLE IF EXISTS user_identities;
+ALTER TABLE app_users DROP COLUMN IF EXISTS email;
+COMMIT;

@@ -19,15 +19,20 @@ async function session(fn) {
   try { await client.query('BEGIN'); await fn(client); }
   finally { await client.query('ROLLBACK').catch(() => {}); await client.end(); }
 }
-const asSystem = (c) => c.query("SELECT set_config('app.is_system','on',true)");
+const asSystem = (c) => c.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
 const asBranch = async (c, branchId) => {
   await c.query("SELECT set_config('app.is_system','off',true)");
   await c.query("SELECT set_config('app.cross_branch','off',true)");
   await c.query("SELECT set_config('app.branch_id',$1,true)", [branchId]);
+  // Tenant tetap disetel (MAT #001): yang diuji di sini isolasi CABANG, bukan
+  // tenant — tanpa tenant_id, RLS tenant (092) menutup semua baris & merusak
+  // uji cabang. Same-tenant, beda cabang → branch_scope yang menyaring.
+  await c.query("SELECT set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
 };
 const asCrossBranch = async (c) => {
   await c.query("SELECT set_config('app.is_system','off',true)");
   await c.query("SELECT set_config('app.cross_branch','on',true)");
+  await c.query("SELECT set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
 };
 
 dbTest('B5: RLS aktif pada seluruh tabel tranche 1', async () => session(async (client) => {
@@ -105,7 +110,7 @@ dbTest('B5: konteks tidak menempel pada koneksi setelah transaksi selesai', asyn
   await client.connect();
   try {
     await client.query('BEGIN');
-    await client.query("SELECT set_config('app.is_system','on',true)");
+    await client.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
     assert.equal((await client.query("SELECT current_setting('app.is_system',true) v")).rows[0].v, 'on');
     await client.query('ROLLBACK');
     const after = (await client.query("SELECT current_setting('app.is_system',true) v")).rows[0].v;
@@ -172,7 +177,7 @@ dbTest('G1(i): konteks RLS tidak bertahan setelah COMMIT', async () => {
   await client.connect();
   try {
     await client.query('BEGIN');
-    await client.query("SELECT set_config('app.is_system','on',true)");
+    await client.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
     await client.query('COMMIT');
     const after = (await client.query("SELECT current_setting('app.is_system',true) v")).rows[0].v;
     assert.ok(after === null || after === '', `konteks bertahan setelah commit: ${after}`);

@@ -1,5 +1,5 @@
 'use strict';
-const { readBody, readRawBody } = require('../core/util');
+const { readBody, readRawBody, parseCookies } = require('../core/util');
 const { AppError } = require('../core/errors');
 const privateStorage = require('../infrastructure/files/private-storage');
 const { grantsFor } = require('../core/permissions');
@@ -8,7 +8,16 @@ const operations = require('../infrastructure/database/repositories/operations')
 const runtime = require('../infrastructure/database/repositories/runtime');
 const ratelimit = require('../core/ratelimit');
 const docVerify = require('../core/doc-verification');
+const controlPlane = require('../infrastructure/database/repositories/control-plane');
+const oidc = require('../core/oidc');
+const socialAuth = require('../infrastructure/database/repositories/social-auth');
 const secureCookie=()=>process.env.NODE_ENV==='production'||process.env.MAT_COOKIE_SECURE==='1'?'; Secure':'';
+// Asal absolut untuk redirect_uri OAuth (harus cocok dgn yang didaftarkan di
+// provider). OAUTH_REDIRECT_BASE meng-override (mis. di belakang proxy HTTPS).
+const oauthOrigin=(req,ctx)=>process.env.OAUTH_REDIRECT_BASE||`${ctx.protocol||'http'}://${req.headers.host}`;
+const mockIdpEnabled=()=>process.env.NODE_ENV!=='production'&&process.env.MAT_MOCK_IDP==='1';
+function b64urlJson(obj){return Buffer.from(JSON.stringify(obj)).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function unb64urlJson(s){return JSON.parse(Buffer.from(String(s).replace(/-/g,'+').replace(/_/g,'/'),'base64').toString());}
 function authResult(ctx,result){if(result.mfaRequired||result.passwordChangeRequired)return result;ctx.cookie=`mat_session=${result.session.token}; Path=/; HttpOnly; SameSite=Strict${secureCookie()}; Max-Age=${Math.floor(auth.SESSION_ABSOLUTE_MS/1000)}`;return{user:result.user,csrfToken:result.session.csrfToken,permissions:result.permissions};}
 // rpId = domain efektif; origin = asal request. Diambil dari header dan
 // ditegakkan oleh verifikasi WebAuthn (tanda tangan mencakup keduanya).
@@ -16,6 +25,89 @@ function rpFrom(req){const origin=req.headers.origin||'';let rpId;try{rpId=new U
 const { NO_MATCH } = require('./shared');
 async function dispatchPublic(client,req,url,ctx){const p=url.pathname,method=req.method;
   if(method==='GET'&&p==='/api/runtime') return {demoMode:false,database:'postgres'};
+  // Konteks tenant publik untuk halaman login multi-tenant: resolve tenant dari
+  // domain email (mode login bersama) atau dari Host (subdomain ber-brand). Hanya
+  // memaparkan identitas publik & status — tanpa data sensitif. Dipakai halaman
+  // login untuk white-label + deteksi tenant ditangguhkan sebelum autentikasi.
+  if(method==='GET'&&p==='/api/auth/tenant-context'){
+    ratelimit.consume('login',`tenantctx:${ctx.ip}`);
+    const email=(url.searchParams.get('email')||'').trim().toLowerCase();
+    const domain=email.includes('@')?email.split('@')[1]:(url.searchParams.get('domain')||'').trim().toLowerCase();
+    let t=null;
+    if(domain){ t=(await client.query("SELECT code,name,status,primary_domain,residency,branding,auth_policy FROM tenants WHERE lower(primary_domain)=$1 AND status<>'offboarding'",[domain])).rows[0]||null; }
+    else { t=await controlPlane.resolveTenantByHost(client,req.headers.host); }
+    if(!t) return {resolved:false,domain:domain||null};
+    const residency=(t.residency||'ID');
+    return {resolved:true,tenant:{code:t.code,name:t.name,status:t.status,
+      workspace:`${t.code}.singularity.id`,primaryDomain:t.primary_domain||null,
+      region:residency==='ID'?'APAC Indonesia':residency,environment:`PRD-${residency}`,
+      branding:t.branding||{},authPolicy:t.auth_policy||{}}};
+  }
+  // Self-service signup (trial). Publik + rate-limit ketat. Membuat organisasi
+  // baru lengkap (tenant+baseline+owner+langganan trial) dalam satu transaksi.
+  if(method==='POST'&&p==='/api/auth/signup'){
+    ratelimit.consume('login',`signup:${ctx.ip}`);
+    const body=await readBody(req);
+    if(!body.password||String(body.password).length<12)throw new AppError('VALIDATION_ERROR','Kata sandi minimal 12 karakter.');
+    const result=await controlPlane.publicSignup(client,{companyName:body.companyName,tenantCode:body.tenantCode,ownerUsername:body.ownerUsername,ownerDisplayName:body.ownerDisplayName,passwordHash:auth.hashPassword(body.password),planCode:body.planCode||'starter'});
+    ctx.status=201;
+    return {ok:true,tenant:result.tenant,owner:result.owner,loginHint:{username:result.owner.username,workspace:`${result.tenant.code}.singularity.id`}};
+  }
+  // ── Social login (OIDC): daftar/masuk via Google / Microsoft / SSO ──────────
+  // Provider aktif = yang client id+secret-nya terkonfigurasi (mock: dev-only).
+  if(method==='GET'&&p==='/api/auth/providers') return {providers:oidc.enabledProviders()};
+  {const ms=p.match(/^\/api\/auth\/oauth\/([a-z][a-z0-9_-]*)\/start$/);
+   if(method==='GET'&&ms){const provider=ms[1];ratelimit.consume('login',`oauthstart:${ctx.ip}`);
+     oidc.providerConfig(provider);
+     const origin=oauthOrigin(req,ctx),nonce=oidc.newNonce();
+     const state=oidc.signState({p:provider,n:nonce,t:Date.now()+10*60*1000});
+     const redirectUri=oidc.redirectUriFor(provider,origin),extra={};
+     if(provider==='mock')for(const k of ['email','name','sub']){const v=url.searchParams.get(k);if(v)extra[k]=v;}
+     const authUrl=oidc.authorizeUrl(provider,{redirectUri,state,nonce,origin,extra});
+     // SameSite=Lax agar cookie nonce ikut terkirim saat provider menavigasi balik.
+     ctx.cookie=`oauth_state=${nonce}; Path=/; HttpOnly; SameSite=Lax${secureCookie()}; Max-Age=600`;
+     ctx.status=302;ctx.headers={Location:authUrl};return {};}}
+  {const mc=p.match(/^\/api\/auth\/oauth\/([a-z][a-z0-9_-]*)\/callback$/);
+   if(method==='GET'&&mc){const provider=mc[1];ratelimit.consume('login',`oauthcb:${ctx.ip}`);
+     const oerr=url.searchParams.get('error');
+     if(oerr){ctx.status=302;ctx.headers={Location:`/login/?oauth_error=${encodeURIComponent(oerr)}`};return {};}
+     const code=url.searchParams.get('code'),state=url.searchParams.get('state');
+     if(!code)throw new AppError('VALIDATION_ERROR','Kode OAuth tidak ada.');
+     const sd=oidc.verifyState(state);
+     const cookieNonce=parseCookies(req).oauth_state;
+     if(sd.p!==provider||!cookieNonce||cookieNonce!==sd.n)throw new AppError('VALIDATION_ERROR','State/nonce OAuth tidak cocok.');
+     const origin=oauthOrigin(req,ctx),redirectUri=oidc.redirectUriFor(provider,origin);
+     const tokens=await oidc.exchangeCode(provider,{code,redirectUri,origin});
+     const profile=await oidc.fetchUserinfo(provider,tokens.access_token,origin);
+     const result=await socialAuth.findOrCreateFromSocial(client,{profile,ip:ctx.ip,device:ctx.device});
+     const sess=`mat_session=${result.session.token}; Path=/; HttpOnly; SameSite=Strict${secureCookie()}; Max-Age=${Math.floor(auth.SESSION_ABSOLUTE_MS/1000)}`;
+     ctx.cookie=[sess,'oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0'];
+     // Arahkan ke workspace tenant pengguna. MAT (tenant default) memakai host saat
+     // ini → '/'; tenant lain → subdomain workspace-nya (sesuai tenant↔host binding).
+     const MAT_TENANT='00000000-0000-0000-0000-000000000001';
+     let target='/';
+     if(result.user.tenantId&&result.user.tenantId!==MAT_TENANT&&result.tenant)
+       target=result.tenant.primaryDomain?`https://${result.tenant.primaryDomain}/`:`https://${result.tenant.code}.singularity.id/`;
+     ctx.status=302;ctx.headers={Location:target};return {};}}
+  // Mock IdP (dev-only, MAT_MOCK_IDP=1) — provider OIDC lokal untuk uji end-to-end
+  // tanpa Google/Microsoft nyata. authorize→(code)→token→userinfo.
+  if(p.startsWith('/api/mock-idp/')){
+    if(!mockIdpEnabled())throw new AppError('RESOURCE_NOT_FOUND','Mock IdP nonaktif.');
+    if(method==='GET'&&p==='/api/mock-idp/authorize'){
+      const email=(url.searchParams.get('email')||'founder@acme.test').toLowerCase();
+      const name=url.searchParams.get('name')||'Founder Acme';
+      const sub=url.searchParams.get('sub')||('mock-'+require('node:crypto').createHash('sha1').update(email).digest('hex').slice(0,16));
+      const redirectUri=url.searchParams.get('redirect_uri'),state=url.searchParams.get('state')||'';
+      if(!redirectUri)throw new AppError('VALIDATION_ERROR','redirect_uri wajib.');
+      ctx.status=302;ctx.headers={Location:`${redirectUri}?code=${encodeURIComponent(b64urlJson({sub,email,name}))}&state=${encodeURIComponent(state)}`};return {};}
+    if(method==='POST'&&p==='/api/mock-idp/token'){
+      const code=new URLSearchParams((await readRawBody(req)).toString()).get('code')||'';
+      return {access_token:code,token_type:'Bearer',id_token:`mock.${code}`,expires_in:3600,scope:'openid email profile'};}
+    if(method==='GET'&&p==='/api/mock-idp/userinfo'){
+      const token=String(req.headers['authorization']||'').replace(/^Bearer\s+/i,'');
+      let prof;try{prof=unb64urlJson(token);}catch{throw new AppError('AUTH_FAILED','Token mock tidak valid.');}
+      return {sub:prof.sub,email:prof.email,email_verified:true,name:prof.name,picture:null};}
+  }
   // Sprint 15: verifikasi keaslian dokumen — publik + rate-limit per IP.
   // Membuktikan kode HMAC valid untuk nomor dokumen, lalu memaparkan
   // metadata minimal non-sensitif (tanpa nilai baris/pihak internal).

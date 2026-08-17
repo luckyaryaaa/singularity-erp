@@ -506,9 +506,10 @@ async function lifecycle(client, master, id, action, reason, user, requestId) {
   return runtime.camel(updated);
 }
 
-// Otomasi profil pajak karyawan: dari status kawin + tanggungan + gaji bruto →
-// status PTKP, kategori TER (A/B/C), tarif TER bulanan (PP 58/2023). Preview
-// selalu, dan bila apply=true dibuat profil pajak effective-dated baru.
+// Otomasi profil pajak karyawan: dari status kawin + tanggungan (+ penghasilan
+// istri digabung → K/I) + gaji bruto → status PTKP, kategori TER (A/B/C), tarif
+// TER bulanan sesuai tabel referensi perusahaan (TER PPH). Preview selalu, dan
+// bila apply=true dibuat profil pajak effective-dated baru.
 async function autoTaxProfile(client, employeeId, body, user, requestId) {
   assertPermission(user, 'employee.edit');
   const emp = (await client.query('SELECT id,base_salary FROM employees WHERE id=$1', [employeeId])).rows[0];

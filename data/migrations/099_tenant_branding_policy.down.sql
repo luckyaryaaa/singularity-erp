@@ -1,0 +1,4 @@
+BEGIN;
+ALTER TABLE tenants DROP COLUMN IF EXISTS auth_policy;
+ALTER TABLE tenants DROP COLUMN IF EXISTS branding;
+COMMIT;

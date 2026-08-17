@@ -21,7 +21,7 @@ async function withRollback(fn) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)");
+    await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
     const owner = runtime.camel((await client.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' AND active LIMIT 1`)).rows[0]);
     const stamp = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
     const branchA = (await client.query(`INSERT INTO branches(id,code,name) VALUES($1,$2,$3) RETURNING id`, [randomUUID(), `BA-${stamp}`, 'Branch Isolation A'])).rows[0];

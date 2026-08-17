@@ -9,8 +9,8 @@
   const clampScore = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
   const dashboardPreferences = () => {
     try {
-      return { insights: true, analytics: true, jobs: true, ...JSON.parse(localStorage.getItem(dashboardPreferenceKey()) || '{}') };
-    } catch { return { insights: true, analytics: true, jobs: true }; }
+      return { jobs: true, ...JSON.parse(localStorage.getItem(dashboardPreferenceKey()) || '{}') };
+    } catch { return { jobs: true }; }
   };
   const dashboardScores = (data) => {
     const k = data.kpi, h = data.health, attention = data.attention;
@@ -23,18 +23,15 @@
       control: clampScore(100 - Number(attention.pendingApprovals || 0) * 2.5 - Number(h.criticalStock || 0) * 4)
     };
   };
-  const dashboardInsights = (data, grant) => {
-    const k = data.kpi, h = data.health, items = [];
-    if (grant.revenue && k.revenueGrowthPct != null) items.push({
-      tone: Number(k.revenueGrowthPct) >= 0 ? 'mint' : 'coral', icon: 'trend', label: Number(k.revenueGrowthPct) >= 0 ? 'Peluang' : 'Perlu perhatian',
-      title: `Pendapatan ${Number(k.revenueGrowthPct) >= 0 ? 'bertumbuh' : 'menurun'} ${Math.abs(Number(k.revenueGrowthPct)).toLocaleString('id-ID')}%`,
-      detail: Number(k.revenueGrowthPct) >= 0 ? 'Pertahankan momentum dan periksa kontribusi pelanggan terbesar.' : 'Tinjau pipeline serta quotation yang belum dikonversi.', href: '#/reports'
-    });
-    if (grant.revenue && Number(k.arOverdueCount || 0) > 0) items.push({ tone: 'amber', icon: 'wallet', label: 'Risiko kas', title: `${k.arOverdueCount} invoice melewati jatuh tempo`, detail: `Eksposur ${fmtIDR(k.arOverdue)} perlu diprioritaskan oleh tim penagihan.`, href: '#/finance/invoices' });
-    if (grant.inventory && Number(h.criticalStock || 0) > 0) items.push({ tone: 'coral', icon: 'box', label: 'Risiko pasokan', title: `${h.criticalStock} stok berada pada level kritis`, detail: 'Periksa kebutuhan produksi dan rencana pengadaan sebelum terjadi kekurangan.', href: '#/warehouse/inventory' });
-    const gap = Number(k.utilizationTarget || 0) - Number(k.utilizationPct || 0);
-    if (gap > 0) items.push({ tone: gap > 15 ? 'coral' : 'lavender', icon: 'factory', label: 'Operasional', title: `Utilisasi ${gap.toLocaleString('id-ID')} poin di bawah target`, detail: 'Tinjau antrean work order, kapasitas, dan hambatan produksi aktif.', href: '#/production/work-orders' });
-    return items.slice(0, 3);
+  // ── Aktivitas terbaru (jejak audit) — verba + tone + avatar inisial ──────────
+  const ACT_VERB = { CREATE: 'Membuat', UPDATE: 'Memperbarui', DELETE: 'Menghapus', APPROVE: 'Menyetujui', REJECT: 'Menolak', SUBMIT: 'Mengajukan', CANCEL: 'Membatalkan', VOID: 'Membatalkan', POST: 'Memposting', CONVERT: 'Mengonversi', LOGIN: 'Masuk', LOGOUT: 'Keluar', ONBOARD_TENANT: 'Onboarding', TENANT_STATUS: 'Ubah status' };
+  const ACT_TONE = { CREATE: 'mint', APPROVE: 'mint', POST: 'mint', SUBMIT: 'blue', UPDATE: 'blue', CONVERT: 'blue', DELETE: 'coral', REJECT: 'coral', VOID: 'coral', CANCEL: 'coral' };
+  const ENTITY_LABEL = { USER_PROFILE: 'profil pengguna', TENANT: 'tenant', INVOICE: 'invoice', SALES_ORDER: 'sales order', WORK_ORDER: 'work order', QUOTATION: 'penawaran', SUPPLIER_INVOICE: 'tagihan supplier', PAYMENT: 'pembayaran', RECEIPT: 'penerimaan', DELIVERY_ORDER: 'surat jalan', PURCHASE_ORDER: 'purchase order' };
+  const dxInitials = (name) => String(name || '?').split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+  const dxActText = (a) => {
+    const verb = ACT_VERB[a.action] || (a.action ? a.action.charAt(0) + a.action.slice(1).toLowerCase().replace(/_/g, ' ') : 'Aktivitas');
+    const ent = ENTITY_LABEL[a.entityType] || String(a.entityType || '').toLowerCase().replace(/_/g, ' ');
+    return `${verb} ${ent}${a.documentNumber ? ` ${a.documentNumber}` : ''}`.trim();
   };
   const dashboardSkeleton = () => `<section class="decision-skeleton" aria-label="Memuat dashboard" aria-busy="true"><div class="skeleton decision-skeleton-bar"></div><div class="skeleton decision-skeleton-hero"></div><div class="decision-skeleton-grid">${Array.from({ length: 4 }, () => '<div class="skeleton"></div>').join('')}</div></section>`;
 
@@ -51,7 +48,6 @@
     },
     async renderOverview(main, signal) {
       main.innerHTML = dashboardSkeleton();
-      const rich = can('report.view') && window.MAT_PAGES && window.MAT_PAGES.cockpit;
       const data = await query('dashboard', () => api('/api/dashboard', { signal }), { staleMs: 30_000 });
       const hour = new Date().getHours();
       const greet = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 19 ? 'Selamat sore' : 'Selamat malam';
@@ -78,7 +74,6 @@
         ['Operasi', scores.operations, 'lavender'], ['Kontrol', scores.control, 'amber']
       ];
       const overallScore = clampScore(scoreEntries.reduce((total, entry) => total + entry[1], 0) / scoreEntries.length);
-      const insights = dashboardInsights(data, grant);
       const urgentCount = Number(data.attention.pendingApprovals || 0) + Number(k.arOverdueCount || 0) + Number(h.criticalStock || 0);
       const summary = urgentCount
         ? `Kinerja bisnis berada pada skor ${overallScore}%. Ada ${urgentCount} isu yang perlu diprioritaskan hari ini.`
@@ -91,6 +86,25 @@
       ].filter(Boolean).slice(0, 4);
       // Pertumbuhan null berarti bulan lalu nihil — tidak ada dasar pembanding.
       const growthNote = k.revenueGrowthPct == null ? 'Belum ada pembanding bulan lalu' : `${Number(k.revenueGrowthPct) >= 0 ? '↑' : '↓'} ${Math.abs(k.revenueGrowthPct)}% dari bulan lalu`;
+      // ── Prototype-style KPI helpers (sparkline + trend badge), data ERP nyata ──
+      const dxSpark = (vals, tone = 'blue') => {
+        let a = (Array.isArray(vals) && vals.length > 1) ? vals.map((v) => Number(v) || 0) : [4, 6, 5, 8, 7, 9, 8, 11];
+        const mx = Math.max(...a), mn = Math.min(...a), W = 92, H = 30, R = (mx - mn) || 1;
+        const pts = a.map((v, i) => [i * (W / (a.length - 1)), H - 3 - ((v - mn) / R) * (H - 8)]);
+        const d = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+        return `<svg class="dx-spark ${tone}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="dx-spark-a" d="${d} L${W},${H} L0,${H}Z"/><path class="dx-spark-l" d="${d}"/></svg>`;
+      };
+      const dxTrend = (pct) => pct == null ? '' : `<em class="dx-trend ${Number(pct) >= 0 ? 'up' : 'down'}">${Number(pct) >= 0 ? '▲' : '▼'} ${Math.abs(Number(pct)).toLocaleString('id-ID')}%</em>`;
+      const sparkVals = (series && series.length) ? series.map((p) => Number(p.value) || 0) : null;
+      const kpiCards = [
+        grant.revenue && { t: 'blue', ic: ICONS.chart, l: `Pendapatan ${monthName}`, v: fmtIDR(k.revenueMonth), tr: k.revenueGrowthPct, sp: sparkVals, href: '#/reports' },
+        grant.revenue && { t: 'violet', ic: ICONS.wallet, l: 'Piutang usaha', v: fmtIDR(h.arTotal), s: `${h.arCount || 0} invoice · ${k.arOverdueCount || 0} lewat tempo`, href: '#/finance/invoices' },
+        grant.payable && { t: 'amber', ic: ICONS.doc, l: 'Utang usaha', v: fmtIDR(h.apTotal), s: `${h.apCount || 0} tagihan supplier`, href: '#/finance' },
+        { t: 'indigo', ic: ICONS.cart, l: 'Order book', v: fmtIDR(h.orderBook), s: `${h.orderCount || k.activeOrders || 0} order aktif`, href: '#/production/work-orders' },
+        { t: 'emerald', ic: ICONS.factory, l: 'Efisiensi produksi', v: `${k.utilizationPct || 0}%`, s: `Target ${k.utilizationTarget || 0}%`, href: '#/production/work-orders' },
+        grant.cash ? { t: 'sky', ic: ICONS.ledger, l: 'Kas & bank', v: h.cashPosition == null ? '—' : fmtIDR(h.cashPosition), s: h.cashPosition == null ? 'Perlu konfigurasi' : 'Posisi terkini', href: '#/accounting' }
+          : (grant.inventory && { t: 'rose', ic: ICONS.box, l: 'Nilai persediaan', v: fmtIDR(h.inventoryValue), s: `${h.skuCount || 0} SKU aktif`, href: '#/warehouse/inventory' })
+      ].filter(Boolean).slice(0, 6);
       main.innerHTML = `
         <section class="decision-context" aria-label="Konteks dashboard">
           <div class="decision-context-copy"><span class="decision-live"><i></i> Data operasional aktif</span><b>${esc(state.user.branchName || 'Seluruh perusahaan')}</b><small>Diperbarui ${fmtDateTime(data.asOf)}</small></div>
@@ -100,69 +114,65 @@
             ${can('quotation.create') ? `<a class="btn primary sm" href="#/sales/quotations/new">${ICONS.plus} Buat penawaran</a>` : ''}
           </div>
         </section>
-        <section class="hero-exec decision-hero">
-          <div class="decision-aurora" aria-hidden="true"></div>
-          <div class="decision-hero-copy">
-            <div class="decision-kicker"><span>${today.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}</span><i></i><span>DECISION COCKPIT</span></div>
-            <h1>${greet}, ${esc(firstName)}.</h1>
-            <p class="decision-summary">${esc(summary)}</p>
-            <div class="decision-hero-actions">
-              <a class="btn light" href="${priorities[0]?.href || '#/reports'}">${priorities.length ? 'Lihat prioritas' : 'Lihat laporan'} ${ICONS.arrow}</a>
-              <span class="decision-assurance">${ICONS.shield} Scope dan hak akses Anda aktif</span>
+        <section class="cmd-hero">
+          <div class="cmd-hero-main">
+            <div class="cmd-eyebrow"><i class="live-dot"></i> EXECUTIVE COMMAND CENTER · ${esc(monthName).toUpperCase()} ${today.getFullYear()}</div>
+            <h1>Sekilas bisnis Anda.</h1>
+            <p>Pantau kesehatan finansial, eksekusi operasional, dan kinerja organisasi dalam satu layar.</p>
+            <div class="ai-strip"><span class="ai-badge">${ICONS.chart}</span><div><strong>Singularity Intelligence</strong> <span>${esc(summary)}</span></div></div>
+            <div class="cmd-actions">
+              <a class="cmd-btn primary" href="#/reports">${ICONS.chart} Command center</a>
+              <a class="cmd-btn" href="#/reports">${ICONS.doc} Laporan</a>
+              ${can('quotation.create') ? `<a class="cmd-btn" href="#/sales/quotations/new">${ICONS.plus} Penawaran</a>` : ''}
             </div>
           </div>
-          <div class="business-pulse" role="img" title="Skor komposit operasional berbasis KPI pada scope aktif; bukan angka akuntansi." aria-label="Skor kesehatan bisnis ${overallScore} persen. Sales ${scores.sales}, keuangan ${scores.finance}, operasi ${scores.operations}, kontrol ${scores.control}.">
-            <div class="pulse-orbit orbit-a" aria-hidden="true"></div><div class="pulse-orbit orbit-b" aria-hidden="true"></div>
-            <div class="pulse-core"><span>Business pulse</span><strong>${overallScore}</strong><small>${overallScore >= 85 ? 'Sangat sehat' : overallScore >= 70 ? 'Stabil' : 'Perlu fokus'}</small></div>
-            ${scoreEntries.map(([label, score, tone], index) => `<span class="pulse-node pulse-node-${index + 1} ${tone}" title="${esc(label)} ${score}%"><i></i><b>${esc(label)}</b><small>${score}%</small></span>`).join('')}
+          <div class="hero-metrics">
+            <div class="hero-metric"><span>Skor bisnis</span><strong>${overallScore}%</strong><small class="${overallScore >= 70 ? 'up' : 'warn'}">${overallScore >= 85 ? 'Sangat sehat' : overallScore >= 70 ? 'Stabil' : 'Perlu fokus'}</small></div>
+            <div class="hero-metric"><span>Kas &amp; bank</span><strong>${!grant.cash || h.cashPosition == null ? '—' : fmtIDR(h.cashPosition)}</strong><small>Posisi terkini</small></div>
+            <div class="hero-metric"><span>Pendapatan</span><strong>${grant.revenue ? fmtIDR(k.revenueMonth) : '—'}</strong><small class="${k.revenueGrowthPct != null && Number(k.revenueGrowthPct) < 0 ? 'down' : 'up'}">${k.revenueGrowthPct != null ? `${Number(k.revenueGrowthPct) >= 0 ? '↑' : '↓'} ${Math.abs(k.revenueGrowthPct)}%` : '—'}</small></div>
           </div>
         </section>
-        <section class="decision-kpis" aria-label="Indikator utama">
-          ${grant.revenue ? `<a class="decision-kpi blue" href="#/reports"><span>${ICONS.chart}</span><div><small>Pendapatan ${esc(monthName)}</small><strong>${fmtIDR(k.revenueMonth)}</strong><em class="${k.revenueGrowthPct != null && Number(k.revenueGrowthPct) < 0 ? 'down' : 'up'}">${growthNote}</em></div></a>` : ''}
-          ${grant.cash ? `<a class="decision-kpi mint" href="#/accounting"><span>${ICONS.ledger}</span><div><small>Kas & bank</small><strong>${h.cashPosition == null ? 'Belum diatur' : fmtIDR(h.cashPosition)}</strong><em>${h.cashPosition == null ? 'Konfigurasi akun kas diperlukan' : 'Posisi terkini'}</em></div></a>` : ''}
-          <a class="decision-kpi lavender" href="#/production/work-orders"><span>${ICONS.cart}</span><div><small>Order book</small><strong>${fmtIDR(h.orderBook)}</strong><em>${k.activeOrders} order aktif</em></div></a>
-          <a class="decision-kpi amber" href="#/production/work-orders"><span>${ICONS.factory}</span><div><small>Delivery readiness</small><strong>${k.utilizationPct}%</strong><em>Target operasi ${k.utilizationTarget}%</em></div></a>
+        <section class="dx-greet"><div><h2>${greet}, ${esc(firstName)} 👋</h2><p>Ringkasan yang terjadi di organisasi Anda hari ini.</p></div><span class="date-chip">${today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}&nbsp;&nbsp;·&nbsp;&nbsp;Bulan ini</span></section>
+        <section class="dx-kpis" aria-label="Indikator utama">
+          ${kpiCards.map((c) => `<a class="dx-kpi ${c.t}" href="${c.href}"><div class="dx-kpi-top"><span class="dx-kpi-ic">${c.ic}</span>${dxSpark(c.sp, c.t)}</div><small>${esc(c.l)}</small><b>${c.v}</b>${c.tr != null ? dxTrend(c.tr) : `<em class="dx-kpi-sub">${esc(c.s || '')}</em>`}</a>`).join('')}
         </section>
-        <section class="decision-priority-layout">
-          <article class="panel decision-priority">
-            <header><div><p class="eyebrow">PRIORITY INBOX</p><h2>Keputusan hari ini</h2><p>Diurutkan berdasarkan urgensi dan dampak bisnis.</p></div><span class="chip ${priorities.length ? 'amber' : 'mint'}">${priorities.length} prioritas</span></header>
-            <div class="decision-priority-list">${priorities.map((item, index) => `<a href="${item.href}" class="decision-priority-item ${item.tone}"><span class="priority-rank">${String(index + 1).padStart(2, '0')}</span><span><small>${esc(item.label)}</small><b>${esc(item.value)}</b><em>${esc(item.detail)}</em></span><strong>${esc(item.action)} ${ICONS.arrow}</strong></a>`).join('') || `<div class="decision-clear">${clayOrb('mint', 'check')}<span><b>Semua indikator terkendali</b><small>Tidak ada tindakan prioritas pada scope Anda.</small></span></div>`}</div>
-          </article>
-          <article class="panel decision-snapshot">
-            <header><div><p class="eyebrow">BUSINESS SNAPSHOT</p><h2>Posisi terkini</h2></div><a class="text-btn" href="#/reports">Detail ${ICONS.arrow}</a></header>
-            <div class="decision-snapshot-grid">
-              ${grant.revenue ? `<div><span class="health-icon blue">${ICONS.wallet}</span><small>Piutang</small><b>${fmtIDR(h.arTotal)}</b><em>${h.arCount} invoice terbuka</em></div>` : ''}
-              ${grant.payable ? `<div><span class="health-icon amber">${ICONS.doc}</span><small>Utang</small><b>${fmtIDR(h.apTotal)}</b><em>${h.apCount} tagihan supplier</em></div>` : ''}
-              ${grant.inventory ? `<div><span class="health-icon mint">${ICONS.box}</span><small>Persediaan</small><b>${fmtIDR(h.inventoryValue)}</b><em>${h.skuCount} SKU aktif</em></div>` : ''}
-              <div><span class="health-icon lavender">${ICONS.project}</span><small>Pekerjaan</small><b>${h.orderCount}</b><em>Order aktif</em></div>
-            </div>
-          </article>
-        </section>
-        <section class="decision-insights ${prefs.insights ? '' : 'widget-hidden'}" data-dashboard-widget="insights">
-          <div class="decision-section-heading"><div><p class="eyebrow">SMART SIGNALS</p><h2>Insight yang dapat ditindaklanjuti</h2></div><span>Berbasis KPI dan rule bisnis yang dapat ditelusuri</span></div>
-          <div class="decision-insight-grid">${insights.map((item) => `<a class="decision-insight ${item.tone}" href="${item.href}"><span>${ICONS[item.icon] || ICONS.chart}</span><div><small>${esc(item.label)}</small><h3>${esc(item.title)}</h3><p>${esc(item.detail)}</p><b>Buka sumber ${ICONS.arrow}</b></div></a>`).join('') || `<div class="decision-insight mint"><span>${ICONS.check}</span><div><small>TERKENDALI</small><h3>Tidak ada anomali utama</h3><p>Indikator pada scope Anda berada dalam rentang operasional.</p></div></div>`}</div>
-        </section>
-        <div id="dashAnalytics" class="${prefs.analytics ? '' : 'widget-hidden'}" data-dashboard-widget="analytics"></div>
-        ${rich ? '' : `
-        <section class="decision-fallback-detail">
-          ${!grant.revenue ? '' : `
-          <article class="panel revenue-panel">
-            <header><div><p class="eyebrow">KINERJA KEUANGAN</p><h2>Arus pendapatan</h2></div>
-              <div class="legend"><span><i></i>Kumulatif ${monthName}</span></div></header>
-            <div class="chart-summary"><div><span>Pendapatan bulan ini</span><strong>${fmtIDR(k.revenueMonth)}</strong>
-              <small class="up">${ICONS.trend} ${growthNote}</small></div></div>
-            <div class="chart" role="img" aria-label="Grafik pendapatan kumulatif bulan berjalan.">
+        <section class="dx-panels">
+          <article class="panel dx-panel dx-chart-panel">
+            <header><div><p class="eyebrow">KINERJA KEUANGAN</p><h2>Arus pendapatan ${esc(monthName)}</h2></div><div class="dx-chart-tag"><b>${fmtIDR(k.revenueMonth)}</b>${dxTrend(k.revenueGrowthPct)}</div></header>
+            <div class="dx-chart" role="img" aria-label="Grafik pendapatan kumulatif bulan berjalan.">
               <svg viewBox="0 0 ${w} ${hgt}" preserveAspectRatio="none">
-                <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8db9ff" stop-opacity=".28"/><stop offset="1" stop-color="#8db9ff" stop-opacity="0"/></linearGradient></defs>
-                ${[30, 60, 90, 120].map((y) => `<path class="gridline" d="M${pad} ${y}H${w - pad}"/>`).join('')}
-                <path class="area" d="${line} L${coords.at(-1)[0]},${hgt - 12} L${pad},${hgt - 12}Z"/>
-                <path class="line" d="${line}"/>
-                <circle cx="${coords.at(-1)[0]}" cy="${coords.at(-1)[1]}" r="4"/>
-                <text x="${pad}" y="${hgt - 2}">1 ${monthName.slice(0, 3)}</text><text x="${w - 60}" y="${hgt - 2}">${today.getDate()} ${monthName.slice(0, 3)}</text>
+                <defs><linearGradient id="dxarea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2563eb" stop-opacity=".16"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
+                ${[30, 60, 90, 120].map((y) => `<path class="dx-grid" d="M${pad} ${y}H${w - pad}"/>`).join('')}
+                <path class="dx-area" d="${line} L${coords.at(-1)[0]},${hgt - 12} L${pad},${hgt - 12}Z"/>
+                <path class="dx-line" d="${line}"/>
+                <circle class="dx-dot" cx="${coords.at(-1)[0]}" cy="${coords.at(-1)[1]}" r="4"/>
               </svg>
             </div>
-          </article>`}
-        </section>`}
+          </article>
+          <article class="panel dx-panel dx-attn-panel">
+            <header><div><p class="eyebrow">PERHATIAN OPERASIONAL</p><h2>Perlu tindakan</h2></div><span class="chip ${priorities.length ? 'amber' : 'mint'}">${priorities.length} item</span></header>
+            <div class="dx-attn-list">${priorities.map((item) => `<a href="${item.href}" class="dx-attn-row ${item.tone}"><span class="dx-attn-dot"></span><span class="dx-attn-main"><b>${esc(item.value)}</b><small>${esc(item.label)} · ${esc(item.detail)}</small></span><span class="dx-attn-go">${esc(item.action)} ${ICONS.arrow}</span></a>`).join('') || `<div class="dx-clear">${clayOrb('mint', 'check')}<span><b>Semua terkendali</b><small>Tidak ada tindakan prioritas pada scope Anda.</small></span></div>`}</div>
+          </article>
+        </section>
+        <section class="dx-sec">
+          <div class="dx-sec-title"><h2>Pipeline transaksi</h2><span>Alur bisnis end-to-end</span></div>
+          <article class="panel dx-panel"><div class="dx-pipeline">${(data.pipeline || []).map((s, i) => `${i ? '<div class="dx-pipe"></div>' : ''}<div class="dx-stage"><div class="dx-stage-num">${s.count}</div><div class="dx-stage-name">${esc(s.label)}</div><div class="dx-stage-dot"></div></div>`).join('')}</div></article>
+        </section>
+        <section class="dx-sec3">
+          <article class="panel dx-panel">
+            <header><div><p class="eyebrow">BUSINESS HEALTH</p><h2>Sinyal operasi eksekutif</h2></div><span class="chip ${overallScore >= 70 ? 'mint' : 'amber'}">${overallScore >= 85 ? 'Sangat sehat' : overallScore >= 70 ? 'Stabil' : 'Perlu fokus'}</span></header>
+            <div class="dx-health-hero"><strong>${overallScore}</strong><small>Skor komposit&nbsp;/&nbsp;100</small></div>
+            <div class="dx-health-bars">${[['Keuangan', scores.finance], ['Operasi', scores.operations], ['Penjualan', scores.sales], ['Kontrol', scores.control]].map(([l, v]) => `<div class="dx-hb"><div class="dx-hb-top"><b>${esc(l)}</b><span>${v}%</span></div>${progressBar(v)}</div>`).join('')}</div>
+          </article>
+          <article class="panel dx-panel">
+            <header><div><p class="eyebrow">PRODUCTION OVERVIEW</p><h2>Kapasitas operasional</h2></div><span class="chip blue">${k.utilizationPct || 0}%</span></header>
+            <div class="dx-prod">${[['Utilisasi produksi', k.utilizationPct || 0], ['Capaian vs target', Math.min(100, Math.round((k.utilizationPct || 0) / (k.utilizationTarget || 82) * 100))], ['Pekerjaan aktif (relatif)', Math.min(100, (k.inProduction || 0) * 12)], ['Tenaga kerja aktif', data.workforce && data.workforce.total ? Math.round(data.workforce.active / data.workforce.total * 100) : 0]].map(([l, v]) => `<div class="dx-hb"><div class="dx-hb-top"><b>${esc(l)}</b><span>${v}%</span></div>${progressBar(v)}</div>`).join('')}</div>
+          </article>
+        </section>
+        <section class="dx-sec">
+          <div class="dx-sec-title"><h2>Aksi cepat</h2><span>Pintasan kerja Anda</span></div>
+          <div class="dx-quick">${can('quotation.create') ? `<a class="dx-quick-btn" href="#/sales/quotations/new"><span class="dx-quick-ic">${ICONS.plus}</span>Buat penawaran</a>` : ''}<a class="dx-quick-btn" href="#/approvals"><span class="dx-quick-ic">${ICONS.check}</span>Persetujuan</a><a class="dx-quick-btn" href="#/finance/invoices"><span class="dx-quick-ic">${ICONS.wallet}</span>Invoice</a><a class="dx-quick-btn" href="#/production/work-orders"><span class="dx-quick-ic">${ICONS.factory}</span>Work order</a><a class="dx-quick-btn" href="#/reports"><span class="dx-quick-ic">${ICONS.chart}</span>Laporan</a><a class="dx-quick-btn" href="#/warehouse/inventory"><span class="dx-quick-ic">${ICONS.box}</span>Inventory</a></div>
+        </section>
         <section class="panel work-panel decision-work ${prefs.jobs ? '' : 'widget-hidden'}" data-dashboard-widget="jobs">
           <header><div><p class="eyebrow">OPERASIONAL</p><h2>Pekerjaan aktif</h2></div>
             ${can('work_order.view') ? `<a class="text-btn" href="#/production/work-orders">Lihat semua ${ICONS.arrow}</a>` : ''}</header>
@@ -179,6 +189,12 @@
               </tr>`).join('') || `<tr><td colspan="6"><div class="empty-state">${clayOrb('mint', 'check')}<h3>Tidak ada pekerjaan aktif</h3><p>Semua pesanan selesai. Waktunya menjemput order baru.</p></div></td></tr>`}
             </tbody>
           </table></div>
+        </section>
+        <section class="dx-sec">
+          <div class="dx-sec-title"><h2>Aktivitas terbaru</h2><span>Jejak audit organisasi</span></div>
+          <article class="panel dx-panel">
+            <ul class="dx-activity">${(data.recentActivity || []).map((a) => `<li class="dx-act"><span class="dx-act-av ${ACT_TONE[a.action] || 'violet'}">${esc(dxInitials(a.actor))}</span><div class="dx-act-main"><b>${esc(a.actor)}</b><small>${esc(dxActText(a))}</small></div><time class="dx-act-time">${esc(relTime(a.at))}</time></li>`).join('') || `<li class="dx-act-empty">${clayOrb('mint', 'check')}<span>Belum ada aktivitas tercatat pada scope Anda.</span></li>`}</ul>
+          </article>
         </section>`;
 
       const shell = () => dashboard.render(document.getElementById('main'));
@@ -192,8 +208,6 @@
         const value = await formDialog({
           title: 'Atur dashboard', description: 'Pilih blok yang paling relevan untuk ruang kerja Anda.', submitLabel: 'Simpan tampilan', initial: prefs,
           fields: [
-            { name: 'insights', label: 'Tampilkan smart signals', type: 'checkbox' },
-            { name: 'analytics', label: 'Tampilkan analitik eksekutif', type: 'checkbox' },
             { name: 'jobs', label: 'Tampilkan pekerjaan aktif', type: 'checkbox' }
           ]
         });
@@ -207,16 +221,6 @@
         tr.addEventListener('click', open);
         tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
       });
-      // Blok analitik eksekutif dirender in-place — satu layar, bukan tab
-      // terpisah. Kegagalan analitik tidak boleh mematikan seluruh dashboard.
-      const slot = main.querySelector('#dashAnalytics');
-      if (rich && slot && prefs.analytics) {
-        try { await window.MAT_PAGES.cockpit.render(slot, signal); }
-        catch (error) {
-          if (error?.name === 'AbortError') return;
-          slot.innerHTML = `<section class="panel"><div class="panel-body error-text">Analitik eksekutif gagal dimuat: ${esc(error.message)}</div></section>`;
-        }
-      }
     }
   };
 

@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SINGULARITY - Enterprise Identity Gateway</title>
+  
+  <!-- CSS STYLESHEET -->
+
+  <script type="module" crossorigin src="/login/assets/index-PWTgtIWA.js"></script>
+  <link rel="stylesheet" crossorigin href="/login/assets/index-BnS662NB.css">
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 lg:p-6 relative">
+
+  <!-- PREMIUM ENTERPRISE AMBIENT BACKGROUND -->
+  <div class="enterprise-grid" aria-hidden="true"></div>
+  <div class="enterprise-ambient enterprise-ambient-a" aria-hidden="true"></div>
+  <div class="enterprise-ambient enterprise-ambient-b" aria-hidden="true"></div>
+  <div class="enterprise-noise" aria-hidden="true"></div>
+
+  <!-- GLOBAL BRAND LOCKUP -->
+  <div class="global-brand" role="img" aria-label="SINGULARITY Identity Gateway">
+    <img class="global-brand-image" src="/login/assets/singularity-logo-DqI069DI.svg" alt="SINGULARITY Identity Gateway" decoding="async">
+  </div>
+
+  <!-- DESKTOP IDENTITY RAIL -->
+  <aside class="identity-rail" aria-label="SINGULARITY security principles">
+    <h2 style="font-size: 52px;"> Secure access,<br><span style="font-size: 52px;"> designed for enterprise.</span></h2>
+    <p style="font-size: 18px; line-height: 1.5;" class="identity-rail-copy">A tenant-isolated identity layer with adaptive verification and protected session controls.</p>
+    <div class="identity-rail-list">
+      <div class="identity-rail-item"><span class="rail-check"><i data-lucide="building-2"></i></span><div><strong>Tenant isolated</strong><small>Organization context stays scoped.</small></div></div>
+      <div class="identity-rail-item"><span class="rail-check"><i data-lucide="shield-check"></i></span><div><strong>Adaptive security</strong><small>Risk signals shape verification.</small></div></div>
+      <div class="identity-rail-item"><span class="rail-check"><i data-lucide="lock-keyhole"></i></span><div><strong>Session protected</strong><small>Re-authentication remains available.</small></div></div>
+    </div>
+    <div style="font-size: 9px; line-height: 1.5;" class="identity-rail-footer"><span>ZERO-TRUST IDENTITY LAYER</span><span>•</span><span>PRIVACY BY DESIGN</span></div>
+  </aside>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastNotification" class="fixed top-6 right-6 z-50 transform translate-y-[-100px] opacity-0 pointer-events-none flex items-center gap-3 clay-glass-shell text-slate-800 dark:text-white px-5 py-3.5 shadow-2xl text-xs font-bold">
+    <div id="toastIcon" class="clay-icon-box p-2 text-sky-500">
+      <i data-lucide="shield-alert" class="w-4 h-4"></i>
+    </div>
+    <span id="toastMsg">Notifikasi Sistem</span>
+  </div>
+
+  <!-- MAIN AUTH GATEWAY -->
+  <div class="w-full max-w-[520px] z-10 auth-gateway-wrap">
+    <div id="authCard" class="clay-glass-shell p-8 space-y-6 relative overflow-hidden auth-gateway-card">
+      
+      <div class="auth-top-accent" aria-hidden="true"></div>
+      <div id="scanBeam" class="scan-beam"></div>
+
+      <!-- HEADER -->
+      <div id="authFlowIndicator" class="auth-flow-indicator" role="list" aria-label="Authentication progress">
+        <div class="auth-flow-step active" role="listitem" aria-current="step"><span>01</span><small>Identify</small></div>
+        <div class="auth-flow-line"></div>
+        <div class="auth-flow-step" role="listitem" aria-current="false"><span>02</span><small>Verify</small></div>
+        <div class="auth-flow-line"></div>
+        <div class="auth-flow-step" role="listitem" aria-current="false"><span>03</span><small>Secure</small></div>
+      </div>
+
+      <div class="flex items-center justify-end pb-1">
+        <div class="flex items-center space-x-2">
+          <button id="btnToggleLang" title="Ubah Bahasa" aria-label="Ubah Bahasa" class="px-2.5 py-1.5 rounded-xl clay-card-sm text-[10px] font-extrabold hover:text-sky-500 transition">
+            <span id="langLabel">ID</span>
+          </button>
+          <button title="Ganti Tema" aria-label="Ganti Tema" class="btn-toggle-theme p-1.5 clay-icon-box text-slate-500 hover:text-sky-500 transition">
+            <i id="themeIcon" data-lucide="moon" class="w-4 h-4"></i>
+          </button>
+          <div id="secureSessionBadge" class="secure-connection-badge hidden" title="Protected enterprise session">
+            <span class="secure-connection-dot"></span>
+            <span>SECURE SESSION</span>
+          </div>
+          <div id="envBadge" class="hidden items-center space-x-1.5 px-3 py-1 rounded-full clay-card-sm text-[10px] font-mono text-sky-500 font-bold">
+            <span class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
+            <span id="envText">PRD-US</span>
+          </div>
+        </div>
+      </div>
+      
+      <div id="authStepViewport" class="auth-step-viewport" aria-live="polite">
+      <!-- STEP 1: DISCOVERY -->
+      <div id="stepEmailDiscovery" class="space-y-5">
+        <div class="space-y-1">
+          <div class="section-eyebrow">IDENTIFY YOUR ORGANIZATION</div>
+          <h2 data-i18n="step1Title" class="text-[19px] font-extrabold tracking-[-0.02em]">Masuk ke Enterprise Workspace</h2>
+          <p data-i18n="step1Desc" class="text-xs text-slate-400 font-medium leading-relaxed">Masukkan email perusahaan untuk resolusi tenant otomatis dan security policy yang sesuai.</p>
+        </div>
+
+        <form id="formEmailDiscovery" class="space-y-4">
+          <div class="space-y-1.5">
+            <label for="discoveryEmail" data-i18n="emailLabel" class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 ml-1">Username</label>
+            <div class="relative flex items-center">
+              <div class="absolute left-2.5 clay-icon-box p-2 text-slate-400 z-10">
+                <i data-lucide="user" class="w-4 h-4"></i>
+              </div>
+              <input type="text" id="discoveryEmail" title="Username" aria-label="Username" required autocomplete="username" placeholder="username Anda" class="w-full pl-12 pr-4 py-3 text-xs clay-input font-semibold">
+            </div>
+          </div>
+          <button type="submit" title="Lanjutkan Ke Langkah Berikutnya" aria-label="Lanjutkan Ke Langkah Berikutnya" class="clay-btn w-full py-3 font-extrabold text-xs text-white flex items-center justify-center space-x-2">
+            <span data-i18n="continueBtn">Lanjutkan</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </form>
+        <div class="social-auth" data-social-auth hidden></div>
+        <div class="text-center pt-1">
+          <button type="button" id="btnOpenSignup" class="text-[11px] font-semibold text-slate-500 hover:text-slate-700 underline underline-offset-2">Belum punya organisasi? Daftar gratis — trial 14 hari</button>
+        </div>
+      </div>
+
+      <!-- STEP: SELF-SERVICE SIGNUP (trial) -->
+      <div id="stepSignup" class="auth-step space-y-4 hidden opacity-0" aria-labelledby="signupTitle">
+        <div class="password-flow-header">
+          <div class="password-flow-title-wrap">
+            <div class="section-eyebrow">SELF-SERVICE ONBOARDING</div>
+            <div id="signupTitle" class="method-detail-title">Daftarkan organisasi Anda</div>
+          </div>
+          <button type="button" id="btnBackToLogin" class="change-method-btn">Masuk</button>
+        </div>
+        <form id="formSignup" class="space-y-3" autocomplete="on">
+          <div class="password-field-group">
+            <label for="signupCompany" class="password-field-label">Nama perusahaan</label>
+            <input type="text" id="signupCompany" required minlength="2" placeholder="PT Contoh Sukses" autocomplete="organization" class="w-full px-4 py-2.5 text-xs clay-input font-semibold">
+          </div>
+          <div class="password-field-group">
+            <label for="signupCode" class="password-field-label">Kode organisasi</label>
+            <input type="text" id="signupCode" required pattern="[A-Za-z0-9-]+" placeholder="contoh-sukses" aria-describedby="signupCodeHint" class="w-full px-4 py-2.5 text-xs clay-input font-semibold">
+            <small id="signupCodeHint" class="text-[10px] text-slate-400">Huruf, angka, tanda hubung. Menjadi subdomain workspace Anda.</small>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="password-field-group">
+              <label for="signupUsername" class="password-field-label">Username owner</label>
+              <input type="text" id="signupUsername" required placeholder="admin" autocomplete="username" class="w-full px-4 py-2.5 text-xs clay-input font-semibold">
+            </div>
+            <div class="password-field-group">
+              <label for="signupDisplayName" class="password-field-label">Nama tampilan</label>
+              <input type="text" id="signupDisplayName" placeholder="Nama Owner" autocomplete="name" class="w-full px-4 py-2.5 text-xs clay-input font-semibold">
+            </div>
+          </div>
+          <div class="password-field-group">
+            <label for="signupPassword" class="password-field-label">Kata sandi</label>
+            <input type="password" id="signupPassword" required minlength="12" autocomplete="new-password" placeholder="Min 12 char · huruf besar/kecil, angka, simbol" class="w-full px-4 py-2.5 text-xs clay-input font-semibold">
+          </div>
+          <div class="password-field-group">
+            <label for="signupPasswordConfirm" class="password-field-label">Konfirmasi kata sandi</label>
+            <input type="password" id="signupPasswordConfirm" required minlength="12" autocomplete="new-password" placeholder="Ulangi kata sandi" class="w-full px-4 py-2.5 text-xs clay-input font-semibold">
+          </div>
+          <div class="password-field-group">
+            <label for="signupPlan" class="password-field-label">Paket</label>
+            <select id="signupPlan" class="w-full px-4 py-2.5 text-xs clay-input font-semibold">
+              <option value="starter" selected>Starter — trial 14 hari</option>
+              <option value="business">Business</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </div>
+          <button type="submit" class="clay-btn w-full py-3 font-extrabold text-xs text-white flex items-center justify-center gap-2"><span>Buat organisasi &amp; masuk</span><i data-lucide="rocket" class="w-4 h-4"></i></button>
+        </form>
+        <div class="social-auth" data-social-auth hidden></div>
+      </div>
+
+      <!-- STEP 2: CREDENTIALS -->
+      <div id="stepCredentials" class="space-y-5 hidden opacity-0">
+        <div class="enterprise-context-grid">
+          <div><span>Organization</span><strong id="resolvedTenantName">ACME Global Enterprise</strong></div>
+          <div><span>Workspace</span><strong id="resolvedWorkspace">acme-global.singularity.io • Production</strong></div>
+        </div>
+        <div class="context-action-row">
+          <span class="context-action-hint"><i data-lucide="shield-check"></i> Organization context resolved</span>
+          <button type="button" id="btnChangeOrganization" class="context-action-btn">Change organization</button>
+        </div>
+
+        <div id="authMethodsPanel" class="auth-methods-panel space-y-2" aria-labelledby="authMethodTitle">
+          <div class="auth-section-heading">
+            <div>
+              <div class="section-eyebrow">AUTHENTICATE</div>
+              <div id="authMethodTitle" class="method-section-title">Choose authentication method</div>
+            </div>
+            <span class="identity-demo-chip"><span class="demo-dot"></span> Policy enforced</span>
+          </div>
+          <div class="auth-method-list" role="group" aria-label="Available authentication methods">
+            <button type="button" id="btnPasskey" class="auth-method-card w-full" aria-describedby="passkeyMethodDesc">
+              <span class="clay-icon-box p-2 text-sky-500"><i data-lucide="fingerprint" class="w-4 h-4"></i></span>
+              <span class="auth-method-copy"><strong>Passkey</strong><small id="passkeyMethodDesc">Windows Hello, biometrics or security key</small></span><span class="method-badge recommended">Recommended</span><i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>
+            </button>
+            <button type="button" id="btnSsoAuth" class="auth-method-card w-full" aria-describedby="ssoMethodDesc">
+              <span class="clay-icon-box p-2 text-indigo-500"><i data-lucide="building-2" class="w-4 h-4"></i></span>
+              <span class="auth-method-copy"><strong>Enterprise SSO</strong><small id="ssoMethodDesc">Continue with your organization identity provider</small></span><span class="method-badge">Managed</span><i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>
+            </button>
+            <button type="button" id="btnPasswordMethod" class="auth-method-card w-full" aria-describedby="passwordMethodDesc">
+              <span class="clay-icon-box p-2 text-slate-500"><i data-lucide="key-round" class="w-4 h-4"></i></span>
+              <span class="auth-method-copy"><strong>Password</strong><small id="passwordMethodDesc">Use enterprise password and adaptive verification</small></span><span class="method-badge">Fallback</span><i data-lucide="chevron-right" class="w-4 h-4 ml-auto"></i>
+            </button>
+          </div>
+        </div>
+
+        <form id="formPasswordAuth" class="space-y-3.5 hidden" aria-labelledby="passwordAuthTitle">
+          <div class="password-flow-header">
+            <div class="password-flow-title-wrap">
+              <div class="section-eyebrow">PASSWORD AUTHENTICATION</div>
+              <div id="passwordAuthTitle" class="method-detail-title">Continue securely</div>
+            </div>
+            <button type="button" id="btnBackAuthMethods" class="change-method-btn">Change method</button>
+          </div>
+          <div class="password-field-group">
+            <label for="authPassword" class="password-field-label">Enterprise password</label>
+            <div class="relative flex items-center">
+              <div class="absolute left-2.5 clay-icon-box p-2 text-slate-400 z-10"><i data-lucide="lock" class="w-4 h-4"></i></div>
+              <input type="password" id="authPassword" autocomplete="current-password" title="Enterprise password" aria-label="Enterprise password" placeholder="••••••••" required class="w-full pl-12 pr-4 py-3 text-xs clay-input font-semibold">
+            </div>
+          </div>
+          <label class="trust-device-row">
+            <input id="trustDevice" type="checkbox" class="accent-blue-600">
+            <span>Trust this device for 30 days</span>
+          </label>
+          <button type="submit" class="clay-btn w-full py-3 font-extrabold text-xs text-white flex items-center justify-center gap-2"><span>Continue securely</span><i data-lucide="shield-check" class="w-4 h-4"></i></button>
+        </form>
+      </div>
+
+      <!-- STEP: FORCED PASSWORD CHANGE (must_change_password) -->
+      <div id="stepPasswordChange" class="auth-step space-y-5 hidden opacity-0" data-auth-step="verify" aria-labelledby="pwChangeTitle">
+        <div class="enterprise-context-grid">
+          <div><span>Organization</span><strong id="pwChangeTenantName">Enterprise Workspace</strong></div>
+          <div><span>Account</span><strong id="pwChangeUsername">—</strong></div>
+        </div>
+        <form id="formPasswordChange" class="space-y-3.5" aria-labelledby="pwChangeTitle">
+          <div class="password-flow-header">
+            <div class="password-flow-title-wrap">
+              <div class="section-eyebrow">PASSWORD UPDATE REQUIRED</div>
+              <div id="pwChangeTitle" class="method-detail-title">Set a new password</div>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-500 leading-relaxed">Untuk keamanan, kata sandi Anda harus diperbarui sebelum melanjutkan. Minimal 12 karakter.</p>
+          <div class="password-field-group">
+            <label for="pwChangeNew" class="password-field-label">Kata sandi baru</label>
+            <div class="relative flex items-center">
+              <div class="absolute left-2.5 clay-icon-box p-2 text-slate-400 z-10"><i data-lucide="lock-keyhole" class="w-4 h-4"></i></div>
+              <input type="password" id="pwChangeNew" autocomplete="new-password" minlength="12" required placeholder="Minimal 12 karakter" aria-label="Kata sandi baru" class="w-full pl-12 pr-4 py-3 text-xs clay-input font-semibold">
+            </div>
+          </div>
+          <div class="password-field-group">
+            <label for="pwChangeConfirm" class="password-field-label">Konfirmasi kata sandi</label>
+            <div class="relative flex items-center">
+              <div class="absolute left-2.5 clay-icon-box p-2 text-slate-400 z-10"><i data-lucide="lock-keyhole" class="w-4 h-4"></i></div>
+              <input type="password" id="pwChangeConfirm" autocomplete="new-password" minlength="12" required placeholder="Ulangi kata sandi baru" aria-label="Konfirmasi kata sandi" class="w-full pl-12 pr-4 py-3 text-xs clay-input font-semibold">
+            </div>
+          </div>
+          <button type="submit" class="clay-btn w-full py-3 font-extrabold text-xs text-white flex items-center justify-center gap-2"><span>Simpan &amp; masuk</span><i data-lucide="shield-check" class="w-4 h-4"></i></button>
+        </form>
+      </div>
+
+      <!-- STEP 3: MFA -->
+      <div id="stepMfa" class="auth-step auth-step-mfa space-y-5 hidden opacity-0" data-auth-step="verify" aria-labelledby="mfaTitle">
+        <div class="auth-step-toolbar">
+          <button type="button" id="btnBackToCredentials" class="auth-step-back" aria-label="Back to authentication methods">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+            <span>Back</span>
+          </button>
+          <span class="auth-step-security"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i> Protected verification</span>
+        </div>
+        <div id="mfaChallengeContent" class="space-y-5">
+        <div id="mfaChallengeHeader" class="text-center space-y-1">
+          <div class="section-eyebrow">STEP-UP VERIFICATION</div>
+          <h2 id="mfaTitle" data-i18n="mfaTitle" class="text-[19px] font-extrabold tracking-[-0.02em]">Verify your identity</h2>
+          <p id="mfaDesc" class="text-xs text-slate-400 font-semibold leading-relaxed">Authenticator verification • Enter the 6-digit code from your authenticator app.</p>
+          <div class="clay-card-sm px-3.5 py-3 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div id="mfaTenantName" class="text-[10px] font-extrabold truncate">Enterprise Workspace</div>
+              <div class="text-[9px] text-slate-400 font-semibold">Risk-based step-up • score <span id="mfaRiskScore">—</span></div>
+            </div>
+            <div class="security-status-dot" title="Challenge active"><span></span></div>
+          </div>
+        </div>
+
+        <div id="mfaMethodContext" class="clay-card-sm px-3.5 py-2.5 flex items-center gap-2.5">
+          <div class="clay-icon-box p-1.5 text-sky-500"><i id="mfaMethodIcon" data-lucide="smartphone" class="w-3.5 h-3.5"></i></div>
+          <div class="min-w-0">
+            <div class="text-[9px] uppercase tracking-wider font-black text-slate-400">Verification method</div>
+            <div id="mfaMethodLabel" class="text-[10px] font-extrabold text-slate-700 dark:text-slate-200">Authenticator app</div>
+          </div>
+          <span class="ml-auto text-[8px] font-black tracking-widest uppercase text-emerald-500">Selected</span>
+        </div>
+
+        <div id="recoveryContainer" class="hidden space-y-2.5">
+          <label for="recoveryCodeInput" class="block text-[9px] uppercase tracking-wider font-black text-slate-400">Recovery credential</label>
+          <input id="recoveryCodeInput" type="text" autocomplete="off" inputmode="text" maxlength="24"
+            class="w-full clay-input text-sm font-bold tracking-[0.12em] uppercase"
+            placeholder="XXXX-XXXX-XXXX" aria-label="Recovery code">
+          <p class="text-[9px] text-slate-400 font-medium">Use one unused recovery credential issued by your organization.</p>
+          <button id="btnVerifyRecovery" type="button" class="clay-btn w-full py-3 font-extrabold text-xs text-white">
+            Verify recovery credential
+          </button>
+        </div>
+
+        <div id="otpContainer" class="flex justify-between items-center gap-2 py-1">
+          <div class="otp-digit-wrapper"><span class="otp-liquid"></span><input type="text" inputmode="numeric" pattern="[0-9]*" title="Digit OTP 1" aria-label="Digit OTP 1" placeholder="•" maxlength="1" class="otp-digit" autocomplete="one-time-code" /></div>
+          <div class="otp-digit-wrapper"><span class="otp-liquid"></span><input type="text" inputmode="numeric" pattern="[0-9]*" title="Digit OTP 2" aria-label="Digit OTP 2" placeholder="•" maxlength="1" class="otp-digit" /></div>
+          <div class="otp-digit-wrapper"><span class="otp-liquid"></span><input type="text" inputmode="numeric" pattern="[0-9]*" title="Digit OTP 3" aria-label="Digit OTP 3" placeholder="•" maxlength="1" class="otp-digit" /></div>
+          <div class="otp-digit-wrapper"><span class="otp-liquid"></span><input type="text" inputmode="numeric" pattern="[0-9]*" title="Digit OTP 4" aria-label="Digit OTP 4" placeholder="•" maxlength="1" class="otp-digit" /></div>
+          <div class="otp-digit-wrapper"><span class="otp-liquid"></span><input type="text" inputmode="numeric" pattern="[0-9]*" title="Digit OTP 5" aria-label="Digit OTP 5" placeholder="•" maxlength="1" class="otp-digit" /></div>
+          <div class="otp-digit-wrapper"><span class="otp-liquid"></span><input type="text" inputmode="numeric" pattern="[0-9]*" title="Digit OTP 6" aria-label="Digit OTP 6" placeholder="•" maxlength="1" class="otp-digit" /></div>
+        </div>
+
+        <div id="otpErrorMsg" class="hidden text-center text-xs font-bold text-rose-500 items-center justify-center gap-1" role="alert" aria-live="assertive">
+          <div class="clay-icon-box p-1 text-rose-500">
+            <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+          </div>
+          <span id="lockoutWarningText">Kode OTP Salah!</span>
+        </div>
+
+        <div class="flex items-center justify-between text-[10px] font-semibold">
+          <span class="challenge-meta"><span class="challenge-live-dot"></span> Challenge expires in <strong id="timerCountdown">60s</strong></span>
+          <button type="button" id="resendOtpBtn" class="resend-link" disabled>Resend code</button>
+        </div>
+        <button id="btnVerifyOtp" type="button" title="Konfirmasi OTP" aria-label="Konfirmasi OTP" class="clay-btn w-full py-3 font-extrabold text-xs text-white flex items-center justify-center space-x-2">
+          <span id="otpBtnText">Confirm verification</span>
+          <div id="otpSpinner" class="hidden animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+        </button>
+        <div id="mfaFallbackPanel" class="hidden clay-card-sm p-3.5 space-y-2.5" aria-label="Alternative verification methods">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-[9px] uppercase tracking-wider font-black text-slate-400">Alternative verification</div>
+              <div class="text-[10px] font-semibold text-slate-500">Choose another method only if you cannot use the selected method.</div>
+            </div>
+            <button id="btnCloseMfaFallback" type="button" class="clay-icon-box p-1.5 text-slate-400 hover:text-sky-500" title="Close alternative methods" aria-label="Close alternative methods">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <div class="grid grid-cols-1 gap-2">
+            <button type="button" data-mfa-fallback="passkey" class="mfa-fallback-option">
+              <i data-lucide="key-round" class="w-3.5 h-3.5"></i>
+              <span><strong>Passkey</strong><small>Use this device's biometric or PIN</small></span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5 ml-auto"></i>
+            </button>
+            <button type="button" data-mfa-fallback="security-key" class="mfa-fallback-option">
+              <i data-lucide="usb" class="w-3.5 h-3.5"></i>
+              <span><strong>Security key</strong><small>Verify with a registered hardware key</small></span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5 ml-auto"></i>
+            </button>
+            <button type="button" data-mfa-fallback="recovery" class="mfa-fallback-option">
+              <i data-lucide="life-buoy" class="w-3.5 h-3.5"></i>
+              <span><strong>Recovery code</strong><small>Use a one-time recovery credential</small></span>
+              <i data-lucide="chevron-right" class="w-3.5 h-3.5 ml-auto"></i>
+            </button>
+          </div>
+        </div>
+        <div class="text-center">
+          <button id="btnAnotherMfa" type="button" class="text-[10px] font-bold text-slate-400 hover:text-sky-500 transition" aria-expanded="false" aria-controls="mfaFallbackPanel">Use another verification method</button>
+        </div>
+        </div>
+        <div id="mfaLockedPanel" class="hidden text-center py-6 space-y-4" role="alert" aria-live="assertive">
+          <div class="p-4 security-alert-icon rounded-2xl inline-flex"><i data-lucide="shield-alert" class="w-8 h-8"></i></div>
+          <div><h3 class="text-sm font-extrabold">Challenge temporarily locked</h3><p class="text-xs text-slate-400 font-medium mt-2">Too many verification attempts. Start another method or contact your organization administrator.</p></div>
+          <button id="btnRetryIdentity" type="button" class="clay-btn w-full py-3 text-xs text-white font-extrabold">Use another method</button>
+        </div>
+      </div>
+
+      </div>
+
+      <div class="auth-trust-footer">
+        <span class="trust-item"><i data-lucide="shield-check"></i> Encrypted</span>
+        <span class="trust-divider"></span>
+        <span class="trust-item">Tenant-isolated</span>
+        <span class="trust-divider"></span>
+        <span class="trust-item">Adaptive security</span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- DASHBOARD COMMAND CENTER -->
+  <section id="dashboardContainer" class="dashboard-container clay-glass-shell hidden opacity-0 z-10 relative" aria-label="SINGULARITY Command Center" aria-hidden="true">
+    <header class="command-header">
+      <div class="command-header-main">
+        <div class="command-title-block">
+          <span class="command-eyebrow">COMMAND CENTER</span>
+          <h2>Security Operations</h2>
+          <p>Live identity activity and gateway health.</p>
+        </div>
+        <div class="command-context" aria-label="Current tenant context">
+          <span class="command-status-dot"></span>
+          <span id="dashTenantLabel">ACME GLOBAL ENTERPRISE</span>
+          <span class="command-context-divider">•</span>
+          <span>PRD-US</span>
+        </div>
+      </div>
+      <div class="command-header-actions">
+        <button title="Ganti Tema Dashboard" aria-label="Ganti Tema Dashboard" class="btn-toggle-theme command-icon-button">
+          <i id="dashThemeIcon" data-lucide="moon" class="w-4 h-4"></i>
+        </button>
+        <button id="btnOpenActiveSessions" title="Lihat Perangkat Aktif" aria-label="Lihat Perangkat Aktif" class="command-session-button">
+          <span class="command-session-icon"><i data-lucide="laptop" class="w-4 h-4"></i></span>
+          <span>Perangkat Aktif (3)</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="command-summary" aria-label="Security summary">
+      <div class="summary-item"><span class="summary-icon"><i data-lucide="shield-check"></i></span><div><span>Identity status</span><strong>Protected</strong></div></div>
+      <div class="summary-item"><span class="summary-icon"><i data-lucide="activity"></i></span><div><span>Gateway health</span><strong>Operational</strong></div></div>
+      <div class="summary-item"><span class="summary-icon"><i data-lucide="lock-keyhole"></i></span><div><span>Session policy</span><strong>Adaptive MFA</strong></div></div>
+    </div>
+
+    <main class="command-content">
+      <!-- PRIMARY: LIVE SECURITY EVENTS -->
+      <section class="command-panel audit-panel" aria-labelledby="auditPanelTitle">
+        <div class="command-panel-header">
+          <div>
+            <span class="panel-kicker"><span class="live-dot"></span> LIVE</span>
+            <h3 id="auditPanelTitle">Security Audit</h3>
+            <p>Latest identity and session events.</p>
+          </div>
+          <div class="command-panel-actions">
+            <button id="btnExportCsv" title="Ekspor CSV" aria-label="Ekspor CSV" class="command-action-button">CSV</button>
+            <button id="btnExportJson" title="Ekspor JSON" aria-label="Ekspor JSON" class="command-action-button">JSON</button>
+          </div>
+        </div>
+        <div id="auditLogsTerminal" class="audit-terminal"></div>
+      </section>
+
+      <!-- SECONDARY: GATEWAY METRICS -->
+      <section class="command-panel metric-panel" aria-labelledby="metricPanelTitle">
+        <div class="command-panel-header">
+          <div>
+            <span class="panel-kicker">GATEWAY TELEMETRY</span>
+            <h3 id="metricPanelTitle">Gateway Metrics</h3>
+            <p>Operational throughput across the active session.</p>
+          </div>
+          <select id="chartMetricSelect" title="Pilih Metrik Gateway" aria-label="Pilih Metrik Gateway" class="command-metric-select">
+            <option value="throughput">Throughput (Req/s)</option>
+            <option value="latency">Latency (ms)</option>
+            <option value="failed">Failed Logins</option>
+          </select>
+        </div>
+        <div class="metric-chart-wrap"><canvas id="analyticsChart"></canvas></div>
+      </section>
+    </main>
+  </section>
+
+  <!-- MODALS -->
+  <div id="autoLockOverlay" class="fixed inset-0 bg-slate-950/60 backdrop-blur-2xl z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="autoLockTitle">
+    <div class="w-full max-w-sm clay-glass-shell p-6 text-center space-y-4 shadow-2xl">
+      <div class="security-alert-icon p-3 rounded-2xl inline-flex"><i data-lucide="lock-keyhole" class="w-6 h-6"></i></div>
+      <h3 id="autoLockTitle" class="text-sm font-extrabold">Session Locked</h3>
+      <p class="text-xs text-slate-400 font-medium">Your workspace remains protected. Re-authentication is required to continue.</p>
+      <button id="btnUnlockSession" title="Buka Sesi Kembali" aria-label="Buka Sesi Kembali" class="clay-btn w-full py-3 font-extrabold text-xs text-white">Buka Sesi</button>
+    </div>
+  </div>
+
+  <!-- Modal Active Sessions -->
+<div id="activeSessionsModal" class="fixed inset-0 grid place-items-center bg-slate-950/40 backdrop-blur-md z-50 hidden p-4" role="dialog" aria-modal="true" aria-labelledby="activeSessionsTitle">
+  <div class="w-full max-w-md clay-glass-shell p-6 space-y-4">
+    <h3 id="activeSessionsTitle" class="text-sm font-extrabold">Kelola Sesi</h3>
+    <button id="btnCloseActiveSessions" title="Tutup Modal Sesi" aria-label="Tutup Modal Sesi" class="clay-btn w-full py-2 text-xs text-white font-bold">Tutup</button>
+  </div>
+</div>
+
+
+  <!-- ENTRY SCRIPT -->
+</body>
+</html>

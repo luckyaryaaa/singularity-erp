@@ -13,7 +13,7 @@ const dbTest=process.env.DATABASE_URL?test:test.skip;
 test.after(async()=>{await require('../backend/infrastructure/database/pool').close();});
 async function rollback(fn){
   const c=new Client({connectionString:process.env.DATABASE_URL});await c.connect();
-  try{await c.query('BEGIN');await c.query("SELECT set_config('app.is_system','on',true)");await fn(c);}
+  try{await c.query('BEGIN');await c.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");await fn(c);}
   finally{await c.query('ROLLBACK').catch(()=>{});await c.end();}
 }
 async function users(c){

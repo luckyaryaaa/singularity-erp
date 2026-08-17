@@ -5,6 +5,8 @@ const { AppError } = require('./core/errors');
 const { getPool } = require('./infrastructure/database/pool');
 const { withTransaction, setRlsContext } = require('./infrastructure/database/transaction');
 const auth = require('./infrastructure/database/repositories/auth');
+const controlPlane = require('./infrastructure/database/repositories/control-plane');
+const billing = require('./infrastructure/database/repositories/billing');
 const ratelimit = require('./core/ratelimit');
 const events = require('./core/events');
 const privateStorage = require('./infrastructure/files/private-storage');
@@ -17,8 +19,12 @@ const domainRoutes = [
   require('./routes/procurement'),
   require('./routes/operations'), require('./routes/masters'), require('./routes/organization'),
   require('./routes/inventory'), require('./routes/production'), require('./routes/finance'),
-  require('./routes/hr'), require('./routes/reporting'), require('./routes/governance')
+  require('./routes/hr'), require('./routes/reporting'), require('./routes/governance'),
+  require('./routes/platform')
 ];
+// Prefix path → kode modul untuk entitlement gating per-paket. Prefix di luar peta
+// (auth, account, documents, governance, platform, health, events) selalu boleh.
+const MODULE_BY_PREFIX={sales:'sales',procurement:'procurement',production:'production',inventory:'inventory',finance:'finance',hr:'hr',masters:'masters',organization:'organization',operations:'operations',reporting:'reporting'};
 const openapi=require('./core/openapi');
 const json=(res,status,body,headers={})=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-API-Version':openapi.API_VERSION,...headers});res.end(JSON.stringify(body));};
 const originAllowed=(req,ctx)=>!req.headers.origin||req.headers.origin===`${ctx.protocol}://${ctx.host}`;
@@ -32,10 +38,31 @@ async function dispatch(client,req,url,ctx){
   // request domain berjalan sebagai app.is_system=on / app.cross_branch=on dan
   // lapisan pertahanan kedua di database mati. Tanam ulang dengan identitas nyata
   // sebelum router privat/domain mana pun menyentuh data.
+  // Tenant↔host binding (resolver). Masih konteks platform di titik ini (sesi
+  // di-resolve dalam transaksi yang mulai user-less), jadi resolveTenantByHost
+  // dapat membaca seluruh tenant. Pengguna hanya boleh mengakses lewat domain
+  // tenant-nya sendiri; operator platform dikecualikan (lintas-tenant). Host
+  // tanpa tenant (localhost) → MAT (kompat Fase 0) → cocok untuk pengguna MAT.
+  const hostTenant=await controlPlane.resolveTenantByHost(client,req.headers.host);ctx.tenant=hostTenant;
+  if(hostTenant){
+    // Langganan diambil SEKALI di sini dan dipakai ulang untuk suspend-check +
+    // module-gating (tanpa query tambahan). suspend/cancelled memblok akses;
+    // tenant↔host mismatch & lifecycle suspended juga. Operator platform dikecualikan.
+    ctx.subscription=await billing.getSubscription(client,hostTenant.id);
+    const mismatch=resolved.user.tenantId&&hostTenant.id!==resolved.user.tenantId;
+    const reason=mismatch?'Domain ini bukan untuk tenant Anda.':hostTenant.status==='suspended'?'Tenant sedang ditangguhkan.':(ctx.subscription&&['suspended','cancelled'].includes(ctx.subscription.status))?`Langganan tenant ${ctx.subscription.status}. Hubungi Singularity.`:null;
+    if(reason&&!await controlPlane.isPlatformOperator(client,resolved.user.id))throw new AppError('PERMISSION_DENIED',reason);
+  }
   await setRlsContext(client,resolved.user);
   const p=url.pathname,method=req.method;ratelimit.consume(method==='GET'?'read':p==='/api/jobs'?'export':'write',ctx.user.id);
   if(method!=='GET'&&(!originAllowed(req,ctx)||!await auth.verifyCsrf(client,ctx.session.id,req.headers['x-csrf-token'])))throw new AppError('CSRF_REJECTED');
   const privateResult=await authRoutes.dispatchPrivate(client,req,url,ctx);if(privateResult!==NO_MATCH)return privateResult;
+  // Entitlement gating per-paket untuk router domain: modul di luar paket
+  // langganan tenant ditolak. Entitlements dari subscription yang sudah diambil
+  // saat binding (tanpa query tambahan). Tenant tanpa langganan tidak di-gate.
+  const gateModule=MODULE_BY_PREFIX[(p.match(/^\/api\/([a-z][a-z0-9_-]*)/)||[])[1]];
+  if(gateModule&&resolved.user.tenantId&&ctx.subscription&&!billing.moduleAllowed(ctx.subscription.entitlements||{},gateModule))
+    throw new AppError('PERMISSION_DENIED',`Modul '${gateModule}' tidak termasuk paket langganan Anda.`);
   for(const routes of domainRoutes){const result=await routes.dispatch(client,req,url,ctx);if(result!==NO_MATCH)return result;}
   throw new AppError('RESOURCE_NOT_FOUND',`Endpoint ${method} ${p} belum tersedia pada runtime PostgreSQL.`);
 }

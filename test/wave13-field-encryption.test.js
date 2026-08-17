@@ -54,7 +54,7 @@ dbTest('Wave 13: database hanya menyimpan ciphertext/token tetapi repository men
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   await client.query('BEGIN');
-  await client.query("SELECT set_config('app.is_system','on',true)");
+  await client.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
   try {
     const ownerRow = (await client.query(
       `SELECT * FROM app_users WHERE role='owner' AND active ORDER BY created_at LIMIT 1`)).rows[0];

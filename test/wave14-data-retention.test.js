@@ -48,7 +48,7 @@ dbTest('Wave 14: legal hold melindungi record dan eksekusi wajib cocok dengan pr
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   await client.query('BEGIN');
-  await client.query("SELECT set_config('app.is_system','on',true)");
+  await client.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
   try {
     const userRow = (await client.query(
       `SELECT id,role,branch_id,display_name FROM app_users

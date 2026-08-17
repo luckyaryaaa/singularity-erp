@@ -36,7 +36,7 @@ function assertPasswordPolicy(value){if(typeof value!=='string'||value.length<12
 function publicUser(row){
   if(!row)return null;
   return {id:row.id,username:row.username,displayName:row.display_name,role:row.role,department:row.department,
-    jobTitle:row.job_title,branchId:row.branch_id,branchName:row.branch_name,branchScope:row.branch_scope,employeeId:row.employee_id,
+    jobTitle:row.job_title,branchId:row.branch_id,branchName:row.branch_name,branchScope:row.branch_scope,tenantId:row.tenant_id,tenantName:row.tenant_name,employeeId:row.employee_id,
     active:row.active,mfaEnabled:row.mfa_enabled,mfaActive:!!(row.mfa_enabled&&row.totp_secret_ciphertext),
     mustChangePassword:row.must_change_password,lastLoginAt:row.last_login_at};
 }
@@ -99,10 +99,10 @@ async function login(client,{username,password,ip,device}){
 async function resolveSession(client,plainToken,{ip,device}={}){
   if(!plainToken)return null;
   await expireAssignments(client);
-  const result=await client.query(`SELECT s.*,u.id app_user_id,u.username,u.display_name,u.role,u.department,u.job_title,u.branch_id,u.branch_scope,
-    u.active user_active,u.mfa_enabled,u.totp_secret_ciphertext,u.must_change_password,u.last_login_at,b.name branch_name,
+  const result=await client.query(`SELECT s.*,u.id app_user_id,u.username,u.display_name,u.role,u.department,u.job_title,u.branch_id,u.branch_scope,u.tenant_id,
+    u.active user_active,u.mfa_enabled,u.totp_secret_ciphertext,u.must_change_password,u.last_login_at,b.name branch_name,t.name tenant_name,
     EXISTS(SELECT 1 FROM user_role_assignments a WHERE a.user_id=u.id AND a.role_code=u.role AND a.is_primary AND a.status='ACTIVE' AND a.effective_from<=now() AND (a.effective_until IS NULL OR a.effective_until>now())) access_valid
-    FROM user_sessions s JOIN app_users u ON u.id=s.user_id LEFT JOIN branches b ON b.id=u.branch_id
+    FROM user_sessions s JOIN app_users u ON u.id=s.user_id LEFT JOIN branches b ON b.id=u.branch_id LEFT JOIN tenants t ON t.id=u.tenant_id
     WHERE s.token_hash=$1 AND s.active=true`,[digest(plainToken)]);
   const row=result.rows[0];if(!row||!row.user_active||!row.access_valid){if(row)await client.query("UPDATE user_sessions SET active=false,ended_at=now(),end_reason='access_expired' WHERE id=$1",[row.id]);return null;}
   const now=Date.now();

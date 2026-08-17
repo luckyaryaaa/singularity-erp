@@ -17,7 +17,7 @@ dbTest('opening balance persediaan: jurnal seimbang menyelaraskan GL 1300, repla
   const c = new Client({ connectionString: process.env.DATABASE_URL });
   await c.connect();
   try {
-    await c.query('BEGIN'); await c.query("SELECT set_config('app.is_system','on',true)");
+    await c.query('BEGIN'); await c.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)");
     const u = runtime.camel((await c.query(`SELECT id,username,display_name "displayName",role,branch_id "branchId",branch_scope "branchScope" FROM app_users WHERE role='owner' LIMIT 1`)).rows[0]);
     // Buat ketidakselarasan buatan agar jalur jurnal teruji walau DB sudah selaras.
     await c.query(`UPDATE business_documents SET status='CANCELLED' WHERE document_type='JOURNAL' AND payload->>'source'='INVENTORY_OPENING_BALANCE'`);

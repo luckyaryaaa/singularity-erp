@@ -1,58 +1,84 @@
 'use strict';
-// Pajak Penghasilan Orang Pribadi (PPh 21) Indonesia — PTKP + Tarif Efektif
-// Rata-rata (TER) bulanan sesuai PP 58/2023 (berlaku sejak Januari 2024).
-// Dipakai untuk MENGISI OTOMATIS profil pajak karyawan: status PTKP, kategori
-// TER (A/B/C), dan tarif TER bulanan dari status kawin + jumlah tanggungan +
-// penghasilan bruto bulanan. Angka bersifat baseline regulasi; untuk perubahan
-// aturan, tabel di bawah adalah satu sumber yang mudah diperbarui.
+// Pajak Penghasilan Orang Pribadi (PPh 21) — PTKP + Tarif Efektif Rata-rata
+// (TER) bulanan. SUMBER TARIF: file referensi perusahaan "TER PPH.pdf" (bukan
+// asumsi standar) — dipakai persis: pemetaan kategori TER, batas PTKP, dan
+// tabel tarif gabungan A/B/C. Dipakai untuk mengisi otomatis profil pajak
+// karyawan dari status kawin + tanggungan + penghasilan bruto bulanan.
 
-// PTKP tahunan (PMK 101/2016) per status.
+// PTKP tahunan per status (termasuk K/I = kawin, penghasilan istri digabung).
 const PTKP = {
   'TK/0': 54000000, 'TK/1': 58500000, 'TK/2': 63000000, 'TK/3': 67500000,
   'K/0': 58500000, 'K/1': 63000000, 'K/2': 67500000, 'K/3': 72000000,
+  'K/I/0': 112500000, 'K/I/1': 117000000, 'K/I/2': 121500000, 'K/I/3': 126000000,
 };
 
-// Status PTKP dari status kawin + tanggungan (maks 3).
-function ptkpStatus(maritalStatus, dependents = 0) {
-  const s = String(maritalStatus || '').toUpperCase();
-  const married = /(KAWIN|MENIKAH|MARRIED|^K\b|^K\/)/.test(s) && !/(BELUM|TIDAK|SINGLE|^TK)/.test(s);
+// Status PTKP dari status kawin + tanggungan (maks 3) + apakah penghasilan
+// istri digabung (K/I). Menerima input "KAWIN"/"BELUM KAWIN" atau kode "K/2".
+function ptkpStatus(maritalStatus, dependents = 0, spouseIncome = false) {
+  const s = String(maritalStatus || '').toUpperCase().trim();
+  const married = /(^K\/I)|(KAWIN|MENIKAH|MARRIED)|(^K\/)|(^K$)/.test(s) && !/(BELUM|TIDAK|SINGLE|^TK)/.test(s);
   const d = Math.max(0, Math.min(3, Math.round(Number(dependents) || 0)));
+  if (married && (spouseIncome || /^K\/I/.test(s))) return `K/I/${d}`;
   return `${married ? 'K' : 'TK'}/${d}`;
 }
 
-// Kategori TER (A/B/C) berdasarkan status PTKP (PP 58/2023 Pasal & Lampiran).
+// Kategori TER (A/B/C) — PERSIS sesuai TER PPH.pdf.
 function terCategory(ptkp) {
-  if (['TK/0', 'TK/1', 'K/0'].includes(ptkp)) return 'A';
-  if (['TK/2', 'TK/3', 'K/1', 'K/2'].includes(ptkp)) return 'B';
-  return 'C'; // K/3
+  if (['TK/0', 'TK/1'].includes(ptkp)) return 'A';
+  if (['TK/2', 'TK/3', 'K/0', 'K/1', 'K/2'].includes(ptkp)) return 'B';
+  return 'C'; // K/3, K/I/0..3
 }
 
-// Tabel TER bulanan: [batas atas penghasilan bruto bulanan, tarif %].
-// Baris terakhir Infinity = 34% untuk penghasilan sangat besar.
-const TER_A = [[5400000, 0], [5650000, 0.25], [5950000, 0.5], [6300000, 0.75], [6750000, 1], [7500000, 1.25], [8550000, 1.5], [9650000, 1.75], [10050000, 2], [10350000, 2.25], [10700000, 2.5], [11050000, 3], [11600000, 3.5], [12500000, 4], [13750000, 5], [15100000, 6], [16950000, 7], [19750000, 8], [24150000, 9], [26450000, 10], [28000000, 11], [30050000, 12], [32400000, 13], [35400000, 14], [39100000, 15], [43850000, 16], [47800000, 17], [51400000, 18], [56300000, 19], [62200000, 20], [68600000, 21], [77500000, 22], [89000000, 23], [103000000, 24], [125000000, 25], [157000000, 26], [206000000, 27], [337000000, 28], [454000000, 29], [550000000, 30], [695000000, 31], [910000000, 32], [1400000000, 33], [Infinity, 34]];
-const TER_B = [[6200000, 0], [6500000, 0.25], [6850000, 0.5], [7300000, 0.75], [9200000, 1], [10750000, 1.5], [11250000, 2], [11600000, 2.5], [12600000, 3], [13600000, 4], [14950000, 5], [16400000, 6], [18450000, 7], [21850000, 8], [26000000, 9], [27700000, 10], [29350000, 11], [31450000, 12], [33950000, 13], [37100000, 14], [41100000, 15], [45800000, 16], [49500000, 17], [53800000, 18], [58500000, 19], [64000000, 20], [71000000, 21], [80000000, 22], [93000000, 23], [109000000, 24], [129000000, 25], [163000000, 26], [211000000, 27], [374000000, 28], [459000000, 29], [555000000, 30], [704000000, 31], [957000000, 32], [1405000000, 33], [Infinity, 34]];
-const TER_C = [[6600000, 0], [6950000, 0.25], [7350000, 0.5], [7800000, 0.75], [8850000, 1], [9800000, 1.25], [10950000, 1.5], [11200000, 1.75], [12050000, 2], [12950000, 3], [14150000, 4], [15550000, 5], [17050000, 6], [19500000, 7], [22700000, 8], [26600000, 9], [28100000, 10], [30100000, 11], [32600000, 12], [35400000, 13], [38900000, 14], [43000000, 15], [47400000, 16], [51200000, 17], [55800000, 18], [60400000, 19], [66700000, 20], [74500000, 21], [83200000, 22], [95600000, 23], [110000000, 24], [134000000, 25], [169000000, 26], [221000000, 27], [390000000, 28], [463000000, 29], [561000000, 30], [709000000, 31], [965000000, 32], [1419000000, 33], [Infinity, 34]];
-const TER = { A: TER_A, B: TER_B, C: TER_C };
+// Tabel tarif TER bulanan gabungan: [batas bawah bruto, [tarif A%, B%, C%]].
+// Baris pertama batas 0. Untuk bruto G, ambil tarif dari baris dengan batas
+// bawah tertinggi yang <= G. Persis dari TER PPH.pdf.
+const TER_TABLE = [
+  [0, [0, 0, 0]], [5400001, [0.25, 0, 0]], [5650001, [0.5, 0, 0]], [5950001, [0.75, 0, 0]],
+  [6000001, [0.75, 0.25, 0.25]], [6300001, [1, 0.25, 0.25]], [6750001, [1.25, 0.25, 0.25]],
+  [6950001, [1.25, 0.5, 0.5]], [7350001, [1.25, 0.75, 0.75]], [7500001, [1.5, 0.75, 0.75]],
+  [7800001, [1.5, 1, 1]], [8550001, [1.75, 1, 1]], [8850001, [1.75, 1.25, 1.25]],
+  [9650001, [2, 1.25, 1.25]], [9800001, [2, 1.5, 1.5]], [10050001, [2.25, 1.5, 1.5]],
+  [10350001, [2.5, 1.5, 1.5]], [10700001, [3, 1.5, 1.5]], [10950001, [3, 1.75, 1.75]],
+  [11050001, [3.5, 1.75, 1.75]], [11200001, [3.5, 2, 2]], [11600001, [4, 2, 2]],
+  [12050001, [4, 2.25, 2.25]], [12500001, [5, 2.25, 2.25]], [12950001, [5, 2.5, 2.5]],
+  [13750001, [6, 2.5, 2.5]], [14150001, [6, 3, 3]], [15100001, [7, 3, 3]],
+  [15550001, [7, 3.5, 3.5]], [16950001, [8, 3.5, 3.5]], [17050001, [8, 4, 4]],
+  [19500001, [8, 5, 5]], [19750001, [9, 5, 5]], [22700001, [9, 6, 6]], [24150001, [10, 6, 6]],
+  [26000001, [10, 7, 7]], [26450001, [11, 7, 7]], [28000001, [12, 7, 7]], [28100001, [12, 8, 8]],
+  [30050001, [13, 8, 8]], [30100001, [13, 9, 9]], [32400001, [14, 9, 9]], [32600001, [14, 10, 10]],
+  [35400001, [15, 11, 11]], [38900001, [15, 12, 12]], [39100001, [16, 12, 12]], [43000001, [16, 13, 13]],
+  [43850001, [17, 13, 13]], [47400001, [17, 14, 14]], [47800001, [18, 14, 14]], [51200001, [18, 15, 15]],
+  [51400001, [19, 15, 15]], [55800001, [19, 16, 16]], [56300001, [20, 16, 16]], [60400001, [20, 17, 17]],
+  [62200001, [21, 17, 17]], [66700001, [21, 18, 18]], [68600001, [22, 18, 18]], [74500001, [22, 19, 19]],
+  [77500001, [23, 19, 19]], [83200001, [23, 20, 20]], [89900001, [24, 20, 20]], [95000001, [24, 21, 21]],
+  [103000001, [25, 21, 21]], [110000001, [25, 22, 22]], [125000001, [26, 22, 22]], [134000001, [26, 24, 24]],
+  [157000001, [27, 24, 24]], [206000001, [28, 24, 24]], [221000001, [28, 25, 25]], [337000001, [29, 25, 25]],
+  [390000001, [29, 26, 26]], [454000001, [30, 26, 26]], [463000001, [30, 27, 27]], [550000001, [31, 27, 27]],
+  [561000001, [31, 28, 28]], [709000001, [31, 29, 29]], [965000001, [31, 30, 30]], [1419000001, [31, 31, 31]],
+];
 
 // Tarif TER bulanan (%) dari kategori + penghasilan bruto bulanan.
 function terRate(category, monthlyGross) {
-  const table = TER[category] || TER_A, g = Math.max(0, Number(monthlyGross) || 0);
-  for (const [ceil, rate] of table) if (g <= ceil) return rate;
-  return 34;
+  const g = Math.max(0, Number(monthlyGross) || 0);
+  const col = { A: 0, B: 1, C: 2 }[category];
+  const idx = col == null ? 0 : col;
+  let rate = 0;
+  for (const [floor, rates] of TER_TABLE) { if (g >= floor) rate = rates[idx]; else break; }
+  return rate;
 }
 
 // Kalkulasi lengkap otomatis untuk profil pajak karyawan.
-function autoTaxProfile({ maritalStatus, dependents = 0, monthlyGross = 0 }) {
-  const ptkp = ptkpStatus(maritalStatus, dependents);
+function autoTaxProfile({ maritalStatus, dependents = 0, monthlyGross = 0, spouseIncome = false }) {
+  const ptkp = ptkpStatus(maritalStatus, dependents, spouseIncome);
   const category = terCategory(ptkp);
   const rate = terRate(category, monthlyGross);
   const gross = Math.max(0, Number(monthlyGross) || 0);
   const monthlyPph21 = Math.round(gross * rate / 100);
   return {
-    ptkpStatus: ptkp, ptkpAnnual: PTKP[ptkp], terCategory: category, terRate: rate,
+    ptkpStatus: ptkp, ptkpAnnual: PTKP[ptkp] || null, terCategory: category, terRate: rate,
     monthlyGross: gross, monthlyPph21, annualPph21Estimate: monthlyPph21 * 12,
-    basis: 'PP 58/2023 · TER bulanan',
+    basis: 'TER PPH.pdf (PPh 21 TER bulanan)',
   };
 }
 
-module.exports = { PTKP, ptkpStatus, terCategory, terRate, autoTaxProfile, TER };
+module.exports = { PTKP, ptkpStatus, terCategory, terRate, autoTaxProfile, TER_TABLE };

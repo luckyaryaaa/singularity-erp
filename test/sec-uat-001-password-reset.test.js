@@ -17,7 +17,7 @@ const dbTest = process.env.DATABASE_URL ? test : test.skip;
 async function rollback(fn) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
-  try { await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true)"); await fn(client); }
+  try { await client.query('BEGIN'); await client.query("SELECT set_config('app.is_system','on',true),set_config('app.is_platform','on',true),set_config('app.tenant_id','00000000-0000-0000-0000-000000000001',true)"); await fn(client); }
   finally { await client.query('ROLLBACK').catch(() => {}); await client.end(); }
 }
 let seq = 0;

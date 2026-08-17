@@ -40,21 +40,31 @@ if (postgresMode) {
 
 const root = __dirname;
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.woff2': 'font/woff2', '.json': 'application/json' };
+// App shell keeps the hardened baseline. The Singularity gateway under /login/ is
+// a self-contained first-party bundle whose built markup carries a few inline
+// style attributes, so it gets the same policy plus 'unsafe-inline' for styles
+// only — script-src stays 'self' (no inline scripts) and connect-src stays 'self'.
+const CSP_APP   = "default-src 'self'; style-src 'self'; font-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'";
+const CSP_LOGIN = "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'";
 const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Content-Security-Policy': "default-src 'self'; style-src 'self'; font-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'",
+  'Content-Security-Policy': CSP_APP,
   ...(production?{'Strict-Transport-Security':'max-age=31536000; includeSubDomains'}:{})
 };
 
-const PUBLIC_EXACT = new Set(['/index.html', '/favicon.svg']);
-const PUBLIC_PREFIXES = ['/src/', '/assets/'];
+const PUBLIC_EXACT = new Set(['/index.html', '/favicon.svg', '/icon-logo-gw.svg']);
+const PUBLIC_PREFIXES = ['/src/', '/assets/', '/login/', '/platform/'];
 function resolvePublicFile(rawUrl) {
   let pathname;
   try { pathname = decodeURIComponent(new URL(rawUrl, 'http://localhost').pathname); } catch { return null; }
   if (pathname === '/') pathname = '/index.html';
+  // Singularity Identity Gateway (built SPA served same-origin under /login/).
+  if (pathname === '/login' || pathname === '/login/') pathname = '/login/index.html';
+  // Singularity Control Plane — operator console (static SPA under /platform/).
+  if (pathname === '/platform' || pathname === '/platform/') pathname = '/platform/index.html';
   if (!PUBLIC_EXACT.has(pathname) && !PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return null;
   const relative = pathname.replace(/^\/+/, '');
   const file = path.resolve(root, relative);
@@ -72,13 +82,15 @@ const server = http.createServer((req, res) => {
     return res.end(JSON.stringify({ code: 'RESOURCE_NOT_FOUND', message: 'Resource tidak ditemukan.' }));
   }
   const ext = path.extname(file);
+  const isLoginAsset = /[\\/]login[\\/]/.test(file);
   const headers = {
     'Content-Type': types[ext] || 'application/octet-stream',
-    'Cache-Control': /[\\/]assets[\\/]build[\\/]/.test(file)
+    'Cache-Control': /[\\/]assets[\\/]build[\\/]/.test(file) || /[\\/]login[\\/]assets[\\/]/.test(file)
       ? 'public, max-age=31536000, immutable'
       : 'no-cache',
     'Vary': 'Accept-Encoding',
-    ...SECURITY_HEADERS
+    ...SECURITY_HEADERS,
+    ...(isLoginAsset ? { 'Content-Security-Policy': CSP_LOGIN } : {})
   };
   const accepted = req.headers['accept-encoding'] || '';
   if (/\bbr\b/.test(accepted) && fs.existsSync(`${file}.br`)) {

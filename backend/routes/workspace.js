@@ -118,8 +118,34 @@ async function dashboard(client, user) {
     FROM business_documents d WHERE ${SCOPE} AND ${ACTIVE_ORDER}
     ORDER BY d.updated_at DESC LIMIT 8`,scope)).rows;
 
+  // Pipeline order-to-cash: dokumen aktif per tahap (data ERP nyata, ter-scope).
+  const pm=Object.fromEntries((await client.query(`SELECT d.document_type dt, count(*)::int c
+    FROM business_documents d WHERE ${SCOPE} AND d.status NOT IN('VOID','CANCELLED','CLOSED','REJECTED','DRAFT')
+    GROUP BY d.document_type`,scope)).rows.map(r=>[r.dt,r.c]));
+  const pipeline=[
+    {stage:'quotation',label:'Penawaran',count:pm.QUOTATION||0},
+    {stage:'sales_order',label:'Sales order',count:pm.SALES_ORDER||0},
+    {stage:'work_order',label:'Work order',count:pm.WORK_ORDER||0},
+    {stage:'production',label:'Produksi',count:kpi.inProduction||0},
+    {stage:'delivery',label:'Pengiriman',count:(pm.DELIVERY_ORDER||0)+(pm.DELIVERY||0)},
+    {stage:'invoice',label:'Invoice',count:pm.INVOICE||0},
+    {stage:'payment',label:'Pembayaran',count:(pm.RECEIPT||0)+(pm.PAYMENT||0)}
+  ];
+  // Headcount tenaga kerja (data ERP nyata, ter-scope cabang).
+  const wf=(await client.query(`SELECT count(*)::int total, count(*) FILTER(WHERE active)::int active
+    FROM employees WHERE ($1::boolean OR branch_id=$2)`,scope)).rows[0];
+  const workforce={total:wf.total,active:wf.active};
+
+  // Aktivitas terbaru dari jejak audit — ter-scope tenant via RLS + cabang.
+  const recentActivity=(await client.query(`SELECT a.occurred_at, a.action, a.module, a.entity_type, a.document_number,
+      COALESCE(u.display_name,u.username,'Sistem') AS actor
+    FROM audit_logs a LEFT JOIN app_users u ON u.id=a.user_id
+    WHERE ($1::boolean OR a.branch_id=$2)
+    ORDER BY a.occurred_at DESC LIMIT 6`,scope)).rows.map(r=>({actor:r.actor,action:r.action,
+      module:r.module,entityType:r.entity_type,documentNumber:r.document_number,at:r.occurred_at}));
+
   const pending=await runtime.pendingApprovals(client,user,{limit:100});
-  return {asOf:new Date().toISOString(),scope:global?'ALL':user.branchId,entitlements:grants,kpi,
+  return {asOf:new Date().toISOString(),scope:global?'ALL':user.branchId,entitlements:grants,kpi,pipeline,workforce,recentActivity,
     attention:{pendingApprovals:pending.total,pendingAmount:pending.items.reduce((s,d)=>s+d.amount,0),slaRisk:pending.items.filter(d=>d.risk==='high').length},
     health,revenueSeries:grants.revenue?revenueSeries:[],
     activeJobs:activeJobs.map(d=>({id:d.id,documentNumber:d.document_number,title:d.title,party:d.party_name,
