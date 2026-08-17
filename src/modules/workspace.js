@@ -56,6 +56,7 @@
 
       // Grafik pendapatan kumulatif bulan berjalan.
       const series = data.revenueSeries;
+      const hasRevenue = series.some((p) => Number(p.value) > 0);
       const maxVal = Math.max(...series.map((p) => p.value), 1);
       const w = 620, hgt = 140, pad = 18;
       const coords = series.map((p, i) => [pad + i * (w - pad * 2) / Math.max(series.length - 1, 1), hgt - 16 - (p.value / maxVal) * (hgt - 40)]);
@@ -140,13 +141,13 @@
           <article class="panel dx-panel dx-chart-panel">
             <header><div><p class="eyebrow">KINERJA KEUANGAN</p><h2>Arus pendapatan ${esc(monthName)}</h2></div><div class="dx-chart-tag"><b>${fmtIDR(k.revenueMonth)}</b>${dxTrend(k.revenueGrowthPct)}</div></header>
             <div class="dx-chart" role="img" aria-label="Grafik pendapatan kumulatif bulan berjalan.">
-              <svg viewBox="0 0 ${w} ${hgt}" preserveAspectRatio="none">
+              ${hasRevenue ? `<svg viewBox="0 0 ${w} ${hgt}" preserveAspectRatio="none">
                 <defs><linearGradient id="dxarea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2563eb" stop-opacity=".16"/><stop offset="1" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>
                 ${[30, 60, 90, 120].map((y) => `<path class="dx-grid" d="M${pad} ${y}H${w - pad}"/>`).join('')}
                 <path class="dx-area" d="${line} L${coords.at(-1)[0]},${hgt - 12} L${pad},${hgt - 12}Z"/>
                 <path class="dx-line" d="${line}"/>
                 <circle class="dx-dot" cx="${coords.at(-1)[0]}" cy="${coords.at(-1)[1]}" r="4"/>
-              </svg>
+              </svg>` : `<div class="dx-chart-empty">${clayOrb('blue', 'chart')}<span>Belum ada pendapatan tercatat untuk ${esc(monthName)}. Grafik muncul begitu invoice pertama diposting.</span></div>`}
             </div>
           </article>
           <article class="panel dx-panel dx-attn-panel">
@@ -166,6 +167,7 @@
           </article>
           <article class="panel dx-panel">
             <header><div><p class="eyebrow">PRODUCTION OVERVIEW</p><h2>Kapasitas operasional</h2></div><span class="chip blue">${k.utilizationPct || 0}%</span></header>
+            <div class="dx-prod-hero"><strong>${k.utilizationPct || 0}<i>%</i></strong><small>Utilisasi&nbsp;/&nbsp;target ${k.utilizationTarget || 82}%</small></div>
             <div class="dx-prod">${[['Utilisasi produksi', k.utilizationPct || 0], ['Capaian vs target', Math.min(100, Math.round((k.utilizationPct || 0) / (k.utilizationTarget || 82) * 100))], ['Pekerjaan aktif (relatif)', Math.min(100, (k.inProduction || 0) * 12)], ['Tenaga kerja aktif', data.workforce && data.workforce.total ? Math.round(data.workforce.active / data.workforce.total * 100) : 0]].map(([l, v]) => `<div class="dx-hb"><div class="dx-hb-top"><b>${esc(l)}</b><span>${v}%</span></div>${progressBar(v)}</div>`).join('')}</div>
           </article>
         </section>
