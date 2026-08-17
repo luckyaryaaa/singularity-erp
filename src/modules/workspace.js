@@ -96,6 +96,12 @@
         return `<svg class="dx-spark ${tone}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="dx-spark-a" d="${d} L${W},${H} L0,${H}Z"/><path class="dx-spark-l" d="${d}"/></svg>`;
       };
       const dxTrend = (pct) => pct == null ? '' : `<em class="dx-trend ${Number(pct) >= 0 ? 'up' : 'down'}">${Number(pct) >= 0 ? '▲' : '▼'} ${Math.abs(Number(pct)).toLocaleString('id-ID')}%</em>`;
+      // Gauge ring modern — CSP-safe (atribut presentasi SVG, bukan inline style).
+      const dxGauge = (pct, tone, center, sub) => {
+        const v = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+        const R = 42, C = 2 * Math.PI * R, off = (C * (1 - v / 100)).toFixed(1);
+        return `<svg class="dx-gauge ${tone}" viewBox="0 0 110 110" role="img" aria-label="${esc(center)}"><circle class="dx-gauge-track" cx="55" cy="55" r="${R}"/><circle class="dx-gauge-arc" cx="55" cy="55" r="${R}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off}" transform="rotate(-90 55 55)"/><text class="dx-gauge-c" x="55" y="52">${esc(center)}</text><text class="dx-gauge-s" x="55" y="72">${esc(sub)}</text></svg>`;
+      };
       const sparkVals = (series && series.length) ? series.map((p) => Number(p.value) || 0) : null;
       const kpiCards = [
         grant.revenue && { t: 'blue', ic: ICONS.chart, l: `Pendapatan ${monthName}`, v: fmtIDR(k.revenueMonth), tr: k.revenueGrowthPct, sp: sparkVals, href: '#/reports' },
@@ -157,18 +163,22 @@
         </section>
         <section class="dx-sec">
           <div class="dx-sec-title"><h2>Pipeline transaksi</h2><span>Alur bisnis end-to-end</span></div>
-          <article class="panel dx-panel"><div class="dx-pipeline">${(data.pipeline || []).map((s, i) => `${i ? '<div class="dx-pipe"></div>' : ''}<div class="dx-stage"><div class="dx-stage-num">${s.count}</div><div class="dx-stage-name">${esc(s.label)}</div><div class="dx-stage-dot"></div></div>`).join('')}</div></article>
+          <article class="panel dx-panel"><div class="dx-pipeline">${(data.pipeline || []).map((s, i) => `${i ? '<div class="dx-pipe"></div>' : ''}<div class="dx-stage"><div class="dx-stage-num ${Number(s.count) > 0 ? 'has' : ''}">${s.count}</div><div class="dx-stage-name">${esc(s.label)}</div></div>`).join('')}</div></article>
         </section>
         <section class="dx-sec3">
           <article class="panel dx-panel">
             <header><div><p class="eyebrow">BUSINESS HEALTH</p><h2>Sinyal operasi eksekutif</h2></div><span class="chip ${overallScore >= 70 ? 'mint' : 'amber'}">${overallScore >= 85 ? 'Sangat sehat' : overallScore >= 70 ? 'Stabil' : 'Perlu fokus'}</span></header>
-            <div class="dx-health-hero"><strong>${overallScore}</strong><small>Skor komposit&nbsp;/&nbsp;100</small></div>
-            <div class="dx-health-bars">${[['Keuangan', scores.finance], ['Operasi', scores.operations], ['Penjualan', scores.sales], ['Kontrol', scores.control]].map(([l, v]) => `<div class="dx-hb"><div class="dx-hb-top"><b>${esc(l)}</b><span>${v}%</span></div>${progressBar(v)}</div>`).join('')}</div>
+            <div class="dx-metric-body">
+              ${dxGauge(overallScore, overallScore >= 70 ? 'mint' : 'amber', String(overallScore), 'Komposit')}
+              <div class="dx-health-bars">${[['Keuangan', scores.finance], ['Operasi', scores.operations], ['Penjualan', scores.sales], ['Kontrol', scores.control]].map(([l, v]) => `<div class="dx-hb"><div class="dx-hb-top"><b>${esc(l)}</b><span>${v}%</span></div>${progressBar(v)}</div>`).join('')}</div>
+            </div>
           </article>
           <article class="panel dx-panel">
             <header><div><p class="eyebrow">PRODUCTION OVERVIEW</p><h2>Kapasitas operasional</h2></div><span class="chip blue">${k.utilizationPct || 0}%</span></header>
-            <div class="dx-prod-hero"><strong>${k.utilizationPct || 0}<i>%</i></strong><small>Utilisasi&nbsp;/&nbsp;target ${k.utilizationTarget || 82}%</small></div>
-            <div class="dx-prod">${[['Utilisasi produksi', k.utilizationPct || 0], ['Capaian vs target', Math.min(100, Math.round((k.utilizationPct || 0) / (k.utilizationTarget || 82) * 100))], ['Pekerjaan aktif (relatif)', Math.min(100, (k.inProduction || 0) * 12)], ['Tenaga kerja aktif', data.workforce && data.workforce.total ? Math.round(data.workforce.active / data.workforce.total * 100) : 0]].map(([l, v]) => `<div class="dx-hb"><div class="dx-hb-top"><b>${esc(l)}</b><span>${v}%</span></div>${progressBar(v)}</div>`).join('')}</div>
+            <div class="dx-metric-body">
+              ${dxGauge(k.utilizationPct || 0, 'blue', `${k.utilizationPct || 0}%`, 'Utilisasi')}
+              <div class="dx-prod">${[['Utilisasi produksi', k.utilizationPct || 0], ['Capaian vs target', Math.min(100, Math.round((k.utilizationPct || 0) / (k.utilizationTarget || 82) * 100))], ['Pekerjaan aktif (relatif)', Math.min(100, (k.inProduction || 0) * 12)], ['Tenaga kerja aktif', data.workforce && data.workforce.total ? Math.round(data.workforce.active / data.workforce.total * 100) : 0]].map(([l, v]) => `<div class="dx-hb"><div class="dx-hb-top"><b>${esc(l)}</b><span>${v}%</span></div>${progressBar(v)}</div>`).join('')}</div>
+            </div>
           </article>
         </section>
         <section class="dx-sec">
