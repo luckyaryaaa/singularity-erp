@@ -62,6 +62,7 @@
   };
   R('/hr/employees', masterPage({
     endpoint: '/api/employees', key: 'employees', permission: 'employee.view', title: 'Karyawan', eyebrow: 'HRD', detailType: 'employees',
+    presentation: { directory: { kind: 'employee', kicker: 'WORKFORCE 360 · DIREKTORI', headline: 'Direktori Karyawan', description: 'Identitas, penempatan, kompensasi, pajak PPh21, BPJS, dan tata kelola data karyawan dalam satu direktori enterprise.', totalLabel: 'Total karyawan', facts: [['Model data', '360°'], ['Governance', 'Aktif']] }, subtitle: 'Klik profil untuk membuka Employee 360 — identitas, kepegawaian, kompensasi, pajak, BPJS, dan tata kelola data.' },
     fields:async()=>{const branches=await api('/api/branches');return[{name:'nik',label:'NIK',required:true},{name:'name',label:'Nama lengkap',required:true},{name:'department',label:'Departemen',required:true},{name:'jobTitle',label:'Jabatan'},{name:'baseSalary',label:'Gaji pokok',type:'number',min:0,required:true},{name:'branchId',label:'Lokasi kerja',type:'select',options:branches.items.map(x=>[x.id,`${x.code} · ${x.name}`]),required:true},{name:'joinDate',label:'Tanggal bergabung',type:'date'},{name:'bpjs',label:'Terdaftar BPJS',type:'checkbox'},{name:'active',label:'Karyawan aktif',type:'checkbox'}];},
     columns: [
       { label: 'Karyawan', render: (r) => `<div class="emp-cell"><span class="emp-cell-av">${empInitials(r.name)}</span><span class="emp-cell-copy"><b>${esc(r.name)}</b><small>${esc(r.nik)} · ${esc(r.jobTitle || '—')}</small></span></div>` },
