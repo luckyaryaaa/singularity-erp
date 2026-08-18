@@ -9,8 +9,20 @@ const runtime = require('../infrastructure/database/repositories/runtime');
 const ratelimit = require('../core/ratelimit');
 const docVerify = require('../core/doc-verification');
 const controlPlane = require('../infrastructure/database/repositories/control-plane');
+const { setRlsContext } = require('../infrastructure/database/transaction');
 const oidc = require('../core/oidc');
 const socialAuth = require('../infrastructure/database/repositories/social-auth');
+
+// Login ter-scope tenant: resolve tenant dari Host (masih dalam konteks platform
+// transaksi login), lalu KUNCI konteks RLS ke tenant itu. Setelah ini query
+// by-username (auth.login / passkey) otomatis ter-filter RLS ke tenant tsb —
+// tak bisa lintas-tenant, dan username boleh sama antar tenant. Resolver selalu
+// mengembalikan tenant (default MAT), jadi login tak pernah kehilangan tenant.
+async function scopeLoginToHost(client, req) {
+  const tenant = await controlPlane.resolveTenantByHost(client, req.headers.host);
+  if (tenant) await setRlsContext(client, null, { tenantId: tenant.id });
+  return tenant;
+}
 const secureCookie=()=>process.env.NODE_ENV==='production'||process.env.MAT_COOKIE_SECURE==='1'?'; Secure':'';
 // Asal absolut untuk redirect_uri OAuth (harus cocok dgn yang didaftarkan di
 // provider). OAUTH_REDIRECT_BASE meng-override (mis. di belakang proxy HTTPS).
@@ -125,13 +137,14 @@ async function dispatchPublic(client,req,url,ctx){const p=url.pathname,method=re
   }
   if(method==='POST'&&p==='/api/auth/login'){
     const body=await readBody(req);ratelimit.consume('login',`${body.username||'anon'}:${ctx.ip}`);if(!body.username||!body.password)throw new AppError('VALIDATION_ERROR','Nama pengguna dan kata sandi wajib diisi.');
+    await scopeLoginToHost(client,req);
     const result=await auth.login(client,{...body,ip:ctx.ip,device:ctx.device});
     return authResult(ctx,result);
   }
   if(method==='POST'&&p==='/api/auth/mfa'){const body=await readBody(req);ratelimit.consume('login',`${body.mfaToken||'anon'}:${ctx.ip}`);return authResult(ctx,await auth.completeMfa(client,{...body,ip:ctx.ip,device:ctx.device}));}
   if(method==='POST'&&p==='/api/auth/change-password-required'){const body=await readBody(req);ratelimit.consume('login',`${body.changeToken||'anon'}:${ctx.ip}`);return authResult(ctx,await auth.changePasswordWithToken(client,{...body,ip:ctx.ip,device:ctx.device}));}
-  if(method==='POST'&&p==='/api/auth/passkey/login/options'){const body=await readBody(req);ratelimit.consume('login',`pko:${ctx.ip}`);return auth.passkeyLoginOptions(client,body.username);}
-  if(method==='POST'&&p==='/api/auth/passkey/login'){const body=await readBody(req);ratelimit.consume('login',`pk:${body.username||'anon'}:${ctx.ip}`);return authResult(ctx,await auth.passkeyLogin(client,{username:body.username,credential:body.credential,ip:ctx.ip,device:ctx.device},rpFrom(req)));}
+  if(method==='POST'&&p==='/api/auth/passkey/login/options'){const body=await readBody(req);ratelimit.consume('login',`pko:${ctx.ip}`);await scopeLoginToHost(client,req);return auth.passkeyLoginOptions(client,body.username);}
+  if(method==='POST'&&p==='/api/auth/passkey/login'){const body=await readBody(req);ratelimit.consume('login',`pk:${body.username||'anon'}:${ctx.ip}`);await scopeLoginToHost(client,req);return authResult(ctx,await auth.passkeyLogin(client,{username:body.username,credential:body.credential,ip:ctx.ip,device:ctx.device},rpFrom(req)));}
 return NO_MATCH;}
 async function dispatchPrivate(client,req,url,ctx){const p=url.pathname,method=req.method;
   if(method==='GET'&&p==='/api/auth/session')return {user:ctx.user,csrfToken:await auth.rotateCsrf(client,ctx.session.id),permissions:[...grantsFor(ctx.user.role)],unreadNotifications:(await operations.unreadCount(client,ctx.user)).unread};
