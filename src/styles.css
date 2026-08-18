@@ -1802,3 +1802,46 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .bill-mtr .progress span{display:none}
 .bill-note{margin:12px 2px 0;font-size:11px;color:var(--muted);line-height:1.5}
 @media(max-width:900px){.bill-grid{grid-template-columns:1fr}}
+
+/* Enterprise Org Chart (bagan organisasi) */
+.oc-legend{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin:0 2px 14px;font-size:11px}
+.oc-leg{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--ink-soft,#5b6479)}
+.oc-leg::before{content:"";width:11px;height:11px;border-radius:4px}
+.oc-leg.legal::before{background:linear-gradient(135deg,#22375c,#0f1a30)}
+.oc-leg.bu::before{background:linear-gradient(135deg,#6366f1,#4f46e5)}
+.oc-leg.dept::before{background:linear-gradient(135deg,#3b82f6,#2563eb)}
+.oc-leg.cc::before{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.oc-count{margin-left:auto;color:var(--muted);font-weight:700}
+.orgchart-panel{padding:6px}
+.orgchart-wrap{overflow-x:auto;padding:22px 10px 14px}
+.orgchart{display:inline-block;min-width:100%}
+.oc-tree,.oc-tree ul{list-style:none;margin:0;padding:0}
+.oc-tree{display:flex;justify-content:center}
+.oc-tree ul{position:relative;padding-top:26px;display:flex;justify-content:center}
+.oc-tree li{position:relative;padding:26px 9px 0;display:flex;flex-direction:column;align-items:center}
+.oc-tree li::before,.oc-tree li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:26px;border-top:2px solid var(--border)}
+.oc-tree li::after{right:auto;left:50%;border-left:2px solid var(--border)}
+.oc-tree li:only-child::before,.oc-tree li:only-child::after{display:none}
+.oc-tree li:only-child{padding-top:0}
+.oc-tree li:first-child::before,.oc-tree li:last-child::after{border:0 none}
+.oc-tree li:last-child::before{border-right:2px solid var(--border);border-radius:0 7px 0 0}
+.oc-tree li:first-child::after{border-radius:7px 0 0 0}
+.oc-tree ul::before{content:"";position:absolute;top:0;left:calc(50% - 1px);width:0;height:26px;border-left:2px solid var(--border)}
+.oc-tree li.collapsed>ul{display:none}
+.oc-tree li.collapsed>.oc-card.has-kids .oc-badge{background:var(--blue-ink,#1f4fd6);color:#fff}
+.oc-card{position:relative;display:inline-flex;align-items:center;gap:10px;padding:11px 13px;border-radius:15px;background:var(--surface,#fff);border:1px solid var(--border);box-shadow:var(--glass-sheen),0 12px 26px -20px rgba(36,54,88,.55);min-width:186px;max-width:238px;transition:transform .15s,box-shadow .15s}
+.oc-card.has-kids{cursor:pointer}
+.oc-card.has-kids:hover{transform:translateY(-2px);box-shadow:0 20px 32px -20px rgba(37,99,235,.42)}
+.oc-ic{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;flex:none;color:#fff;box-shadow:0 7px 14px -7px rgba(37,99,235,.5)}.oc-ic svg{width:18px;height:18px;stroke-width:2}
+.oc-ic.legal{background:linear-gradient(140deg,#22375c,#0f1a30)}
+.oc-ic.bu{background:linear-gradient(140deg,#6366f1,#4f46e5)}
+.oc-ic.dept{background:linear-gradient(140deg,#3b82f6,#2563eb)}
+.oc-ic.cc{background:linear-gradient(140deg,#f59e0b,#d97706);box-shadow:0 7px 14px -7px rgba(217,119,6,.5)}
+.oc-main{display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left}
+.oc-main b{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.oc-main small{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.oc-badge{margin-left:auto;flex:none;min-width:20px;height:20px;padding:0 6px;display:grid;place-items:center;border-radius:8px;background:#eef4ff;color:var(--blue-ink,#1f4fd6);font:800 10px var(--font)}
+.oc-legal{min-width:238px;background:linear-gradient(135deg,#fff,#eef4ff);border-color:rgba(37,99,235,.2)}
+.oc-legal .oc-main b{font-size:14px;max-width:172px}
+.oc-cc{min-width:168px;background:linear-gradient(135deg,#fffdf8,#fdf3e2)}
+.oc-empty{color:var(--muted);font-size:12px;justify-content:center}

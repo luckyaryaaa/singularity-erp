@@ -103,6 +103,7 @@
       sections: [
         { id: 'org-design', label: 'Organization Design', items: [
           route('#/organization', 'Struktur perusahaan', 'building', 'organization.view'),
+          route('#/organization/chart', 'Bagan organisasi', 'grid', 'organization.view'),
           route('#/organization/workforce', 'Job & Position', 'people', 'organization.view')
         ] },
         { id: 'workforce', label: 'Workforce & Time', items: [

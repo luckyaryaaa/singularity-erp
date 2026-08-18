@@ -48,7 +48,7 @@
       main.innerHTML = pageHead({
         eyebrow: 'ENTERPRISE ORGANIZATION', title: org.tradeName || org.legalName,
         sub: `${org.code} · ${org.lifecycleStatus} · versi master ${org.mdmVersion}`,
-        actions: can('organization.edit') && state.user?.role === 'owner' ? `<button class="btn primary" id="orgEdit">${ICONS.gear} Edit identitas</button>` : ''
+        actions: `<a class="btn secondary" href="#/organization/chart">${ICONS.grid} Bagan organisasi</a>${can('organization.edit') && state.user?.role === 'owner' ? `<button class="btn primary" id="orgEdit">${ICONS.gear} Edit identitas</button>` : ''}`
       }) + `
         <section class="kpi-grid">
           <article class="kpi"><span>Data lengkap</span><strong>${Number(org.completeness?.score || 0)}%</strong><small>${Number(org.completeness?.completed || 0)} dari ${Number(org.completeness?.total || 0)} atribut wajib</small></article>
@@ -314,8 +314,69 @@
     }
   };
 
+  // ── Bagan organisasi (enterprise structure chart) ────────────────────────
+  // Visualisasi hierarki: Legal Entity → Business Unit → Departemen (nested via
+  // parentId, dengan kepala) → Cost Center (via departmentId). Pure CSS/HTML —
+  // CSP-safe, tanpa inline style. Expand/collapse per node.
+  const orgChartPage = {
+    permission: 'organization.view',
+    async render(main, _params, signal) {
+      main.innerHTML = pageHead({ eyebrow: 'ENTERPRISE STRUCTURE', title: 'Bagan organisasi', sub: 'Memuat hierarki struktur perusahaan…' }) + '<div class="panel"><div class="panel-body"><span class="spinner"></span> Memuat bagan…</div></div>';
+      const org = await api('/api/organization', { signal });
+      const h = await api(`/api/organization/${org.id}/hierarchy`, { signal });
+      const emp = new Map();
+      try { ((await api('/api/employees?limit=300', { signal })).items || []).forEach((e) => emp.set(e.id, e.name)); } catch { /* head names best-effort */ }
+      const depts = h.departments || [], ccs = h.costCenters || [], bus = h.businessUnits || [];
+      const byId = new Map(depts.map((d) => [d.id, { ...d, children: [], cc: [] }]));
+      const roots = [];
+      depts.forEach((d) => { const n = byId.get(d.id); if (d.parentId && byId.has(d.parentId)) byId.get(d.parentId).children.push(n); else roots.push(n); });
+      ccs.forEach((c) => { if (c.departmentId && byId.has(c.departmentId)) byId.get(c.departmentId).cc.push(c); });
+
+      const deptNode = (n) => {
+        const head = n.headEmployeeId && emp.get(n.headEmployeeId);
+        const kids = n.children.length + n.cc.length;
+        return `<li><div class="oc-card oc-dept${kids ? ' has-kids' : ''}"${kids ? ' data-oc-toggle role="button" tabindex="0"' : ''}>
+          <span class="oc-ic dept">${ICONS.people}</span>
+          <span class="oc-main"><b>${esc(n.name)}</b><small>${esc(n.code)}${head ? ` · ${esc(head)}` : ''}</small></span>
+          ${kids ? `<span class="oc-badge">${kids}</span>` : ''}
+        </div>${kids ? `<ul>${n.children.map(deptNode).join('')}${n.cc.map((c) => `<li><div class="oc-card oc-cc"><span class="oc-ic cc">${ICONS.wallet}</span><span class="oc-main"><b>${esc(c.name)}</b><small>${esc(c.code)} · cost center</small></span></div></li>`).join('')}</ul>` : ''}</li>`;
+      };
+
+      main.innerHTML = pageHead({
+        eyebrow: 'ENTERPRISE STRUCTURE', title: 'Bagan organisasi',
+        sub: `${esc(org.tradeName || org.legalName)} · ${depts.length} departemen · ${ccs.length} cost center`,
+        actions: `<button class="btn ghost sm" id="ocExpand">${ICONS.plus} Buka semua</button><button class="btn ghost sm" id="ocCollapse">Tutup semua</button><a class="btn secondary sm" href="#/organization">${ICONS.gear} Workbench struktur</a>`
+      }) + `
+        <section class="oc-legend">
+          <span class="oc-leg legal">Legal entity</span><span class="oc-leg bu">Business unit</span><span class="oc-leg dept">Departemen</span><span class="oc-leg cc">Cost center</span>
+          <span class="oc-count">Cabang ${(h.branches || []).length} · Plant ${(h.plants || []).length} · Gudang ${(h.warehouses || []).length} · Profit center ${(h.profitCenters || []).length}</span>
+        </section>
+        <section class="panel orgchart-panel"><div class="orgchart-wrap"><div class="orgchart"><ul class="oc-tree">
+          <li>
+            <div class="oc-card oc-legal">
+              <span class="oc-ic legal">${ICONS.building}</span>
+              <span class="oc-main"><b>${esc(org.tradeName || org.legalName)}</b><small>${esc(org.code)} · legal entity</small></span>
+            </div>
+            <ul>
+              ${bus.map((b) => `<li><div class="oc-card oc-bu"><span class="oc-ic bu">${ICONS.grid}</span><span class="oc-main"><b>${esc(b.name)}</b><small>${esc(b.code)} · business unit</small></span></div></li>`).join('')}
+              ${roots.map(deptNode).join('') || '<li><div class="oc-card oc-empty">Belum ada departemen</div></li>'}
+            </ul>
+          </li>
+        </ul></div></div></section>`;
+
+      const toggle = (el) => el.closest('li').classList.toggle('collapsed');
+      main.querySelectorAll('[data-oc-toggle]').forEach((el) => {
+        el.addEventListener('click', () => toggle(el));
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(el); } });
+      });
+      main.querySelector('#ocExpand')?.addEventListener('click', () => main.querySelectorAll('.oc-tree li.collapsed').forEach((li) => li.classList.remove('collapsed')));
+      main.querySelector('#ocCollapse')?.addEventListener('click', () => main.querySelectorAll('.oc-card.has-kids').forEach((c) => c.closest('li').classList.add('collapsed')));
+    }
+  };
+
   const R = router.register.bind(router);
   R('/organization', organizationPage);
+  R('/organization/chart', orgChartPage);
   R('/organization/workforce',workforcePage);
   R('/system/settings', settings);
   R('/system/document-templates', templatesPage);
