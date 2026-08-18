@@ -1960,3 +1960,12 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .form-section .fs-ic{display:grid;place-items:center;width:26px;height:26px;border-radius:9px;background:linear-gradient(145deg,#f6f4fe,#d8d1f8);color:var(--lav-ink);box-shadow:inset 1px 1px 3px rgba(255,255,255,.9),inset -2px -3px 6px rgba(120,110,180,.28)}
 .form-section .fs-ic svg{width:14px;height:14px}
 .form-section small{color:var(--muted);font-size:11px;font-weight:500;margin-left:auto}
+
+/* ── Data quality · actionable flags (Employee 360 overview) ────────────── */
+.eq-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.eq-flag{display:flex;align-items:center;gap:11px;padding:10px 12px;border:1px solid var(--border);border-radius:13px;background:var(--surface-soft,#f4f7fc);font-size:12.5px}
+.eq-flag .eq-dot{flex:none;width:9px;height:9px;border-radius:50%;background:var(--amber)}
+.eq-flag.eq-critical .eq-dot{background:var(--coral)}
+.eq-flag.eq-critical{border-color:#f3cfca;background:linear-gradient(160deg,#fdf0ee,#fff)}
+.eq-detail{flex:1;font-weight:600;color:var(--text)}
+.eq-flag>.btn{flex:none}

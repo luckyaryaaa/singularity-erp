@@ -407,6 +407,17 @@
     return esc(v ?? '—');
   };
 
+  // Masa kerja (service length) dari tanggal bergabung — gaya "length of service" HR.
+  const serviceLength = (d) => {
+    if (!d) return '—';
+    const start = new Date(d), now = new Date();
+    let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+    if (now.getDate() < start.getDate()) months -= 1;
+    if (!Number.isFinite(months) || months < 0) months = 0;
+    const y = Math.floor(months / 12), m = months % 12;
+    return y ? `${y} th${m ? ` ${m} bln` : ''}` : `${m} bln`;
+  };
+
   // ── Pengkinian Identitas (IT-0002 Personal Data) ─────────────────────────
   const GENDER_LABEL = { MALE: 'Laki-laki', FEMALE: 'Perempuan' };
   const personalDataCard = (p, overview, canEdit) => {
@@ -463,6 +474,28 @@
       toast('Identitas diperbarui', 'Data diri tersimpan & tercatat di audit trail.');
       rerender();
     } catch (error) { toast('Gagal menyimpan identitas', error.message, 'coral'); }
+  };
+
+  // Quality flag → aksi cepat: loncat ke tab terkait atau buka Edit data dasar.
+  const FLAG_ACTION = {
+    POSITION_MISSING: { tab: 'employment', label: 'Lengkapi posisi' },
+    BANK_UNVERIFIED: { tab: 'bank-accounts', label: 'Verifikasi rekening' },
+    TAX_MISSING: { tab: 'tax-profiles', label: 'Lengkapi pajak' },
+    DEPARTMENT_MISSING: { edit: true, label: 'Edit data dasar' },
+    JOB_TITLE_MISSING: { edit: true, label: 'Edit data dasar' },
+    BRANCH_ID_MISSING: { edit: true, label: 'Edit data dasar' },
+    JOIN_DATE_MISSING: { edit: true, label: 'Edit data dasar' }
+  };
+  const employeeQualityPanel = (overview) => {
+    const flags = Array.isArray(overview.qualityFlags) ? overview.qualityFlags : [];
+    if (!flags.length) return '';
+    const canEdit = can('employee.edit');
+    const items = flags.map((f) => {
+      const act = FLAG_ACTION[f.code], sev = String(f.severity || 'WARNING').toLowerCase();
+      const btn = canEdit && act ? (act.edit ? `<button class="btn secondary sm" data-quality-edit>${esc(act.label)}</button>` : `<button class="btn secondary sm" data-quality-goto="${esc(act.tab)}">${esc(act.label)}</button>`) : '';
+      return `<li class="eq-flag eq-${sev}"><span class="eq-dot" aria-hidden="true"></span><span class="eq-detail">${esc(f.detail || f.code)}</span>${btn}</li>`;
+    }).join('');
+    return `<article class="panel emp-infotype it-coral"><header><div><p class="eyebrow">DATA QUALITY · PERLU TINDAKAN</p><h2>${flags.length} isu data perlu ditindak</h2></div><span class="chip ${Number(overview.dataQualityScore) >= 80 ? 'mint' : Number(overview.dataQualityScore) >= 50 ? 'amber' : 'coral'}">Skor ${Math.round(Number(overview.dataQualityScore) || 0)}%</span></header><div class="panel-body"><ul class="eq-list">${items}</ul></div></article>`;
   };
 
   const masterDetail = {
@@ -546,11 +579,12 @@
         const tab = cfg.tabs.find((t) => t.id === tabId);
         if (tabId === 'overview') {
           if (params.type === 'employees') {
-            const s=overview.enterpriseSummary||{},pos=s.currentPosition||{},employment=s.employment||{},comp=s.compensation||{},tax=s.tax||{},bank=s.payrollBank||{},completeness=overview.completeness||{};
+            const s=overview.enterpriseSummary||{},pos=s.currentPosition||{},employment=s.employment||{},comp=s.compensation||{},tax=s.tax||{},bank=s.payrollBank||{},completeness=overview.completeness||{},sup=s.supervisor||{};
             const personal = await api(`${cfg.base}/${params.id}/personal`).then((r) => (r && r.items && r.items[0]) || (r && r.nikKtp !== undefined ? r : {})).catch(() => ({}));
             body.innerHTML=`<section class="kpi-grid"><article class="kpi"><span>Kelengkapan profil</span><strong>${Number(completeness.score||0)}%</strong><small>${Number(completeness.completed||0)} dari ${Number(completeness.total||0)} kontrol utama</small></article><article class="kpi"><span>Status kerja</span><strong>${esc(employment.employmentStatus||'—')}</strong><small>${esc(employment.employmentType||'Belum dikonfigurasi')}</small></article><article class="kpi"><span>Dokumen segera kedaluwarsa</span><strong>${Number(s.expiringDocuments||0)}</strong><small>Dalam 90 hari</small></article><article class="kpi"><span>Akun sistem aktif</span><strong>${Number(s.activeUserAccounts||0)}</strong><small>Akses ditinjau melalui IAM</small></article></section>
+              ${employeeQualityPanel(overview)}
               ${personalDataCard(personal, overview, can('employee.edit'))}
-              <section class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">EMPLOYMENT SNAPSHOT</p><h2>Posisi & kompensasi terkendali</h2></div>${chip(overview.lifecycleStatus||'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl"><div><dt>NIK</dt><dd>${esc(overview.nik)}</dd></div><div><dt>Nama</dt><dd>${esc(overview.name)}</dd></div><div><dt>Jabatan</dt><dd>${esc(pos.positionTitle||overview.jobTitle||'—')}</dd></div><div><dt>Divisi / departemen</dt><dd>${esc(pos.division||overview.department||'—')}</dd></div><div><dt>Lokasi kerja</dt><dd>${esc(pos.workLocation||'—')}</dd></div><div><dt>Grade</dt><dd>${esc(pos.salaryGrade||comp.salaryGrade||'—')}</dd></div><div><dt>Gaji pokok</dt><dd>${typeof comp.baseSalary==='number'?fmtIDR(comp.baseSalary):esc(comp.baseSalary||overview.baseSalary||'—')}</dd></div><div><dt>Tunjangan tetap</dt><dd>${typeof comp.fixedAllowance==='number'?fmtIDR(comp.fixedAllowance):esc(comp.fixedAllowance||'—')}</dd></div></dl></div></article>
+              <section class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">EMPLOYMENT SNAPSHOT</p><h2>Posisi & kompensasi terkendali</h2></div>${chip(overview.lifecycleStatus||'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl"><div><dt>NIK</dt><dd>${esc(overview.nik)}</dd></div><div><dt>Nama</dt><dd>${esc(overview.name)}</dd></div><div><dt>Jabatan</dt><dd>${esc(pos.positionTitle||overview.jobTitle||'—')}</dd></div><div><dt>Divisi / departemen</dt><dd>${esc(pos.division||overview.department||'—')}</dd></div><div><dt>Lokasi kerja</dt><dd>${esc(pos.workLocation||'—')}</dd></div><div><dt>Grade</dt><dd>${esc(pos.salaryGrade||comp.salaryGrade||'—')}</dd></div><div><dt>Gaji pokok</dt><dd>${typeof comp.baseSalary==='number'?fmtIDR(comp.baseSalary):esc(comp.baseSalary||overview.baseSalary||'—')}</dd></div><div><dt>Tunjangan tetap</dt><dd>${typeof comp.fixedAllowance==='number'?fmtIDR(comp.fixedAllowance):esc(comp.fixedAllowance||'—')}</dd></div><div><dt>Masa kerja</dt><dd>${serviceLength(overview.joinDate)}${overview.joinDate?` · sejak ${fmtDate(overview.joinDate)}`:''}</dd></div><div><dt>Atasan langsung</dt><dd>${sup.supervisorName?`${esc(sup.supervisorName)}${sup.supervisorTitle?` · ${esc(sup.supervisorTitle)}`:''}`:'<span class="muted">Belum ditetapkan</span>'}</dd></div><div><dt>Bawahan langsung</dt><dd>${Number(s.directReports||0)} orang</dd></div></dl></div></article>
               <article class="panel"><header><div><p class="eyebrow">COMPLIANCE SNAPSHOT</p><h2>Pajak, benefit & risiko</h2></div></header><div class="panel-body stack"><div class="stat-row"><span>PTKP / TER</span><b>${esc([tax.ptkpStatus,tax.terCategory].filter(Boolean).join(' · ')||'—')}</b></div><div class="stat-row"><span>Program BPJS aktif</span><b>${Number(s.bpjsPrograms||0)}</b></div><div class="stat-row"><span>Polis asuransi aktif</span><b>${Number(s.insurancePolicies||0)}</b></div><div class="stat-row"><span>Rekening payroll</span><b>${esc(bank.bankName||'Belum ada')} · ${esc(bank.accountNumber||'—')}</b></div><div class="stat-row"><span>Kehadiran bulan ini</span><b>${Number(s.attendanceDays||0)} hari</b></div><div class="stat-row"><span>Sisa cuti</span><b>${Number(s.leaveBalance?.remaining||0)} hari</b></div></div></article></section>
               <article class="panel tax-auto-panel"><header><div><p class="eyebrow">PAJAK OTOMATIS · PPh 21 TER (PP 58/2023)</p><h2>Kalkulasi PTKP &amp; TER otomatis</h2></div>${can('employee.edit')?`<button class="btn primary sm" id="taxAutoBtn">${ICONS.gear} Hitung otomatis</button>`:''}</header><div class="panel-body"><div class="tax-auto-grid"><div><span>Status PTKP</span><b>${esc(tax.ptkpStatus||'—')}</b></div><div><span>Kategori TER</span><b>${esc(tax.terCategory||'—')}</b></div><div><span>Tarif TER / bln</span><b>${tax.terRate!=null&&tax.terRate!==''?Number(tax.terRate)+'%':'—'}</b></div><div><span>Gaji bruto / bln</span><b>${overview.baseSalary?fmtIDR(overview.baseSalary):'—'}</b></div></div><p class="tax-auto-note">Dari status kawin + jumlah tanggungan + gaji bruto, sistem menetapkan status PTKP, kategori TER (A/B/C), dan tarif TER bulanan otomatis sesuai PP 58/2023.</p></div></article></section>`;
             body.querySelector('#taxAutoBtn')?.addEventListener('click', async () => {
@@ -567,6 +601,8 @@
               } catch (error) { toast('Gagal menghitung pajak', error.message, 'coral'); }
             });
             body.querySelector('[data-identity-edit]')?.addEventListener('click', () => openIdentityUpdate(params, overview, () => this.render(main, params)));
+            body.querySelectorAll('[data-quality-goto]').forEach((b) => b.addEventListener('click', () => renderTab(b.dataset.qualityGoto)));
+            body.querySelectorAll('[data-quality-edit]').forEach((b) => b.addEventListener('click', () => main.querySelector('#masterEditBtn')?.click()));
             return;
           }
           const rows = cfg.tabs.filter((t) => t.sub).map((t) => `<div class="stat-row"><span>${esc(t.label)}</span><b>${(overview.subCounts && overview.subCounts[t.sub]) || 0} entri</b></div>`).join('');

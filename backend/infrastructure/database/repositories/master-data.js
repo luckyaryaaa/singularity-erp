@@ -194,7 +194,14 @@ async function overview(client, master, id, user) {
       (SELECT count(*)::int FROM employee_documents WHERE employee_id=$1 AND expiry_date BETWEEN current_date AND current_date+interval '90 days') expiring_documents,
       (SELECT count(*)::int FROM attendance_records WHERE employee_id=$1 AND work_date>=date_trunc('month',current_date)) attendance_days,
       (SELECT jsonb_build_object('entitlement',entitlement,'used',used,'remaining',entitlement-used) FROM leave_balances WHERE employee_id=$1 AND year=extract(year from current_date)) leave_balance,
-      (SELECT count(*)::int FROM app_users WHERE employee_id=$1 AND active) active_user_accounts`,[id])).rows[0];
+      (SELECT count(*)::int FROM app_users WHERE employee_id=$1 AND active) active_user_accounts,
+      (SELECT row_to_json(x) FROM (
+         SELECT sup.name AS supervisor_name, sup.id AS supervisor_id,
+           (SELECT position_title FROM employee_positions WHERE employee_id=sup.id AND effective_from<=current_date AND (effective_to IS NULL OR effective_to>=current_date) ORDER BY effective_from DESC LIMIT 1) AS supervisor_title
+         FROM employee_positions p1 JOIN employees sup ON sup.id=p1.supervisor_employee_id
+         WHERE p1.employee_id=$1 AND p1.supervisor_employee_id IS NOT NULL AND p1.effective_from<=current_date AND (p1.effective_to IS NULL OR p1.effective_to>=current_date)
+         ORDER BY p1.effective_from DESC LIMIT 1)x) supervisor,
+      (SELECT count(DISTINCT employee_id)::int FROM employee_positions WHERE supervisor_employee_id=$1 AND effective_from<=current_date AND (effective_to IS NULL OR effective_to>=current_date)) direct_reports`,[id])).rows[0];
     const required=[parent.nik,parent.name,parent.department,parent.branchId,parent.joinDate,summary.current_position,summary.employment,summary.tax,summary.payroll_bank];
     parent.completeness={score:Math.round(required.filter(Boolean).length/required.length*100),completed:required.filter(Boolean).length,total:required.length};
     if (summary.payroll_bank) decryptSensitive(
@@ -203,7 +210,7 @@ async function overview(client, master, id, user) {
     const enterprise=runtime.camel(summary);
     // row_to_json mengembalikan snake_case; runtime.camel hanya dangkal, jadi
     // objek nested (posisi, kompensasi, pajak, bank) di-camel-kan satu tingkat.
-    for(const k of ['currentPosition','employment','compensation','tax','payrollBank'])if(enterprise[k]&&typeof enterprise[k]==='object')enterprise[k]=runtime.camel(enterprise[k]);
+    for(const k of ['currentPosition','employment','compensation','tax','payrollBank','supervisor'])if(enterprise[k]&&typeof enterprise[k]==='object')enterprise[k]=runtime.camel(enterprise[k]);
     if(!canSeeSalary(user)){parent.baseSalary=maskMoney();if(enterprise.compensation){enterprise.compensation.baseSalary=maskMoney();enterprise.compensation.fixedAllowance=maskMoney();enterprise.compensation.variableAllowance=maskMoney();}}
     if(enterprise.payrollBank&&!canSeeBank(user))enterprise.payrollBank.accountNumber=maskAccount(enterprise.payrollBank.accountNumber);
     parent.enterpriseSummary=enterprise;
