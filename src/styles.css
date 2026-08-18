@@ -1856,3 +1856,18 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .dq-arc{fill:none;stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset .7s ease}
 .dq-ring.mint .dq-arc{stroke:#0f9d6b}.dq-ring.amber .dq-arc{stroke:#d97706}.dq-ring.coral .dq-arc{stroke:#dc2626}
 .dq-val{fill:var(--text);font:800 17px var(--font-display);text-anchor:middle;dominant-baseline:central}
+/* Employee list — avatar cell + data-quality indicator */
+.emp-cell{display:flex;align-items:center;gap:10px}
+.emp-cell-av{flex:none;width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:linear-gradient(140deg,#4f6bed,#3548c7);color:#fff;font:800 11px var(--font);letter-spacing:.02em}
+.emp-cell-copy{display:flex;flex-direction:column;min-width:0}.emp-cell-copy b{font-weight:700}
+.dq-cell{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.dq-cell b{font-size:11.5px;font-weight:800;color:var(--text)}
+.dq-mini{-webkit-appearance:none;appearance:none;width:54px;height:6px;border:0;border-radius:6px;overflow:hidden;background:#eef0f5}
+.dq-mini::-webkit-progress-bar{background:#eef0f5}
+.dq-cell.mint .dq-mini::-webkit-progress-value{background:linear-gradient(90deg,#10b981,#059669);border-radius:6px}
+.dq-cell.amber .dq-mini::-webkit-progress-value{background:linear-gradient(90deg,#f59e0b,#d97706);border-radius:6px}
+.dq-cell.coral .dq-mini::-webkit-progress-value{background:linear-gradient(90deg,#f43f5e,#dc2626);border-radius:6px}
+.dq-cell.mint .dq-mini::-moz-progress-bar{background:#059669}
+.dq-cell.amber .dq-mini::-moz-progress-bar{background:#d97706}
+.dq-cell.coral .dq-mini::-moz-progress-bar{background:#dc2626}
+.dq-flags{font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;background:rgba(220,38,38,.1);color:var(--coral-ink,#c0554b);white-space:nowrap}

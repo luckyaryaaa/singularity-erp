@@ -53,15 +53,23 @@
   // ── Laporan ───────────────────────────────────────────────────────────────
 
   const R = router.register.bind(router);
+  const empInitials = (n) => String(n || '?').split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+  // Sel data-quality (CSP-safe: <progress> value/max, bukan inline style).
+  const dqCell = (score, flags) => {
+    const s = Math.max(0, Math.min(100, Number(score) || 0)), tone = s >= 80 ? 'mint' : s >= 50 ? 'amber' : 'coral';
+    const fc = Array.isArray(flags) ? flags.length : 0;
+    return `<div class="dq-cell ${tone}"><progress class="dq-mini" max="100" value="${s}"></progress><b>${s}%</b>${fc ? `<span class="dq-flags" title="${fc} isu data quality">${fc} isu</span>` : ''}</div>`;
+  };
   R('/hr/employees', masterPage({
     endpoint: '/api/employees', key: 'employees', permission: 'employee.view', title: 'Karyawan', eyebrow: 'HRD', detailType: 'employees',
     fields:async()=>{const branches=await api('/api/branches');return[{name:'nik',label:'NIK',required:true},{name:'name',label:'Nama lengkap',required:true},{name:'department',label:'Departemen',required:true},{name:'jobTitle',label:'Jabatan'},{name:'baseSalary',label:'Gaji pokok',type:'number',min:0,required:true},{name:'branchId',label:'Lokasi kerja',type:'select',options:branches.items.map(x=>[x.id,`${x.code} · ${x.name}`]),required:true},{name:'joinDate',label:'Tanggal bergabung',type:'date'},{name:'bpjs',label:'Terdaftar BPJS',type:'checkbox'},{name:'active',label:'Karyawan aktif',type:'checkbox'}];},
     columns: [
-      { label: 'Karyawan', render: (r) => `<b>${esc(r.name)}</b><small>${esc(r.nik)} · ${esc(r.jobTitle)}</small>` },
-      { label: 'Departemen', render: (r) => esc(r.department) },
-      { label: 'Lokasi', render: (r) => esc(r.branchName) },
+      { label: 'Karyawan', render: (r) => `<div class="emp-cell"><span class="emp-cell-av">${empInitials(r.name)}</span><span class="emp-cell-copy"><b>${esc(r.name)}</b><small>${esc(r.nik)} · ${esc(r.jobTitle || '—')}</small></span></div>` },
+      { label: 'Departemen', render: (r) => `<b>${esc(r.department || '—')}</b><small>${esc(r.branchName || '')}</small>` },
       { label: 'Gaji pokok', right: true, render: (r) => can('payroll.view') ? `<span class="money">${fmtIDR(r.baseSalary)}</span>` : '<span class="chip gray">Tersembunyi</span>' },
       { label: 'BPJS', render: (r) => r.bpjs ? '<span class="chip mint">Terdaftar</span>' : '<span class="chip gray">—</span>' },
+      { label: 'Status', render: (r) => chip(r.lifecycleStatus || (r.active ? 'ACTIVE' : 'INACTIVE')) },
+      { label: 'Data quality', render: (r) => dqCell(r.dataQualityScore, r.qualityFlags) },
       { label: 'Bergabung', render: (r) => fmtDate(r.joinDate) }
     ]
   }));
