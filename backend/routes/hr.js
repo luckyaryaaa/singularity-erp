@@ -4,6 +4,7 @@ const { assertPermission } = require('../core/permissions');
 const businessOps = require('../infrastructure/database/repositories/business-operations');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const hrOps = require('../infrastructure/database/repositories/hr-operations');
+const masterData = require('../infrastructure/database/repositories/master-data');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -27,6 +28,12 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&p==='/api/payroll/runs'){assertPermission(ctx.user,'payroll.create');const body=await readBody(req),result=await businessOps.createPayroll(client,{...body,user:ctx.user});await runtime.audit(client,{userId:ctx.user.id,action:'CALCULATE_PAYROLL',module:'payroll',entityType:'PAYROLL_RUN',entityId:result.document.id,documentNumber:result.document.documentNumber,newValue:{period:body.period,headcount:result.headcount,total:result.total},requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return result;}
   m=p.match(/^\/api\/payroll\/runs\/([^/]+)\/items$/);if(method==='GET'&&m){if(ctx.user.role==='employee')assertPermission(ctx.user,'payroll.view_self');else assertPermission(ctx.user,'payroll.view');return{items:await businessOps.payrollItems(client,m[1],ctx.user)};}
   if(method==='GET'&&p==='/api/payroll/my'){assertPermission(ctx.user,'payroll.view_self');return{items:await businessOps.payrollSelf(client,ctx.user)};}
+  // ── Employee Self-Service: Data Saya + pengkinian identitas (maker-checker) ──
+  if(method==='GET'&&p==='/api/hr/my-profile'){assertPermission(ctx.user,'employee.view_self');return masterData.myProfile(client,ctx.user);}
+  if(method==='POST'&&p==='/api/hr/my-profile/identity-request'){assertPermission(ctx.user,'employee.view_self');const body=await readBody(req);return idempotent('hr.self.identity',body,201,()=>masterData.submitIdentityRequest(client,ctx.user,body,ctx.requestId));}
+  if(method==='GET'&&p==='/api/hr/self-updates'){return{items:await masterData.listSelfUpdates(client,ctx.user,url.searchParams.get('status'))};}
+  m=p.match(/^\/api\/hr\/self-updates\/([0-9a-f-]{36})\/(approve|reject)$/);
+  if(method==='POST'&&m){const body=await readBody(req);return idempotent(`hr.self.decide:${m[1]}`,body,200,()=>masterData.decideSelfUpdate(client,{id:m[1],decision:m[2],reason:body.reason,user:ctx.user,requestId:ctx.requestId}));}
   return NO_MATCH;
 }
 

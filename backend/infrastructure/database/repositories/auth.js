@@ -99,7 +99,7 @@ async function login(client,{username,password,ip,device}){
 async function resolveSession(client,plainToken,{ip,device}={}){
   if(!plainToken)return null;
   await expireAssignments(client);
-  const result=await client.query(`SELECT s.*,u.id app_user_id,u.username,u.display_name,u.role,u.department,u.job_title,u.branch_id,u.branch_scope,u.tenant_id,
+  const result=await client.query(`SELECT s.*,u.id app_user_id,u.username,u.display_name,u.role,u.department,u.job_title,u.branch_id,u.branch_scope,u.tenant_id,u.employee_id,
     u.active user_active,u.mfa_enabled,u.totp_secret_ciphertext,u.must_change_password,u.last_login_at,b.name branch_name,t.name tenant_name,
     EXISTS(SELECT 1 FROM user_role_assignments a WHERE a.user_id=u.id AND a.role_code=u.role AND a.is_primary AND a.status='ACTIVE' AND a.effective_from<=now() AND (a.effective_until IS NULL OR a.effective_until>now())) access_valid
     FROM user_sessions s JOIN app_users u ON u.id=s.user_id LEFT JOIN branches b ON b.id=u.branch_id LEFT JOIN tenants t ON t.id=u.tenant_id

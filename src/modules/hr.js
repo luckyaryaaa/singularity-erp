@@ -189,4 +189,101 @@
     }
   }));
   R('/payroll', payrollPage);
+
+  // ── Employee Self-Service: Data Saya + pengkinian identitas (maker-checker) ──
+  const svcLen = (d) => { if (!d) return '—'; const st = new Date(d), now = new Date(); let m = (now.getFullYear() - st.getFullYear()) * 12 + (now.getMonth() - st.getMonth()); if (now.getDate() < st.getDate()) m--; if (!(m >= 0)) m = 0; const y = Math.floor(m / 12), mm = m % 12; return y ? `${y} th${mm ? ` ${mm} bln` : ''}` : `${mm} bln`; };
+  const SELF_GENDER = { MALE: 'Laki-laki', FEMALE: 'Perempuan' };
+  const selfIdentityFields = (p) => [
+    { type: 'section', label: 'Data Pribadi', icon: ICONS.people, hint: 'NIK KTP hanya dapat diubah HR.' },
+    { name: 'birthPlace', label: 'Tempat lahir', value: p.birthPlace || '' },
+    { name: 'birthDate', label: 'Tanggal lahir', type: 'date', value: p.birthDate ? String(p.birthDate).slice(0, 10) : '' },
+    { name: 'gender', label: 'Jenis kelamin', type: 'select', options: [['', '—'], ['MALE', 'Laki-laki'], ['FEMALE', 'Perempuan']], value: p.gender || '' },
+    { name: 'maritalStatus', label: 'Status perkawinan', type: 'select', options: [['', '—'], ['BELUM KAWIN', 'Belum kawin'], ['KAWIN', 'Kawin'], ['CERAI HIDUP', 'Cerai hidup'], ['CERAI MATI', 'Cerai mati']], value: p.maritalStatus || '' },
+    { name: 'religion', label: 'Agama', type: 'select', options: [['', '—'], ['ISLAM', 'Islam'], ['KRISTEN', 'Kristen'], ['KATOLIK', 'Katolik'], ['HINDU', 'Hindu'], ['BUDDHA', 'Buddha'], ['KONGHUCU', 'Konghucu']], value: p.religion || '' },
+    { name: 'bloodType', label: 'Golongan darah', type: 'select', options: [['', '—'], ['A', 'A'], ['B', 'B'], ['AB', 'AB'], ['O', 'O']], value: p.bloodType || '' },
+    { type: 'section', label: 'Kontak & Alamat', icon: ICONS.building },
+    { name: 'phone', label: 'Telepon / HP', type: 'tel', value: p.phone || '' },
+    { name: 'personalEmail', label: 'Email pribadi', type: 'email', value: p.personalEmail || '' },
+    { name: 'address', label: 'Alamat domisili', type: 'textarea', rows: 2, value: p.address || '' }
+  ];
+  const myProfilePage = {
+    permission: 'employee.view_self',
+    async render(main, _p, signal) {
+      let data;
+      try { data = await api('/api/hr/my-profile', { signal }); }
+      catch (error) { main.innerHTML = pageHead({ eyebrow: 'SELF-SERVICE · DATA SAYA', title: 'Data Saya', sub: 'Profil kepegawaian Anda.' }) + `<section class="panel"><div class="empty-state">${clayOrb('amber', 'lock')}<h3>Akun belum tertaut</h3><p>${esc(error.message)}</p></div></section>`; return; }
+      const s = data.enterpriseSummary || {}, pos = s.currentPosition || {}, leave = s.leaveBalance || {}, p = data.personal || {};
+      const pending = (data.selfUpdates || []).filter((u) => u.status === 'PENDING');
+      const g = p.gender ? (SELF_GENDER[p.gender] || p.gender) : '—';
+      main.innerHTML = pageHead({
+        eyebrow: 'SELF-SERVICE · DATA SAYA', title: `Halo, ${esc(String(data.name || '').split(' ')[0] || '')}`,
+        sub: 'Lihat data kepegawaian Anda dan ajukan pengkinian identitas — perubahan ditinjau HR (maker-checker).',
+        actions: `<button class="btn clay-action" id="selfUpdateBtn"><span class="clay-ic" aria-hidden="true">${ICONS.people}</span> Ajukan pengkinian</button>`
+      }) + `
+        <section class="metrics">
+          ${kpiCard({ label: 'Jabatan', value: esc(pos.positionTitle || data.jobTitle || '—'), note: esc(pos.division || data.department || ''), orb: 'people', orbTone: 'blue' })}
+          ${kpiCard({ label: 'Masa kerja', value: svcLen(data.joinDate), note: data.joinDate ? `Sejak ${fmtDate(data.joinDate)}` : '', orb: 'clock', orbTone: 'mint' })}
+          ${kpiCard({ label: 'Sisa cuti', value: `${Number(leave.remaining || 0)} hari`, note: `dari ${Number(leave.entitlement || 0)} hari`, orb: 'clock', orbTone: 'amber' })}
+          ${kpiCard({ label: 'Status', value: esc(data.lifecycleStatus || 'ACTIVE'), note: 'Kepegawaian', orb: 'checkCircle', orbTone: 'mint' })}
+        </section>
+        ${pending.length ? `<section class="panel banner-attention"><div class="panel-body">${pending.length} pengajuan pengkinian sedang menunggu persetujuan HR.</div></section>` : ''}
+        <section class="dashboard-grid">
+          <article class="panel"><header><div><p class="eyebrow">DATA PRIBADI · IT-0002</p><h2>Identitas diri</h2></div>${chip(p.nikKtp ? 'TERISI' : 'BELUM LENGKAP')}</header><div class="panel-body"><dl class="detail-dl">
+            <div><dt>NIK Karyawan</dt><dd>${esc(data.nik || '—')}</dd></div>
+            <div><dt>NIK KTP</dt><dd>${esc(p.nikKtp || '—')}</dd></div>
+            <div><dt>Tempat, tgl lahir</dt><dd>${esc(p.birthPlace || '—')}${p.birthDate ? `, ${fmtDate(p.birthDate)}` : ''}</dd></div>
+            <div><dt>Jenis kelamin</dt><dd>${esc(g)}</dd></div>
+            <div><dt>Status perkawinan</dt><dd>${esc(p.maritalStatus || '—')}</dd></div>
+            <div><dt>Agama</dt><dd>${esc(p.religion || '—')}</dd></div>
+            <div><dt>Golongan darah</dt><dd>${esc(p.bloodType || '—')}</dd></div>
+            <div><dt>Telepon / HP</dt><dd>${esc(p.phone || '—')}</dd></div>
+            <div><dt>Email pribadi</dt><dd>${esc(p.personalEmail || '—')}</dd></div>
+            <div><dt>Alamat domisili</dt><dd>${esc(p.address || '—')}</dd></div>
+          </dl></div></article>
+          <article class="panel"><header><div><p class="eyebrow">RIWAYAT PENGAJUAN</p><h2>Pengkinian identitas</h2></div></header><div class="panel-body stack">
+            ${(data.selfUpdates || []).length ? data.selfUpdates.map((u) => `<div class="stat-row"><span>${fmtDate(u.requestedAt)}<small>${Object.keys(u.proposed || {}).length} field diusulkan</small></span>${chip(u.status)}</div>`).join('') : '<p class="muted">Belum ada pengajuan pengkinian.</p>'}
+          </div></article>
+        </section>`;
+      main.querySelector('#selfUpdateBtn')?.addEventListener('click', async () => {
+        const value = await formDialog({ title: 'Ajukan Pengkinian Identitas', description: 'Ajukan perubahan data diri Anda. NIK KTP hanya dapat diubah HR. Pengajuan ditinjau HR sebelum diterapkan (maker-checker).', fields: selfIdentityFields(p), submitLabel: 'Ajukan ke HR' });
+        if (!value) return;
+        Object.keys(value).forEach((k) => { if (value[k] === '' || value[k] == null) delete value[k]; });
+        if (!Object.keys(value).length) { toast('Tidak ada perubahan', 'Isi minimal satu field untuk mengajukan.', 'amber'); return; }
+        try { await api('/api/hr/my-profile/identity-request', { method: 'POST', body: value, idempotencyKey: newIdemKey() }); toast('Pengajuan terkirim', 'Menunggu persetujuan HR.'); this.render(main); }
+        catch (error) { toast('Gagal mengajukan', error.message, 'coral'); }
+      });
+    }
+  };
+  const hrSelfUpdatesPage = {
+    permission: 'employee.edit',
+    async render(main, _p, signal) {
+      const data = await api('/api/hr/self-updates?status=PENDING', { signal });
+      const canApprove = can('employee.approve');
+      main.innerHTML = pageHead({ eyebrow: 'HRD · SELF-SERVICE', title: 'Persetujuan pengkinian data', sub: 'Tinjau usulan pengkinian identitas dari karyawan. Penyetuju harus berbeda dari pengaju (maker-checker).' }) + `
+        <section class="panel table-panel"><header><div><p class="eyebrow">MENUNGGU PERSETUJUAN</p><h2>${data.items.length} pengajuan</h2></div></header>
+        <div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Perubahan diusulkan</th><th>Pemohon</th><th>Waktu</th><th></th></tr></thead><tbody>
+        ${data.items.length ? data.items.map((u) => `<tr>
+          <td><b>${esc(u.employeeName)}</b><small>${esc(u.nik)}</small></td>
+          <td>${Object.entries(u.proposed || {}).map(([k, val]) => `<span class="chip gray">${esc(k)}: ${esc(String(val))}</span>`).join(' ')}</td>
+          <td>${esc(u.requestedByName || '—')}</td>
+          <td>${fmtDate(u.requestedAt)}</td>
+          <td class="right">${canApprove ? `<div class="row-actions"><button class="btn primary sm" data-approve="${esc(u.id)}">Setujui</button><button class="btn danger-outline sm" data-reject="${esc(u.id)}">Tolak</button></div>` : '<span class="chip gray">Perlu approver</span>'}</td>
+        </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state">${clayOrb('mint', 'checkCircle')}<h3>Tidak ada antrean</h3><p>Semua pengajuan pengkinian sudah diproses.</p></div></td></tr>`}
+        </tbody></table></div></section>`;
+      main.querySelectorAll('[data-approve]').forEach((b) => b.addEventListener('click', async () => {
+        const answer = await actionDialog({ title: 'Setujui pengkinian', description: 'Perubahan akan diterapkan ke data karyawan. Penyetuju harus berbeda dari pengaju (SoD).', requireReason: false, confirmLabel: 'Setujui' });
+        if (answer === null) return;
+        try { await api(`/api/hr/self-updates/${b.dataset.approve}/approve`, { method: 'POST', body: answer || {}, idempotencyKey: newIdemKey() }); toast('Pengkinian disetujui', 'Data karyawan diperbarui.'); this.render(main); }
+        catch (error) { toast('Gagal menyetujui', error.message, 'coral'); }
+      }));
+      main.querySelectorAll('[data-reject]').forEach((b) => b.addEventListener('click', async () => {
+        const answer = await actionDialog({ title: 'Tolak pengkinian', description: 'Berikan alasan penolakan. Karyawan dapat mengajukan ulang.', requireReason: true, confirmLabel: 'Tolak', danger: true });
+        if (!answer) return;
+        try { await api(`/api/hr/self-updates/${b.dataset.reject}/reject`, { method: 'POST', body: answer, idempotencyKey: newIdemKey() }); toast('Pengajuan ditolak'); this.render(main); }
+        catch (error) { toast('Gagal menolak', error.message, 'coral'); }
+      }));
+    }
+  };
+  R('/hr/my-profile', myProfilePage);
+  R('/hr/self-updates', hrSelfUpdatesPage);
 })();

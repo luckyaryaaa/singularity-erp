@@ -114,6 +114,10 @@
         ] },
         { id: 'payroll', label: 'Payroll', items: [
           route('#/payroll', 'Payroll', 'payslip', 'payroll.view|payroll.view_self')
+        ] },
+        { id: 'self-service', label: 'Self-Service', items: [
+          route('#/hr/my-profile', 'Data Saya', 'people', 'employee.view_self'),
+          route('#/hr/self-updates', 'Persetujuan Data', 'approval', 'employee.edit')
         ] }
       ]
     },

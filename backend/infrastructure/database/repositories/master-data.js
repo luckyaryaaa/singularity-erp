@@ -174,9 +174,11 @@ async function parentRow(client, master, id) {
 }
 
 // Ringkasan untuk tab Overview: induk + jumlah baris per sub-resource.
-async function overview(client, master, id, user) {
+async function overview(client, master, id, user, options = {}) {
   const { m } = spec(master);
-  assertPermission(user, `${m.module}.view`);
+  // Self-service: id berasal dari sesi (user.employeeId), bukan input klien →
+  // izin view penuh HR tidak diperlukan; guard IDOR ada di endpoint.
+  if (!options.self) assertPermission(user, `${m.module}.view`);
   const parent = runtime.camel(await parentRow(client, master, id));
   const counts = {};
   for (const [name, s] of Object.entries(m.subs)) {
@@ -543,4 +545,77 @@ async function autoTaxProfile(client, employeeId, body, user, requestId) {
   return calc;
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle };
+// ── Employee Self-Service (maker-checker pengkinian identitas) ─────────────
+// Karyawan hanya boleh mengubah field NON-sensitif; NIK KTP tetap jalur HR.
+const SELF_FIELDS = ['birthPlace', 'birthDate', 'gender', 'maritalStatus', 'religion', 'bloodType', 'phone', 'personalEmail', 'address'];
+
+async function myProfile(client, user) {
+  if (!user.employeeId) throw new AppError('RESOURCE_NOT_FOUND', 'Akun Anda belum tertaut ke data karyawan. Hubungi HR.');
+  const ov = await overview(client, 'employees', user.employeeId, user, { self: true });
+  const prow = (await client.query(`SELECT * FROM employee_personal_profiles WHERE employee_id=$1 LIMIT 1`, [user.employeeId])).rows[0];
+  let personal = {};
+  if (prow) { personal = runtime.camel(decryptSensitive(REGISTRY.employees.subs.personal, prow, user.employeeId)); if (personal.nikKtp) personal.nikKtp = maskIdentifier(personal.nikKtp); }
+  const requests = (await client.query(
+    `SELECT id, proposed, status, requested_at, decided_at, decision_reason
+       FROM employee_self_updates WHERE employee_id=$1 ORDER BY requested_at DESC LIMIT 8`, [user.employeeId])).rows.map(runtime.camel);
+  return { ...ov, personal, selfUpdates: requests };
+}
+
+async function submitIdentityRequest(client, user, body, requestId) {
+  if (!user.employeeId) throw new AppError('RESOURCE_NOT_FOUND', 'Akun Anda belum tertaut ke data karyawan. Hubungi HR.');
+  const proposed = {};
+  for (const k of SELF_FIELDS) if (body[k] !== undefined && body[k] !== null && String(body[k]).trim() !== '') proposed[k] = body[k];
+  if (!Object.keys(proposed).length) throw new AppError('VALIDATION_ERROR', 'Tidak ada perubahan yang diajukan.');
+  if (proposed.gender && !['MALE', 'FEMALE'].includes(proposed.gender)) throw new AppError('VALIDATION_ERROR', 'Jenis kelamin tidak valid.');
+  const row = (await client.query(
+    `INSERT INTO employee_self_updates(employee_id, proposed, requested_by) VALUES($1,$2,$3) RETURNING *`,
+    [user.employeeId, JSON.stringify(proposed), user.id])).rows[0];
+  await runtime.audit(client, {
+    userId: user.id, action: 'CREATE', module: 'employee', entityType: 'EMPLOYEE.SELF_UPDATE',
+    entityId: row.id, newValue: { employeeId: user.employeeId, proposed }, requestId, branchId: user.branchId
+  });
+  return runtime.camel(row);
+}
+
+async function listSelfUpdates(client, user, status) {
+  assertPermission(user, 'employee.edit');
+  const rows = (await client.query(
+    `SELECT s.id, s.employee_id, s.proposed, s.status, s.requested_at, s.requested_by, s.decided_at, s.decision_reason,
+            e.name AS employee_name, e.nik, ru.username AS requested_by_name
+       FROM employee_self_updates s JOIN employees e ON e.id=s.employee_id
+       LEFT JOIN app_users ru ON ru.id=s.requested_by
+      WHERE ($1::text IS NULL OR s.status=$1) ORDER BY s.requested_at DESC LIMIT 100`, [status || null])).rows;
+  return rows.map(runtime.camel);
+}
+
+async function decideSelfUpdate(client, { id, decision, reason, user, requestId }) {
+  assertPermission(user, 'employee.approve');
+  const row = (await client.query(`SELECT * FROM employee_self_updates WHERE id=$1 FOR UPDATE`, [id])).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Permintaan pengkinian tidak ditemukan.');
+  if (row.status !== 'PENDING') throw new AppError('VALIDATION_ERROR', 'Permintaan sudah diputuskan sebelumnya.');
+  if (row.requested_by === user.id) throw new AppError('SOD_CONFLICT', 'Pemohon tidak boleh menyetujui permintaannya sendiri (maker ≠ checker).');
+  const status = decision === 'approve' ? 'APPROVED' : 'REJECTED';
+  if (decision === 'approve') {
+    const proposed = row.proposed || {};
+    const snake = (k) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+    const payload = {};
+    for (const [k, v] of Object.entries(proposed)) if (SELF_FIELDS.includes(k) && v !== undefined && v !== null && String(v).trim() !== '') payload[snake(k)] = v;
+    payload.updated_by = user.id;
+    const keys = Object.keys(payload);
+    await client.query(
+      `INSERT INTO employee_personal_profiles(employee_id,${keys.join(',')}) VALUES($1,${keys.map((_, i) => `$${i + 2}`).join(',')})
+        ON CONFLICT (employee_id) DO UPDATE SET ${keys.map((k) => `${k}=EXCLUDED.${k}`).join(',')}, updated_at=now()`,
+      [row.employee_id, ...keys.map((k) => payload[k])]);
+    await masterGovernance.refreshQuality(client, 'employees', row.employee_id);
+  }
+  const updated = (await client.query(
+    `UPDATE employee_self_updates SET status=$2, decided_by=$3, decided_at=now(), decision_reason=$4 WHERE id=$1 RETURNING *`,
+    [id, status, user.id, reason || null])).rows[0];
+  await runtime.audit(client, {
+    userId: user.id, action: decision === 'approve' ? 'APPROVE' : 'REJECT', module: 'employee', entityType: 'EMPLOYEE.SELF_UPDATE',
+    entityId: id, oldValue: { status: 'PENDING' }, newValue: { status, proposed: row.proposed }, reason: reason || null, requestId, branchId: user.branchId
+  });
+  return runtime.camel(updated);
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate };
