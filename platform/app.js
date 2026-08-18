@@ -6,6 +6,7 @@ let plansCache = [];
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 function fmtDate(s) { if (!s) return '—'; try { return new Date(s).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }); } catch { return s; } }
+function fmtIDR(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); }
 function toast(msg, kind) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (kind ? ' ' + kind : ''); t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, 3400); }
 
 async function api(path, { method = 'GET', body } = {}) {
@@ -153,6 +154,7 @@ function renderDrawer(s) {
       ${f('Trial s/d', sub && sub.trial_ends_at ? fmtDate(sub.trial_ends_at) : '—')}${f('Periode s/d', sub && sub.current_period_end ? fmtDate(sub.current_period_end) : '—')}
     </div><div class="plan-change"><select id="drawerPlan">${planOpts}</select><button class="btn btn-primary btn-sm" id="drawerPlanBtn" type="button">Ubah paket</button></div></div>
     <div class="d-sec"><h3>Entitlement</h3><div>${modText}${ent.maxUsers != null ? `<span class="d-pill">${ent.maxUsers} user</span>` : ''}</div></div>
+    <div class="d-sec"><h3>Penagihan &amp; pemakaian</h3><div id="drawerBilling" class="d-bill"><div class="bill-empty">Memuat…</div></div></div>
     <div class="d-sec"><h3>Pengguna — ${u.total || 0} total · ${u.owners || 0} owner · ${u.active || 0} aktif</h3>${owners}</div>
     <div class="d-sec"><h3>Login sosial</h3><div>${ids.total || 0} identitas tertaut · ${ids.providers || 0} provider</div></div>
     <div class="d-sec"><h3>Aktivitas</h3><ul class="d-act">${activity}</ul></div>`;
@@ -161,12 +163,69 @@ function renderDrawer(s) {
     try { await apiMutate(`/api/platform/tenants/${drawerTenantId}/subscription`, { planCode, status: sub ? sub.status : 'trial' }); toast('Paket diperbarui.', 'ok'); await openDrawer(drawerTenantId); await loadConsole(); }
     catch (e) { toast(e.message || 'Gagal mengubah paket.', 'err'); btn.disabled = false; }
   });
+  loadBilling(drawerTenantId);
+}
+
+// Billing & usage — lazy-loaded into the drawer's #drawerBilling slot.
+async function loadBilling(id) {
+  const slot = $('drawerBilling'); if (!slot || drawerTenantId !== id) return;
+  try {
+    const [usage, inv] = await Promise.all([
+      api(`/api/platform/tenants/${id}/usage`),
+      api(`/api/platform/tenants/${id}/invoices`)
+    ]);
+    if (drawerTenantId !== id) return; // drawer changed while loading
+    slot.innerHTML = renderBilling(usage, inv.items || []);
+  } catch (e) { slot.innerHTML = `<div class="bill-empty">Gagal memuat penagihan: ${esc(e.message)}</div>`; }
+}
+
+function renderBilling(usage, invoices) {
+  const u = usage.usage || {}, meters = usage.meters || [], period = usage.period || '';
+  const usageHtml = meters.length ? `<div class="bill-meters">${meters.map((m) => {
+    const used = Number(u[m.metric] || 0), inc = Number(m.included_qty), over = Math.max(0, used - inc);
+    const pct = inc > 0 ? Math.min(100, Math.round(used / inc * 100)) : (used > 0 ? 100 : 0);
+    return `<div class="mtr${over > 0 ? ' over' : ''}"><div class="mtr-top"><b>${esc(m.label)}</b><span>${used} / ${inc} ${esc(m.unit)}${over > 0 ? ` · +${over} overage` : ''}</span></div><progress class="mtr-bar" max="100" value="${pct}"></progress></div>`;
+  }).join('')}</div>` : '<div class="bill-empty">Kontrak kustom — tanpa meter overage.</div>';
+  const invHtml = invoices.length ? `<div class="inv-list">${invoices.map((iv) => {
+    const st = esc(iv.status);
+    const act = iv.status === 'issued'
+      ? `<div class="inv-act"><button class="btn btn-sm btn-primary" data-inv-pay="${esc(iv.id)}">Tandai lunas</button><button class="btn btn-sm btn-ghost" data-inv-void="${esc(iv.id)}">Void</button></div>`
+      : '';
+    return `<div class="inv-card"><div class="inv-main"><div class="inv-no">${esc(iv.invoice_number)}</div><div class="inv-per">Periode ${fmtDate(iv.period_start)}${iv.paid_at ? ` · lunas ${fmtDate(iv.paid_at)}` : ''}</div></div><div class="inv-side"><div class="inv-amt">${fmtIDR(iv.total)}</div><span class="badge inv-${st}">${st}</span></div>${act}</div>`;
+  }).join('')}</div>` : '<div class="bill-empty">Belum ada invoice.</div>';
+  return `<div class="bill-usage-head">Pemakaian ${esc(period)}</div>${usageHtml}
+    <div class="bill-gen"><button class="btn btn-primary btn-sm" data-inv-gen>Terbitkan invoice ${esc(period)}</button></div>
+    ${invHtml}`;
 }
 
 // Status toggle + detail (event delegation).
 document.addEventListener('click', async (e) => {
   const detail = e.target.closest('[data-detail]');
   if (detail) { openDrawer(detail.dataset.id); return; }
+
+  // Billing actions (drawer) — buttons carry data-inv-* (not data-act).
+  const gen = e.target.closest('[data-inv-gen]');
+  if (gen && drawerTenantId) {
+    gen.disabled = true;
+    try { const iv = await apiMutate(`/api/platform/tenants/${drawerTenantId}/invoices`, {}); toast(iv.reused ? `Invoice ${iv.invoice_number} sudah ada untuk periode ini.` : `Invoice ${iv.invoice_number} diterbitkan.`, 'ok'); await loadBilling(drawerTenantId); loadAudit(); }
+    catch (err) { toast(err.message || 'Gagal menerbitkan invoice.', 'err'); gen.disabled = false; }
+    return;
+  }
+  const payBtn = e.target.closest('[data-inv-pay]');
+  if (payBtn && drawerTenantId) {
+    payBtn.disabled = true;
+    try { await apiMutate(`/api/platform/invoices/${payBtn.dataset.invPay}/pay`, {}); toast('Invoice ditandai lunas.', 'ok'); await loadBilling(drawerTenantId); loadAudit(); }
+    catch (err) { toast(err.message || 'Gagal menandai lunas.', 'err'); payBtn.disabled = false; }
+    return;
+  }
+  const voidBtn = e.target.closest('[data-inv-void]');
+  if (voidBtn && drawerTenantId) {
+    voidBtn.disabled = true;
+    try { await apiMutate(`/api/platform/invoices/${voidBtn.dataset.invVoid}/void`, {}); toast('Invoice di-void.', 'ok'); await loadBilling(drawerTenantId); loadAudit(); }
+    catch (err) { toast(err.message || 'Gagal void invoice.', 'err'); voidBtn.disabled = false; }
+    return;
+  }
+
   const btn = e.target.closest('[data-act]');
   if (!btn) return;
   const id = btn.dataset.id, act = btn.dataset.act;

@@ -161,6 +161,34 @@ table.tenants tbody tr:hover{background:rgba(47,107,255,.04)}
 .plan-change select{flex:1;font-family:inherit;font-size:12px;font-weight:700;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--surface);box-shadow:var(--shadow-inset);color:var(--ink)}
 @media(max-width:520px){.d-grid{grid-template-columns:1fr}}
 
+/* Billing & usage (drawer) */
+.d-bill{display:flex;flex-direction:column;gap:12px}
+.bill-usage-head{font-size:11px;font-weight:800;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em}
+.bill-meters{display:flex;flex-direction:column;gap:9px}
+.mtr-top{display:flex;justify-content:space-between;gap:8px;font-size:11px;margin-bottom:4px}
+.mtr-top b{font-weight:700}
+.mtr-top span{color:var(--muted);font-weight:700;white-space:nowrap}
+.mtr.over .mtr-top span{color:var(--warn)}
+.mtr-bar{-webkit-appearance:none;appearance:none;display:block;width:100%;height:7px;border:0;border-radius:6px;overflow:hidden;background:var(--bg)}
+.mtr-bar::-webkit-progress-bar{background:var(--bg)}
+.mtr-bar::-webkit-progress-value{background:linear-gradient(90deg,var(--brand),var(--indigo));border-radius:6px}
+.mtr-bar::-moz-progress-bar{background:var(--brand);border-radius:6px}
+.mtr.over .mtr-bar::-webkit-progress-value{background:linear-gradient(90deg,var(--warn),#e0a020)}
+.mtr.over .mtr-bar::-moz-progress-bar{background:var(--warn)}
+.bill-gen{margin:2px 0}
+.inv-list{display:flex;flex-direction:column;gap:8px}
+.inv-card{display:grid;grid-template-columns:1fr auto;gap:5px 10px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.inv-no{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:800;letter-spacing:.01em}
+.inv-per{font-size:10.5px;color:var(--muted);margin-top:1px}
+.inv-side{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.inv-amt{font-size:13px;font-weight:800;white-space:nowrap}
+.inv-act{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+.bill-empty{color:var(--muted);font-size:12px;padding:4px 0}
+.badge.inv-issued{color:var(--warn);background:var(--warn-bg)}
+.badge.inv-paid{color:var(--ok);background:var(--ok-bg)}
+.badge.inv-void{color:var(--muted);background:var(--bg)}
+.badge.inv-draft{color:var(--ink-soft);background:var(--bg)}
+
 @media (prefers-color-scheme: dark){
   :root{
     --bg:#0f1320; --bg2:#0b0e18; --surface:#171c2b; --surface-2:#1e2436;
