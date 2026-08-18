@@ -407,6 +407,64 @@
     return esc(v ?? '—');
   };
 
+  // ── Pengkinian Identitas (IT-0002 Personal Data) ─────────────────────────
+  const GENDER_LABEL = { MALE: 'Laki-laki', FEMALE: 'Perempuan' };
+  const personalDataCard = (p, overview, canEdit) => {
+    p = p || {};
+    const has = ['nikKtp', 'birthDate', 'birthPlace', 'gender', 'maritalStatus', 'religion', 'bloodType', 'phone', 'personalEmail', 'address'].some((k) => p[k]);
+    const age = p.birthDate ? Math.floor((Date.now() - new Date(p.birthDate).getTime()) / 31557600000) : null;
+    const btn = canEdit ? `<button class="btn clay-action sm" data-identity-edit><span class="clay-ic" aria-hidden="true">${ICONS.people}</span> Pengkinian identitas</button>` : chip(has ? 'TERISI' : 'BELUM LENGKAP');
+    if (!has) {
+      return `<article class="panel emp-infotype it-lav"><header><div><p class="eyebrow">DATA PRIBADI · IT-0002 PERSONAL DATA</p><h2>Identitas diri</h2></div>${btn}</header><div class="panel-body"><div class="empty-inline">Data diri belum dilengkapi. Klik <b>Pengkinian identitas</b> untuk mengisi NIK KTP, tempat/tanggal lahir, dan kontak — sekali isi, dipakai lintas modul HR & payroll.</div></div></article>`;
+    }
+    const rows = [
+      ['NIK KTP', esc(p.nikKtp || '—')],
+      ['Tempat, tgl lahir', (p.birthPlace || p.birthDate) ? `${esc(p.birthPlace || '—')}${p.birthDate ? `, ${fmtDate(p.birthDate)}` : ''}${age != null ? ` · ${age} th` : ''}` : '—'],
+      ['Jenis kelamin', esc(p.gender ? (GENDER_LABEL[p.gender] || p.gender) : '—')],
+      ['Status perkawinan', esc(p.maritalStatus || '—')],
+      ['Agama', esc(p.religion || '—')],
+      ['Golongan darah', esc(p.bloodType || '—')],
+      ['Telepon / HP', esc(p.phone || '—')],
+      ['Email pribadi', esc(p.personalEmail || '—')],
+      ['Alamat domisili', esc(p.address || '—')]
+    ];
+    return `<article class="panel emp-infotype it-lav"><header><div><p class="eyebrow">DATA PRIBADI · IT-0002 PERSONAL DATA</p><h2>Identitas diri</h2></div>${btn}</header><div class="panel-body"><dl class="detail-dl eth-dl">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl></div></article>`;
+  };
+  const openIdentityUpdate = async (params, overview, rerender) => {
+    let personal = {};
+    try { const r = await api(`/api/masters/employees/${params.id}/personal`); personal = (r.items && r.items[0]) || (r && r.nikKtp !== undefined ? r : {}); } catch (_) { /* profil belum ada */ }
+    const rawNik = personal.nikKtp && !String(personal.nikKtp).includes('•') ? personal.nikKtp : '';
+    const value = await formDialog({
+      title: `Pengkinian Identitas — ${overview.name || overview.nik}`,
+      description: 'Perbarui data diri karyawan sesuai KTP & dokumen resmi. NIK KTP dienkripsi; seluruh perubahan tercatat pada audit trail.',
+      fields: [
+        { type: 'section', label: 'Data Pribadi', icon: ICONS.people, hint: 'Sesuai Kartu Tanda Penduduk.' },
+        { name: 'nikKtp', label: 'NIK KTP', hint: rawNik ? 'Terenkripsi.' : 'Kosongkan bila tidak diubah.' },
+        { name: 'birthPlace', label: 'Tempat lahir' },
+        { name: 'birthDate', label: 'Tanggal lahir', type: 'date' },
+        { name: 'gender', label: 'Jenis kelamin', type: 'select', options: [['', '—'], ['MALE', 'Laki-laki'], ['FEMALE', 'Perempuan']] },
+        { name: 'maritalStatus', label: 'Status perkawinan', type: 'select', options: [['', '—'], ['BELUM KAWIN', 'Belum kawin'], ['KAWIN', 'Kawin'], ['CERAI HIDUP', 'Cerai hidup'], ['CERAI MATI', 'Cerai mati']] },
+        { name: 'religion', label: 'Agama', type: 'select', options: [['', '—'], ['ISLAM', 'Islam'], ['KRISTEN', 'Kristen'], ['KATOLIK', 'Katolik'], ['HINDU', 'Hindu'], ['BUDDHA', 'Buddha'], ['KONGHUCU', 'Konghucu']] },
+        { name: 'bloodType', label: 'Golongan darah', type: 'select', options: [['', '—'], ['A', 'A'], ['B', 'B'], ['AB', 'AB'], ['O', 'O']] },
+        { type: 'section', label: 'Kontak & Alamat', icon: ICONS.building },
+        { name: 'phone', label: 'Telepon / HP', type: 'tel' },
+        { name: 'personalEmail', label: 'Email pribadi', type: 'email' },
+        { name: 'address', label: 'Alamat domisili', type: 'textarea', rows: 2 }
+      ],
+      initial: { ...personal, nikKtp: rawNik },
+      submitLabel: 'Simpan pengkinian'
+    });
+    if (!value) return;
+    Object.keys(value).forEach((k) => { if (value[k] === '' || value[k] == null) delete value[k]; });
+    if (!Object.keys(value).length) { toast('Tidak ada perubahan', 'Isi minimal satu field untuk menyimpan.', 'amber'); return; }
+    try {
+      await api(`/api/masters/employees/${params.id}/personal`, { method: 'POST', body: value, idempotencyKey: newIdemKey() });
+      invalidate(`master:${params.id}`);
+      toast('Identitas diperbarui', 'Data diri tersimpan & tercatat di audit trail.');
+      rerender();
+    } catch (error) { toast('Gagal menyimpan identitas', error.message, 'coral'); }
+  };
+
   const masterDetail = {
     async render(main, params, signal) {
       const cfg = MASTER_DETAIL[params.type];
@@ -425,11 +483,12 @@
       const isEmployee = params.type === 'employees';
       const hasPhoto = isParty || isProduct;
       const editBtn = EDIT_FIELDS[params.type] && can(`${cfg.module}.edit`) ? `<button class="btn primary" id="masterEditBtn">${ICONS.gear} Edit / Revisi</button>` : '';
+      const identityBtn = isEmployee && can('employee.edit') ? `<button class="btn clay-action" data-identity-edit><span class="clay-ic" aria-hidden="true">${ICONS.people}</span> Pengkinian Identitas</button>` : '';
 
       main.innerHTML = pageHead({
         eyebrow: isParty ? `PARTY 360 · ${cfg.title.toUpperCase()}` : isProduct ? `PRODUCT 360 · ${cfg.title.toUpperCase()}` : isEmployee ? `EMPLOYEE 360 · ${cfg.title.toUpperCase()}` : `MASTER DATA · ${cfg.title.toUpperCase()}`, title: (isParty || isEmployee) ? `Profil ${cfg.title}` : (overview.name || overview.code || cfg.title),
         sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : isProduct ? 'Foto, spesifikasi, harga, dan riwayat dalam satu profil produk & jasa.' : isEmployee ? 'Identitas, kepegawaian, kompensasi, pajak PPh21, BPJS, dan tata kelola data dalam satu profil.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
-        actions: `${editBtn}<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
+        actions: `${identityBtn}${editBtn}<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
       }) + `
         ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : isProduct ? productIdentityHero(overview, can(`${cfg.module}.edit`)) : isEmployee ? employeeIdentityHero(overview) : ''}
         <div class="master-tabs" role="tablist">
@@ -478,6 +537,8 @@
         } catch (error) { toast('Gagal menyimpan revisi', error.message, 'coral'); }
       });
 
+      main.querySelector('[data-identity-edit]')?.addEventListener('click', () => openIdentityUpdate(params, overview, () => this.render(main, params)));
+
       const renderTab = async (tabId) => {
         this._tab = tabId;
         main.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === tabId));
@@ -486,7 +547,9 @@
         if (tabId === 'overview') {
           if (params.type === 'employees') {
             const s=overview.enterpriseSummary||{},pos=s.currentPosition||{},employment=s.employment||{},comp=s.compensation||{},tax=s.tax||{},bank=s.payrollBank||{},completeness=overview.completeness||{};
+            const personal = await api(`${cfg.base}/${params.id}/personal`).then((r) => (r && r.items && r.items[0]) || (r && r.nikKtp !== undefined ? r : {})).catch(() => ({}));
             body.innerHTML=`<section class="kpi-grid"><article class="kpi"><span>Kelengkapan profil</span><strong>${Number(completeness.score||0)}%</strong><small>${Number(completeness.completed||0)} dari ${Number(completeness.total||0)} kontrol utama</small></article><article class="kpi"><span>Status kerja</span><strong>${esc(employment.employmentStatus||'—')}</strong><small>${esc(employment.employmentType||'Belum dikonfigurasi')}</small></article><article class="kpi"><span>Dokumen segera kedaluwarsa</span><strong>${Number(s.expiringDocuments||0)}</strong><small>Dalam 90 hari</small></article><article class="kpi"><span>Akun sistem aktif</span><strong>${Number(s.activeUserAccounts||0)}</strong><small>Akses ditinjau melalui IAM</small></article></section>
+              ${personalDataCard(personal, overview, can('employee.edit'))}
               <section class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">EMPLOYMENT SNAPSHOT</p><h2>Posisi & kompensasi terkendali</h2></div>${chip(overview.lifecycleStatus||'ACTIVE')}</header><div class="panel-body"><dl class="detail-dl"><div><dt>NIK</dt><dd>${esc(overview.nik)}</dd></div><div><dt>Nama</dt><dd>${esc(overview.name)}</dd></div><div><dt>Jabatan</dt><dd>${esc(pos.positionTitle||overview.jobTitle||'—')}</dd></div><div><dt>Divisi / departemen</dt><dd>${esc(pos.division||overview.department||'—')}</dd></div><div><dt>Lokasi kerja</dt><dd>${esc(pos.workLocation||'—')}</dd></div><div><dt>Grade</dt><dd>${esc(pos.salaryGrade||comp.salaryGrade||'—')}</dd></div><div><dt>Gaji pokok</dt><dd>${typeof comp.baseSalary==='number'?fmtIDR(comp.baseSalary):esc(comp.baseSalary||overview.baseSalary||'—')}</dd></div><div><dt>Tunjangan tetap</dt><dd>${typeof comp.fixedAllowance==='number'?fmtIDR(comp.fixedAllowance):esc(comp.fixedAllowance||'—')}</dd></div></dl></div></article>
               <article class="panel"><header><div><p class="eyebrow">COMPLIANCE SNAPSHOT</p><h2>Pajak, benefit & risiko</h2></div></header><div class="panel-body stack"><div class="stat-row"><span>PTKP / TER</span><b>${esc([tax.ptkpStatus,tax.terCategory].filter(Boolean).join(' · ')||'—')}</b></div><div class="stat-row"><span>Program BPJS aktif</span><b>${Number(s.bpjsPrograms||0)}</b></div><div class="stat-row"><span>Polis asuransi aktif</span><b>${Number(s.insurancePolicies||0)}</b></div><div class="stat-row"><span>Rekening payroll</span><b>${esc(bank.bankName||'Belum ada')} · ${esc(bank.accountNumber||'—')}</b></div><div class="stat-row"><span>Kehadiran bulan ini</span><b>${Number(s.attendanceDays||0)} hari</b></div><div class="stat-row"><span>Sisa cuti</span><b>${Number(s.leaveBalance?.remaining||0)} hari</b></div></div></article></section>
               <article class="panel tax-auto-panel"><header><div><p class="eyebrow">PAJAK OTOMATIS · PPh 21 TER (PP 58/2023)</p><h2>Kalkulasi PTKP &amp; TER otomatis</h2></div>${can('employee.edit')?`<button class="btn primary sm" id="taxAutoBtn">${ICONS.gear} Hitung otomatis</button>`:''}</header><div class="panel-body"><div class="tax-auto-grid"><div><span>Status PTKP</span><b>${esc(tax.ptkpStatus||'—')}</b></div><div><span>Kategori TER</span><b>${esc(tax.terCategory||'—')}</b></div><div><span>Tarif TER / bln</span><b>${tax.terRate!=null&&tax.terRate!==''?Number(tax.terRate)+'%':'—'}</b></div><div><span>Gaji bruto / bln</span><b>${overview.baseSalary?fmtIDR(overview.baseSalary):'—'}</b></div></div><p class="tax-auto-note">Dari status kawin + jumlah tanggungan + gaji bruto, sistem menetapkan status PTKP, kategori TER (A/B/C), dan tarif TER bulanan otomatis sesuai PP 58/2023.</p></div></article></section>`;
@@ -503,6 +566,7 @@
                 invalidate(`master:${params.id}`); this.render(main, params);
               } catch (error) { toast('Gagal menghitung pajak', error.message, 'coral'); }
             });
+            body.querySelector('[data-identity-edit]')?.addEventListener('click', () => openIdentityUpdate(params, overview, () => this.render(main, params)));
             return;
           }
           const rows = cfg.tabs.filter((t) => t.sub).map((t) => `<div class="stat-row"><span>${esc(t.label)}</span><b>${(overview.subCounts && overview.subCounts[t.sub]) || 0} entri</b></div>`).join('');

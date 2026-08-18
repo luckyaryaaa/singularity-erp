@@ -255,7 +255,9 @@ async function listSub(client, master, id, sub, user) {
   if (s.viewGuard) s.viewGuard(user);
   await parentRow(client, master, id);
   const rows = (await client.query(
-    `SELECT * FROM ${s.table} WHERE ${s.fk}=$1 ORDER BY ${s.order || 'id'} LIMIT 200`, [id]
+    s.single
+      ? `SELECT * FROM ${s.table} WHERE ${s.fk}=$1 LIMIT 1`
+      : `SELECT * FROM ${s.table} WHERE ${s.fk}=$1 ORDER BY ${s.order || 'id'} LIMIT 200`, [id]
   )).rows.map((row) => runtime.camel(decryptSensitive(s, row, id)));
   return s.mask ? rows.map((row) => s.mask(row, user)) : rows;
 }
@@ -305,9 +307,13 @@ async function createSub(client, master, id, sub, body, user, requestId) {
   if (s.cols.includes('created_by') || ['employee_positions','employee_contracts','employee_documents','customer_contacts','product_files'].includes(s.table)) payload.created_by = user.id;
   if (s.table === 'employee_compensation_history') { payload.created_by = user.id; payload.approval_reason = body.change_reason || body.changeReason || payload.approval_reason; }
 
+  if (s.single) payload.updated_by = user.id;
   const keys = Object.keys(payload);
   const inserted = (await client.query(
-    `INSERT INTO ${s.table}(${s.fk},${keys.join(',')}) VALUES($1,${keys.map((_, i) => `$${i + 2}`).join(',')}) RETURNING *`,
+    s.single
+      ? `INSERT INTO ${s.table}(${s.fk},${keys.join(',')}) VALUES($1,${keys.map((_, i) => `$${i + 2}`).join(',')})
+         ON CONFLICT (${s.fk}) DO UPDATE SET ${keys.map((k) => `${k}=EXCLUDED.${k}`).join(',')}, updated_at=now() RETURNING *`
+      : `INSERT INTO ${s.table}(${s.fk},${keys.join(',')}) VALUES($1,${keys.map((_, i) => `$${i + 2}`).join(',')}) RETURNING *`,
     [id, ...keys.map((k) => payload[k])])).rows[0];
 
   const auditedPayload = { parent: id, ...payload };
@@ -324,8 +330,8 @@ async function createSub(client, master, id, sub, body, user, requestId) {
   if (payload.fixed_allowance !== undefined) auditedPayload.fixed_allowance = 'REDACTED';
   if (payload.variable_allowance !== undefined) auditedPayload.variable_allowance = 'REDACTED';
   await runtime.audit(client, {
-    userId: user.id, action: 'CREATE', module: m.module, entityType: `${master}.${sub}`.toUpperCase(),
-    entityId: inserted.id, newValue: auditedPayload,
+    userId: user.id, action: s.single ? 'UPDATE' : 'CREATE', module: m.module, entityType: `${master}.${sub}`.toUpperCase(),
+    entityId: inserted.id || id, newValue: auditedPayload,
     reason: body.change_reason || body.changeReason || null, requestId, branchId: user.branchId
   });
   await masterGovernance.refreshQuality(client, master, id);
