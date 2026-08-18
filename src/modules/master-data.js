@@ -244,6 +244,37 @@
     return `<section class="party-profile-hero" data-party-kind="product"><div class="party-profile-identity">${partyAvatar(product, 'product', true)}<div class="party-profile-name"><span class="party-directory-kicker"><i aria-hidden="true"></i>PRODUCT IDENTITY</span><h2>${esc(product.name || product.code)}</h2><p>${esc(product.specification || product.materialType || 'Spesifikasi belum dilengkapi')}</p><div class="party-profile-tags"><span>${esc(product.code || 'NO-CODE')}</span>${chip(status)}${product.isStock ? '<span class="chip mint">Stok</span>' : '<span class="chip lavender">Jasa / Non-stok</span>'}</div></div>${editable ? `<div class="party-photo-action"><button class="btn secondary sm" id="partyPhotoButton" type="button">${ICONS.box} Ganti foto</button><input id="partyPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden><small>PNG, JPG, atau WebP · maks. 5 MB</small></div>` : ''}</div><div class="party-profile-facts">${facts.map(([icon, label, value]) => `<div><span>${icon}</span><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`).join('')}<div><span>${ICONS.audit}</span><small>Data governance</small><strong>${Number(product.dataQualityScore || 0)}% · v${Number(product.mdmVersion || 1)}</strong></div></div><span class="party-profile-orbit" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
   };
 
+  // Cincin skor data-quality (SVG, CSP-safe — atribut presentasi, bukan inline style).
+  const dqRing = (pct) => {
+    const v = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+    const R = 26, C = 2 * Math.PI * R, off = (C * (1 - v / 100)).toFixed(1);
+    const tone = v >= 80 ? 'mint' : v >= 50 ? 'amber' : 'coral';
+    return `<svg class="dq-ring ${tone}" viewBox="0 0 64 64" role="img" aria-label="Data quality ${v} persen"><circle class="dq-track" cx="32" cy="32" r="${R}"/><circle class="dq-arc" cx="32" cy="32" r="${R}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off}" transform="rotate(-90 32 32)"/><text class="dq-val" x="32" y="33">${v}</text></svg>`;
+  };
+
+  // Employee 360 identity hero — memakai kerangka .party-profile-hero (modern),
+  // konten HCM: penempatan, kompensasi, PPh21, cuti + gauge data-quality.
+  const employeeIdentityHero = (emp) => {
+    const status = emp.lifecycleStatus || (emp.active ? 'ACTIVE' : 'INACTIVE');
+    const s = emp.enterpriseSummary || {}, comp = s.compensation || {}, tax = s.tax || {}, leave = s.leaveBalance || {};
+    const compTotal = (Number(comp.baseSalary) || 0) + (Number(comp.fixedAllowance) || 0) + (Number(comp.variableAllowance) || 0);
+    const initials = String(emp.name || '?').split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+    const flags = Array.isArray(emp.qualityFlags) ? emp.qualityFlags : [];
+    const facts = [
+      [ICONS.building, 'Penempatan', `${emp.department || '—'} · ${emp.branchName || '—'}`],
+      [ICONS.wallet, 'Kompensasi', `${fmtIDR(compTotal)}${comp.salaryGrade ? ` · Grade ${comp.salaryGrade}` : ''}`],
+      [ICONS.doc, 'Pajak PPh21', tax.ptkpStatus ? `PTKP ${tax.ptkpStatus} · TER ${tax.terCategory || '—'}` : 'Belum dihitung'],
+      [ICONS.clock, 'Cuti tahunan', leave.entitlement != null ? `${leave.remaining}/${leave.entitlement} hari` : '—']
+    ];
+    return `<section class="party-profile-hero emp-hero" data-party-kind="employee"><div class="party-profile-identity">
+      <div class="emp-avatar">${esc(initials)}</div>
+      <div class="party-profile-name"><span class="party-directory-kicker"><i aria-hidden="true"></i>EMPLOYEE 360 · IDENTITY</span><h2>${esc(emp.name || emp.nik)}</h2><p>${esc(emp.jobTitle || '—')} · ${esc(emp.department || '—')}</p>
+        <div class="party-profile-tags"><span>NIK ${esc(emp.nik || '—')}</span>${chip(status)}${emp.bpjs ? '<span class="chip mint">BPJS aktif</span>' : ''}${flags.length ? `<span class="chip coral">${flags.length} isu data</span>` : ''}</div></div>
+      <div class="emp-quality">${dqRing(emp.dataQualityScore)}<small>Data quality</small></div></div>
+      <div class="party-profile-facts">${facts.map(([icon, label, value]) => `<div><span>${icon}</span><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`).join('')}<div><span>${ICONS.audit}</span><small>Governance</small><strong>Lengkap ${Number((emp.completeness && emp.completeness.score) || 0)}% · v${Number(emp.mdmVersion || 1)}</strong></div></div>
+      <span class="party-profile-orbit" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
+  };
+
   const fmtCell = (row, col) => {
     const [key, , type] = col; const v = row[key];
     if (type === 'money') return `<span class="money">${fmtIDR(Number(v) || 0)}</span>`;
@@ -268,15 +299,16 @@
         .map(([a, label]) => `<button class="btn secondary sm" data-life="${a}">${esc(label)}</button>`).join('');
       const isParty = ['customers', 'suppliers'].includes(params.type);
       const isProduct = params.type === 'products';
+      const isEmployee = params.type === 'employees';
       const hasPhoto = isParty || isProduct;
       const editBtn = EDIT_FIELDS[params.type] && can(`${cfg.module}.edit`) ? `<button class="btn primary" id="masterEditBtn">${ICONS.gear} Edit / Revisi</button>` : '';
 
       main.innerHTML = pageHead({
-        eyebrow: isParty ? `PARTY 360 · ${cfg.title.toUpperCase()}` : isProduct ? `PRODUCT 360 · ${cfg.title.toUpperCase()}` : `MASTER DATA · ${cfg.title.toUpperCase()}`, title: isParty ? `Profil ${cfg.title}` : (overview.name || overview.code || cfg.title),
-        sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : isProduct ? 'Foto, spesifikasi, harga, dan riwayat dalam satu profil produk & jasa.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
+        eyebrow: isParty ? `PARTY 360 · ${cfg.title.toUpperCase()}` : isProduct ? `PRODUCT 360 · ${cfg.title.toUpperCase()}` : isEmployee ? `EMPLOYEE 360 · ${cfg.title.toUpperCase()}` : `MASTER DATA · ${cfg.title.toUpperCase()}`, title: (isParty || isEmployee) ? `Profil ${cfg.title}` : (overview.name || overview.code || cfg.title),
+        sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : isProduct ? 'Foto, spesifikasi, harga, dan riwayat dalam satu profil produk & jasa.' : isEmployee ? 'Identitas, kepegawaian, kompensasi, pajak PPh21, BPJS, dan tata kelola data dalam satu profil.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
         actions: `${editBtn}<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
       }) + `
-        ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : isProduct ? productIdentityHero(overview, can(`${cfg.module}.edit`)) : ''}
+        ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : isProduct ? productIdentityHero(overview, can(`${cfg.module}.edit`)) : isEmployee ? employeeIdentityHero(overview) : ''}
         <div class="master-tabs" role="tablist">
           ${cfg.tabs.filter((t) => !t.perm || can(t.perm)).map((t) => `<button class="master-tab ${t.id === activeTab ? 'active' : ''}" data-tab="${t.id}" role="tab">${esc(t.label)}${overview.subCounts && overview.subCounts[t.sub] ? ` <span class="tab-count">${overview.subCounts[t.sub]}</span>` : ''}</button>`).join('')}
         </div>

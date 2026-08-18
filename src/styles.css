@@ -1845,3 +1845,14 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .oc-legal .oc-main b{font-size:14px;max-width:172px}
 .oc-cc{min-width:168px;background:linear-gradient(135deg,#fffdf8,#fdf3e2)}
 .oc-empty{color:var(--muted);font-size:12px;justify-content:center}
+
+/* Employee 360 identity hero */
+:is(.party-directory-intro,.party-profile-hero)[data-party-kind="employee"]{--party-accent:#4f6bed;--party-accent-ink:#3548c7;--party-soft:#eef1ff;--party-shadow:rgba(79,107,237,.22)}
+.emp-avatar{flex:0 0 auto;width:56px;height:56px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(145deg,#4f6bed,#3548c7);color:#fff;font:800 18px/1 var(--font-display);letter-spacing:.02em;box-shadow:0 14px 24px -14px rgba(53,72,199,.7),inset 0 1px 2px rgba(255,255,255,.4)}
+.emp-quality{flex:0 0 auto;margin-left:auto;display:flex;flex-direction:column;align-items:center;gap:2px}
+.emp-quality small{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.dq-ring{width:54px;height:54px}
+.dq-track{fill:none;stroke:var(--border);stroke-width:6}
+.dq-arc{fill:none;stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset .7s ease}
+.dq-ring.mint .dq-arc{stroke:#0f9d6b}.dq-ring.amber .dq-arc{stroke:#d97706}.dq-ring.coral .dq-arc{stroke:#dc2626}
+.dq-val{fill:var(--text);font:800 17px var(--font-display);text-anchor:middle;dominant-baseline:central}
