@@ -422,7 +422,7 @@ async function employeeAudit(client,employeeId,user){
 // sampai background malware scan selesai.
 async function setProfilePhoto(client, master, id, fileId, user, requestId) {
   const { m } = spec(master);
-  if (!['customers', 'suppliers', 'products'].includes(master)) throw new AppError('VALIDATION_ERROR', 'Foto profil hanya tersedia untuk Customer, Supplier, dan Produk.');
+  if (!['customers', 'suppliers', 'products', 'employees'].includes(master)) throw new AppError('VALIDATION_ERROR', 'Foto profil hanya tersedia untuk Customer, Supplier, Produk, dan Karyawan.');
   assertPermission(user, `${m.module}.edit`);
   const parent = await parentRow(client, master, id);
   if (!fileId || !/^[0-9a-f-]{36}$/i.test(String(fileId))) throw new AppError('VALIDATION_ERROR', 'File foto profil tidak valid.');

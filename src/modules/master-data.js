@@ -254,7 +254,7 @@
 
   // Employee 360 identity hero — memakai kerangka .party-profile-hero (modern),
   // konten HCM: penempatan, kompensasi, PPh21, cuti + gauge data-quality.
-  const employeeIdentityHero = (emp) => {
+  const employeeIdentityHero = (emp, editable) => {
     const status = emp.lifecycleStatus || (emp.active ? 'ACTIVE' : 'INACTIVE');
     const s = emp.enterpriseSummary || {}, comp = s.compensation || {}, tax = s.tax || {}, leave = s.leaveBalance || {};
     const compTotal = (Number(comp.baseSalary) || 0) + (Number(comp.fixedAllowance) || 0) + (Number(comp.variableAllowance) || 0);
@@ -266,8 +266,9 @@
       [ICONS.doc, 'Pajak PPh21', tax.ptkpStatus ? `PTKP ${tax.ptkpStatus} · TER ${tax.terCategory || '—'}` : 'Belum dihitung'],
       [ICONS.clock, 'Cuti tahunan', leave.entitlement != null ? `${leave.remaining}/${leave.entitlement} hari` : '—']
     ];
+    const photo = emp.profileFileId ? `<img data-party-photo src="/api/files/${esc(emp.profileFileId)}" width="56" height="56" alt="" loading="lazy" decoding="async">` : '';
     return `<section class="party-profile-hero emp-hero" data-party-kind="employee"><div class="party-profile-identity">
-      <div class="emp-avatar">${esc(initials)}</div>
+      <div class="emp-avatar${emp.profileFileId ? ' has-photo' : ''}"><span class="emp-avatar-fallback" aria-hidden="true">${esc(initials)}</span>${photo}${editable ? `<button class="emp-photo-btn" id="partyPhotoButton" type="button" title="Ganti foto profil">${ICONS.camera || ICONS.people}</button>` : ''}</div>${editable ? '<input id="partyPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>' : ''}
       <div class="party-profile-name"><span class="party-directory-kicker"><i aria-hidden="true"></i>EMPLOYEE 360 · IDENTITY</span><h2>${esc(emp.name || emp.nik)}</h2><p>${esc(emp.jobTitle || '—')} · ${esc(emp.department || '—')}</p>
         <div class="party-profile-tags"><span>NIK ${esc(emp.nik || '—')}</span>${chip(status)}${emp.bpjs ? '<span class="chip mint">BPJS aktif</span>' : ''}${flags.length ? `<span class="chip coral">${flags.length} isu data</span>` : ''}</div></div>
       <div class="emp-quality">${dqRing(emp.dataQualityScore)}<small>Data quality</small></div></div>
@@ -514,7 +515,7 @@
       const isParty = ['customers', 'suppliers'].includes(params.type);
       const isProduct = params.type === 'products';
       const isEmployee = params.type === 'employees';
-      const hasPhoto = isParty || isProduct;
+      const hasPhoto = isParty || isProduct || isEmployee;
       const editBtn = EDIT_FIELDS[params.type] && can(`${cfg.module}.edit`) ? `<button class="btn primary" id="masterEditBtn">${ICONS.gear} Edit / Revisi</button>` : '';
       const identityBtn = isEmployee && can('employee.edit') ? `<button class="btn clay-action" data-identity-edit><span class="clay-ic" aria-hidden="true">${ICONS.people}</span> Pengkinian Identitas</button>` : '';
 
@@ -523,7 +524,7 @@
         sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : isProduct ? 'Foto, spesifikasi, harga, dan riwayat dalam satu profil produk & jasa.' : isEmployee ? 'Identitas, kepegawaian, kompensasi, pajak PPh21, BPJS, dan tata kelola data dalam satu profil.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
         actions: `${identityBtn}${editBtn}<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
       }) + `
-        ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : isProduct ? productIdentityHero(overview, can(`${cfg.module}.edit`)) : isEmployee ? employeeIdentityHero(overview) : ''}
+        ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : isProduct ? productIdentityHero(overview, can(`${cfg.module}.edit`)) : isEmployee ? employeeIdentityHero(overview, can(`${cfg.module}.edit`)) : ''}
         <div class="master-tabs" role="tablist">
           ${cfg.tabs.filter((t) => !t.perm || can(t.perm)).map((t) => `<button class="master-tab ${t.id === activeTab ? 'active' : ''}" data-tab="${t.id}" role="tab">${esc(t.label)}${overview.subCounts && overview.subCounts[t.sub] ? ` <span class="tab-count">${overview.subCounts[t.sub]}</span>` : ''}</button>`).join('')}
         </div>
