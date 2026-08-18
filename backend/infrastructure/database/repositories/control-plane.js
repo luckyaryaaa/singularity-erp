@@ -51,6 +51,49 @@ async function provisionTenant(client, user, { code, name, primaryDomain = null,
 // numbering_configurations aktif ter-scope tenant). Insert menyebut tenant_id
 // eksplisit; is_platform di-on-kan agar WITH CHECK lolos. Idempotent-friendly:
 // lewati bila legal entity untuk tenant sudah ada.
+// Baseline akuntansi tenant baru — dikloning dari tenant kanonis #001 (MAT).
+// Chart of Accounts + tarif pajak (PPN) + posting profiles (aturan jurnal otomatis)
+// + kalender fiskal tahun berjalan. account_roles GLOBAL (legal_entity_id NULL) →
+// resolve otomatis lewat kode COA yang sama, jadi tidak perlu di-seed per tenant.
+// Semua ter-scope tenant_id eksplisit; dijalankan dalam konteks platform.
+async function seedAccountingBaseline(client, tenantId, leId, branchId) {
+  const coa = await client.query(
+    `INSERT INTO chart_of_accounts(tenant_id,code,name,normal_side,category,active)
+     SELECT $1,code,name,normal_side,category,active FROM chart_of_accounts WHERE tenant_id=$2`,
+    [tenantId, MAT_TENANT]);
+  const tax = await client.query(
+    `INSERT INTO tax_rates(tenant_id,tax_key,rate_pct,description,effective_from,effective_until,active)
+     SELECT $1,tax_key,rate_pct,description,effective_from,effective_until,active FROM tax_rates WHERE tenant_id=$2`,
+    [tenantId, MAT_TENANT]);
+  // Posting profiles + legs: id di-generate baru; LE/branch di-remap ke tenant baru
+  // (profil dengan LE/branch NULL = default, tetap NULL).
+  let postingProfiles = 0, postingLegs = 0;
+  const src = (await client.query(
+    `SELECT id,code,transaction_type,item_category,legal_entity_id,branch_id,priority,version,
+            effective_from,effective_until,active,description
+     FROM posting_profiles WHERE tenant_id=$1`, [MAT_TENANT])).rows;
+  for (const pr of src) {
+    const np = (await client.query(
+      `INSERT INTO posting_profiles(code,transaction_type,item_category,legal_entity_id,branch_id,priority,
+                                    version,effective_from,effective_until,active,description,tenant_id)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+      [pr.code, pr.transaction_type, pr.item_category, pr.legal_entity_id ? leId : null,
+       pr.branch_id ? branchId : null, pr.priority, pr.version, pr.effective_from,
+       pr.effective_until, pr.active, pr.description, tenantId])).rows[0];
+    const lr = await client.query(
+      `INSERT INTO posting_profile_legs(profile_id,leg_no,side,account_code,amount_source,memo_suffix,tenant_id)
+       SELECT $1,leg_no,side,account_code,amount_source,memo_suffix,$2
+       FROM posting_profile_legs WHERE profile_id=$3`, [np.id, tenantId, pr.id]);
+    postingProfiles++; postingLegs += lr.rowCount;
+  }
+  const year = new Date().getUTCFullYear();
+  await client.query(
+    `INSERT INTO fiscal_calendars(legal_entity_id,fiscal_year,start_date,end_date,status,tenant_id)
+     VALUES($1,$2,make_date($2,1,1),make_date($2,12,31),'OPEN',$3)
+     ON CONFLICT (legal_entity_id,fiscal_year) DO NOTHING`, [leId, year, tenantId]);
+  return { accounts: coa.rowCount, taxRates: tax.rowCount, postingProfiles, postingLegs, fiscalYear: year };
+}
+
 async function seedTenantBaseline(client, user, tenantId, opts = {}) {
   await assertPlatformOperator(client, user);
   const tenant = (await client.query('SELECT id FROM tenants WHERE id=$1', [tenantId])).rows[0];
@@ -63,7 +106,8 @@ async function seedTenantBaseline(client, user, tenantId, opts = {}) {
   const le = (await client.query('INSERT INTO legal_entities(code,legal_name,tenant_id) VALUES($1,$2,$3) RETURNING id', [leCode, leName, tenantId])).rows[0];
   const branch = (await client.query('INSERT INTO branches(code,name,legal_entity_id,tenant_id) VALUES($1,$2,$3,$4) RETURNING id', [brCode, brName, le.id, tenantId])).rows[0];
   await client.query("INSERT INTO numbering_configurations(version,format,active,tenant_id) VALUES(1,'{PREFIX}-{BRANCH}-{MMYY}-{SEQ:3}',true,$1)", [tenantId]);
-  return { seeded: true, legalEntityId: le.id, branchId: branch.id };
+  const acc = await seedAccountingBaseline(client, tenantId, le.id, branch.id);
+  return { seeded: true, legalEntityId: le.id, branchId: branch.id, ...acc };
 }
 
 // Onboarding: owner awal untuk sebuah tenant. Caller menyediakan passwordHash
