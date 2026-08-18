@@ -377,6 +377,9 @@
     const cAva = document.getElementById('companyAvatar'); if (cAva) cAva.textContent = tName.split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || 'W';
     const cChip = document.getElementById('companyChip'); if (cChip) cChip.title = tName;
     document.getElementById('topBranch').textContent = data.user.branchName || 'Head Office';
+    // Link self-service billing hanya untuk yang berhak (owner/admin · settings.view).
+    const billLink = document.getElementById('accountBillingLink');
+    if (billLink) billLink.hidden = !(window.MAT && window.MAT.can && window.MAT.can('settings.view'));
     hydrateNavPreferences(data.user);
     renderNav();
     updateBadge(state.unread);

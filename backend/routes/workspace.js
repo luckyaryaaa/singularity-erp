@@ -4,7 +4,22 @@ const { readBody } = require('../core/util');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const accountingConfig = require('../infrastructure/database/repositories/accounting-config');
 const workItems = require('../infrastructure/database/repositories/work-items');
+const billing = require('../infrastructure/database/repositories/billing');
+const metering = require('../infrastructure/database/repositories/metering');
 const { NO_MATCH } = require('./shared');
+
+// Self-service billing — tenant melihat langganan + pemakaian + tagihan MILIKNYA
+// sendiri (ter-scope ke tenant sesi, BUKAN input klien; read-only, gated settings.view).
+async function billingSummary(client, user) {
+  assertPermission(user, 'settings.view');
+  const tenantId = user.tenantId;
+  const [subscription, usage, invoices] = await Promise.all([
+    billing.getSubscription(client, tenantId),
+    metering.usageSummary(client, tenantId, null),
+    metering.listInvoices(client, tenantId)
+  ]);
+  return { subscription, usage, invoices };
+}
 
 // P0-P — entitlement per kartu. `dashboard.view` hanya membuka halamannya;
 // setiap kelompok angka menuntut izin modul asalnya. Data yang tidak berhak
@@ -170,6 +185,7 @@ async function cashOnHand(client,{global,branchId}){
 
 async function dispatch(client,req,url,ctx){const p=url.pathname,method=req.method;
   if(method==='GET'&&p==='/api/dashboard')return dashboard(client,ctx.user);
+  if(method==='GET'&&p==='/api/billing/summary')return billingSummary(client,ctx.user);
   if(method==='GET'&&p==='/api/my-work'){
     assertPermission(ctx.user,'dashboard.view');
     const workItemsInbox=await workItems.myWork(client,ctx.user);

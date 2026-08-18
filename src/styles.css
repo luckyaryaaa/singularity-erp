@@ -1785,3 +1785,20 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .dx-act-main small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dx-act-time{flex:none;font-size:10px;font-weight:700;color:var(--muted);white-space:nowrap}
 .dx-act-empty{display:flex;align-items:center;gap:12px;padding:16px 4px;color:var(--muted);font-size:12px;list-style:none}
+
+/* Self-service billing (tenant) */
+.bill-grid{display:grid;grid-template-columns:340px 1fr;gap:16px;margin-bottom:16px}
+.bill-plan{display:flex;flex-direction:column;gap:4px;justify-content:center}
+.bill-plan h2{margin:2px 0;font:800 24px var(--font-display);letter-spacing:-.02em;color:var(--text)}
+.bill-price{font:800 18px var(--font-display);color:var(--blue-ink,#1f4fd6)}
+.bill-meta{margin-top:6px;display:flex;align-items:center;gap:8px;font-size:11px}
+.bill-usage header{margin-bottom:10px}
+.bill-meters{display:flex;flex-direction:column;gap:12px}
+.bill-mtr-top{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:5px}
+.bill-mtr-top b{color:var(--text);font-weight:700}
+.bill-mtr-top span{color:var(--muted);font-weight:700}
+.bill-mtr-top span.over{color:var(--amber-ink,#b7791f)}
+.bill-mtr .progress progress{width:100%;height:8px}
+.bill-mtr .progress span{display:none}
+.bill-note{margin:12px 2px 0;font-size:11px;color:var(--muted);line-height:1.5}
+@media(max-width:900px){.bill-grid{grid-template-columns:1fr}}

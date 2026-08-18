@@ -334,8 +334,51 @@
 
   // ── Wizard penawaran (form kompleks bertahap) ─────────────────────────────
 
+  // ── Self-service billing (tenant lihat langganan + pemakaian + tagihan sendiri)
+  const billingPage = {
+    permission: 'settings.view',
+    async render(main, _params, signal) {
+      const data = await query('billing', () => api('/api/billing/summary', { signal }), { staleMs: 30_000 });
+      const sub = data.subscription, usage = data.usage || {}, invoices = data.invoices || [];
+      const u = usage.usage || {}, meters = usage.meters || [];
+      const invChip = (s) => `<span class="chip ${s === 'paid' ? 'mint' : s === 'void' ? 'gray' : 'amber'}">${esc(s)}</span>`;
+      const metersHtml = meters.length ? meters.map((m) => {
+        const used = Number(u[m.metric] || 0), inc = Number(m.included_qty), over = Math.max(0, used - inc);
+        const pct = inc > 0 ? Math.min(100, Math.round(used / inc * 100)) : (used > 0 ? 100 : 0);
+        return `<div class="bill-mtr"><div class="bill-mtr-top"><b>${esc(m.label)}</b><span class="${over > 0 ? 'over' : ''}">${used} / ${inc} ${esc(m.unit)}${over > 0 ? ` · +${over} overage` : ''}</span></div>${progressBar(pct)}</div>`;
+      }).join('') : '<p class="bill-note">Paket Anda tanpa metering overage (kontrak enterprise).</p>';
+      const invRows = invoices.length ? invoices.map((iv) => `<tr>
+        <td><b>${esc(iv.invoice_number)}</b></td>
+        <td>${fmtDate(iv.period_start)} – ${fmtDate(iv.period_end)}</td>
+        <td class="right"><span class="money">${fmtIDR(iv.total)}</span></td>
+        <td>${invChip(iv.status)}</td>
+        <td>${iv.paid_at ? `Lunas ${fmtDate(iv.paid_at)}` : '<span class="muted">—</span>'}</td></tr>`).join('')
+        : `<tr><td colspan="5"><div class="empty-state">${clayOrb('mint', 'check')}<h3>Belum ada tagihan</h3><p>Tagihan platform akan tampil di sini tiap periode.</p></div></td></tr>`;
+      const planName = sub ? esc(sub.plan_name || sub.plan_code) : '—';
+      const price = sub && sub.price_monthly != null ? `${fmtIDR(sub.price_monthly)} / bln` : 'Kontrak kustom';
+      main.innerHTML = pageHead({ eyebrow: 'LANGGANAN & TAGIHAN', title: 'Langganan Singularity', sub: 'Paket, pemakaian bulan berjalan, dan riwayat tagihan platform Anda.' }) + `
+        <section class="bill-grid">
+          <article class="panel bill-plan">
+            <p class="eyebrow">PAKET AKTIF</p><h2>${planName}</h2>
+            <div class="bill-price">${price}</div>
+            <div class="bill-meta">${sub ? `${invChip(sub.status)} <span class="muted">Periode s/d ${sub.current_period_end ? fmtDate(sub.current_period_end) : '—'}</span>` : '<span class="muted">Belum berlangganan</span>'}</div>
+          </article>
+          <article class="panel bill-usage">
+            <header><div><p class="eyebrow">PEMAKAIAN ${esc(usage.period || '')}</p><h2>Kuota & pemakaian</h2></div></header>
+            <div class="bill-meters">${metersHtml}</div>
+          </article>
+        </section>
+        <section class="panel">
+          <header><div><p class="eyebrow">RIWAYAT TAGIHAN</p><h2>Invoice platform</h2></div></header>
+          <div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Periode</th><th class="right">Total</th><th>Status</th><th>Pembayaran</th></tr></thead><tbody>${invRows}</tbody></table></div>
+          <p class="bill-note">Pembayaran diproses oleh PT Singularity Teknofastindo. Hubungi tim billing untuk instruksi pembayaran.</p>
+        </section>`;
+    }
+  };
+
   const R = router.register.bind(router);
   R('/dashboard', dashboard);
   R('/approvals', approvals);
   R('/notifications', notifications);
+  R('/billing', billingPage);
 })();
