@@ -1871,3 +1871,74 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .dq-cell.amber .dq-mini::-moz-progress-bar{background:#d97706}
 .dq-cell.coral .dq-mini::-moz-progress-bar{background:#dc2626}
 .dq-flags{font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;background:rgba(220,38,38,.1);color:var(--coral-ink,#c0554b);white-space:nowrap}
+
+/* ── Employee 360 · infotype heroes (current-state cards, gaya SAP HCM) ─── */
+.emp-infotype{overflow:hidden;position:relative}
+.emp-infotype::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--border-strong,#d3dbe8);z-index:1}
+.emp-infotype.it-mint::before{background:linear-gradient(180deg,#34d399,#059669)}
+.emp-infotype.it-blue::before{background:linear-gradient(180deg,#7aa8ff,#3a67b6)}
+.emp-infotype.it-amber::before{background:linear-gradient(180deg,#fbd07a,#d97706)}
+.emp-infotype.it-coral::before{background:linear-gradient(180deg,#fca5a0,#dc2626)}
+.emp-infotype.it-lav::before{background:linear-gradient(180deg,#c4b8fb,#6353b8)}
+.emp-infotype>header{background:linear-gradient(180deg,rgba(247,249,253,.72),rgba(255,255,255,0))}
+.emp-infotype .panel-body{display:flex;flex-direction:column;gap:16px}
+
+.eth-lead{display:flex;flex-wrap:wrap;align-items:center;gap:18px 28px}
+.eth-headline{display:flex;flex-direction:column;gap:3px;min-width:170px}
+.eth-headline>span{font-size:10px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.eth-headline small{font-size:11.5px;color:var(--slate);font-weight:600}
+.num-xl{font:800 clamp(24px,2.6vw,32px)/1 var(--font-display);letter-spacing:-.02em;color:var(--text);font-variant-numeric:tabular-nums}
+.title-xl{font:800 clamp(16px,1.7vw,21px)/1.16 var(--font-display);letter-spacing:-.01em;color:var(--text)}
+.badge-xl{align-self:flex-start;min-width:58px;padding:9px 17px;border-radius:16px;font:800 26px/1 var(--font-display);text-align:center;color:#fff;background:linear-gradient(140deg,#4f6bed,#3548c7);box-shadow:0 12px 22px -12px rgba(53,72,199,.7)}
+
+.eth-breakdown{flex:1 1 260px;min-width:210px;display:flex;flex-direction:column;gap:9px}
+.eth-lead .eth-mini-grid{flex:1 1 280px}
+.seg-bar{width:100%;height:13px;border-radius:7px;overflow:hidden;background:var(--soft-gray)}
+.seg-bar rect{stroke:none}
+.seg-bar .seg-base{fill:#5b7cf0}.seg-bar .seg-fixed{fill:#34c79b}.seg-bar .seg-variable{fill:#e7b34e}.seg-bar .seg-empty{fill:#e7eaf2}
+.seg-legend{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:10.5px;font-weight:700;color:var(--slate)}
+.seg-legend .lg{display:inline-flex;align-items:center;gap:6px}
+.seg-legend .lg::before{content:"";width:9px;height:9px;border-radius:3px;background:currentColor;flex:none}
+.seg-legend .lg.base{color:#3a67b6}.seg-legend .lg.fixed{color:#2c7c5d}.seg-legend .lg.variable{color:#93641a}
+
+.eth-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(138px,1fr));gap:10px}
+.eth-mini{display:flex;flex-direction:column;gap:3px;padding:11px 13px;border:1px solid var(--border);border-radius:14px;background:var(--surface-soft,#f4f7fc)}
+.eth-mini span{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.eth-mini b{font-size:15px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.eth-mini.warn{background:var(--amber-bg);border-color:transparent}.eth-mini.warn b{color:var(--amber-ink)}
+.eth-mini.bad{background:var(--coral-bg);border-color:transparent}.eth-mini.bad b{color:var(--coral-ink)}
+
+.eth-dl{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 18px}
+@media(max-width:720px){.eth-dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.eth-ringwrap{display:flex;flex-direction:column;align-items:center;gap:3px;flex:0 0 auto}
+.eth-ringwrap .dq-ring{width:66px;height:66px}
+.eth-ringwrap small{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+
+/* BPJS coverage grid */
+.bpjs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px}
+.bpjs-tile{display:flex;flex-direction:column;gap:6px;padding:13px 14px;border-radius:16px;border:1px solid var(--border);background:#fff}
+.bpjs-tile.on{background:linear-gradient(160deg,#f0fbf6,#fff);border-color:#bfe6d4}
+.bpjs-tile.off{border-style:dashed;background:var(--surface-soft,#f4f7fc)}
+.bpjs-tile>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0;border:0;min-height:0;background:none}
+.bpjs-tile>header b{font-size:13.5px;font-weight:800;color:var(--text)}
+.bpjs-tile>small{font-size:10.5px;color:var(--muted);font-weight:600}
+.bpjs-pct{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--slate);font-weight:600}
+.bpjs-pct b{color:var(--text);font-weight:800}
+.bpjs-pct.off{color:var(--muted);font-style:italic}
+.bpjs-no{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* Payroll bank — credit-card block */
+.bank-card{align-self:flex-start;width:min(340px,100%)}
+.bank-face{position:relative;display:grid;gap:10px;padding:18px 20px;border-radius:18px;color:#eaf1ff;background:linear-gradient(145deg,#26324a,#3a4d72);box-shadow:0 20px 40px -22px rgba(38,50,74,.8),inset 0 1px 0 rgba(255,255,255,.12);overflow:hidden}
+.bank-face::after{content:"";position:absolute;right:-40px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(202,168,91,.35),transparent 70%)}
+.bank-brand{font:800 14px var(--font-display);letter-spacing:.01em}
+.bank-chip{width:34px;height:25px;border-radius:6px;background:linear-gradient(145deg,#e9cf8f,#c8a24d);box-shadow:inset 0 1px 2px rgba(255,255,255,.6)}
+.bank-no{font:700 18px/1 var(--font-display);letter-spacing:.14em;font-variant-numeric:tabular-nums}
+.bank-holder{font-size:11px;text-transform:uppercase;letter-spacing:.06em;opacity:.85;font-weight:700}
+
+.eth-note{margin:0;font-size:12px;color:var(--slate);background:var(--surface-soft,#f4f7fc);border-radius:12px;padding:10px 13px}
+.empty-inline{font-size:12.5px;color:var(--slate);padding:6px 2px}
+.empty-inline b{color:var(--text)}
+.chip.sm{padding:2px 7px;font-size:9px;border-radius:7px}
+.tone-mint{color:var(--mint-ink);font-weight:700}.tone-amber{color:var(--amber-ink);font-weight:700}.tone-coral{color:var(--coral-ink);font-weight:700}.tone-gray{color:var(--muted);font-weight:700}
