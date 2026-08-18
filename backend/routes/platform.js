@@ -7,6 +7,7 @@ const { readBody } = require('../core/util');
 const { AppError } = require('../core/errors');
 const cp = require('../infrastructure/database/repositories/control-plane');
 const billing = require('../infrastructure/database/repositories/billing');
+const metering = require('../infrastructure/database/repositories/metering');
 const auth = require('../infrastructure/database/repositories/auth');
 const runtime = require('../infrastructure/database/repositories/runtime');
 const { NO_MATCH } = require('./shared');
@@ -148,6 +149,59 @@ async function dispatch(client, req, url, ctx) {
     const sub = await billing.setSubscriptionStatus(client, ctx.user, m[1], body.status);
     await audit(client, ctx, 'SUBSCRIPTION_STATUS', m[1], { status: body.status });
     return sub;
+  }
+
+  // ── Metering & Platform Invoicing (W1 Commercialize) ─────────────────────
+  m = p.match(/^\/api\/platform\/tenants\/([0-9a-f-]{36})\/usage$/);
+  if (method === 'GET' && m) {
+    await elevate(client, ctx.user);
+    return metering.usageSummary(client, m[1], url.searchParams.get('period'));
+  }
+  if (method === 'POST' && m) {
+    await elevate(client, ctx.user);
+    const body = await readBody(req);
+    const ev = await metering.recordUsage(client, ctx.user, m[1], body);
+    await audit(client, ctx, 'RECORD_USAGE', m[1], { metric: ev.metric, quantity: ev.quantity });
+    ctx.status = 201;
+    return ev;
+  }
+
+  m = p.match(/^\/api\/platform\/tenants\/([0-9a-f-]{36})\/invoices$/);
+  if (method === 'GET' && m) {
+    await elevate(client, ctx.user);
+    return { items: await metering.listInvoices(client, m[1]) };
+  }
+  if (method === 'POST' && m) {
+    await elevate(client, ctx.user);
+    const body = await readBody(req);
+    const inv = await metering.generateInvoice(client, ctx.user, m[1], { period: body.period });
+    await audit(client, ctx, 'GENERATE_INVOICE', m[1], { invoice: inv.invoice_number, total: inv.total, reused: inv.reused });
+    ctx.status = inv.reused ? 200 : 201;
+    return inv;
+  }
+
+  m = p.match(/^\/api\/platform\/invoices\/([0-9a-f-]{36})$/);
+  if (method === 'GET' && m) {
+    await elevate(client, ctx.user);
+    const inv = await metering.getInvoice(client, m[1]);
+    if (!inv) throw new AppError('RESOURCE_NOT_FOUND', 'Invoice tidak ditemukan.');
+    return inv;
+  }
+
+  m = p.match(/^\/api\/platform\/invoices\/([0-9a-f-]{36})\/pay$/);
+  if (method === 'POST' && m) {
+    await elevate(client, ctx.user);
+    const inv = await metering.markInvoicePaid(client, ctx.user, m[1]);
+    await audit(client, ctx, 'INVOICE_PAID', inv.tenant_id, { invoice: inv.invoice_number, total: inv.total });
+    return inv;
+  }
+
+  m = p.match(/^\/api\/platform\/invoices\/([0-9a-f-]{36})\/void$/);
+  if (method === 'POST' && m) {
+    await elevate(client, ctx.user);
+    const inv = await metering.voidInvoice(client, ctx.user, m[1]);
+    await audit(client, ctx, 'INVOICE_VOID', inv.tenant_id, { invoice: inv.invoice_number });
+    return inv;
   }
 
   return NO_MATCH;
