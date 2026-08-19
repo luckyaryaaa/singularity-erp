@@ -335,6 +335,7 @@
   const MK_TABS = [
     ['overview', 'Overview & Master', 'user', null], ['ocr', 'AI OCR KTP/NPWP', 'scanText', ['AI Engine', 'purple']],
     ['workflow', 'Workflow Approval', 'gitPr', ['Maker-Checker', 'amber']], ['employment', 'Employment & Position', 'briefcase', null],
+    ['talent', 'Performance & Talent', 'award', ['9-Box', 'purple']],
     ['tax', 'Pajak', 'calc', ['PPh 21 TER', 'blue']], ['bpjs', 'BPJS', 'shield', ['Kesehatan & TK', 'emerald']],
     ['payroll', 'Payroll & Bank', 'card', null], ['services', 'Services & Tools', 'wrench', null],
     ['documents', 'Documents', 'fileText', null], ['audit', 'Audit Trail & Logs', 'history', null]
@@ -421,6 +422,7 @@
         <div class="mk-content" data-mk-content="ocr" hidden></div>
         <div class="mk-content" data-mk-content="workflow" hidden></div>
         <div class="mk-content" data-mk-content="employment" hidden></div>
+        <div class="mk-content" data-mk-content="talent" hidden></div>
         <div class="mk-content" data-mk-content="payroll" hidden></div>
         <div class="mk-content" data-mk-content="services" hidden></div>
         <div class="mk-content" data-mk-content="documents" hidden></div>
@@ -457,7 +459,21 @@
         audit: async () => { const rows = (await api(`${B}/audit`)).items || []; return `<section class="mk-surface">${clayHead('history', 'Audit Trail & Logs', 'Jejak perubahan data karyawan.', `<span class="mk-badge slate">${rows.length} entri</span>`)}<div class="mk-section-body">${rows.length ? `<ol class="mk-audit">${rows.map((r) => `<li class="mk-audit-row"><span class="mk-audit-ic">${MK('history')}</span><div class="mk-flex1"><div class="mk-rowb"><b>${esc(r.action || r.entityType || 'Perubahan')}</b><span class="mk-tl-date">${r.occurredAt ? fmtDate(r.occurredAt) : ''}</span></div><small>${esc(r.entityType || '')}${r.reason ? ` · ${esc(r.reason)}` : ''}</small></div></li>`).join('')}</ol>` : emptyBox('Belum ada aktivitas audit.')}</div></section>`; },
         workflow: async () => { const isHr = can('employee.edit'); let pending = []; if (isHr) { try { pending = (await api('/api/hr/self-updates?status=PENDING')).items || []; } catch (_) { pending = []; } } const canApprove = can('employee.approve'); return `<section class="mk-surface">${clayHead('gitPr', 'Maker-Checker Workflow Approval', 'Persetujuan berjenjang perubahan data master karyawan.', isHr ? '' : '<span class="mk-badge amber">HR only</span>')}<div class="mk-section-body mk-col"><div class="mk-g mk-g3"><div class="mk-inset mk-wf t-amber"><span class="mk-o-caps mk-am">Pending Checker</span><h4>${pending.length} menunggu</h4><p>Perlu review HR</p></div><div class="mk-inset mk-wf t-emerald"><span class="mk-o-caps mk-em">Segregation of Duties</span><h4>SoD Aktif</h4><p>Approver ≠ pengaju</p></div><div class="mk-inset mk-wf t-blue"><span class="mk-o-caps mk-bl">Auto-Sync</span><h4>PP 58/2023</h4><p>Pajak &amp; BPJS otomatis</p></div></div><div class="mk-tl-wrap"><div class="mk-o-caps">Antrean Persetujuan</div>${pending.length ? `<div class="mk-col">${pending.map((u) => `<div class="mk-inset mk-wf-row"><div class="mk-flex1"><b>${esc(u.employeeName)}</b><small>Maker: ${esc(u.requestedByName || '—')} · ${Object.keys(u.proposed || {}).length} field diusulkan</small></div><div class="mk-wf-act"><span class="mk-badge amber">PENDING</span>${canApprove ? `<button class="mk-btn sm" data-wf-approve="${esc(u.id)}">Setujui</button><button class="mk-btn sm mk-cor" data-wf-reject="${esc(u.id)}">Tolak</button>` : ''}</div></div>`).join('')}</div>` : emptyBox(isHr ? 'Tidak ada permintaan menunggu persetujuan.' : 'Persetujuan hanya untuk HR / manajer.')}</div></div></section>`; },
         ocr: async () => `<section class="mk-surface">${clayHead('scanText', 'AI-Powered Document OCR', 'Ekstraksi otomatis KTP/NPWP via AI Vision Engine (simulasi).', '<span class="mk-badge purple">OCR Engine v2.4</span>')}<div class="mk-section-body"><div class="mk-io"><div class="mk-inset mk-io-panel"><div class="mk-o-caps">1. Pilih &amp; Unggah Dokumen</div><select class="mk-input" id="mkOcrType"><option value="ktp">KTP (Kartu Tanda Penduduk)</option><option value="npwp">NPWP</option></select><div class="mk-drop" id="mkDrop">${MK('scanText')}<b>Klik untuk memuat sampel dokumen</b><small>JPG, PNG, PDF · maks 5 MB</small></div><button class="mk-btn primary" id="mkOcrRun">${MK('sparkles')} Jalankan AI OCR &amp; Auto-Extract</button></div><div class="mk-surface mk-io-out mk-io-panel"><div class="mk-rowb mk-o-caps bb">Hasil Ekstraksi AI<span class="mk-badge amber" id="mkOcrBadge">Menunggu</span></div><div class="mk-g mk-g2"><div><label class="mk-field-lbl">NIK Terdeteksi</label><input class="mk-input" id="mkOcrNik" placeholder="—"></div><div><label class="mk-field-lbl">Nama Lengkap</label><input class="mk-input" id="mkOcrName" placeholder="—"></div><div><label class="mk-field-lbl">Tempat/Tgl Lahir</label><input class="mk-input" id="mkOcrTtl" placeholder="—"></div><div><label class="mk-field-lbl">Alamat</label><input class="mk-input" id="mkOcrAddr" placeholder="—"></div></div><button class="mk-btn primary" id="mkOcrApply">${MK('edit')} Terapkan ke Pengkinian Identitas</button></div></div></div></section>`,
-        services: async () => `<section class="mk-surface">${clayHead('wrench', 'Services & Tools', 'Layanan mandiri &amp; alat bantu karyawan.', '')}<div class="mk-section-body"><div class="mk-g mk-g3">${[['Data Saya', 'Portal self-service', 'user', '#/hr/my-profile'], ['Kalkulator Pajak', 'PPh 21 TER Planner', 'calc', 'tab:tax'], ['Simulasi BPJS', 'Iuran bulanan', 'shield', 'tab:bpjs'], ['Riwayat Karier', 'Timeline karier', 'history', 'tab:employment'], ['Pengkinian Identitas', 'Ajukan perubahan data', 'edit', 'identity'], ['Export Profil', 'Ringkasan PDF', 'printer', 'export']].map((t) => `<button class="mk-inset mk-tool" data-mk-tool="${t[3]}"><span class="mk-tool-ic">${MK(t[2])}</span><b>${esc(t[0])}</b><small>${esc(t[1])}</small></button>`).join('')}</div></div></section>`
+        services: async () => `<section class="mk-surface">${clayHead('wrench', 'Services & Tools', 'Layanan mandiri &amp; alat bantu karyawan.', '')}<div class="mk-section-body"><div class="mk-g mk-g3">${[['Data Saya', 'Portal self-service', 'user', '#/hr/my-profile'], ['Kalkulator Pajak', 'PPh 21 TER Planner', 'calc', 'tab:tax'], ['Simulasi BPJS', 'Iuran bulanan', 'shield', 'tab:bpjs'], ['Riwayat Karier', 'Timeline karier', 'history', 'tab:employment'], ['Pengkinian Identitas', 'Ajukan perubahan data', 'edit', 'identity'], ['Export Profil', 'Ringkasan PDF', 'printer', 'export']].map((t) => `<button class="mk-inset mk-tool" data-mk-tool="${t[3]}"><span class="mk-tool-ic">${MK(t[2])}</span><b>${esc(t[0])}</b><small>${esc(t[1])}</small></button>`).join('')}</div></div></section>`,
+        talent: async () => {
+          const tl = await api(`${B}/talent`).catch(() => ({}));
+          const perfR = Number(tl.performanceRating) || 0;
+          const goalsPct = Number(tl.goalsTotal) ? Math.round((Number(tl.goalsCompleted) / Number(tl.goalsTotal)) * 100) : 0;
+          const LB = [['Underperformer', 'Inconsistent', 'Enigma'], ['Effective', 'Core Player', 'High Potential'], ['Trusted Pro', 'High Performer', 'Star']];
+          const TN = [['coral', 'coral', 'amber'], ['amber', 'blue', 'emerald'], ['blue', 'emerald', 'emerald']];
+          const SUCC = { READY_NOW: 'Siap sekarang', READY_1_2Y: '1–2 tahun', READY_3Y: '3 tahun', NOT_READY: 'Belum siap' };
+          const grid = [2, 1, 0].map((r) => `<div class="mk-9row">${[0, 1, 2].map((c) => { const on = tl.box && tl.box.perf === r && tl.box.pot === c; return `<div class="mk-9cell t-${TN[r][c]}${on ? ' on' : ''}"><span class="mk-9lbl">${LB[r][c]}</span>${on ? `<span class="mk-9dot">${MK('user')}</span>` : ''}</div>`; }).join('')}</div>`).join('');
+          const noteTone = tl.boxTone === 'emerald' ? 'emerald' : tl.boxTone === 'coral' ? 'coral' : tl.boxTone === 'amber' ? 'amber' : '';
+          return `<section class="mk-surface">${clayHead('award', 'Performance & Talent (9-Box)', 'Kalibrasi kinerja, potensi, flight-risk, dan kesiapan suksesi.', can('employee.edit') ? `<button class="mk-btn primary sm" id="mkTalentEdit">${MK('edit')} Kalibrasi</button>` : '')}<div class="mk-section-body"><div class="mk-io">
+            <div class="mk-inset mk-io-panel"><div class="mk-o-caps">9-Box Talent Grid</div><div class="mk-9box"><span class="mk-9yax">Kinerja →</span><div class="mk-9grid">${grid}</div></div><div class="mk-9xax"><span>Potensi rendah</span><span>Potensi tinggi</span></div>${tl.boxLabel ? `<div class="mk-note ${noteTone}"><b>Posisi:</b> ${esc(tl.boxLabel)}</div>` : `<div class="mk-note">Belum dikalibrasi — set kinerja &amp; potensi lewat tombol "Kalibrasi".</div>`}</div>
+            <div class="mk-inset mk-io-panel"><div class="mk-o-caps">Ringkasan Talenta</div><div class="mk-g mk-g2"><div class="mk-inset mk-out"><span>Performance</span><b>${perfR ? perfR + ' / 5' : '—'}</b></div><div class="mk-inset mk-out"><span>Potensi</span><b class="blue">${esc(tl.potential || '—')}</b></div><div class="mk-inset mk-out"><span>Flight Risk</span><b class="${tl.flightRisk === 'HIGH' ? '' : ''}">${esc(tl.flightRisk || '—')}</b></div><div class="mk-inset mk-out"><span>Kesiapan Suksesi</span><b>${esc(SUCC[tl.successionReadiness] || tl.successionReadiness || '—')}</b></div></div><div class="mk-o-caps">Progres Goal${tl.goalsTotal ? ` — ${tl.goalsCompleted}/${tl.goalsTotal}` : ''}</div><div class="mk-band"><div class="mk-band-track"><span class="mk-band-fill" data-w="${goalsPct}"></span></div></div>${tl.notes ? `<div class="mk-note">${esc(tl.notes)}</div>` : ''}</div>
+          </div></div></section>`;
+        }
       };
       const wireCommon = (root) => {
         root.querySelectorAll('[data-mk-copy]').forEach((b) => b.addEventListener('click', async () => { try { await navigator.clipboard.writeText(b.dataset.mkCopy); toast('Disalin', b.dataset.mkCopy); } catch (_) { toast('Gagal menyalin', '', 'coral'); } }));
@@ -481,6 +497,25 @@
         if (key === 'payroll') {
           panel.querySelectorAll('.mk-band-fill[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
           panel.querySelectorAll('.mk-band-dot[data-pos]').forEach((el) => { el.style.left = `${el.dataset.pos}%`; });
+        }
+        if (key === 'talent') {
+          panel.querySelectorAll('.mk-band-fill[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
+          panel.querySelector('#mkTalentEdit')?.addEventListener('click', async () => {
+            const cur = await api(`${B}/talent`).catch(() => ({}));
+            const v = await formDialog({ title: `Kalibrasi Talent — ${ov.name || ''}`, description: 'Set penilaian kinerja & potensi (9-box), flight-risk, dan kesiapan suksesi.', fields: [
+              { name: 'performanceRating', label: 'Performance Rating', type: 'select', options: [['', '—'], ['1', '1 · Jauh di bawah'], ['2', '2 · Di bawah'], ['3', '3 · Memenuhi'], ['4', '4 · Melebihi'], ['5', '5 · Luar biasa']], value: cur.performanceRating != null ? String(cur.performanceRating) : '' },
+              { name: 'potential', label: 'Potensi', type: 'select', options: [['', '—'], ['LOW', 'Rendah'], ['MEDIUM', 'Sedang'], ['HIGH', 'Tinggi']], value: cur.potential || '' },
+              { name: 'flightRisk', label: 'Flight Risk', type: 'select', options: [['', '—'], ['LOW', 'Rendah'], ['MEDIUM', 'Sedang'], ['HIGH', 'Tinggi']], value: cur.flightRisk || '' },
+              { name: 'successionReadiness', label: 'Kesiapan Suksesi', type: 'select', options: [['', '—'], ['READY_NOW', 'Siap sekarang'], ['READY_1_2Y', '1–2 tahun'], ['READY_3Y', '3 tahun'], ['NOT_READY', 'Belum siap']], value: cur.successionReadiness || '' },
+              { name: 'reviewPeriod', label: 'Periode Review', value: cur.reviewPeriod || '' },
+              { name: 'goalsCompleted', label: 'Goal Selesai', type: 'number', min: 0, value: cur.goalsCompleted || 0 },
+              { name: 'goalsTotal', label: 'Total Goal', type: 'number', min: 0, value: cur.goalsTotal || 0 },
+              { name: 'notes', label: 'Catatan Kalibrasi', type: 'textarea', rows: 2, value: cur.notes || '' }
+            ], submitLabel: 'Simpan kalibrasi' });
+            if (!v) return;
+            try { await api(`${B}/talent`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Talent tersimpan', 'Kalibrasi 9-box diperbarui.'); loaded.talent = false; show('talent'); }
+            catch (error) { toast('Gagal menyimpan', error.message, 'coral'); }
+          });
         }
       };
       const show = async (key) => {

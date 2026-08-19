@@ -685,4 +685,46 @@ async function workforceAnalytics(client, user) {
   return { kpi, byDept, tenure, gender, byGrade, span };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics };
+// Performance & Talent — 9-box (baris = performance rendah/med/tinggi,
+// kolom = potential rendah/med/tinggi). Label standar talent management.
+const NINE_BOX_LABELS = [
+  ['Underperformer', 'Inconsistent Player', 'Enigma / Rough Diamond'],
+  ['Effective', 'Core Player', 'High Potential'],
+  ['Trusted Professional', 'High Performer', 'Star / Top Talent']
+];
+const NINE_BOX_TONE = [['coral', 'coral', 'amber'], ['amber', 'blue', 'emerald'], ['blue', 'emerald', 'emerald']];
+const TALENT_FIELDS = ['performance_rating', 'potential', 'flight_risk', 'succession_readiness', 'review_period', 'goals_total', 'goals_completed', 'notes'];
+
+async function employeeTalent(client, id, user) {
+  assertPermission(user, 'employee.view');
+  await parentRow(client, 'employees', id);
+  const row = runtime.camel((await client.query(`SELECT * FROM employee_talent WHERE employee_id=$1`, [id])).rows[0] || {});
+  const perf = Number(row.performanceRating) || null;
+  const pot = row.potential || null;
+  let box = null, boxLabel = null, boxTone = null;
+  if (perf && pot) {
+    const pl = perf <= 2 ? 0 : perf === 3 ? 1 : 2;
+    const ptl = { LOW: 0, MEDIUM: 1, HIGH: 2 }[pot];
+    if (ptl != null) { box = { perf: pl, pot: ptl }; boxLabel = NINE_BOX_LABELS[pl][ptl]; boxTone = NINE_BOX_TONE[pl][ptl]; }
+  }
+  return { ...row, box, boxLabel, boxTone };
+}
+
+async function updateTalent(client, id, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  await parentRow(client, 'employees', id);
+  const snake = (k) => k.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+  const payload = {};
+  for (const [k, v] of Object.entries(body)) { const c = snake(k); if (TALENT_FIELDS.includes(c) && v !== undefined && v !== '' && v !== null) payload[c] = v; }
+  if (!Object.keys(payload).length) throw new AppError('VALIDATION_ERROR', 'Tidak ada data talent untuk disimpan.');
+  payload.updated_by = user.id;
+  const keys = Object.keys(payload);
+  const row = (await client.query(
+    `INSERT INTO employee_talent(employee_id,${keys.join(',')}) VALUES($1,${keys.map((_, i) => `$${i + 2}`).join(',')})
+      ON CONFLICT (employee_id) DO UPDATE SET ${keys.map((k) => `${k}=EXCLUDED.${k}`).join(',')}, updated_at=now() RETURNING *`,
+    [id, ...keys.map((k) => payload[k])])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: 'UPDATE', module: 'employee', entityType: 'EMPLOYEE.TALENT', entityId: id, newValue: runtime.camel(row), requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent };

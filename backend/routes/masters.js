@@ -104,6 +104,9 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m)return{items:await masterData.employeeTimeline(client,m[1],ctx.user)};
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/compensation-analysis$/);
   if(method==='GET'&&m)return masterData.compensationAnalysis(client,m[1],ctx.user);
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/talent$/);
+  if(method==='GET'&&m)return masterData.employeeTalent(client,m[1],ctx.user);
+  if(method==='POST'&&m){const body=await readBody(req);return masterData.updateTalent(client,m[1],body,ctx.user,ctx.requestId);}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/tax-auto$/);
   if(method==='POST'&&m){const body=await readBody(req);return masterData.autoTaxProfile(client,m[1],body,ctx.user,ctx.requestId);}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/(bank-accounts|compensation)\/([0-9a-f-]{36})\/(approve|reject)$/);
