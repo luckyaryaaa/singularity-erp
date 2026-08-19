@@ -2098,3 +2098,15 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-band-dot{position:absolute;top:5px;left:0;width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 4px 10px -2px rgba(37,99,235,.7);transform:translateX(-8px);transition:left .5s ease}
 .mk-band-labels{display:flex;justify-content:space-between;font:700 10.5px 'JetBrains Mono','Plus Jakarta Sans';color:var(--mk-muted)}
 .mk-band-labels span:nth-child(2){color:#475569}
+/* workforce analytics cockpit */
+.mk360.mk-analytics{margin:18px 0 0;padding:0;background:none;min-height:0}
+.mk-chart{display:flex;flex-direction:column;gap:10px}
+.mk-chart-row{display:flex;align-items:center;gap:12px}
+.mk-chart-lbl{flex:0 0 130px;font:700 11.5px 'Plus Jakarta Sans';color:var(--mk-slate);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mk-chart-bar{flex:1;height:14px;background:#eef2f7;border-radius:7px;overflow:hidden}
+.mk-chart-bar i{display:block;height:100%;width:0;border-radius:7px;transition:width .6s ease}
+.mk-chart-bar i.t-blue{background:linear-gradient(90deg,#7aa8ff,#2563eb)}
+.mk-chart-bar i.t-emerald{background:linear-gradient(90deg,#5ed6a8,#059669)}
+.mk-chart-bar i.t-purple{background:linear-gradient(90deg,#b79bfb,#7c3aed)}
+.mk-chart-bar i.t-amber{background:linear-gradient(90deg,#fbd07a,#d97706)}
+.mk-chart-row>b{flex:0 0 34px;text-align:right;font:900 13px 'JetBrains Mono','Plus Jakarta Sans';color:#1e293b}

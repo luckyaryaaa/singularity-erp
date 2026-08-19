@@ -661,4 +661,28 @@ async function compensationAnalysis(client, id, user) {
   return { grade, base, fixedAllowance: Number(comp.fixed_allowance) || 0, variableAllowance: Number(comp.variable_allowance) || 0, band, grades, compaRatio, positionInRange, quartile, status };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis };
+// Workforce Analytics Cockpit — agregasi lintas karyawan (menghormati RLS cabang).
+async function workforceAnalytics(client, user) {
+  assertPermission(user, 'employee.view');
+  const kpi = runtime.camel((await client.query(`SELECT
+    count(*)::int total,
+    count(*) FILTER (WHERE active)::int active,
+    count(*) FILTER (WHERE bpjs)::int bpjs_covered,
+    COALESCE(round(avg(data_quality_score)),0)::int avg_quality,
+    count(*) FILTER (WHERE join_date >= current_date - interval '90 days')::int new_hires_90d
+    FROM employees`)).rows[0]);
+  const byDept = (await client.query(`SELECT COALESCE(NULLIF(department,''),'(Tanpa Dept)') label, count(*)::int value FROM employees GROUP BY 1 ORDER BY value DESC, label LIMIT 8`)).rows;
+  const tenure = runtime.camel((await client.query(`SELECT
+    count(*) FILTER (WHERE join_date > current_date - interval '1 year')::int lt1,
+    count(*) FILTER (WHERE join_date <= current_date - interval '1 year' AND join_date > current_date - interval '3 years')::int y1to3,
+    count(*) FILTER (WHERE join_date <= current_date - interval '3 years' AND join_date > current_date - interval '5 years')::int y3to5,
+    count(*) FILTER (WHERE join_date <= current_date - interval '5 years')::int gt5
+    FROM employees WHERE join_date IS NOT NULL`)).rows[0]);
+  const gender = (await client.query(`SELECT CASE gender WHEN 'MALE' THEN 'Laki-laki' WHEN 'FEMALE' THEN 'Perempuan' ELSE '—' END label, count(*)::int value FROM employee_personal_profiles GROUP BY gender ORDER BY value DESC`)).rows;
+  const byGrade = (await client.query(`SELECT COALESCE(p.salary_grade,'—') label, count(DISTINCT p.employee_id)::int value FROM employee_positions p WHERE p.effective_from<=current_date AND (p.effective_to IS NULL OR p.effective_to>=current_date) GROUP BY 1 ORDER BY 1`)).rows;
+  const spanRow = (await client.query(`SELECT count(DISTINCT supervisor_employee_id)::int managers, count(*)::int reports FROM employee_positions WHERE supervisor_employee_id IS NOT NULL AND effective_from<=current_date AND (effective_to IS NULL OR effective_to>=current_date)`)).rows[0];
+  const span = Number(spanRow.managers) ? Number((Number(spanRow.reports) / Number(spanRow.managers)).toFixed(1)) : 0;
+  return { kpi, byDept, tenure, gender, byGrade, span };
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics };

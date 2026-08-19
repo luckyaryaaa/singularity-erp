@@ -287,4 +287,36 @@
   };
   R('/hr/my-profile', myProfilePage);
   R('/hr/self-updates', hrSelfUpdatesPage);
+
+  // ── Workforce Analytics Cockpit (dashboard SDM ala SAP/Oracle) ────────────
+  const workforceAnalyticsPage = {
+    permission: 'employee.view',
+    async render(main, _p, signal) {
+      let d;
+      try { d = await api('/api/hr/workforce-analytics', { signal }); }
+      catch (error) { main.innerHTML = pageHead({ eyebrow: 'HRD · WORKFORCE ANALYTICS', title: 'Workforce Analytics' }) + `<section class="panel"><div class="empty-state">${clayOrb('coral', 'alert')}<h3>Gagal memuat</h3><p>${esc(error.message)}</p></div></section>`; return; }
+      const k = d.kpi || {}, t = d.tenure || {};
+      const metric = (label, value, note, icon, tone) => `<article class="mk-surface mk-metric"><div class="mk-m-copy"><span class="mk-m-k">${esc(label)}</span><div class="mk-m-v">${esc(String(value))}</div><span class="mk-m-note mk-mu">${esc(note)}</span></div><div class="mk-m-ic mk-ic-${tone}">${ICONS[icon] || ''}</div></article>`;
+      const bars = (arr, tone) => (arr && arr.length) ? `<div class="mk-chart">${(() => { const mx = Math.max(1, ...arr.map((x) => Number(x.value) || 0)); return arr.map((x) => `<div class="mk-chart-row"><span class="mk-chart-lbl">${esc(x.label)}</span><span class="mk-chart-bar"><i class="t-${tone}" data-w="${Math.round((Number(x.value) || 0) / mx * 100)}"></i></span><b>${Number(x.value) || 0}</b></div>`).join(''); })()}</div>` : '<div class="mk-empty">Belum ada data.</div>';
+      const tenureArr = [{ label: '< 1 tahun', value: t.lt1 || 0 }, { label: '1–3 tahun', value: t.y1to3 || 0 }, { label: '3–5 tahun', value: t.y3to5 || 0 }, { label: '> 5 tahun', value: t.gt5 || 0 }];
+      main.innerHTML = pageHead({ eyebrow: 'HRD · WORKFORCE ANALYTICS', title: 'Workforce Analytics Cockpit', sub: 'Ringkasan tenaga kerja — headcount, masa kerja, grade, demografi, dan span of control.' }) + `<div class="mk360 mk-analytics">
+        <div class="mk-g mk-g4">
+          ${metric('Total Headcount', k.total || 0, `${k.active || 0} aktif`, 'people', 'blue')}
+          ${metric('Rata-rata Data Quality', (k.avgQuality || 0) + '%', k.avgQuality >= 80 ? 'golden record' : 'perlu dilengkapi', 'shield', 'emerald')}
+          ${metric('Cakupan BPJS', k.bpjsCovered || 0, `dari ${k.total || 0} karyawan`, 'checkCircle', 'emerald')}
+          ${metric('Hire Baru (90 hari)', k.newHires90d || 0, 'akuisisi talenta', 'people', 'amber')}
+        </div>
+        <div class="mk-g mk-g2">
+          <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.building || ''} Headcount per Departemen</div></div><div class="mk-section-body">${bars(d.byDept || [], 'blue')}</div></section>
+          <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.clock || ''} Distribusi Masa Kerja</div></div><div class="mk-section-body">${bars(tenureArr, 'emerald')}</div></section>
+        </div>
+        <div class="mk-g mk-g2">
+          <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.wallet || ''} Sebaran Grade</div></div><div class="mk-section-body">${bars(d.byGrade || [], 'purple')}</div></section>
+          <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.people || ''} Demografi & Span of Control</div></div><div class="mk-section-body mk-col">${bars(d.gender || [], 'amber')}<div class="mk-inset mk-out"><span>Span of Control — rata-rata bawahan / manajer</span><b class="blue">${d.span || 0}</b></div></div></section>
+        </div>
+      </div>`;
+      main.querySelectorAll('.mk-chart-bar i[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
+    }
+  };
+  R('/hr/analytics', workforceAnalyticsPage);
 })();
