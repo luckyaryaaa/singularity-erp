@@ -387,12 +387,13 @@
           <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Gaji Pokok <span class="mk-tag emerald">auto</span></label><input class="mk-input" type="number" id="mkTaxBase" value="${Number(comp.baseSalary) || 0}"></div><div><label class="mk-field-lbl">Tunjangan Tetap <span class="mk-tag emerald">auto</span></label><input class="mk-input" type="number" id="mkTaxFixed" value="${Number(comp.fixedAllowance) || 0}"></div><div><label class="mk-field-lbl">Tunjangan Variabel <span class="mk-tag emerald">auto</span></label><input class="mk-input" type="number" id="mkTaxVar" value="${Number(comp.variableAllowance) || 0}"></div><div><label class="mk-field-lbl">Bonus / THR</label><input class="mk-input" type="number" id="mkTaxBonus" value="0"></div></div>
           <div><label class="mk-field-lbl">Metode Pemotongan Pajak</label><select class="mk-input" id="mkTaxMethod"><option value="GROSS"${(tax.taxMethod === 'GROSS' || !tax.taxMethod) ? ' selected' : ''}>Gross — dipotong dari gaji (ditanggung karyawan)</option><option value="NET"${tax.taxMethod === 'NET' ? ' selected' : ''}>Nett — ditanggung perusahaan</option><option value="GROSS_UP"${tax.taxMethod === 'GROSS_UP' ? ' selected' : ''}>Gross-up — tunjangan pajak</option></select></div>
           <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Kategori PTKP <span class="mk-tag emerald">otomatis</span></label><select class="mk-input" id="mkTaxCat"><option value="A"${terCat === 'A' ? ' selected' : ''}>Kategori A</option><option value="B"${terCat === 'B' ? ' selected' : ''}>Kategori B</option><option value="C"${terCat === 'C' ? ' selected' : ''}>Kategori C</option></select></div><div><label class="mk-field-lbl">Status PTKP</label><input class="mk-input" id="mkTaxPtkp" value="${esc(ptkpStatus)}" readonly></div></div>
+          <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Status NPWP</label><select class="mk-input" id="mkTaxNpwp"><option value="1"${tax.npwp ? ' selected' : ''}>Ber-NPWP</option><option value="0"${!tax.npwp ? ' selected' : ''}>Tanpa NPWP (+20%)</option></select></div><div class="mk-annual-btn"><button class="mk-btn primary" id="mkTaxAnnual">${MK('calc')} Hitung Tahunan &amp; Desember</button></div></div>
         </div>
         <div class="mk-surface mk-io-out mk-io-panel">
           <div class="mk-rowb mk-o-caps bb">Hasil Kalkulator PPh 21 TER<span class="mk-badge emerald" id="mkTaxMethodBadge">Gross</span></div>
           <div class="mk-out-grid"><div class="mk-inset mk-out"><span>Total Bruto Sebulan</span><b id="mkOutBruto">—</b></div><div class="mk-inset mk-out"><span>Tarif TER · Kat. <span id="mkOutCat">${esc(terCat)}</span></span><b class="blue" id="mkOutRate">—</b></div><div class="mk-inset mk-out"><span>PPh 21 Bulanan</span><b class="emerald" id="mkOutTax">—</b></div><div class="mk-inset mk-out"><span>Take Home Pay</span><b class="indigo" id="mkOutThp">—</b></div><div class="mk-inset mk-out mk-span2"><span>Biaya Perusahaan (gaji + pajak ditanggung)</span><b id="mkOutCost">—</b></div></div>
           <div class="mk-note"><b>${MK('info')} Metode:</b> <span id="mkTaxRec">—</span></div>
-        </div></div></div></section>`;
+        </div></div><div id="mkTaxAnnualOut" class="mk-annual-out"></div></div></section>`;
 
       const bpjsTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('shield')} BPJS Kesehatan & Ketenagakerjaan</div><div class="mk-section-desc">Kepesertaan, faskes, dan kalkulator iuran otomatis (JKN + Jamsostek).</div></div><span class="mk-badge emerald">${Number(s.bpjsPrograms || 0)} program aktif</span></div><div class="mk-section-body"><div class="mk-io">
         <div class="mk-inset mk-io-panel">
@@ -534,26 +535,37 @@
       wireCommon(main);
       const calcTax = () => {
         const base = Number(main.querySelector('#mkTaxBase').value) || 0, fixed = Number(main.querySelector('#mkTaxFixed').value) || 0, vari = Number(main.querySelector('#mkTaxVar').value) || 0, bonus = Number(main.querySelector('#mkTaxBonus').value) || 0;
-        const cat = main.querySelector('#mkTaxCat').value, method = main.querySelector('#mkTaxMethod').value;
+        const cat = main.querySelector('#mkTaxCat').value, method = main.querySelector('#mkTaxMethod').value, npwp = (main.querySelector('#mkTaxNpwp') || {}).value !== '0';
         const bruto = base + fixed + vari + bonus; let rate = 0;
         if (cat === 'A') rate = bruto > 10000000 ? 0.02 : bruto > 5400000 ? 0.0025 : 0;
         else if (cat === 'B') rate = bruto > 11000000 ? 0.03 : bruto > 6200000 ? 0.015 : 0;
         else rate = bruto > 12000000 ? 0.04 : 0.02;
+        const er = rate * (npwp ? 1 : 1.2);
+        const pct = (x) => (x * 100).toFixed(3).replace(/\.?0+$/, '');
         let pph21, thp, cost, rec;
-        if (method === 'NET') { pph21 = bruto * rate; thp = bruto; cost = bruto + pph21; rec = 'Pajak ditanggung penuh perusahaan — THP karyawan = bruto; biaya perusahaan bertambah sebesar PPh 21.'; }
-        else if (method === 'GROSS_UP') { const T = rate < 1 ? bruto * rate / (1 - rate) : 0; pph21 = T; thp = bruto; cost = bruto + T; rec = 'Perusahaan memberi tunjangan pajak (gross-up) yang menambah dasar pajak; THP = bruto, biaya perusahaan = bruto + tunjangan pajak.'; }
-        else { pph21 = bruto * rate; thp = bruto - pph21; cost = bruto; rec = 'PPh 21 dipotong langsung dari gaji (ditanggung karyawan).'; }
+        if (method === 'NET') { pph21 = bruto * er; thp = bruto; cost = bruto + pph21; rec = 'Pajak ditanggung penuh perusahaan — THP karyawan = bruto; biaya perusahaan bertambah sebesar PPh 21.'; }
+        else if (method === 'GROSS_UP') { const T = er < 1 ? bruto * er / (1 - er) : 0; pph21 = T; thp = bruto; cost = bruto + T; rec = 'Perusahaan memberi tunjangan pajak (gross-up) yang menambah dasar pajak; THP = bruto, biaya perusahaan = bruto + tunjangan pajak.'; }
+        else { pph21 = bruto * er; thp = bruto - pph21; cost = bruto; rec = 'PPh 21 dipotong langsung dari gaji (ditanggung karyawan).'; }
         const ML = { GROSS: 'Gross', NET: 'Nett', GROSS_UP: 'Gross-up' };
         main.querySelector('#mkOutBruto').textContent = rp(bruto);
-        main.querySelector('#mkOutRate').textContent = (rate * 100).toFixed(2).replace(/\.00$/, '') + '%';
+        main.querySelector('#mkOutRate').textContent = pct(er) + '%';
         main.querySelector('#mkOutTax').textContent = rp(pph21);
         main.querySelector('#mkOutThp').textContent = rp(thp);
         main.querySelector('#mkOutCost').textContent = rp(cost);
         main.querySelector('#mkOutCat').textContent = cat;
         main.querySelector('#mkTaxMethodBadge').textContent = ML[method] || 'Gross';
-        main.querySelector('#mkTaxRec').textContent = (rate === 0 ? `Gaji di bawah PTKP kategori ${cat} — belum dikenakan PPh 21. ` : `Tarif TER ${(rate * 100).toFixed(2)}%/bln. `) + rec;
+        main.querySelector('#mkTaxRec').textContent = (rate === 0 ? `Gaji di bawah PTKP kategori ${cat} — belum dikenakan PPh 21. ` : `Tarif TER ${pct(er)}%/bln${npwp ? '' : ' (termasuk +20% non-NPWP)'}. `) + rec;
       };
-      ['#mkTaxBase', '#mkTaxFixed', '#mkTaxVar', '#mkTaxBonus', '#mkTaxCat', '#mkTaxMethod'].forEach((sel) => main.querySelector(sel)?.addEventListener('input', calcTax));
+      const calcAnnual = async () => {
+        const out = main.querySelector('#mkTaxAnnualOut');
+        out.innerHTML = `<div class="mk-inset mk-annual-card"><div class="mk-empty"><span class="spinner"></span> Menghitung PPh 21 tahunan…</div></div>`;
+        try {
+          const r = await api(`${B}/pph21`, { method: 'POST', body: { base: Number(main.querySelector('#mkTaxBase').value) || 0, fixed: Number(main.querySelector('#mkTaxFixed').value) || 0, variable: Number(main.querySelector('#mkTaxVar').value) || 0, bonus: Number(main.querySelector('#mkTaxBonus').value) || 0, category: main.querySelector('#mkTaxCat').value, ptkp: main.querySelector('#mkTaxPtkp').value, npwp: main.querySelector('#mkTaxNpwp').value === '1', method: main.querySelector('#mkTaxMethod').value } });
+          out.innerHTML = `<div class="mk-inset mk-annual-card"><div class="mk-rowb mk-o-caps bb">Rekonsiliasi PPh 21 Tahunan &amp; Desember (progresif UU HPP)<span class="mk-badge ${r.hasNpwp ? 'blue' : 'amber'}">${r.hasNpwp ? 'Ber-NPWP' : 'Non-NPWP +20%'}</span></div><div class="mk-g mk-g4"><div class="mk-inset mk-out"><span>Bruto Setahun</span><b>${money(r.grossAnnual)}</b></div><div class="mk-inset mk-out"><span>Biaya Jabatan</span><b>${money(r.biayaJabatan)}</b></div><div class="mk-inset mk-out"><span>Iuran BPJS (JHT+JP)</span><b>${money(r.bpjsDeduct)}</b></div><div class="mk-inset mk-out"><span>PTKP ${esc(r.ptkp)}</span><b>${money(r.ptkpAmt)}</b></div><div class="mk-inset mk-out"><span>PKP (neto − PTKP)</span><b class="blue">${money(r.pkp)}</b></div><div class="mk-inset mk-out"><span>PPh 21 Setahun</span><b class="emerald">${money(r.pphAnnual)}</b></div><div class="mk-inset mk-out"><span>TER Jan–Nov</span><b>${money(r.terJanNov)}</b></div><div class="mk-inset mk-out"><span>Koreksi Desember</span><b class="indigo">${money(r.december)}</b></div></div><div class="mk-note">Biaya jabatan 5% (maks Rp 6 jt/th) + iuran JHT 2% &amp; JP 1% karyawan mengurangi penghasilan neto; PPh Desember = PPh setahun − akumulasi TER Jan–Nov.</div></div>`;
+        } catch (error) { out.innerHTML = `<div class="mk-inset mk-annual-card"><div class="mk-empty">Gagal menghitung: ${esc(error.message)}</div></div>`; }
+      };
+      ['#mkTaxBase', '#mkTaxFixed', '#mkTaxVar', '#mkTaxBonus', '#mkTaxCat', '#mkTaxMethod', '#mkTaxNpwp'].forEach((sel) => main.querySelector(sel)?.addEventListener('input', calcTax));
+      main.querySelector('#mkTaxAnnual')?.addEventListener('click', calcAnnual);
       main.querySelector('#mkTaxBase') && calcTax();
       const calcBpjs = () => {
         const base = Number(main.querySelector('#mkBpjsSalary').value) || 0;

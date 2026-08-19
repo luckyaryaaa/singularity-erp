@@ -727,4 +727,38 @@ async function updateTalent(client, id, body, user, requestId) {
   return runtime.camel(row);
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent };
+// PPh 21 TER engine — bulanan (TER) + tahunan/Desember (progresif UU HPP) dengan
+// biaya jabatan, iuran BPJS (JHT/JP) karyawan, PTKP, dan surcharge non-NPWP.
+const PTKP_ANNUAL = { 'TK/0': 54000000, 'TK/1': 58500000, 'TK/2': 63000000, 'TK/3': 67500000, 'K/0': 58500000, 'K/1': 63000000, 'K/2': 67500000, 'K/3': 72000000 };
+const terMonthlyRate = (cat, bruto) => cat === 'A' ? (bruto > 10000000 ? 0.02 : bruto > 5400000 ? 0.0025 : 0) : cat === 'B' ? (bruto > 11000000 ? 0.03 : bruto > 6200000 ? 0.015 : 0) : (bruto > 12000000 ? 0.04 : 0.02);
+const progressiveAnnual = (pkp) => {
+  if (pkp <= 0) return 0;
+  const brackets = [[60000000, 0.05], [250000000, 0.15], [500000000, 0.25], [5000000000, 0.30], [Infinity, 0.35]];
+  let tax = 0, prev = 0;
+  for (const [cap, rate] of brackets) { const slice = Math.min(pkp, cap) - prev; if (slice > 0) tax += slice * rate; prev = cap; if (pkp <= cap) break; }
+  return tax;
+};
+async function pph21Annual(client, id, body, user) {
+  assertPermission(user, 'employee.view');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Kalkulasi pajak membutuhkan izin payroll.');
+  await parentRow(client, 'employees', id);
+  const base = Number(body.base) || 0, fixed = Number(body.fixed) || 0, variable = Number(body.variable) || 0, bonus = Number(body.bonus) || 0;
+  const cat = body.category || 'A', ptkp = body.ptkp || 'TK/0', hasNpwp = body.npwp !== false && body.npwp !== 'false', method = body.method || 'GROSS';
+  const monthlyBruto = base + fixed + variable;
+  const grossAnnual = monthlyBruto * 12 + bonus;
+  const biayaJabatan = Math.min(grossAnnual * 0.05, 6000000);
+  const jht = base * 0.02 * 12;
+  const jp = Math.min(base, 10042300) * 0.01 * 12;
+  const bpjsDeduct = jht + jp;
+  const ptkpAmt = PTKP_ANNUAL[ptkp] || 54000000;
+  const pkp = Math.max(0, Math.floor((grossAnnual - biayaJabatan - bpjsDeduct - ptkpAmt) / 1000) * 1000);
+  const npwpFactor = hasNpwp ? 1 : 1.2;
+  const pphAnnual = Math.round(progressiveAnnual(pkp) * npwpFactor);
+  const terRate = terMonthlyRate(cat, monthlyBruto);
+  const monthlyTer = Math.round(monthlyBruto * terRate * npwpFactor);
+  const terJanNov = monthlyTer * 11;
+  const december = Math.max(0, pphAnnual - terJanNov);
+  return { monthlyBruto, grossAnnual, biayaJabatan: Math.round(biayaJabatan), jht: Math.round(jht), jp: Math.round(jp), bpjsDeduct: Math.round(bpjsDeduct), ptkp, ptkpAmt, pkp, terRate, monthlyTer, terJanNov, pphAnnual, december, hasNpwp, cat, method };
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual };
