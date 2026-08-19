@@ -244,160 +244,6 @@
     return `<section class="party-profile-hero" data-party-kind="product"><div class="party-profile-identity">${partyAvatar(product, 'product', true)}<div class="party-profile-name"><span class="party-directory-kicker"><i aria-hidden="true"></i>PRODUCT IDENTITY</span><h2>${esc(product.name || product.code)}</h2><p>${esc(product.specification || product.materialType || 'Spesifikasi belum dilengkapi')}</p><div class="party-profile-tags"><span>${esc(product.code || 'NO-CODE')}</span>${chip(status)}${product.isStock ? '<span class="chip mint">Stok</span>' : '<span class="chip lavender">Jasa / Non-stok</span>'}</div></div>${editable ? `<div class="party-photo-action"><button class="btn secondary sm" id="partyPhotoButton" type="button">${ICONS.box} Ganti foto</button><input id="partyPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden><small>PNG, JPG, atau WebP · maks. 5 MB</small></div>` : ''}</div><div class="party-profile-facts">${facts.map(([icon, label, value]) => `<div><span>${icon}</span><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`).join('')}<div><span>${ICONS.audit}</span><small>Data governance</small><strong>${Number(product.dataQualityScore || 0)}% · v${Number(product.mdmVersion || 1)}</strong></div></div><span class="party-profile-orbit" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
   };
 
-  // Cincin skor data-quality (SVG, CSP-safe — atribut presentasi, bukan inline style).
-  const dqRing = (pct) => {
-    const v = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
-    const R = 26, C = 2 * Math.PI * R, off = (C * (1 - v / 100)).toFixed(1);
-    const tone = v >= 80 ? 'mint' : v >= 50 ? 'amber' : 'coral';
-    return `<svg class="dq-ring ${tone}" viewBox="0 0 64 64" role="img" aria-label="Data quality ${v} persen"><circle class="dq-track" cx="32" cy="32" r="${R}"/><circle class="dq-arc" cx="32" cy="32" r="${R}" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off}" transform="rotate(-90 32 32)"/><text class="dq-val" x="32" y="33">${v}</text></svg>`;
-  };
-
-  // Employee 360 identity hero — memakai kerangka .party-profile-hero (modern),
-  // konten HCM: penempatan, kompensasi, PPh21, cuti + gauge data-quality.
-  const employeeIdentityHero = (emp, editable) => {
-    const status = emp.lifecycleStatus || (emp.active ? 'ACTIVE' : 'INACTIVE');
-    const s = emp.enterpriseSummary || {}, comp = s.compensation || {}, tax = s.tax || {}, leave = s.leaveBalance || {};
-    const compTotal = (Number(comp.baseSalary) || 0) + (Number(comp.fixedAllowance) || 0) + (Number(comp.variableAllowance) || 0);
-    const initials = String(emp.name || '?').split(' ').filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
-    const flags = Array.isArray(emp.qualityFlags) ? emp.qualityFlags : [];
-    const facts = [
-      [ICONS.wallet, 'Kompensasi / bln', fmtIDR(compTotal)],
-      [ICONS.doc, 'Pajak PPh21', tax.ptkpStatus ? `PTKP ${tax.ptkpStatus} · TER ${tax.terCategory || '—'}` : 'Belum dihitung'],
-      [ICONS.clock, 'Cuti tahunan', leave.entitlement != null ? `${leave.remaining}/${leave.entitlement} hari` : '—'],
-      [ICONS.audit, 'Masa kerja', serviceLength(emp.joinDate)]
-    ];
-    const photo = emp.profileFileId ? `<img data-party-photo src="/api/files/${esc(emp.profileFileId)}" width="56" height="56" alt="" loading="lazy" decoding="async">` : '';
-    return `<section class="party-profile-hero emp-hero" data-party-kind="employee"><div class="party-profile-identity">
-      <div class="emp-avatar${emp.profileFileId ? ' has-photo' : ''}"><span class="emp-avatar-fallback" aria-hidden="true">${esc(initials)}</span>${photo}${editable ? `<button class="emp-photo-btn" id="partyPhotoButton" type="button" title="Ganti foto profil">${ICONS.camera || ICONS.people}</button>` : ''}</div>${editable ? '<input id="partyPhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>' : ''}
-      <div class="party-profile-name"><span class="party-directory-kicker"><i aria-hidden="true"></i>EMPLOYEE 360 · IDENTITY</span><h2>${esc(emp.name || emp.nik)}</h2><p>${esc(emp.jobTitle || '—')} · ${esc(emp.department || '—')}</p>
-        <div class="party-profile-tags"><span>NIK ${esc(emp.nik || '—')}</span>${chip(status)}${emp.bpjs ? '<span class="chip mint">BPJS aktif</span>' : ''}${flags.length ? `<span class="chip coral">${flags.length} isu data</span>` : ''}</div></div>
-      <div class="emp-quality">${dqRing(emp.dataQualityScore)}<small>Data quality</small></div></div>
-      <div class="party-profile-facts">${facts.map(([icon, label, value]) => `<div><span>${icon}</span><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`).join('')}</div>
-      <span class="party-profile-orbit" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
-  };
-
-  // Employee 360 — "infotype" heroes: kartu ringkasan keadaan-terkini di atas tabel riwayat,
-  // gaya SAP HCM infotype / Oracle HR. CSP-safe (SVG presentation attrs, tanpa inline style).
-  const empMask = (v, keep = 4) => { const t = String(v ?? '').replace(/\s+/g, ''); if (!t) return '—'; return t.length <= keep ? t : `••••${t.slice(-keep)}`; };
-  const daysUntil = (d) => { if (!d) return null; const ms = new Date(d).getTime() - Date.now(); return Number.isFinite(ms) ? Math.round(ms / 86400000) : null; };
-  const segBar = (parts) => {
-    const shown = parts.filter((p) => Number(p[0]) > 0);
-    const total = shown.reduce((a, p) => a + Number(p[0]), 0) || 1;
-    let x = 0; const W = 100, H = 12;
-    const rects = shown.map((p) => { const w = (Number(p[0]) / total) * W; const r = `<rect class="seg-${p[1]}" x="${x.toFixed(2)}" y="0" width="${w.toFixed(2)}" height="${H}" rx="2.5"/>`; x += w; return r; }).join('');
-    return `<svg class="seg-bar" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-hidden="true">${rects || `<rect class="seg-empty" x="0" y="0" width="${W}" height="${H}" rx="2.5"/>`}</svg>`;
-  };
-  const employeeTabHero = (tabId, items, overview) => {
-    const list = Array.isArray(items) ? items : [];
-    const s = (overview && overview.enterpriseSummary) || {};
-    const shell = (eyebrow, title, right, body, tone) => `<article class="panel emp-infotype${tone ? ` it-${tone}` : ''}"><header><div><p class="eyebrow">${eyebrow}</p><h2>${title}</h2></div>${right || ''}</header><div class="panel-body">${body}</div></article>`;
-    const facts = (rows) => `<dl class="detail-dl eth-dl">${rows.filter(Boolean).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
-    const mini = (cells) => `<div class="eth-mini-grid">${cells.filter(Boolean).map(([k, v, cls]) => `<div class="eth-mini${cls ? ` ${cls}` : ''}"><span>${esc(k)}</span><b>${v}</b></div>`).join('')}</div>`;
-
-    if (tabId === 'compensation') {
-      const c = list[0]; if (!c) return '';
-      const base = Number(c.baseSalary) || 0, fixed = Number(c.fixedAllowance) || 0, variable = Number(c.variableAllowance) || 0;
-      const monthly = base + fixed + variable, annual = monthly * 12, status = c.approvalStatus || c.status;
-      return shell('KOMPENSASI · IT-0008 BASIC PAY', 'Struktur remunerasi aktif', status ? chip(status) : '',
-        `<div class="eth-lead"><div class="eth-headline"><span>Total kompensasi / bulan</span><strong class="num-xl">${fmtIDR(monthly)}</strong><small>≈ ${fmtIDR(annual)} / tahun · THR ± ${fmtIDR(base)}</small></div>
-          <div class="eth-breakdown">${segBar([[base, 'base'], [fixed, 'fixed'], [variable, 'variable']])}<div class="seg-legend"><span class="lg base">Pokok · ${fmtIDR(base)}</span><span class="lg fixed">Tunj. tetap · ${fmtIDR(fixed)}</span><span class="lg variable">Tunj. variabel · ${fmtIDR(variable)}</span></div></div></div>
-        ${facts([
-          ['Gaji pokok', `<span class="money">${fmtIDR(base)}</span>`], ['Tunjangan tetap', `<span class="money">${fmtIDR(fixed)}</span>`],
-          ['Tunjangan variabel', `<span class="money">${fmtIDR(variable)}</span>`], ['Grade', esc(c.salaryGrade || (s.compensation && s.compensation.salaryGrade) || '—')],
-          ['Berlaku sejak', fmtDate(c.effectiveFrom)], ['Revisi kompensasi', `${list.length} entri`]
-        ])}`, 'mint');
-    }
-    if (tabId === 'tax-profiles') {
-      const t = list[0] || {}, tax = s.tax || {};
-      const ter = t.terCategory || tax.terCategory, rate = (t.terRate != null && t.terRate !== '') ? t.terRate : tax.terRate;
-      const ptkp = t.ptkpStatus || tax.ptkpStatus, scheme = t.taxScheme || tax.taxScheme || 'PPH21';
-      if (!list.length && !tax.ptkpStatus) return shell('PAJAK · PPh 21 TER (PP 58/2023)', 'Profil pajak belum dikonfigurasi', chip('PERLU DILENGKAPI'), `<div class="empty-inline">Belum ada profil pajak. Gunakan <b>Hitung otomatis</b> di tab Overview, atau tambah manual di bawah.</div>`, 'amber');
-      return shell('PAJAK · PPh 21 TER (PP 58/2023)', 'Profil perpajakan aktif', scheme ? chip(scheme) : '',
-        `<div class="eth-lead"><div class="eth-headline"><span>Kategori TER</span><strong class="badge-xl">${esc(ter || '—')}</strong><small>${(rate != null && rate !== '') ? `Tarif ${Number(rate)}% / bulan` : 'Tarif belum ditetapkan'}${tax.monthlyPph21 ? ` · PPh21 ± ${fmtIDR(tax.monthlyPph21)}/bln` : ''}</small></div>
-          ${mini([['PTKP', esc(ptkp || '—')], ['Skema', esc(scheme || '—')], ['Metode', esc(t.taxMethod || tax.taxMethod || '—')], ['NPWP', t.npwp ? 'Terdaftar' : 'Belum']])}</div>
-        ${facts([
-          ['NPWP', esc(t.npwp ? empMask(t.npwp, 6) : '—')], ['Status PTKP', esc(ptkp || '—')], ['Kategori TER', esc(ter || '—')],
-          ['Tarif TER', (rate != null && rate !== '') ? `${Number(rate)}%` : '—'], ['Metode potong', esc(t.taxMethod || tax.taxMethod || '—')], ['Berlaku sejak', fmtDate(t.effectiveFrom)]
-        ])}`, 'blue');
-    }
-    if (tabId === 'bpjs') {
-      const PROG = [['KESEHATAN', 'Kesehatan', 'JKN · KIS'], ['JHT', 'JHT', 'Hari Tua'], ['JKK', 'JKK', 'Kecelakaan Kerja'], ['JKM', 'JKM', 'Jaminan Kematian'], ['JP', 'JP', 'Jaminan Pensiun']];
-      const byProg = {}; list.forEach((p) => { if (!byProg[p.program]) byProg[p.program] = p; });
-      const activeCount = PROG.filter(([code]) => byProg[code]).length;
-      const totEmployer = list.reduce((a, p) => a + (Number(p.employerPct) || 0), 0), totEmployee = list.reduce((a, p) => a + (Number(p.employeePct) || 0), 0);
-      const tiles = PROG.map(([code, name, desc]) => { const p = byProg[code];
-        return `<div class="bpjs-tile ${p ? 'on' : 'off'}"><header><b>${esc(name)}</b>${p ? '<span class="chip mint sm">Aktif</span>' : '<span class="chip gray sm">—</span>'}</header><small>${esc(desc)}</small>${p ? `<div class="bpjs-pct"><span>Perusahaan <b>${Number(p.employerPct) || 0}%</b></span><span>Karyawan <b>${Number(p.employeePct) || 0}%</b></span></div><small class="bpjs-no">No. ${esc(empMask(p.membershipNumber, 4))}</small>` : '<div class="bpjs-pct off">Belum terdaftar</div>'}</div>`; }).join('');
-      return shell('BPJS · JAMINAN SOSIAL', 'Cakupan kepesertaan', `<span class="chip ${activeCount >= 4 ? 'mint' : activeCount ? 'amber' : 'coral'}">${activeCount}/5 program</span>`,
-        `<div class="bpjs-grid">${tiles}</div>${mini([['Total iuran perusahaan', `${totEmployer.toFixed(1)}%`], ['Total iuran karyawan', `${totEmployee.toFixed(1)}%`]])}`, 'mint');
-    }
-    if (tabId === 'bank-accounts') {
-      const primary = list.find((b) => b.isPrimary) || list[0]; if (!primary) return '';
-      const vs = primary.verificationStatus || (primary.verified ? 'VERIFIED' : 'PENDING');
-      return shell('PAYROLL BANK · IT-0009', 'Rekening penggajian utama', chip(vs),
-        `<div class="bank-card"><div class="bank-face"><span class="bank-brand">${esc(primary.bankName || '—')}</span><span class="bank-chip" aria-hidden="true"></span><span class="bank-no">${esc(empMask(primary.accountNumber, 4))}</span><span class="bank-holder">${esc(primary.accountHolder || overview.name || '—')}</span></div></div>
-        ${facts([
-          ['Bank', esc(primary.bankName || '—')], ['No. rekening', esc(empMask(primary.accountNumber, 4))], ['Atas nama', esc(primary.accountHolder || '—')],
-          ['Status verifikasi', chip(vs)], ['Total rekening', `${list.length}`], ['Berlaku sejak', fmtDate(primary.effectiveFrom)]
-        ])}`, 'blue');
-    }
-    if (tabId === 'positions') {
-      const cur = list[0] || s.currentPosition || {};
-      const title = cur.positionTitle || overview.jobTitle, division = cur.division || overview.department, location = cur.workLocation || overview.branchName;
-      const grade = cur.salaryGrade || (s.compensation && s.compensation.salaryGrade);
-      if (!title && !division && !location) return '';
-      return shell('PENEMPATAN · IT-0001 ORG ASSIGNMENT', 'Posisi & penempatan aktif', chip(overview.lifecycleStatus || 'ACTIVE'),
-        `<div class="eth-lead"><div class="eth-headline"><span>Jabatan</span><strong class="title-xl">${esc(title || '—')}</strong><small>${esc(division || '—')}${location ? ` · ${esc(location)}` : ''}</small></div></div>
-        ${facts([
-          ['Divisi / Departemen', esc(division || '—')], ['Lokasi kerja', esc(location || '—')], ['Grup shift', esc(cur.shiftGroup || '—')],
-          ['Grade gaji', esc(grade || '—')], ['Frekuensi gaji', esc(cur.payrollFrequency || 'Bulanan')], ['Berlaku sejak', cur.effectiveFrom ? fmtDate(cur.effectiveFrom) : esc(overview.joinDate ? fmtDate(overview.joinDate) : '—')]
-        ])}`, 'lav');
-    }
-    if (tabId === 'contracts') {
-      const active = list.find((c) => ['ACTIVE', 'SIGNED', 'RUNNING'].includes(String(c.status || '').toUpperCase())) || list[0]; if (!active) return '';
-      const dleft = daysUntil(active.endDate), tone = dleft == null ? 'gray' : dleft < 0 ? 'coral' : dleft <= 60 ? 'amber' : 'mint';
-      const note = dleft == null ? 'Tanpa tanggal berakhir (PKWTT)' : dleft < 0 ? `Kedaluwarsa ${Math.abs(dleft)} hari lalu` : `${dleft} hari menuju berakhir`;
-      return shell('KONTRAK · IT-0016 CONTRACT', 'Kontrak kerja aktif', chip(active.status || 'ACTIVE'),
-        `<div class="eth-lead"><div class="eth-headline"><span>${esc(active.contractType || 'Kontrak')} · ${esc(active.contractNumber || '—')}</span><strong class="title-xl">${fmtDate(active.startDate)} → ${active.endDate ? fmtDate(active.endDate) : 'Tanpa batas'}</strong><small class="tone-${tone}">${esc(note)}</small></div></div>
-        ${facts([
-          ['Nomor kontrak', esc(active.contractNumber || '—')], ['Jenis', esc(active.contractType || '—')], ['Mulai', fmtDate(active.startDate)],
-          ['Berakhir', active.endDate ? fmtDate(active.endDate) : '—'], ['Akhir percobaan', active.probationEnd ? fmtDate(active.probationEnd) : '—'], ['Total kontrak', `${list.length}`]
-        ])}`, tone === 'coral' ? 'coral' : 'amber');
-    }
-    if (tabId === 'documents') {
-      if (!list.length) return '';
-      const verified = list.filter((d) => d.verified || d.verificationStatus === 'VERIFIED').length;
-      const expiring = list.filter((d) => { const dl = daysUntil(d.expiryDate); return dl != null && dl >= 0 && dl <= 90; }).length;
-      const expired = list.filter((d) => { const dl = daysUntil(d.expiryDate); return dl != null && dl < 0; }).length;
-      const pct = list.length ? Math.round((verified / list.length) * 100) : 0;
-      return shell('DOKUMEN & SERTIFIKAT · IT-0022', 'Kepatuhan dokumen', chip(expired ? 'PERLU TINDAKAN' : expiring ? 'PANTAU' : 'TERKENDALI'),
-        `<div class="eth-lead"><div class="eth-ringwrap">${dqRing(pct)}<small>Terverifikasi</small></div>${mini([['Total dokumen', `${list.length}`], ['Terverifikasi', `${verified}`], ['Segera kedaluwarsa', `${expiring}`, expiring ? 'warn' : ''], ['Kedaluwarsa', `${expired}`, expired ? 'bad' : '']])}</div>`, expired ? 'coral' : 'blue');
-    }
-    if (tabId === 'insurance') {
-      if (!list.length) return '';
-      const active = list.filter((i) => { const dl = daysUntil(i.expiryDate); return dl == null || dl >= 0; });
-      const premium = active.reduce((a, i) => a + (Number(i.premium) || 0), 0);
-      return shell('ASURANSI · BENEFIT', 'Perlindungan asuransi', chip(active.length ? 'AKTIF' : 'TIDAK AKTIF'),
-        mini([['Polis aktif', `${active.length}`], ['Total premi / bln', fmtIDR(premium)], ['Penyedia', esc(active.map((i) => i.insurer).filter(Boolean).slice(0, 2).join(', ') || '—')]]), 'lav');
-    }
-    if (tabId === 'emergency-contacts') {
-      const primary = list[0]; if (!primary) return '';
-      return shell('KONTAK DARURAT · IT-0021', 'Kontak darurat utama', `<span class="chip ${list.length ? 'mint' : 'coral'}">${list.length} kontak</span>`,
-        facts([['Nama', esc(primary.name || '—')], ['Hubungan', esc(primary.relationship || '—')], ['Telepon', esc(primary.phone || '—')], ['Alamat', esc(primary.address || '—')]]), 'amber');
-    }
-    if (tabId === 'access') {
-      const activeRoles = list.filter((a) => { const dl = daysUntil(a.accessEnd); return dl == null || dl >= 0; });
-      return shell('AKSES & PERAN · IAM', 'Hak akses sistem', `<span class="chip ${activeRoles.length ? 'mint' : 'gray'}">${activeRoles.length} aktif</span>`,
-        mini([['Peran aktif', `${activeRoles.length}`], ['Total penetapan', `${list.length}`], ['Akun sistem', `${Number(s.activeUserAccounts || 0)}`]]), 'blue');
-    }
-    if (tabId === 'employment-history') {
-      const latest = list[0], emp = s.employment || {};
-      return shell('RIWAYAT KERJA · IT-0000 ACTIONS', 'Status kepegawaian', chip((latest && latest.employmentStatus) || emp.employmentStatus || overview.lifecycleStatus || 'ACTIVE'),
-        `${mini([['Status saat ini', esc((latest && latest.employmentStatus) || emp.employmentStatus || '—')], ['Tipe', esc((latest && latest.employmentType) || emp.employmentType || '—')], ['Peristiwa terakhir', latest ? fmtDate(latest.eventDate) : '—']])}${(latest && latest.eventReason) ? `<p class="eth-note">${esc(latest.eventReason)}</p>` : ''}`, 'mint');
-    }
-    return '';
-  };
-  // Tab hasil grouping → infotype hero mana yang tampil di atas tabel riwayat.
-  const EMP_GROUP_HERO = { employment: ['positions', 'compensation', 'contracts'], 'insurance-final': ['insurance'], 'documents-final': ['documents'], 'emergency-final': ['emergency-contacts'] };
 
   const fmtCell = (row, col) => {
     const [key, , type] = col; const v = row[key];
@@ -419,29 +265,6 @@
     return y ? `${y} th${m ? ` ${m} bln` : ''}` : `${m} bln`;
   };
 
-  // ── Pengkinian Identitas (IT-0002 Personal Data) ─────────────────────────
-  const GENDER_LABEL = { MALE: 'Laki-laki', FEMALE: 'Perempuan' };
-  const personalDataCard = (p, overview, canEdit) => {
-    p = p || {};
-    const has = ['nikKtp', 'birthDate', 'birthPlace', 'gender', 'maritalStatus', 'religion', 'bloodType', 'phone', 'personalEmail', 'address'].some((k) => p[k]);
-    const age = p.birthDate ? Math.floor((Date.now() - new Date(p.birthDate).getTime()) / 31557600000) : null;
-    const btn = canEdit ? `<button class="btn clay-action sm" data-identity-edit><span class="clay-ic" aria-hidden="true">${ICONS.people}</span> Pengkinian identitas</button>` : chip(has ? 'TERISI' : 'BELUM LENGKAP');
-    if (!has) {
-      return `<article class="panel emp-infotype it-lav"><header><div><p class="eyebrow">DATA PRIBADI · IT-0002 PERSONAL DATA</p><h2>Identitas diri</h2></div>${btn}</header><div class="panel-body"><div class="empty-inline">Data diri belum dilengkapi. Klik <b>Pengkinian identitas</b> untuk mengisi NIK KTP, tempat/tanggal lahir, dan kontak — sekali isi, dipakai lintas modul HR & payroll.</div></div></article>`;
-    }
-    const rows = [
-      ['NIK KTP', esc(p.nikKtp || '—')],
-      ['Tempat, tgl lahir', (p.birthPlace || p.birthDate) ? `${esc(p.birthPlace || '—')}${p.birthDate ? `, ${fmtDate(p.birthDate)}` : ''}${age != null ? ` · ${age} th` : ''}` : '—'],
-      ['Jenis kelamin', esc(p.gender ? (GENDER_LABEL[p.gender] || p.gender) : '—')],
-      ['Status perkawinan', esc(p.maritalStatus || '—')],
-      ['Agama', esc(p.religion || '—')],
-      ['Golongan darah', esc(p.bloodType || '—')],
-      ['Telepon / HP', esc(p.phone || '—')],
-      ['Email pribadi', esc(p.personalEmail || '—')],
-      ['Alamat domisili', esc(p.address || '—')]
-    ];
-    return `<article class="panel emp-infotype it-lav"><header><div><p class="eyebrow">DATA PRIBADI · IT-0002 PERSONAL DATA</p><h2>Identitas diri</h2></div>${btn}</header><div class="panel-body"><dl class="detail-dl eth-dl">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl></div></article>`;
-  };
   const openIdentityUpdate = async (params, overview, rerender) => {
     let personal = {};
     try { const r = await api(`/api/masters/employees/${params.id}/personal`); personal = (r.items && r.items[0]) || (r && r.nikKtp !== undefined ? r : {}); } catch (_) { /* profil belum ada */ }
@@ -477,27 +300,6 @@
     } catch (error) { toast('Gagal menyimpan identitas', error.message, 'coral'); }
   };
 
-  // Quality flag → aksi cepat: loncat ke tab terkait atau buka Edit data dasar.
-  const FLAG_ACTION = {
-    POSITION_MISSING: { tab: 'employment', label: 'Lengkapi posisi' },
-    BANK_UNVERIFIED: { tab: 'bank-accounts', label: 'Verifikasi rekening' },
-    TAX_MISSING: { tab: 'tax-profiles', label: 'Lengkapi pajak' },
-    DEPARTMENT_MISSING: { edit: true, label: 'Edit data dasar' },
-    JOB_TITLE_MISSING: { edit: true, label: 'Edit data dasar' },
-    BRANCH_ID_MISSING: { edit: true, label: 'Edit data dasar' },
-    JOIN_DATE_MISSING: { edit: true, label: 'Edit data dasar' }
-  };
-  const employeeQualityPanel = (overview) => {
-    const flags = Array.isArray(overview.qualityFlags) ? overview.qualityFlags : [];
-    if (!flags.length) return '';
-    const canEdit = can('employee.edit');
-    const items = flags.map((f) => {
-      const act = FLAG_ACTION[f.code], sev = String(f.severity || 'WARNING').toLowerCase();
-      const btn = canEdit && act ? (act.edit ? `<button class="btn secondary sm" data-quality-edit>${esc(act.label)}</button>` : `<button class="btn secondary sm" data-quality-goto="${esc(act.tab)}">${esc(act.label)}</button>`) : '';
-      return `<li class="eq-flag eq-${sev}"><span class="eq-dot" aria-hidden="true"></span><span class="eq-detail">${esc(f.detail || f.code)}</span>${btn}</li>`;
-    }).join('');
-    return `<article class="panel emp-infotype it-coral"><header><div><p class="eyebrow">DATA QUALITY · PERLU TINDAKAN</p><h2>${flags.length} isu data perlu ditindak</h2></div><span class="chip ${Number(overview.dataQualityScore) >= 80 ? 'mint' : Number(overview.dataQualityScore) >= 50 ? 'amber' : 'coral'}">Skor ${Math.round(Number(overview.dataQualityScore) || 0)}%</span></header><div class="panel-body"><ul class="eq-list">${items}</ul></div></article>`;
-  };
 
   // ── Master Karyawan 360 · Claymorphism (port dari prototype HRIS) ─────────
   const MKI = {
@@ -721,17 +523,15 @@
         .map(([a, label]) => `<button class="btn secondary sm" data-life="${a}">${esc(label)}</button>`).join('');
       const isParty = ['customers', 'suppliers'].includes(params.type);
       const isProduct = params.type === 'products';
-      const isEmployee = params.type === 'employees';
-      const hasPhoto = isParty || isProduct || isEmployee;
+      const hasPhoto = isParty || isProduct;
       const editBtn = EDIT_FIELDS[params.type] && can(`${cfg.module}.edit`) ? `<button class="btn primary" id="masterEditBtn">${ICONS.gear} Edit / Revisi</button>` : '';
-      const identityBtn = isEmployee && can('employee.edit') ? `<button class="btn clay-action" data-identity-edit><span class="clay-ic" aria-hidden="true">${ICONS.people}</span> Pengkinian Identitas</button>` : '';
 
       main.innerHTML = pageHead({
-        eyebrow: isParty ? `PARTY 360 · ${cfg.title.toUpperCase()}` : isProduct ? `PRODUCT 360 · ${cfg.title.toUpperCase()}` : isEmployee ? `EMPLOYEE 360 · ${cfg.title.toUpperCase()}` : `MASTER DATA · ${cfg.title.toUpperCase()}`, title: (isParty || isEmployee) ? `Profil ${cfg.title}` : (overview.name || overview.code || cfg.title),
-        sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : isProduct ? 'Foto, spesifikasi, harga, dan riwayat dalam satu profil produk & jasa.' : isEmployee ? 'Identitas, kepegawaian, kompensasi, pajak PPh21, BPJS, dan tata kelola data dalam satu profil.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
-        actions: `${identityBtn}${editBtn}<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
+        eyebrow: isParty ? `PARTY 360 · ${cfg.title.toUpperCase()}` : isProduct ? `PRODUCT 360 · ${cfg.title.toUpperCase()}` : `MASTER DATA · ${cfg.title.toUpperCase()}`, title: isParty ? `Profil ${cfg.title}` : (overview.name || overview.code || cfg.title),
+        sub: isParty ? 'Identitas, commercial control, compliance, dan seluruh relasi operasional dalam satu workspace.' : isProduct ? 'Foto, spesifikasi, harga, dan riwayat dalam satu profil produk & jasa.' : `Status data: ${overview.lifecycleStatus || 'ACTIVE'} · versi ${overview.mdmVersion || 1}`,
+        actions: `${editBtn}<a class="btn secondary" href="${cfg.listRoute}">${ICONS.arrow} Kembali</a>${lifeBtns}`
       }) + `
-        ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : isProduct ? productIdentityHero(overview, can(`${cfg.module}.edit`)) : isEmployee ? employeeIdentityHero(overview, can(`${cfg.module}.edit`)) : ''}
+        ${isParty ? partyIdentityHero(overview, params.type, can(`${cfg.module}.edit`)) : isProduct ? productIdentityHero(overview, can(`${cfg.module}.edit`)) : ''}
         <div class="master-tabs" role="tablist">
           ${cfg.tabs.filter((t) => !t.perm || can(t.perm)).map((t) => `<button class="master-tab ${t.id === activeTab ? 'active' : ''}" data-tab="${t.id}" role="tab">${esc(t.label)}${overview.subCounts && overview.subCounts[t.sub] ? ` <span class="tab-count">${overview.subCounts[t.sub]}</span>` : ''}</button>`).join('')}
         </div>
@@ -778,39 +578,12 @@
         } catch (error) { toast('Gagal menyimpan revisi', error.message, 'coral'); }
       });
 
-      main.querySelector('[data-identity-edit]')?.addEventListener('click', () => openIdentityUpdate(params, overview, () => this.render(main, params)));
-
       const renderTab = async (tabId) => {
         this._tab = tabId;
         main.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === tabId));
         const body = main.querySelector('#tabBody');
         const tab = cfg.tabs.find((t) => t.id === tabId);
         if (tabId === 'overview') {
-          if (params.type === 'employees') {
-            const s=overview.enterpriseSummary||{},pos=s.currentPosition||{},employment=s.employment||{},comp=s.compensation||{},tax=s.tax||{},sup=s.supervisor||{};
-            const personal = await api(`${cfg.base}/${params.id}/personal`).then((r) => (r && r.items && r.items[0]) || (r && r.nikKtp !== undefined ? r : {})).catch(() => ({}));
-            body.innerHTML=`${employeeQualityPanel(overview)}
-              ${personalDataCard(personal, overview, can('employee.edit'))}
-              <section class="dashboard-grid"><article class="panel"><header><div><p class="eyebrow">ORGANISASI & GARIS KOMANDO</p><h2>Penempatan &amp; atasan</h2></div>${chip(employment.employmentStatus||overview.lifecycleStatus||'ACTIVE')}</header><div class="panel-body stack"><div class="stat-row"><span>Atasan langsung</span><b>${sup.supervisorName?`${esc(sup.supervisorName)}${sup.supervisorTitle?` · ${esc(sup.supervisorTitle)}`:''}`:'Belum ditetapkan'}</b></div><div class="stat-row"><span>Bawahan langsung</span><b>${Number(s.directReports||0)} orang</b></div><div class="stat-row"><span>Grade</span><b>${esc(pos.salaryGrade||comp.salaryGrade||'—')}</b></div><div class="stat-row"><span>Tipe &amp; status kerja</span><b>${esc([employment.employmentType,employment.employmentStatus].filter(Boolean).join(' · ')||'—')}</b></div><div class="stat-row"><span>Lokasi kerja</span><b>${esc(pos.workLocation||overview.branchName||'—')}</b></div></div></article>
-              <article class="panel tax-auto-panel"><header><div><p class="eyebrow">PAJAK OTOMATIS · PPh 21 TER</p><h2>PTKP &amp; TER (PP 58/2023)</h2></div>${can('employee.edit')?`<button class="btn primary sm" id="taxAutoBtn">${ICONS.gear} Hitung otomatis</button>`:''}</header><div class="panel-body"><div class="tax-auto-grid"><div><span>Status PTKP</span><b>${esc(tax.ptkpStatus||'—')}</b></div><div><span>Kategori TER</span><b>${esc(tax.terCategory||'—')}</b></div><div><span>Tarif TER / bln</span><b>${tax.terRate!=null&&tax.terRate!==''?Number(tax.terRate)+'%':'—'}</b></div><div><span>Gaji bruto / bln</span><b>${overview.baseSalary?fmtIDR(overview.baseSalary):'—'}</b></div></div></div></article></section>`;
-            body.querySelector('#taxAutoBtn')?.addEventListener('click', async () => {
-              const v = await formDialog({ title: 'Hitung pajak otomatis — PPh 21 TER', description: 'Sistem menetapkan status PTKP, kategori TER (A/B/C), dan tarif TER bulanan dari status kawin + tanggungan + gaji, lalu menyimpannya sebagai profil pajak baru.', fields: [
-                { name: 'maritalStatus', label: 'Status kawin', type: 'select', options: [['BELUM KAWIN', 'Belum kawin (TK)'], ['KAWIN', 'Kawin (K)']], required: true },
-                { name: 'dependents', label: 'Jumlah tanggungan (maks 3)', type: 'number', min: 0, max: 3, value: 0 },
-                { name: 'monthlyGross', label: 'Gaji bruto / bln (kosongkan = gaji pokok)', type: 'number', min: 0 },
-                { name: 'npwp', label: 'NPWP (opsional)' } ], submitLabel: 'Hitung & terapkan' });
-              if (!v) return;
-              try {
-                const r = await api(`/api/masters/employees/${params.id}/tax-auto`, { method: 'POST', body: { ...v, apply: true } });
-                toast('Pajak dihitung otomatis', `PTKP ${r.ptkpStatus} · TER ${r.terCategory} ${r.terRate}% · PPh21 ${fmtIDR(r.monthlyPph21)}/bln`);
-                invalidate(`master:${params.id}`); this.render(main, params);
-              } catch (error) { toast('Gagal menghitung pajak', error.message, 'coral'); }
-            });
-            body.querySelector('[data-identity-edit]')?.addEventListener('click', () => openIdentityUpdate(params, overview, () => this.render(main, params)));
-            body.querySelectorAll('[data-quality-goto]').forEach((b) => b.addEventListener('click', () => renderTab(b.dataset.qualityGoto)));
-            body.querySelectorAll('[data-quality-edit]').forEach((b) => b.addEventListener('click', () => main.querySelector('#masterEditBtn')?.click()));
-            return;
-          }
           const rows = cfg.tabs.filter((t) => t.sub).map((t) => `<div class="stat-row"><span>${esc(t.label)}</span><b>${(overview.subCounts && overview.subCounts[t.sub]) || 0} entri</b></div>`).join('');
           const ov = OVERVIEW[params.type];
           const detailRows = ov
@@ -846,11 +619,9 @@
           const groups = tab.groups.filter(g => !g.perm || can(g.perm));
           try {
             const datasets = await Promise.all(groups.map(g => api(`${cfg.base}/${params.id}/${g.sub}`)));
-            const heroSubs = params.type === 'employees' ? (EMP_GROUP_HERO[tab.id] || []) : [];
-            const groupHero = heroSubs.map((sub) => { const gi = groups.findIndex((g) => g.sub === sub); return gi >= 0 ? employeeTabHero(sub, (datasets[gi] && datasets[gi].items) || [], overview) : ''; }).join('');
-            body.innerHTML = (groupHero ? `<div class="eth-hero-stack">${groupHero}</div>` : '') + groups.map((g, index) => {
+            body.innerHTML = groups.map((g, index) => {
               const items=datasets[index].items||[];
-              return `<div class="panel table-panel"><header><div>${params.type==='employees'?'<p class="eyebrow">RIWAYAT & DATA</p>':`<p class="eyebrow">${esc(tab.label.toUpperCase())}</p>`}<h2>${esc(g.label)}</h2></div>${can(`${cfg.module}.edit`)&&g.form?`<button class="btn primary sm" data-group-add="${index}">${ICONS.plus} Tambah</button>`:''}</header><div class="table-wrap"><table><thead><tr>${g.cols.map(c=>`<th>${esc(c[1])}</th>`).join('')}${g.employeeApprove?'<th></th>':''}</tr></thead><tbody>${items.length?items.map(row=>`<tr>${g.cols.map(c=>`<td>${fmtCell(row,c)}</td>`).join('')}${g.employeeApprove?`<td class="right">${['PENDING_APPROVAL','PENDING_VERIFICATION'].includes(row[g.statusKey])&&can('employee.approve')?`<button class="btn secondary sm" data-employee-approve="${esc(row.id)}" data-resource="${esc(g.sub)}">Setujui</button>`:''}</td>`:''}</tr>`).join(''):`<tr><td colspan="${g.cols.length+1}"><div class="empty-state"><h3>Belum ada data</h3><p>Tambahkan ${esc(g.label.toLowerCase())} pertama.</p></div></td></tr>`}</tbody></table></div></div>`;
+              return `<div class="panel table-panel"><header><div><p class="eyebrow">${esc(tab.label.toUpperCase())}</p><h2>${esc(g.label)}</h2></div>${can(`${cfg.module}.edit`)&&g.form?`<button class="btn primary sm" data-group-add="${index}">${ICONS.plus} Tambah</button>`:''}</header><div class="table-wrap"><table><thead><tr>${g.cols.map(c=>`<th>${esc(c[1])}</th>`).join('')}${g.employeeApprove?'<th></th>':''}</tr></thead><tbody>${items.length?items.map(row=>`<tr>${g.cols.map(c=>`<td>${fmtCell(row,c)}</td>`).join('')}${g.employeeApprove?`<td class="right">${['PENDING_APPROVAL','PENDING_VERIFICATION'].includes(row[g.statusKey])&&can('employee.approve')?`<button class="btn secondary sm" data-employee-approve="${esc(row.id)}" data-resource="${esc(g.sub)}">Setujui</button>`:''}</td>`:''}</tr>`).join(''):`<tr><td colspan="${g.cols.length+1}"><div class="empty-state"><h3>Belum ada data</h3><p>Tambahkan ${esc(g.label.toLowerCase())} pertama.</p></div></td></tr>`}</tbody></table></div></div>`;
             }).join('');
             body.querySelectorAll('[data-group-add]').forEach(btn=>btn.addEventListener('click',async()=>{const g=groups[Number(btn.dataset.groupAdd)],fields=typeof g.form==='function'?await g.form():g.form;const value=await formDialog({title:`Tambah ${g.label}`,description:'Data tercatat pada audit trail dan mengikuti effective date.',fields,submitLabel:'Simpan'});if(!value)return;try{await api(`${cfg.base}/${params.id}/${g.sub}`,{method:'POST',body:value,idempotencyKey:newIdemKey()});toast(`${g.label} ditambahkan`);renderTab(tabId);}catch(error){toast('Gagal menyimpan',error.message,'coral');}}));
             body.querySelectorAll('[data-employee-approve]').forEach(btn=>btn.addEventListener('click',async()=>{const answer=await actionDialog({title:'Setujui perubahan sensitif',description:'Maker dan checker harus pengguna berbeda. Keputusan dicatat permanen.',requireReason:true,confirmLabel:'Setujui'});if(!answer)return;try{await api(`${cfg.base}/${params.id}/${btn.dataset.resource}/${btn.dataset.employeeApprove}/approve`,{method:'POST',body:answer});toast('Perubahan disetujui');renderTab(tabId);}catch(error){toast('Persetujuan gagal',error.message,'coral');}}));
@@ -863,9 +634,7 @@
         catch (error) { body.innerHTML = `<div class="panel"><div class="panel-body error-text">${esc(error.message)}</div></div>`; return; }
         const canEdit = can(`${cfg.module}.edit`);
         const addBtn = canEdit && !tab.noAdd ? `<button class="btn primary sm" id="tabAdd">${ICONS.plus} Tambah</button>` : '';
-        const heroHtml = params.type === 'employees' ? employeeTabHero(tab.id, data.items, overview) : '';
-        const tHead = heroHtml ? { e: 'RIWAYAT & PERUBAHAN', t: `Riwayat ${tab.label.toLowerCase()}` } : { e: cfg.title.toUpperCase(), t: tab.label };
-        body.innerHTML = heroHtml + `<div class="panel table-panel"><header><div><p class="eyebrow">${esc(tHead.e)}</p><h2>${esc(tHead.t)}</h2></div><div class="panel-tools">${addBtn}</div></header>
+        body.innerHTML = `<div class="panel table-panel"><header><div><p class="eyebrow">${esc(cfg.title.toUpperCase())}</p><h2>${esc(tab.label)}</h2></div><div class="panel-tools">${addBtn}</div></header>
           <div class="table-wrap"><table><thead><tr>${tab.cols.map((c) => `<th>${esc(c[1])}</th>`).join('')}${(tab.bankApprove || tab.costActivate || tab.employeeApprove || tab.documentApprove) ? '<th></th>' : ''}</tr></thead>
           <tbody>${data.items.length ? data.items.map((row) => `<tr>${tab.cols.map((c) => `<td>${fmtCell(row, c)}</td>`).join('')}${tab.bankApprove ? `<td class="right">${row.verificationStatus !== 'VERIFIED' && can('supplier.approve') ? `<button class="btn secondary sm" data-approve-bank="${esc(row.id)}">Verifikasi</button>` : ''}</td>` : ''}${tab.documentApprove?`<td class="right">${row.verificationStatus==='PENDING'&&can('supplier.approve')?`<button class="btn secondary sm" data-verify-document="${esc(row.id)}">Verifikasi</button>`:''}</td>`:''}${tab.employeeApprove ? `<td class="right">${['PENDING_APPROVAL','PENDING_VERIFICATION'].includes(row[tab.statusKey])&&can('employee.approve')?`<button class="btn secondary sm" data-employee-approve="${esc(row.id)}">Setujui</button>`:''}</td>`:''}${tab.costActivate ? `<td class="right">${['APPROVED','LOCKED'].includes(row.status) && can('product.approve') ? `<button class="btn secondary sm" data-activate-cost="${esc(row.id)}">Set Active HPP</button>` : ['DRAFT','REVIEW'].includes(row.status) && can('product.approve') ? `<button class="btn secondary sm" data-promote-cost="${esc(row.id)}" data-next="${row.status === 'DRAFT' ? 'review' : 'approve'}">${row.status === 'DRAFT' ? 'Ajukan review' : 'Setujui'}</button>` : ''}</td>` : ''}</tr>`).join('') : `<tr><td colspan="${tab.cols.length + 1}"><div class="empty-state">${clayOrb('blue','inbox')}<h3>Belum ada data</h3><p>Tambahkan entri pertama untuk ${esc(tab.label.toLowerCase())}.</p></div></td></tr>`}</tbody></table></div></div>`;
 
