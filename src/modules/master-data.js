@@ -499,8 +499,173 @@
     return `<article class="panel emp-infotype it-coral"><header><div><p class="eyebrow">DATA QUALITY · PERLU TINDAKAN</p><h2>${flags.length} isu data perlu ditindak</h2></div><span class="chip ${Number(overview.dataQualityScore) >= 80 ? 'mint' : Number(overview.dataQualityScore) >= 50 ? 'amber' : 'coral'}">Skor ${Math.round(Number(overview.dataQualityScore) || 0)}%</span></header><div class="panel-body"><ul class="eq-list">${items}</ul></div></article>`;
   };
 
+  // ── Master Karyawan 360 · Claymorphism (port dari prototype HRIS) ─────────
+  const MKI = {
+    user: '<circle cx="12" cy="8" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>',
+    shieldCheck: '<path d="M12 3l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="m9 12 2 2 4-4"/>',
+    printer: '<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/>',
+    edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    scanText: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8h8M7 12h6M7 16h4"/>',
+    gitPr: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="m16 8-3-2 3-2"/>',
+    briefcase: '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>',
+    calc: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14v4M8 18h.01M12 18h.01"/>',
+    shield: '<path d="M12 3l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V6z"/>',
+    card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+    wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.3 2.3-2-2z"/>',
+    fileText: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h8"/>',
+    history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',
+    award: '<circle cx="12" cy="8" r="5"/><path d="M8.2 12 7 21l5-3 5 3-1.2-9"/>',
+    calCheck: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="m9 16 2 2 4-4"/>',
+    idCard: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 9h4M14 13h4M6.5 16a2.5 2.5 0 0 1 5 0"/>',
+    sparkles: '<path d="M12 3l1.5 4L18 8.5 13.5 10 12 14l-1.5-4L6 8.5 10.5 7z"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+    copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    mapPin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+    check: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+    save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+    heart: '<path d="M20.8 6.6a5 5 0 0 0-8.8-2 5 5 0 0 0-8.8 2c-1 3 1.5 6 8.8 11 7.3-5 9.8-8 8.8-11z"/><path d="M3.5 12h4l1.5-3 2 5 1.5-2h4.5"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  };
+  const MK = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${MKI[n] || ''}</svg>`;
+  const mkInitials = (v) => String(v || '?').trim().split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+  const mkAge = (d) => { if (!d) return null; const a = Math.floor((Date.now() - new Date(d).getTime()) / 31557600000); return Number.isFinite(a) ? a : null; };
+  const mkField = (label, value, opts = {}) => `<div class="mk-inset mk-field"><div class="mk-field-top"><label>${esc(label)}</label>${opts.tag ? `<span class="mk-tag ${opts.tag[1]}">${esc(opts.tag[0])}</span>` : ''}</div><div class="mk-v ${opts.mono ? 'mono' : ''}">${opts.html || esc(value ?? '—')}${opts.copy ? `<button class="mk-copy" data-mk-copy="${esc(opts.copy)}" title="Salin">${MK('copy')}</button>` : ''}</div></div>`;
+  const MK_TABS = [
+    ['overview', 'Overview & Master', 'user', null], ['ocr', 'AI OCR KTP/NPWP', 'scanText', ['AI Engine', 'purple']],
+    ['workflow', 'Workflow Approval', 'gitPr', ['Maker-Checker', 'amber']], ['employment', 'Employment & Position', 'briefcase', null],
+    ['tax', 'Pajak', 'calc', ['PPh 21 TER', 'blue']], ['bpjs', 'BPJS', 'shield', ['Kesehatan & TK', 'emerald']],
+    ['payroll', 'Payroll & Bank', 'card', null], ['services', 'Services & Tools', 'wrench', null],
+    ['documents', 'Documents', 'fileText', null], ['audit', 'Audit Trail & Logs', 'history', null]
+  ];
+
+  const employeeClayDetail = {
+    async render(main, params, signal) {
+      if (!can('employee.view')) { main.innerHTML = `<section class="error-state">${clayOrb('amber', 'lock')}<h1>Akses dibatasi</h1></section>`; return; }
+      let ov;
+      try { ov = await api(`/api/masters/employees/${params.id}`, { signal }); }
+      catch (error) { main.innerHTML = `<section class="error-state">${clayOrb('coral', 'alert')}<h1>Gagal memuat</h1><p>${esc(error.message)}</p></section>`; return; }
+      let personal = {};
+      try { const pr = await api(`/api/masters/employees/${params.id}/personal`); personal = (pr && pr.items && pr.items[0]) || {}; } catch (_) { /* opsional */ }
+      const s = ov.enterpriseSummary || {}, pos = s.currentPosition || {}, comp = s.compensation || {}, tax = s.tax || {}, leave = s.leaveBalance || {}, emp = s.employment || {}, sup = s.supervisor || {};
+      const editable = can('employee.edit');
+      const compTotal = (Number(comp.baseSalary) || 0) + (Number(comp.fixedAllowance) || 0) + (Number(comp.variableAllowance) || 0);
+      const dq = Math.round(Number(ov.dataQualityScore) || 0);
+      const flags = Array.isArray(ov.qualityFlags) ? ov.qualityFlags : [];
+      const photo = ov.profileFileId ? `<img data-party-photo src="/api/files/${esc(ov.profileFileId)}" alt="">` : '';
+      const age = mkAge(personal.birthDate);
+
+      const metrics = `<div class="mk-g mk-g4">
+        <article class="mk-surface mk-metric"><div class="mk-m-copy"><span class="mk-m-k">Masa Kerja & Status</span><div class="mk-m-v">${esc(serviceLength(ov.joinDate))}</div><span class="mk-m-note mk-em">${MK('check')} ${esc(emp.employmentType || 'PKWTT')}</span></div><div class="mk-m-ic mk-ic-blue">${MK('award')}</div></article>
+        <article class="mk-surface mk-metric"><div class="mk-m-copy"><span class="mk-m-k">Sisa Cuti & Kehadiran</span><div class="mk-m-v">${Number(leave.remaining || 0)} Hari <small>/ ${Number(leave.entitlement || 0)} Hari</small></div><span class="mk-m-note mk-bl">Kehadiran: ${Number(s.attendanceDays || 0)} hari/bln</span></div><div class="mk-m-ic mk-ic-emerald">${MK('calCheck')}</div></article>
+        <article class="mk-surface mk-metric"><div class="mk-m-copy wide"><div class="mk-rowb"><span class="mk-m-k">Data Quality</span><span class="mk-dqpct ${dq >= 80 ? 'mk-em' : dq >= 50 ? 'mk-am' : 'mk-cor'}">${dq}%</span></div><progress class="mk-progress ${dq >= 80 ? 'ok' : dq < 50 ? 'bad' : ''}" value="${dq}" max="100"></progress><span class="mk-m-note mk-mu">${flags.length ? `${flags.length} isu perlu ditindak` : 'Golden record'}</span></div><div class="mk-m-ic mk-ic-amber">${MK('sparkles')}</div></article>
+        <article class="mk-surface mk-metric"><div class="mk-m-copy wide"><span class="mk-m-k">Quick Actions</span><div class="mk-qa">
+          <button class="mk-btn sm mk-bl" data-mk-tab="tax">${MK('calc')}<span>Pajak</span></button>
+          <button class="mk-btn sm mk-em" data-mk-tab="bpjs">${MK('shield')}<span>BPJS</span></button>
+          <button class="mk-btn sm" data-mk-export>${MK('printer')}<span>Export</span></button>
+        </div></div></article></div>`;
+
+      const dataPribadi = `<section class="mk-surface mk-ovh"><div class="mk-section-head"><h2>${MK('idCard')} Data Master Pribadi · Identitas Diri</h2><div class="mk-hdr-meta">${personal.nikKtp ? '<span class="mk-badge emerald">' + MK('check') + ' Terverifikasi</span>' : '<span class="mk-badge amber">Belum lengkap</span>'}${editable ? `<button class="mk-btn sm" data-mk-identity>${MK('edit')} Pengkinian</button>` : ''}</div></div>
+        <div class="mk-section-body mk-g mk-g4">
+          ${mkField('NIK KTP (16 Digit)', personal.nikKtp || '—', { mono: true, copy: personal.nikKtp && !String(personal.nikKtp).includes('•') ? personal.nikKtp : '' })}
+          ${mkField('Tempat, Tanggal Lahir', null, { html: `${esc(personal.birthPlace || '—')}${personal.birthDate ? `, ${fmtDate(personal.birthDate)}` : ''}${age != null ? ` <span class="mk-mu">(${age} TH)</span>` : ''}` })}
+          ${mkField('Jenis Kelamin', personal.gender === 'MALE' ? 'Laki-laki' : personal.gender === 'FEMALE' ? 'Perempuan' : '—')}
+          ${mkField('Status Perkawinan', null, { html: `<span class="mk-badge slate">${esc(personal.maritalStatus || '—')}</span>` })}
+          ${mkField('Agama', personal.religion || '—')}
+          ${mkField('Golongan Darah', personal.bloodType || '—', { mono: true })}
+          ${mkField('No. Telepon / Mobile', personal.phone || '—', { mono: true, copy: personal.phone || '' })}
+          ${mkField('Email Pribadi', personal.personalEmail || '—', { mono: true, copy: personal.personalEmail || '' })}
+          <div class="mk-inset mk-field mk-span2"><label>Alamat Domisili</label><div class="mk-v">${MK('mapPin')}<span class="mk-addr-v">${esc(personal.address || 'Belum dilengkapi')}</span></div></div>
+        </div></section>`;
+
+      const taxTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('calc')} PPh 21 TER Advanced Planner</div><div class="mk-section-desc">Kalkulasi otomatis PPh 21 sesuai PP 58/2023 (Tarif Efektif Rata-rata).</div></div><span class="mk-badge blue">Compliance v9.5</span></div><div class="mk-section-body"><div class="mk-io">
+        <div class="mk-inset mk-io-panel">
+          <div><label class="mk-field-lbl">Gaji Bruto Bulanan (IDR)</label><input class="mk-input" type="number" id="mkTaxSalary" value="${Number(comp.baseSalary) || 6500000}"></div>
+          <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Tunjangan Tetap</label><input class="mk-input" type="number" id="mkTaxAllow" value="${Number(comp.fixedAllowance) || 0}"></div><div><label class="mk-field-lbl">Bonus / THR</label><input class="mk-input" type="number" id="mkTaxBonus" value="0"></div></div>
+          <div><label class="mk-field-lbl">Kategori PTKP & Tarif TER</label><select class="mk-input" id="mkTaxCat"><option value="A"${(tax.terCategory === 'A' || !tax.terCategory) ? ' selected' : ''}>Kategori A (TK/0, TK/1, K/0)</option><option value="B"${tax.terCategory === 'B' ? ' selected' : ''}>Kategori B (TK/2, TK/3, K/1, K/2)</option><option value="C"${tax.terCategory === 'C' ? ' selected' : ''}>Kategori C (K/3)</option></select></div>
+          <div class="mk-rowb"><span class="mk-o-caps">Metode Pemotongan</span><span class="mk-badge blue">Bulanan TER + Desember Progresif</span></div>
+        </div>
+        <div class="mk-surface mk-io-out mk-io-panel">
+          <div class="mk-rowb mk-o-caps bb">Hasil Kalkulator PPh 21 TER<span class="mk-badge emerald">Optimal</span></div>
+          <div class="mk-out-grid"><div class="mk-inset mk-out"><span>Total Bruto Sebulan</span><b id="mkOutBruto">—</b></div><div class="mk-inset mk-out"><span>Tarif TER Diterapkan</span><b class="blue" id="mkOutRate">—</b></div><div class="mk-inset mk-out"><span>Estimasi Pajak Bulanan</span><b class="emerald" id="mkOutTax">—</b></div><div class="mk-inset mk-out"><span>Take Home Pay Bersih</span><b class="indigo" id="mkOutThp">—</b></div></div>
+          <div class="mk-note"><b>${MK('info')} Rekomendasi Planner:</b> <span id="mkTaxRec">—</span></div>
+        </div></div></div></section>`;
+
+      const bpjsTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('shield')} BPJS Kesehatan & Ketenagakerjaan</div><div class="mk-section-desc">Kepesertaan, faskes, dan kalkulator iuran otomatis (JKN + Jamsostek).</div></div><span class="mk-badge emerald">${Number(s.bpjsPrograms || 0)} program aktif</span></div><div class="mk-section-body"><div class="mk-io">
+        <div class="mk-inset mk-io-panel">
+          <div class="mk-o-caps">Simulator Iuran Bulanan</div>
+          <div><label class="mk-field-lbl">Upah / Gaji Dasar (IDR)</label><input class="mk-input" type="number" id="mkBpjsSalary" value="${Number(comp.baseSalary) || 6500000}"></div>
+          <div class="mk-note emerald"><b>${MK('heart')} Ketentuan:</b> Kesehatan 5% (4% perusahaan + 1% karyawan, cap Rp 12jt) · JHT 5.7% · JKK/JKM · JP 3% (cap Rp 10.04jt).</div>
+        </div>
+        <div class="mk-surface mk-io-out mk-io-panel">
+          <div class="mk-o-caps bb">Hasil Simulasi Iuran</div>
+          <div class="mk-out-grid"><div class="mk-inset mk-out"><span>Total BPJS Kesehatan</span><b class="emerald" id="mkBpjsKes">—</b></div><div class="mk-inset mk-out"><span>Total BPJS TK</span><b class="blue" id="mkBpjsTk">—</b></div><div class="mk-inset mk-out mk-span2"><span>Potongan Karyawan / bln</span><b class="indigo" id="mkBpjsEmp">—</b></div></div>
+        </div></div></div></section>`;
+
+      const placeholder = (title, desc) => `<section class="mk-surface"><div class="mk-section-body"><div class="mk-empty">${clayOrb('blue', 'inbox')}<h3>${esc(title)}</h3><p>${esc(desc)}</p></div></div></section>`;
+
+      main.innerHTML = `<div class="mk360">
+        <section class="mk-surface mk-banner"><div class="mk-banner-row">
+          <div class="mk-id"><div class="mk-avatar${ov.profileFileId ? ' has-photo' : ''}">${photo || esc(mkInitials(ov.name))}<span class="mk-dot" title="Aktif"></span></div>
+            <div><div class="mk-id-tags"><h1>${esc(ov.name || ov.nik)}</h1><span class="mk-badge emerald">${MK('shieldCheck')} ${esc(ov.lifecycleStatus || 'ACTIVE')}</span>${ov.department ? `<span class="mk-badge blue">ORG: ${esc(ov.department)}</span>` : ''}</div>
+              <div class="mk-meta"><span>NIK: <b>${esc(ov.nik || '—')}</b></span><i>•</i><span>Posisi: <b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></span><i>•</i><span>Lokasi: <b>${esc(ov.branchName || '—')}</b></span><i>•</i><span>Atasan: <b>${esc(sup.supervisorName || '—')}</b></span></div>
+            </div></div>
+          <div class="mk-actions"><button class="mk-btn" data-mk-export>${MK('printer')} Export Summary</button>${editable ? `<button class="mk-btn primary" data-mk-identity>${MK('edit')} Pengkinian Data</button>` : ''}</div>
+        </div></section>
+
+        <div class="mk-surface mk-tabbar"><div class="mk-tabs" role="tablist">${MK_TABS.map((t, i) => `<button class="mk-tab${i === 0 ? ' active' : ''}" data-mk-tab="${t[0]}" role="tab">${MK(t[2])} ${esc(t[1])}${t[3] ? `<span class="mk-chip ${t[3][1]}">${esc(t[3][0])}</span>` : ''}</button>`).join('')}</div></div>
+
+        <div class="mk-content" data-mk-content="overview">${metrics}${dataPribadi}</div>
+        <div class="mk-content" data-mk-content="ocr" hidden>${placeholder('AI OCR KTP/NPWP', 'Modul ekstraksi dokumen sedang disiapkan pada increment berikutnya.')}</div>
+        <div class="mk-content" data-mk-content="workflow" hidden>${placeholder('Workflow Approval (Maker-Checker)', 'Terhubung ke antrean persetujuan HR — disiapkan pada increment berikutnya.')}</div>
+        <div class="mk-content" data-mk-content="employment" hidden>${placeholder('Employment & Position', 'Riwayat jabatan, mutasi, dan kontrak — disiapkan pada increment berikutnya.')}</div>
+        <div class="mk-content" data-mk-content="tax" hidden>${taxTab}</div>
+        <div class="mk-content" data-mk-content="bpjs" hidden>${bpjsTab}</div>
+        <div class="mk-content" data-mk-content="payroll" hidden>${placeholder('Payroll & Bank', 'Rekening penggajian & komponen — disiapkan pada increment berikutnya.')}</div>
+        <div class="mk-content" data-mk-content="services" hidden>${placeholder('Services & Tools', 'Layanan mandiri karyawan — disiapkan pada increment berikutnya.')}</div>
+        <div class="mk-content" data-mk-content="documents" hidden>${placeholder('Documents', 'Dokumen & sertifikat — disiapkan pada increment berikutnya.')}</div>
+        <div class="mk-content" data-mk-content="audit" hidden>${placeholder('Audit Trail & Logs', 'Jejak audit perubahan data — disiapkan pada increment berikutnya.')}</div>
+      </div>`;
+
+      main.querySelectorAll('[data-party-photo]').forEach((img) => img.addEventListener('error', () => { img.hidden = true; }, { once: true }));
+      const show = (key) => { main.querySelectorAll('[data-mk-content]').forEach((el) => { el.hidden = el.dataset.mkContent !== key; }); main.querySelectorAll('[data-mk-tab]').forEach((b) => b.classList.toggle('active', b.dataset.mkTab === key && b.classList.contains('mk-tab'))); };
+      main.querySelectorAll('[data-mk-tab]').forEach((b) => b.addEventListener('click', () => show(b.dataset.mkTab)));
+      main.querySelectorAll('[data-mk-copy]').forEach((b) => b.addEventListener('click', async () => { try { await navigator.clipboard.writeText(b.dataset.mkCopy); toast('Disalin', b.dataset.mkCopy); } catch (_) { toast('Gagal menyalin', '', 'coral'); } }));
+      main.querySelectorAll('[data-mk-identity]').forEach((b) => b.addEventListener('click', () => openIdentityUpdate(params, ov, () => this.render(main, params))));
+      main.querySelectorAll('[data-mk-export]').forEach((b) => b.addEventListener('click', () => toast('Menyiapkan ringkasan profil…', 'Export PDF akan tersedia.')));
+
+      const rp = (v) => `Rp ${Math.round(v).toLocaleString('id-ID')}`;
+      const calcTax = () => {
+        const sal = Number(main.querySelector('#mkTaxSalary').value) || 0, al = Number(main.querySelector('#mkTaxAllow').value) || 0, bo = Number(main.querySelector('#mkTaxBonus').value) || 0, cat = main.querySelector('#mkTaxCat').value;
+        const bruto = sal + al + bo; let rate = 0;
+        if (cat === 'A') rate = bruto > 10000000 ? 0.02 : bruto > 5400000 ? 0.0025 : 0;
+        else if (cat === 'B') rate = bruto > 11000000 ? 0.03 : bruto > 6200000 ? 0.015 : 0;
+        else rate = bruto > 12000000 ? 0.04 : 0.02;
+        const monthlyTax = bruto * rate;
+        main.querySelector('#mkOutBruto').textContent = rp(bruto);
+        main.querySelector('#mkOutRate').textContent = (rate * 100).toFixed(2).replace(/\.00$/, '') + '%';
+        main.querySelector('#mkOutTax').textContent = rp(monthlyTax);
+        main.querySelector('#mkOutThp').textContent = rp(bruto - monthlyTax);
+        main.querySelector('#mkTaxRec').textContent = rate === 0 ? `Gaji di bawah PTKP kategori ${cat} — belum dikenakan PPh 21.` : `Kategori ${cat}: pemotongan otomatis tarif TER ${(rate * 100).toFixed(2)}%/bln, stabil & efisien.`;
+      };
+      ['#mkTaxSalary', '#mkTaxAllow', '#mkTaxBonus', '#mkTaxCat'].forEach((sel) => main.querySelector(sel)?.addEventListener('input', calcTax));
+      main.querySelector('#mkTaxSalary') && calcTax();
+      const calcBpjs = () => {
+        const base = Number(main.querySelector('#mkBpjsSalary').value) || 0;
+        const capKes = Math.min(base, 12000000), kesTotal = capKes * 0.05, kesEmp = capKes * 0.01;
+        const capJp = Math.min(base, 10042300), jht = base * 0.057, jkk = base * 0.0024, jkm = base * 0.003, jp = capJp * 0.03, jpEmp = capJp * 0.01;
+        const tkTotal = jht + jkk + jkm + jp, empTotal = kesEmp + base * 0.02 + jpEmp;
+        main.querySelector('#mkBpjsKes').textContent = rp(kesTotal);
+        main.querySelector('#mkBpjsTk').textContent = rp(tkTotal);
+        main.querySelector('#mkBpjsEmp').textContent = rp(empTotal) + ' /bln';
+      };
+      main.querySelector('#mkBpjsSalary')?.addEventListener('input', calcBpjs);
+      main.querySelector('#mkBpjsSalary') && calcBpjs();
+    }
+  };
+
   const masterDetail = {
     async render(main, params, signal) {
+      if (params.type === 'employees') return employeeClayDetail.render(main, params, signal);
       const cfg = MASTER_DETAIL[params.type];
       if (!cfg) { main.innerHTML = `<section class="error-state">${clayOrb('coral','alert')}<h1>Master tidak dikenal</h1></section>`; return; }
       if (!can(`${cfg.module}.view`)) { main.innerHTML = `<section class="error-state">${clayOrb('amber','lock')}<h1>Akses dibatasi</h1></section>`; return; }
