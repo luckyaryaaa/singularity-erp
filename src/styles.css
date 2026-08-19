@@ -2128,3 +2128,18 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-annual-btn .mk-btn{width:100%;justify-content:center}
 .mk-annual-out:not(:empty){margin-top:16px}
 .mk-annual-card{padding:18px;display:flex;flex-direction:column;gap:14px}
+/* Bukti Potong 1721-A1 */
+.mk-1721-doc{background:#fff;border:1px solid var(--mk-line);border-radius:14px;padding:24px;box-shadow:6px 6px 16px var(--mk-lo)}
+.mk-1721-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:2px solid #1e293b;padding-bottom:12px;margin-bottom:16px}
+.mk-1721-head h3{margin:0;font:800 15px 'Plus Jakarta Sans';color:#0f172a;letter-spacing:.01em}
+.mk-1721-head>div>span{font:600 11px 'JetBrains Mono','Plus Jakarta Sans';color:var(--mk-muted)}
+.mk-1721-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 18px;margin-bottom:18px}
+.mk-1721-grid label{display:block;font:800 9px 'Plus Jakarta Sans';text-transform:uppercase;letter-spacing:.06em;color:var(--mk-muted);margin-bottom:2px}
+.mk-1721-grid b{font:700 12px 'Plus Jakarta Sans';color:#1e293b}
+.mk-1721-table{width:100%;border-collapse:collapse;font:600 12px 'Plus Jakarta Sans'}
+.mk-1721-table td{padding:9px 6px;border-bottom:1px solid #eef2f7;color:var(--mk-slate)}
+.mk-1721-table td:last-child{text-align:right;font-family:'JetBrains Mono','Plus Jakarta Sans';color:#1e293b;font-weight:700;white-space:nowrap}
+.mk-1721-table tr.hl td{background:#f8fafc;font-weight:800;color:#0f172a}
+.mk-1721-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;padding-top:12px;border-top:1px solid #eef2f7;font:600 10px 'JetBrains Mono','Plus Jakarta Sans';color:var(--mk-muted)}
+.mk-1721-btns{display:flex;gap:8px}
+@media print{body *{visibility:hidden}.mk-1721,.mk-1721 *{visibility:visible}.mk-1721{position:absolute;left:0;top:0;width:100%;padding:16px;background:#fff}.mk-1721 .mk-btn,.mk-1721-foot .mk-1721-btns{display:none}.mk-1721-doc{box-shadow:none;border:0}}
