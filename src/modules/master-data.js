@@ -380,17 +380,18 @@
           <div class="mk-inset mk-field mk-span2"><label>Alamat Domisili</label><div class="mk-v">${MK('mapPin')}<span class="mk-addr-v">${esc(personal.address || 'Belum dilengkapi')}</span></div></div>
         </div></section>`;
 
-      const taxTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('calc')} PPh 21 TER Advanced Planner</div><div class="mk-section-desc">Kalkulasi otomatis PPh 21 sesuai PP 58/2023 (Tarif Efektif Rata-rata).</div></div><span class="mk-badge blue">Compliance v9.5</span></div><div class="mk-section-body"><div class="mk-io">
+      const ptkpStatus = tax.ptkpStatus || 'TK/0';
+      const terCat = tax.terCategory || (['TK/0', 'TK/1', 'K/0'].includes(ptkpStatus) ? 'A' : ['TK/2', 'TK/3', 'K/1', 'K/2'].includes(ptkpStatus) ? 'B' : ptkpStatus === 'K/3' ? 'C' : 'A');
+      const taxTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('calc')} PPh 21 TER Advanced Planner</div><div class="mk-section-desc">Gaji &amp; seluruh tunjangan otomatis dari data karyawan — sesuaikan Bonus/THR &amp; metode. PP 58/2023.</div></div><span class="mk-badge blue">Compliance v9.5</span></div><div class="mk-section-body"><div class="mk-io">
         <div class="mk-inset mk-io-panel">
-          <div><label class="mk-field-lbl">Gaji Bruto Bulanan (IDR)</label><input class="mk-input" type="number" id="mkTaxSalary" value="${Number(comp.baseSalary) || 6500000}"></div>
-          <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Tunjangan Tetap</label><input class="mk-input" type="number" id="mkTaxAllow" value="${Number(comp.fixedAllowance) || 0}"></div><div><label class="mk-field-lbl">Bonus / THR</label><input class="mk-input" type="number" id="mkTaxBonus" value="0"></div></div>
-          <div><label class="mk-field-lbl">Kategori PTKP & Tarif TER</label><select class="mk-input" id="mkTaxCat"><option value="A"${(tax.terCategory === 'A' || !tax.terCategory) ? ' selected' : ''}>Kategori A (TK/0, TK/1, K/0)</option><option value="B"${tax.terCategory === 'B' ? ' selected' : ''}>Kategori B (TK/2, TK/3, K/1, K/2)</option><option value="C"${tax.terCategory === 'C' ? ' selected' : ''}>Kategori C (K/3)</option></select></div>
-          <div class="mk-rowb"><span class="mk-o-caps">Metode Pemotongan</span><span class="mk-badge blue">Bulanan TER + Desember Progresif</span></div>
+          <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Gaji Pokok <span class="mk-tag emerald">auto</span></label><input class="mk-input" type="number" id="mkTaxBase" value="${Number(comp.baseSalary) || 0}"></div><div><label class="mk-field-lbl">Tunjangan Tetap <span class="mk-tag emerald">auto</span></label><input class="mk-input" type="number" id="mkTaxFixed" value="${Number(comp.fixedAllowance) || 0}"></div><div><label class="mk-field-lbl">Tunjangan Variabel <span class="mk-tag emerald">auto</span></label><input class="mk-input" type="number" id="mkTaxVar" value="${Number(comp.variableAllowance) || 0}"></div><div><label class="mk-field-lbl">Bonus / THR</label><input class="mk-input" type="number" id="mkTaxBonus" value="0"></div></div>
+          <div><label class="mk-field-lbl">Metode Pemotongan Pajak</label><select class="mk-input" id="mkTaxMethod"><option value="GROSS"${(tax.taxMethod === 'GROSS' || !tax.taxMethod) ? ' selected' : ''}>Gross — dipotong dari gaji (ditanggung karyawan)</option><option value="NET"${tax.taxMethod === 'NET' ? ' selected' : ''}>Nett — ditanggung perusahaan</option><option value="GROSS_UP"${tax.taxMethod === 'GROSS_UP' ? ' selected' : ''}>Gross-up — tunjangan pajak</option></select></div>
+          <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Kategori PTKP <span class="mk-tag emerald">otomatis</span></label><select class="mk-input" id="mkTaxCat"><option value="A"${terCat === 'A' ? ' selected' : ''}>Kategori A</option><option value="B"${terCat === 'B' ? ' selected' : ''}>Kategori B</option><option value="C"${terCat === 'C' ? ' selected' : ''}>Kategori C</option></select></div><div><label class="mk-field-lbl">Status PTKP</label><input class="mk-input" id="mkTaxPtkp" value="${esc(ptkpStatus)}" readonly></div></div>
         </div>
         <div class="mk-surface mk-io-out mk-io-panel">
-          <div class="mk-rowb mk-o-caps bb">Hasil Kalkulator PPh 21 TER<span class="mk-badge emerald">Optimal</span></div>
-          <div class="mk-out-grid"><div class="mk-inset mk-out"><span>Total Bruto Sebulan</span><b id="mkOutBruto">—</b></div><div class="mk-inset mk-out"><span>Tarif TER Diterapkan</span><b class="blue" id="mkOutRate">—</b></div><div class="mk-inset mk-out"><span>Estimasi Pajak Bulanan</span><b class="emerald" id="mkOutTax">—</b></div><div class="mk-inset mk-out"><span>Take Home Pay Bersih</span><b class="indigo" id="mkOutThp">—</b></div></div>
-          <div class="mk-note"><b>${MK('info')} Rekomendasi Planner:</b> <span id="mkTaxRec">—</span></div>
+          <div class="mk-rowb mk-o-caps bb">Hasil Kalkulator PPh 21 TER<span class="mk-badge emerald" id="mkTaxMethodBadge">Gross</span></div>
+          <div class="mk-out-grid"><div class="mk-inset mk-out"><span>Total Bruto Sebulan</span><b id="mkOutBruto">—</b></div><div class="mk-inset mk-out"><span>Tarif TER · Kat. <span id="mkOutCat">${esc(terCat)}</span></span><b class="blue" id="mkOutRate">—</b></div><div class="mk-inset mk-out"><span>PPh 21 Bulanan</span><b class="emerald" id="mkOutTax">—</b></div><div class="mk-inset mk-out"><span>Take Home Pay</span><b class="indigo" id="mkOutThp">—</b></div><div class="mk-inset mk-out mk-span2"><span>Biaya Perusahaan (gaji + pajak ditanggung)</span><b id="mkOutCost">—</b></div></div>
+          <div class="mk-note"><b>${MK('info')} Metode:</b> <span id="mkTaxRec">—</span></div>
         </div></div></div></section>`;
 
       const bpjsTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('shield')} BPJS Kesehatan & Ketenagakerjaan</div><div class="mk-section-desc">Kepesertaan, faskes, dan kalkulator iuran otomatis (JKN + Jamsostek).</div></div><span class="mk-badge emerald">${Number(s.bpjsPrograms || 0)} program aktif</span></div><div class="mk-section-body"><div class="mk-io">
@@ -532,20 +533,28 @@
       main.querySelectorAll('[data-mk-tab]').forEach((b) => b.addEventListener('click', () => show(b.dataset.mkTab)));
       wireCommon(main);
       const calcTax = () => {
-        const sal = Number(main.querySelector('#mkTaxSalary').value) || 0, al = Number(main.querySelector('#mkTaxAllow').value) || 0, bo = Number(main.querySelector('#mkTaxBonus').value) || 0, cat = main.querySelector('#mkTaxCat').value;
-        const bruto = sal + al + bo; let rate = 0;
+        const base = Number(main.querySelector('#mkTaxBase').value) || 0, fixed = Number(main.querySelector('#mkTaxFixed').value) || 0, vari = Number(main.querySelector('#mkTaxVar').value) || 0, bonus = Number(main.querySelector('#mkTaxBonus').value) || 0;
+        const cat = main.querySelector('#mkTaxCat').value, method = main.querySelector('#mkTaxMethod').value;
+        const bruto = base + fixed + vari + bonus; let rate = 0;
         if (cat === 'A') rate = bruto > 10000000 ? 0.02 : bruto > 5400000 ? 0.0025 : 0;
         else if (cat === 'B') rate = bruto > 11000000 ? 0.03 : bruto > 6200000 ? 0.015 : 0;
         else rate = bruto > 12000000 ? 0.04 : 0.02;
-        const monthlyTax = bruto * rate;
+        let pph21, thp, cost, rec;
+        if (method === 'NET') { pph21 = bruto * rate; thp = bruto; cost = bruto + pph21; rec = 'Pajak ditanggung penuh perusahaan — THP karyawan = bruto; biaya perusahaan bertambah sebesar PPh 21.'; }
+        else if (method === 'GROSS_UP') { const T = rate < 1 ? bruto * rate / (1 - rate) : 0; pph21 = T; thp = bruto; cost = bruto + T; rec = 'Perusahaan memberi tunjangan pajak (gross-up) yang menambah dasar pajak; THP = bruto, biaya perusahaan = bruto + tunjangan pajak.'; }
+        else { pph21 = bruto * rate; thp = bruto - pph21; cost = bruto; rec = 'PPh 21 dipotong langsung dari gaji (ditanggung karyawan).'; }
+        const ML = { GROSS: 'Gross', NET: 'Nett', GROSS_UP: 'Gross-up' };
         main.querySelector('#mkOutBruto').textContent = rp(bruto);
         main.querySelector('#mkOutRate').textContent = (rate * 100).toFixed(2).replace(/\.00$/, '') + '%';
-        main.querySelector('#mkOutTax').textContent = rp(monthlyTax);
-        main.querySelector('#mkOutThp').textContent = rp(bruto - monthlyTax);
-        main.querySelector('#mkTaxRec').textContent = rate === 0 ? `Gaji di bawah PTKP kategori ${cat} — belum dikenakan PPh 21.` : `Kategori ${cat}: pemotongan otomatis tarif TER ${(rate * 100).toFixed(2)}%/bln, stabil & efisien.`;
+        main.querySelector('#mkOutTax').textContent = rp(pph21);
+        main.querySelector('#mkOutThp').textContent = rp(thp);
+        main.querySelector('#mkOutCost').textContent = rp(cost);
+        main.querySelector('#mkOutCat').textContent = cat;
+        main.querySelector('#mkTaxMethodBadge').textContent = ML[method] || 'Gross';
+        main.querySelector('#mkTaxRec').textContent = (rate === 0 ? `Gaji di bawah PTKP kategori ${cat} — belum dikenakan PPh 21. ` : `Tarif TER ${(rate * 100).toFixed(2)}%/bln. `) + rec;
       };
-      ['#mkTaxSalary', '#mkTaxAllow', '#mkTaxBonus', '#mkTaxCat'].forEach((sel) => main.querySelector(sel)?.addEventListener('input', calcTax));
-      main.querySelector('#mkTaxSalary') && calcTax();
+      ['#mkTaxBase', '#mkTaxFixed', '#mkTaxVar', '#mkTaxBonus', '#mkTaxCat', '#mkTaxMethod'].forEach((sel) => main.querySelector(sel)?.addEventListener('input', calcTax));
+      main.querySelector('#mkTaxBase') && calcTax();
       const calcBpjs = () => {
         const base = Number(main.querySelector('#mkBpjsSalary').value) || 0;
         const capKes = Math.min(base, 12000000), kesTotal = capKes * 0.05, kesEmp = capKes * 0.01;
