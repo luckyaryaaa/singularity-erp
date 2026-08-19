@@ -2087,3 +2087,14 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-tool-ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#eff6ff;color:#2563eb;margin-bottom:4px}
 .mk-tool b{font:800 13px 'Plus Jakarta Sans';color:#1e293b}
 .mk-tool small{font-size:11px;color:var(--mk-muted)}
+/* compensation grade band */
+.mk-note.amber{background:rgba(255,251,235,.7);border-color:#fde68a}.mk-note.amber b{color:#b45309}
+.mk-note.coral{background:rgba(254,242,242,.7);border-color:#fecaca}.mk-note.coral b{color:#b91c1c}
+.mk-band-card{padding:18px;display:flex;flex-direction:column;gap:14px}
+.mk-band{position:relative;height:26px;margin:2px 4px}
+.mk-band-track{position:absolute;top:10px;left:0;right:0;height:6px;border-radius:4px;background:#e5e9f0;overflow:hidden}
+.mk-band-fill{display:block;height:100%;width:0;background:linear-gradient(90deg,#c7dbff,#8fb6ff);border-radius:4px;transition:width .5s ease}
+.mk-band-mid{position:absolute;top:3px;left:50%;width:2px;height:20px;background:#94a3b8;border-radius:2px;transform:translateX(-1px)}
+.mk-band-dot{position:absolute;top:5px;left:0;width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 4px 10px -2px rgba(37,99,235,.7);transform:translateX(-8px);transition:left .5s ease}
+.mk-band-labels{display:flex;justify-content:space-between;font:700 10.5px 'JetBrains Mono','Plus Jakarta Sans';color:var(--mk-muted)}
+.mk-band-labels span:nth-child(2){color:#475569}

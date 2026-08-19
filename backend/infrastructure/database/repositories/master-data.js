@@ -637,4 +637,28 @@ async function employeeTimeline(client, id, user) {
   return events.filter((e) => e.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline };
+// Compensation Management — analisis grade gaji (band min–mid–max), compa-ratio,
+// position-in-range, kuartil. SAP/Oracle-style. Butuh izin payroll (canSeeSalary).
+async function compensationAnalysis(client, id, user) {
+  assertPermission(user, 'employee.view');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Analisis kompensasi membutuhkan izin payroll.');
+  await parentRow(client, 'employees', id);
+  const comp = (await client.query(`SELECT base_salary, fixed_allowance, variable_allowance, salary_grade FROM employee_compensation_history WHERE employee_id=$1 ORDER BY effective_from DESC LIMIT 1`, [id])).rows[0] || {};
+  const pos = (await client.query(`SELECT salary_grade FROM employee_positions WHERE employee_id=$1 AND effective_from<=current_date AND (effective_to IS NULL OR effective_to>=current_date) ORDER BY effective_from DESC LIMIT 1`, [id])).rows[0] || {};
+  const grade = pos.salary_grade || comp.salary_grade || null;
+  const base = Number(comp.base_salary) || 0;
+  const bandRow = grade ? (await client.query(`SELECT * FROM salary_grades WHERE grade_code=$1 AND active ORDER BY effective_from DESC LIMIT 1`, [grade])).rows[0] : null;
+  const band = bandRow ? runtime.camel(bandRow) : null;
+  const grades = (await client.query(`SELECT grade_code, grade_name, min_salary, mid_salary, max_salary FROM salary_grades WHERE active ORDER BY min_salary`)).rows.map(runtime.camel);
+  let compaRatio = null, positionInRange = null, quartile = null, status = 'NO_BAND';
+  if (band && base > 0) {
+    const min = Number(band.minSalary), mid = Number(band.midSalary), max = Number(band.maxSalary);
+    compaRatio = mid > 0 ? Number((base / mid).toFixed(3)) : null;
+    positionInRange = max > min ? Math.max(0, Math.min(1, (base - min) / (max - min))) : null;
+    quartile = positionInRange == null ? null : positionInRange <= 0.25 ? 'Q1' : positionInRange <= 0.5 ? 'Q2' : positionInRange <= 0.75 ? 'Q3' : 'Q4';
+    status = base < min ? 'BELOW_RANGE' : base > max ? 'ABOVE_RANGE' : compaRatio < 0.9 ? 'BELOW_MID' : compaRatio > 1.1 ? 'ABOVE_MID' : 'AT_MID';
+  }
+  return { grade, base, fixedAllowance: Number(comp.fixed_allowance) || 0, variableAllowance: Number(comp.variable_allowance) || 0, band, grades, compaRatio, positionInRange, quartile, status };
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis };
