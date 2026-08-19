@@ -618,4 +618,23 @@ async function decideSelfUpdate(client, { id, decision, reason, user, requestId 
   return runtime.camel(updated);
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate };
+// Timeline karier: gabungan kronologis dari seluruh tabel riwayat karyawan.
+// Kompensasi hanya menampilkan nominal bila pengguna berhak (payroll.view).
+async function employeeTimeline(client, id, user) {
+  assertPermission(user, 'employee.view');
+  const emp = runtime.camel(await parentRow(client, 'employees', id));
+  const events = [];
+  if (emp.joinDate) events.push({ date: emp.joinDate, type: 'HIRED', title: 'Bergabung', detail: 'Mulai bekerja di perusahaan' });
+  (await client.query(`SELECT employment_type,employment_status,event_date,event_reason FROM employee_employment_history WHERE employee_id=$1`, [id])).rows
+    .forEach((r) => events.push({ date: r.event_date, type: 'EMPLOYMENT', title: r.employment_status || 'Perubahan status', detail: [r.employment_type, r.event_reason].filter(Boolean).join(' · ') || null }));
+  (await client.query(`SELECT position_title,division,work_location,salary_grade,effective_from FROM employee_positions WHERE employee_id=$1`, [id])).rows
+    .forEach((r) => events.push({ date: r.effective_from, type: 'POSITION', title: r.position_title || 'Posisi baru', detail: [r.division, r.work_location, r.salary_grade && `Grade ${r.salary_grade}`].filter(Boolean).join(' · ') || null }));
+  (await client.query(`SELECT contract_number,contract_type,start_date,end_date FROM employee_contracts WHERE employee_id=$1`, [id])).rows
+    .forEach((r) => events.push({ date: r.start_date, type: 'CONTRACT', title: `Kontrak ${r.contract_type || ''}`.trim(), detail: [r.contract_number, r.end_date ? `berakhir ${new Date(r.end_date).toISOString().slice(0, 10)}` : 'tanpa batas akhir'].filter(Boolean).join(' · ') }));
+  const canSalary = canSeeSalary(user);
+  (await client.query(`SELECT base_salary,fixed_allowance,variable_allowance,effective_from,approval_status FROM employee_compensation_history WHERE employee_id=$1`, [id])).rows
+    .forEach((r) => { const total = (Number(r.base_salary) || 0) + (Number(r.fixed_allowance) || 0) + (Number(r.variable_allowance) || 0); events.push({ date: r.effective_from, type: 'COMPENSATION', title: 'Revisi kompensasi', detail: r.approval_status || null, amount: canSalary ? total : null }); });
+  return events.filter((e) => e.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline };

@@ -2136,3 +2136,47 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-o-caps{font:800 11px 'Plus Jakarta Sans';text-transform:uppercase;letter-spacing:.05em;color:#334155}
 .mk-o-caps.bb{border-bottom:1px solid #e2e8f0;padding-bottom:10px}
 .mk-ovh{overflow:hidden}
+/* increment 2: timeline / bank / doc / audit / workflow / ocr / tools */
+.mk-tl-wrap{display:flex;flex-direction:column;gap:10px}
+.mk-timeline{list-style:none;margin:0;padding:0}
+.mk-tl-item{position:relative;display:flex;gap:14px;padding:8px 0}
+.mk-tl-item::before{content:"";position:absolute;left:15px;top:38px;bottom:-4px;width:2px;background:#e2e8f0}
+.mk-tl-item:last-child::before{display:none}
+.mk-tl-dot{flex:none;width:32px;height:32px;border-radius:11px;display:grid;place-items:center;z-index:1;box-shadow:4px 4px 10px var(--mk-lo),-4px -4px 10px #fff}
+.mk-tl-dot.t-emerald{background:#ecfdf5;color:#059669}.mk-tl-dot.t-blue{background:#eff6ff;color:#2563eb}.mk-tl-dot.t-amber{background:#fffbeb;color:#d97706}.mk-tl-dot.t-purple{background:#f5f3ff;color:#7c3aed}.mk-tl-dot.t-indigo{background:#eef2ff;color:#4f46e5}.mk-tl-dot.t-slate{background:#f1f5f9;color:#475569}
+.mk-tl-body{flex:1;min-width:0;padding-top:3px}
+.mk-tl-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.mk-tl-top b{font:800 13px 'Plus Jakarta Sans';color:#1e293b}
+.mk-tl-date{font:700 10.5px 'JetBrains Mono','Plus Jakarta Sans';color:var(--mk-muted);white-space:nowrap}
+.mk-tl-body p{margin:2px 0 0;font-size:12px;color:var(--mk-slate)}
+.mk-bank{padding:18px;border-radius:16px;color:#eaf1ff;background:linear-gradient(140deg,#1e293b,#334155);display:flex;flex-direction:column;gap:10px;box-shadow:6px 6px 16px var(--mk-lo)}
+.mk-bank-brand{font:800 14px 'Plus Jakarta Sans'}
+.mk-bank-no{font:700 17px 'JetBrains Mono','Plus Jakarta Sans';letter-spacing:.12em}
+.mk-bank-foot{display:flex;justify-content:space-between;align-items:center;font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.92}
+.mk-doc{display:flex;align-items:center;gap:12px;padding:14px}
+.mk-doc-ic{flex:none;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#eff6ff;color:#2563eb}
+.mk-doc b{font:800 12.5px 'Plus Jakarta Sans';color:#1e293b;display:block}
+.mk-doc small{font-size:10.5px;color:var(--mk-muted)}
+.mk-audit{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mk-audit-row{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--mk-line);border-radius:12px;background:#f8fafc}
+.mk-audit-ic{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:#eef2f7;color:#475569}
+.mk-audit-row b{font:800 12px 'Plus Jakarta Sans';color:#1e293b}
+.mk-audit-row small{font-size:11px;color:var(--mk-muted)}
+.mk-wf{padding:16px;border-left:4px solid #cbd5e1;display:flex;flex-direction:column;gap:4px}
+.mk-wf.t-amber{border-left-color:#d97706}.mk-wf.t-emerald{border-left-color:#059669}.mk-wf.t-blue{border-left-color:#2563eb}
+.mk-wf h4{margin:0;font:900 16px 'Plus Jakarta Sans';color:#0f172a}
+.mk-wf p{margin:0;font-size:11.5px;color:var(--mk-muted)}
+.mk-wf-row{display:flex;align-items:center;gap:12px;padding:13px 15px}
+.mk-wf-row b{font:800 13px 'Plus Jakarta Sans';color:#1e293b;display:block}
+.mk-wf-row small{font-size:11px;color:var(--mk-muted)}
+.mk-wf-act{display:flex;align-items:center;gap:8px;flex:none}
+.mk-drop{border:2px dashed #cbd5e1;border-radius:14px;padding:24px;text-align:center;cursor:pointer;background:rgba(255,255,255,.6);display:flex;flex-direction:column;align-items:center;gap:6px;transition:border-color .2s}
+.mk-drop:hover{border-color:#7c3aed}
+.mk-drop svg{width:26px;height:26px;color:#7c3aed}
+.mk-drop b{font:800 12px 'Plus Jakarta Sans';color:#334155}
+.mk-drop small{font-size:10.5px;color:var(--mk-muted)}
+.mk-tool{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:16px;text-align:left;cursor:pointer;border:0;transition:transform .18s}
+.mk-tool:hover{transform:translateY(-2px)}
+.mk-tool-ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#eff6ff;color:#2563eb;margin-bottom:4px}
+.mk-tool b{font:800 13px 'Plus Jakarta Sans';color:#1e293b}
+.mk-tool small{font-size:11px;color:var(--mk-muted)}
