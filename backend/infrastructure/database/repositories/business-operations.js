@@ -3,6 +3,7 @@ const {randomUUID,createHash}=require('node:crypto');
 const {AppError}=require('../../../core/errors');
 const runtime=require('./runtime');
 const accountingConfig=require('./accounting-config');
+const masterData=require('./master-data');
 const {canonical}=require('../../../core/doc-verification');
 const {assertBranchAccess,hasGlobalScope,queryScope}=require('../../../core/data-scope');
 
@@ -127,6 +128,10 @@ async function leaveBalances(client,{year=new Date().getFullYear(),employeeId,us
 async function createPayroll(client,{period:value,user,title}){const p=period(value),global=['owner','admin'].includes(user.role)||user.branchScope==='*';const existing=(await client.query(`SELECT id FROM business_documents WHERE document_type='PAYROLL_RUN' AND payload->>'period'=$1 AND ($2::boolean OR branch_id=$3) AND status NOT IN('CANCELLED','VOID')`,[p,global,user.branchId])).rows[0];if(existing)throw new AppError('DUPLICATE_REQUEST','Payroll periode ini sudah tersedia.');const employees=(await client.query('SELECT * FROM employees WHERE active AND ($1::boolean OR branch_id=$2) ORDER BY name',[global,user.branchId])).rows;if(!employees.length)throw new AppError('VALIDATION_ERROR','Tidak ada karyawan aktif.');
   // Tarif dari payroll_rule_versions (§19.5) — bukan hardcoded; snapshot disimpan per item.
   const {rules,snapshot}=await accountingConfig.resolvePayrollRules(client,`${p}-01`);
+  // Jejak metode: pajak & BPJS kini presisi (TER PP 58/2023 + BPJS per-komponen
+  // dari profil karyawan), bukan lagi tarif datar. Konfigurasi lama tetap
+  // di-snapshot untuk audit & fallback BPJS.
+  snapshot.method={pph21:'TER_PP58_2023',bpjs:'PER_COMPONENT_CONFIG',ptkp:'PER_EMPLOYEE_TAX_PROFILE'};
   // §35: seluruh angka payroll WAJIB dari konfigurasi. Nilai yang hilang
   // digagalkan terang-terangan — diam-diam memakai default berisiko salah
   // bayar/salah potong tanpa disadari.
@@ -145,7 +150,29 @@ async function createPayroll(client,{period:value,user,title}){const p=period(va
     LEFT JOIN employee_rosters r ON r.employee_id=a.employee_id AND r.work_date=a.work_date
     LEFT JOIN LATERAL (SELECT (CASE WHEN s.end_time>s.start_time THEN extract(epoch from(s.end_time-s.start_time)) ELSE extract(epoch from(s.end_time-s.start_time))+86400 END)/3600.0 - s.break_minutes/60.0 hours FROM work_shifts s WHERE s.id=r.shift_id AND s.active) sh ON true
     LEFT JOIN LATERAL (SELECT (CASE WHEN s.end_time>s.start_time THEN extract(epoch from(s.end_time-s.start_time)) ELSE extract(epoch from(s.end_time-s.start_time))+86400 END)/3600.0 - s.break_minutes/60.0 hours FROM work_shifts s WHERE s.is_default AND s.active LIMIT 1) def ON true
-    WHERE a.employee_id=$1 AND to_char(a.work_date,'YYYY-MM')=$2`,[employee.id,p])).rows[0],base=Number(employee.base_salary),allowances=Number(components.ALLOWANCE||0),overtime=Math.round(Number(att.overtime_hours||0)*(base/otDiv)),absence=Math.round(Number(att.absent||0)*(base/absDiv)),deductions=Number(components.DEDUCTION||0)+absence,bpjsEmployee=Math.round(base*bpjsEmpPct),bpjsCompany=Math.round(base*bpjsCoPct),gross=base+allowances+overtime,taxable=Math.max(0,gross-bpjsEmployee-ptkp),pph21=Math.round(taxable*pphRate),net=Math.max(0,gross-deductions-bpjsEmployee-pph21);items.push({employee,base,allowances,overtime,deductions,bpjsEmployee,bpjsCompany,pph21,net});}const total=items.reduce((n,x)=>n+x.net,0),bpjs=items.reduce((n,x)=>n+x.bpjsCompany+x.bpjsEmployee,0),pph21=items.reduce((n,x)=>n+x.pph21,0),doc=await runtime.createDocument(client,{type:'PAYROLL_RUN',user,title:title||`Payroll ${p}`,amount:total,payload:{period:p,headcount:items.length,bpjs,pph21,ruleSnapshot:snapshot},requestId:randomUUID()});for(const x of items)await client.query(`INSERT INTO payroll_items(id,payroll_document_id,employee_id,base_salary,allowances,overtime,deductions,bpjs_company,bpjs_employee,pph21,net_pay,rule_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,[randomUUID(),doc.id,x.employee.id,x.base,x.allowances,x.overtime,x.deductions,x.bpjsCompany,x.bpjsEmployee,x.pph21,x.net,snapshot]);return{document:doc,headcount:items.length,total,bpjs,pph21};}
+    WHERE a.employee_id=$1 AND to_char(a.work_date,'YYYY-MM')=$2`,[employee.id,p])).rows[0];
+    // Tunjangan tetap & variabel dari kompensasi yang SUDAH DISETUJUI (konsisten
+    // dgn employees.base_salary yang juga nilai approved) + komponen ALLOWANCE
+    // ad-hoc. Revisi gaji baru masuk payroll setelah disetujui (maker-checker).
+    const comp=(await client.query(`SELECT fixed_allowance,variable_allowance FROM employee_compensation_history WHERE employee_id=$1 AND approval_status='APPROVED' ORDER BY effective_from DESC LIMIT 1`,[employee.id])).rows[0]||{};
+    const base=Number(employee.base_salary),allowances=(Number(comp.fixed_allowance)||0)+(Number(comp.variable_allowance)||0)+Number(components.ALLOWANCE||0);
+    const overtime=Math.round(Number(att.overtime_hours||0)*(base/otDiv)),absence=Math.round(Number(att.absent||0)*(base/absDiv));
+    const deductions=Number(components.DEDUCTION||0)+absence,gross=base+allowances+overtime;
+    // PPh 21 — Tarif Efektif Rata-rata (TER) bulanan PP 58/2023 atas penghasilan
+    // bruto sebulan, per kategori PTKP karyawan (dari profil pajak); non-NPWP +20%.
+    // Konsisten dengan planner Employee 360. ptkp/pphRate config lama tetap
+    // divalidasi & di-snapshot namun tak lagi menghitung (digantikan TER).
+    const taxRow=(await client.query(`SELECT ptkp_status,(npwp IS NOT NULL) has_npwp FROM employee_tax_profiles WHERE employee_id=$1 AND effective_from<=$2::date AND (effective_to IS NULL OR effective_to>=$2::date) ORDER BY effective_from DESC LIMIT 1`,[employee.id,`${p}-01`])).rows[0]||{};
+    const terCat=masterData.ptkpToCatBE(taxRow.ptkp_status||'TK/0'),hasNpwp=taxRow.has_npwp!==false;
+    const pph21=Math.round(gross*masterData.terMonthlyRate(terCat,gross)*(hasNpwp?1:1.2));
+    // BPJS — dari konfigurasi kepesertaan tersimpan (per komponen, dgn cap);
+    // fallback ke persentase datar konfigurasi bila karyawan belum dikonfigurasi.
+    const bpjsRows=(await client.query(`SELECT wage_base,employee_pct,employer_pct,ceiling_amount FROM employee_bpjs_profiles WHERE employee_id=$1 AND (active_to IS NULL OR active_to>=$2::date)`,[employee.id,`${p}-01`])).rows;
+    let bpjsEmployee,bpjsCompany;
+    if(bpjsRows.length){bpjsEmployee=0;bpjsCompany=0;for(const r of bpjsRows){const wb=Number(r.wage_base)||0,cap=Number(r.ceiling_amount)||0,b=cap?Math.min(wb,cap):wb;bpjsEmployee+=Math.round(b*(Number(r.employee_pct)||0)/100);bpjsCompany+=Math.round(b*(Number(r.employer_pct)||0)/100);}}
+    else{bpjsEmployee=Math.round(base*bpjsEmpPct);bpjsCompany=Math.round(base*bpjsCoPct);}
+    const net=Math.max(0,gross-deductions-bpjsEmployee-pph21);
+    items.push({employee,base,allowances,overtime,deductions,bpjsEmployee,bpjsCompany,pph21,net});}const total=items.reduce((n,x)=>n+x.net,0),bpjs=items.reduce((n,x)=>n+x.bpjsCompany+x.bpjsEmployee,0),pph21=items.reduce((n,x)=>n+x.pph21,0),doc=await runtime.createDocument(client,{type:'PAYROLL_RUN',user,title:title||`Payroll ${p}`,amount:total,payload:{period:p,headcount:items.length,bpjs,pph21,ruleSnapshot:snapshot},requestId:randomUUID()});for(const x of items)await client.query(`INSERT INTO payroll_items(id,payroll_document_id,employee_id,base_salary,allowances,overtime,deductions,bpjs_company,bpjs_employee,pph21,net_pay,rule_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,[randomUUID(),doc.id,x.employee.id,x.base,x.allowances,x.overtime,x.deductions,x.bpjsCompany,x.bpjsEmployee,x.pph21,x.net,snapshot]);return{document:doc,headcount:items.length,total,bpjs,pph21};}
 async function payrollItems(client,documentId,user){const doc=await runtime.getDocument(client,documentId);if(!doc||doc.documentType!=='PAYROLL_RUN')throw new AppError('RESOURCE_NOT_FOUND');assertBranchAccess(user,doc.branchId,'Payroll berada di cabang di luar cakupan Anda.');const own=user.role==='employee';const params=[documentId];let filter='';if(own){params.push(user.employeeId||'00000000-0000-0000-0000-000000000000');filter=` AND p.employee_id=$2`;}return(await client.query(`SELECT p.*,e.nik,e.name employee_name,e.department,e.job_title FROM payroll_items p JOIN employees e ON e.id=p.employee_id WHERE p.payroll_document_id=$1${filter} ORDER BY e.name`,params)).rows.map(runtime.camel);}
 async function payrollSelf(client,user){if(!user.employeeId)throw new AppError('RESOURCE_NOT_FOUND','Akun belum ditautkan ke data karyawan.');return(await client.query(`SELECT p.*,d.document_number,d.title,d.status,d.payload->>'period' period,d.approved_at FROM payroll_items p JOIN business_documents d ON d.id=p.payroll_document_id WHERE p.employee_id=$1 AND d.status NOT IN('DRAFT','REJECTED','CANCELLED','VOID') ORDER BY d.payload->>'period' DESC`,[user.employeeId])).rows.map(runtime.camel);}
 
