@@ -2198,4 +2198,11 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-bpjs-prog-b small{color:var(--mk-muted);font-size:10px}
 .mk-bpjs-off td{opacity:.4}
 .mk-bpjs-acts{display:flex;gap:8px;flex-wrap:wrap}
+.mk-fam-row{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.mk-fam-ic{width:34px;height:34px;border-radius:10px;background:#eff6ff;color:#2563eb;display:grid;place-items:center;flex-shrink:0}
+.mk-fam-row b{display:block;font:700 13px 'Plus Jakarta Sans';color:#0f172a}
+.mk-fam-row small{color:var(--mk-muted);font-size:11px}
+.mk-fam-tags{display:flex;gap:6px;flex-wrap:wrap}
+.mk-fam-act{display:flex;gap:6px;flex-shrink:0}
+.mk-note:has(.mk-flex1){display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .mk-slip-t td.r{text-align:right;font-family:'JetBrains Mono','Plus Jakarta Sans';color:#1e293b;font-weight:700;white-space:nowrap}

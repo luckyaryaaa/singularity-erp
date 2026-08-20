@@ -335,6 +335,7 @@
   const MK_TABS = [
     ['overview', 'Overview & Master', 'user', null], ['ocr', 'AI OCR KTP/NPWP', 'scanText', ['AI Engine', 'purple']],
     ['workflow', 'Workflow Approval', 'gitPr', ['Maker-Checker', 'amber']], ['employment', 'Employment & Position', 'briefcase', null],
+    ['family', 'Keluarga & Tanggungan', 'user', ['PTKP', 'blue']],
     ['talent', 'Performance & Talent', 'award', ['9-Box', 'purple']],
     ['tax', 'Pajak', 'calc', ['PPh 21 TER', 'blue']], ['bpjs', 'BPJS', 'shield', ['Kesehatan & TK', 'emerald']],
     ['payroll', 'Payroll & Bank', 'card', null], ['services', 'Services & Tools', 'wrench', null],
@@ -451,6 +452,7 @@
         <div class="mk-content" data-mk-content="ocr" hidden></div>
         <div class="mk-content" data-mk-content="workflow" hidden></div>
         <div class="mk-content" data-mk-content="employment" hidden></div>
+        <div class="mk-content" data-mk-content="family" hidden></div>
         <div class="mk-content" data-mk-content="talent" hidden></div>
         <div class="mk-content" data-mk-content="payroll" hidden></div>
         <div class="mk-content" data-mk-content="services" hidden></div>
@@ -467,7 +469,18 @@
       const mkTimeline = (items) => (items && items.length) ? `<ol class="mk-timeline">${items.map((e) => { const m = TL_META[e.type] || ['clock', 'slate']; return `<li class="mk-tl-item"><span class="mk-tl-dot t-${m[1]}">${MK(m[0])}</span><div class="mk-tl-body"><div class="mk-tl-top"><b>${esc(e.title)}</b><span class="mk-tl-date">${fmtDate(e.date)}</span></div>${(e.detail || e.amount != null) ? `<p>${esc(e.detail || '')}${e.amount != null ? `${e.detail ? ' · ' : ''}${money(e.amount)}` : ''}</p>` : ''}</div></li>`; }).join('')}</ol>` : `<div class="mk-empty">Belum ada riwayat.</div>`;
       const clayHead = (icon, title, desc, right) => `<div class="mk-section-head"><div><div class="mk-section-title">${MK(icon)} ${esc(title)}</div>${desc ? `<div class="mk-section-desc">${esc(desc)}</div>` : ''}</div>${right || ''}</div>`;
       const emptyBox = (msg) => `<div class="mk-empty">${clayOrb('blue', 'inbox')}<h3>Belum ada data</h3><p>${esc(msg)}</p></div>`;
+      const REL_LABEL = { SPOUSE: 'Pasangan', CHILD: 'Anak', PARENT: 'Orang Tua', SIBLING: 'Saudara', OTHER: 'Lainnya' };
       const loaders = {
+        family: async () => {
+          const d = await api(`${B}/family`).catch(() => ({ items: [] }));
+          const items = d.items || [], canEdit = can('employee.edit');
+          const row = (m) => `<div class="mk-inset mk-fam-row"><span class="mk-fam-ic">${MK('user')}</span><div class="mk-flex1"><b>${esc(m.fullName)}</b><small>${esc(REL_LABEL[m.relationship] || m.relationship)}${m.birthDate ? ' · ' + fmtDate(m.birthDate) : ''}${m.occupation ? ' · ' + esc(m.occupation) : ''}</small></div><div class="mk-fam-tags">${m.isDependent ? '<span class="mk-badge blue">Tanggungan</span>' : ''}${m.bpjsCovered ? '<span class="mk-badge emerald">BPJS</span>' : ''}</div>${canEdit ? `<div class="mk-fam-act"><button class="mk-btn sm" data-fam-edit="${esc(m.id)}">Ubah</button><button class="mk-btn sm mk-cor" data-fam-del="${esc(m.id)}">Hapus</button></div>` : ''}</div>`;
+          return `<section class="mk-surface">${clayHead('user', 'Keluarga & Tanggungan', 'Data keluarga, tanggungan (PTKP), dan kepesertaan BPJS Kesehatan keluarga.', canEdit ? `<button class="mk-btn primary sm" id="mkFamAdd">${MK('plus')} Tambah Anggota</button>` : '')}<div class="mk-section-body mk-col">
+            <div class="mk-g mk-g3"><div class="mk-inset mk-out"><span>Status Perkawinan</span><b>${esc(d.maritalStatus || '—')}</b></div><div class="mk-inset mk-out"><span>Jumlah Tanggungan</span><b class="blue">${d.dependents || 0} / 3</b></div><div class="mk-inset mk-out"><span>Status PTKP (otomatis)</span><b class="emerald">${esc(d.derivedPtkp || 'TK/0')}</b></div></div>
+            <div class="mk-note blue"><div class="mk-flex1"><b>${MK('calc')} PTKP otomatis:</b> diturunkan dari status perkawinan + ${d.dependents || 0} tanggungan → <b>${esc(d.derivedPtkp || 'TK/0')}</b>. Terapkan agar kalkulasi PPh 21 TER ikut menyesuaikan.</div>${canEdit ? `<button class="mk-btn sm" id="mkFamApplyPtkp">${MK('check')} Terapkan ke Profil Pajak</button>` : ''}</div>
+            <div class="mk-tl-wrap"><div class="mk-o-caps">Anggota Keluarga (${items.length})</div>${items.length ? `<div class="mk-col">${items.map(row).join('')}</div>` : emptyBox('Belum ada data keluarga.')}</div>
+          </div></section>`;
+        },
         employment: async () => { const [tl, , conD] = await Promise.all([api(`${B}/timeline`), api(`${B}/positions`), api(`${B}/contracts`)]); const contracts = conD.items || []; return `<section class="mk-surface">${clayHead('briefcase', 'Employment & Career History', 'Riwayat jabatan, penempatan, kontrak, dan perjalanan karier.', `<span class="mk-badge blue">${(tl.items || []).length} peristiwa</span>`)}<div class="mk-section-body mk-col"><div class="mk-g mk-g3"><div class="mk-inset mk-field"><label>Jabatan Aktif</label><div class="mk-v">${esc(pos.positionTitle || ov.jobTitle || '—')}</div></div><div class="mk-inset mk-field"><label>Status Kepegawaian</label><div class="mk-v mk-em">${esc(emp.employmentStatus || ov.lifecycleStatus || 'ACTIVE')}</div></div><div class="mk-inset mk-field"><label>Bergabung</label><div class="mk-v">${ov.joinDate ? fmtDate(ov.joinDate) : '—'} · ${esc(serviceLength(ov.joinDate))}</div></div></div><div class="mk-tl-wrap"><div class="mk-o-caps">Riwayat Karier (Timeline)</div>${mkTimeline(tl.items || [])}</div>${contracts.length ? `<div class="mk-tl-wrap"><div class="mk-o-caps">Kontrak</div><div class="mk-g mk-g2">${contracts.map((c) => `<div class="mk-inset mk-field"><label>${esc(c.contractType || 'Kontrak')} · ${esc(c.contractNumber || '')}</label><div class="mk-v">${fmtDate(c.startDate)} → ${c.endDate ? fmtDate(c.endDate) : 'tanpa batas'}</div></div>`).join('')}</div></div>` : ''}</div></section>`; },
         payroll: async () => {
           const [banksD, ca] = await Promise.all([api(`${B}/bank-accounts`), api(`${B}/compensation-analysis`).catch(() => null)]);
@@ -575,6 +588,38 @@
             if (!v) return;
             try { await api(`${B}/bank-accounts`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Rekening didaftarkan', 'Menunggu verifikasi (payment-hold aktif).'); loaded.payroll = false; show('payroll'); }
             catch (error) { toast('Gagal mendaftarkan rekening', error.message, 'coral'); }
+          });
+        }
+        if (key === 'family') {
+          const reloadFam = () => { loaded.family = false; show('family'); };
+          const famDialog = async (member) => {
+            const v = await formDialog({ title: member ? 'Ubah Anggota Keluarga' : 'Tambah Anggota Keluarga', description: 'Tandai "Tanggungan" untuk memengaruhi status PTKP (maks 3).', fields: [
+              { name: 'fullName', label: 'Nama Lengkap', value: member?.fullName || '', required: true },
+              { name: 'relationship', label: 'Hubungan', type: 'select', options: [['SPOUSE', 'Pasangan'], ['CHILD', 'Anak'], ['PARENT', 'Orang Tua'], ['SIBLING', 'Saudara'], ['OTHER', 'Lainnya']], value: member?.relationship || 'CHILD' },
+              { name: 'gender', label: 'Jenis Kelamin', type: 'select', options: [['', '—'], ['MALE', 'Laki-laki'], ['FEMALE', 'Perempuan']], value: member?.gender || '' },
+              { name: 'birthDate', label: 'Tanggal Lahir', type: 'date', value: member?.birthDate ? String(member.birthDate).slice(0, 10) : '' },
+              { name: 'occupation', label: 'Pekerjaan', value: member?.occupation || '' },
+              { name: 'isDependent', label: 'Tanggungan (memengaruhi PTKP)', type: 'checkbox', value: member ? member.isDependent : true },
+              { name: 'bpjsCovered', label: 'Ditanggung BPJS Kesehatan', type: 'checkbox', value: member ? member.bpjsCovered : false }
+            ], submitLabel: member ? 'Simpan' : 'Tambah' });
+            if (!v) return;
+            if (member) v.id = member.id;
+            try { await api(`${B}/family`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Data keluarga tersimpan', 'Status PTKP diperbarui otomatis.'); reloadFam(); }
+            catch (error) { toast('Gagal menyimpan', error.message, 'coral'); }
+          };
+          panel.querySelector('#mkFamAdd')?.addEventListener('click', () => famDialog(null));
+          panel.querySelectorAll('[data-fam-edit]').forEach((b) => b.addEventListener('click', async () => { const fam = ((await api(`${B}/family`).catch(() => ({ items: [] }))).items || []).find((x) => x.id === b.dataset.famEdit); if (fam) famDialog(fam); }));
+          panel.querySelectorAll('[data-fam-del]').forEach((b) => b.addEventListener('click', async () => {
+            const ans = await actionDialog({ title: 'Hapus anggota keluarga', description: 'Data anggota keluarga ini akan dihapus permanen.', confirmLabel: 'Hapus', danger: true });
+            if (ans === null) return;
+            try { await api(`${B}/family/${b.dataset.famDel}`, { method: 'DELETE', idempotencyKey: newIdemKey() }); toast('Dihapus'); reloadFam(); }
+            catch (error) { toast('Gagal menghapus', error.message, 'coral'); }
+          }));
+          panel.querySelector('#mkFamApplyPtkp')?.addEventListener('click', async () => {
+            const fam = await api(`${B}/family`).catch(() => ({}));
+            const ptkp = fam.derivedPtkp || 'TK/0', cat = ptkpToCat(ptkp);
+            try { await api(`${B}/tax-profiles`, { method: 'POST', body: { taxScheme: 'PPH21', ptkpStatus: ptkp, terCategory: cat, effectiveFrom: new Date().toISOString().slice(0, 10) }, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('PTKP diterapkan', `Profil pajak → ${ptkp} (TER ${cat}). Kalkulasi PPh 21 menyesuaikan.`); }
+            catch (error) { toast('Gagal menerapkan PTKP', error.message, 'coral'); }
           });
         }
         if (key === 'talent') {

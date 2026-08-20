@@ -902,4 +902,52 @@ async function saveBpjsConfig(client, employeeId, body, user, requestId) {
   return { scheme, programs: saved, wageBase, effectiveFrom: eff };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE };
+// ── Keluarga & Tanggungan ──────────────────────────────────────────────────
+// PTKP diturunkan dari status kawin (profil pribadi) + jumlah tanggungan
+// (is_dependent, maks 3) → bisa diterapkan ke profil pajak. bpjs_covered untuk
+// kepesertaan BPJS Kesehatan keluarga.
+const FAMILY_RELATIONS = ['SPOUSE', 'CHILD', 'PARENT', 'SIBLING', 'OTHER'];
+const derivePtkp = (maritalStatus, dependents) => {
+  const married = String(maritalStatus || '').toUpperCase() === 'KAWIN';
+  const d = Math.max(0, Math.min(3, Number(dependents) || 0));
+  return `${married ? 'K' : 'TK'}/${d}`;
+};
+async function listFamily(client, id, user) {
+  assertPermission(user, 'employee.view');
+  await parentRow(client, 'employees', id);
+  const rows = (await client.query(`SELECT * FROM employee_family_members WHERE employee_id=$1 ORDER BY relationship, birth_date NULLS LAST, created_at`, [id])).rows.map(runtime.camel);
+  const personal = (await client.query(`SELECT marital_status FROM employee_personal_profiles WHERE employee_id=$1 LIMIT 1`, [id])).rows[0] || {};
+  // Pasangan tidak dihitung tanggungan (sudah tercermin di K vs TK); hanya
+  // anak/lainnya yang ditandai tanggungan (maks 3) yang menambah PTKP.
+  const dependents = rows.filter((r) => r.isDependent && r.relationship !== 'SPOUSE').length;
+  return { items: rows, maritalStatus: personal.marital_status || null, dependents, bpjsCovered: rows.filter((r) => r.bpjsCovered).length, derivedPtkp: derivePtkp(personal.marital_status, dependents) };
+}
+async function saveFamily(client, id, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  await parentRow(client, 'employees', id);
+  const rel = FAMILY_RELATIONS.includes(String(body.relationship || '').toUpperCase()) ? String(body.relationship).toUpperCase() : 'CHILD';
+  const name = String(body.fullName || '').trim();
+  if (!name) throw new AppError('VALIDATION_ERROR', 'Nama anggota keluarga wajib diisi.');
+  const gender = ['MALE', 'FEMALE'].includes(String(body.gender || '').toUpperCase()) ? String(body.gender).toUpperCase() : null;
+  const isDependent = body.isDependent !== false && body.isDependent !== 'false';
+  const bpjsCovered = body.bpjsCovered === true || body.bpjsCovered === 'true';
+  let row;
+  if (body.id) {
+    row = (await client.query(`UPDATE employee_family_members SET full_name=$3, relationship=$4, gender=$5, birth_date=$6, is_dependent=$7, bpjs_covered=$8, occupation=$9, notes=$10, updated_at=now() WHERE id=$2 AND employee_id=$1 RETURNING *`, [id, body.id, name, rel, gender, body.birthDate || null, isDependent, bpjsCovered, body.occupation || null, body.notes || null])).rows[0];
+    if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Anggota keluarga tidak ditemukan.');
+  } else {
+    row = (await client.query(`INSERT INTO employee_family_members (employee_id, full_name, relationship, gender, birth_date, is_dependent, bpjs_covered, occupation, notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`, [id, name, rel, gender, body.birthDate || null, isDependent, bpjsCovered, body.occupation || null, body.notes || null])).rows[0];
+  }
+  await runtime.audit(client, { userId: user.id, action: body.id ? 'FAMILY_UPDATE' : 'FAMILY_ADD', module: 'employee', entityType: 'EMPLOYEE_FAMILY', entityId: id, newValue: { name, relationship: rel, isDependent }, requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
+async function deleteFamily(client, id, memberId, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  await parentRow(client, 'employees', id);
+  const row = (await client.query(`DELETE FROM employee_family_members WHERE id=$2 AND employee_id=$1 RETURNING id`, [id, memberId])).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Anggota keluarga tidak ditemukan.');
+  await runtime.audit(client, { userId: user.id, action: 'FAMILY_DELETE', module: 'employee', entityType: 'EMPLOYEE_FAMILY', entityId: id, requestId, branchId: user.branchId });
+  return { deleted: memberId };
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily };
