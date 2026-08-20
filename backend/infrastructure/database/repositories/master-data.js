@@ -753,8 +753,22 @@ async function pph21Annual(client, id, body, user) {
   const monthlyBruto = base + fixed + variable;
   const grossAnnual = monthlyBruto * 12 + bonus;
   const biayaJabatan = Math.min(grossAnnual * 0.05, 6000000);
-  const jht = base * 0.02 * 12;
-  const jp = Math.min(base, 10042300) * 0.01 * 12;
+  // Potongan BPJS karyawan yang mengurangi penghasilan neto (JHT + JP) diambil
+  // dari KONFIGURASI BPJS tersimpan agar pajak mengikuti realita: skema
+  // "ditanggung perusahaan" → porsi karyawan 0 → PKP naik. Kesehatan (1%) BUKAN
+  // pengurang PPh 21. Tanpa konfigurasi → asumsi standar JHT 2% + JP 1%.
+  let jht = 0, jp = 0;
+  const bpjsRows = (await client.query(`SELECT program, wage_base, employee_pct, ceiling_amount FROM employee_bpjs_profiles WHERE employee_id=$1 AND program IN ('JHT','JP') AND (active_to IS NULL OR active_to>=current_date)`, [id])).rows;
+  if (bpjsRows.length) {
+    for (const r of bpjsRows) {
+      const wb = Number(r.wage_base) || 0, pct = (Number(r.employee_pct) || 0) / 100, cap = Number(r.ceiling_amount) || 0;
+      const annual = (cap ? Math.min(wb, cap) : wb) * pct * 12;
+      if (r.program === 'JHT') jht = annual; else jp = annual;
+    }
+  } else {
+    jht = base * 0.02 * 12;
+    jp = Math.min(base, 10042300) * 0.01 * 12;
+  }
   const bpjsDeduct = jht + jp;
   const ptkpAmt = PTKP_ANNUAL[ptkp] || 54000000;
   const pkp = Math.max(0, Math.floor((grossAnnual - biayaJabatan - bpjsDeduct - ptkpAmt) / 1000) * 1000);
