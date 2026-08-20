@@ -338,7 +338,7 @@
     ['family', 'Keluarga & Tanggungan', 'user', ['PTKP', 'blue']],
     ['talent', 'Performance & Talent', 'award', ['9-Box', 'purple']],
     ['tax', 'Pajak', 'calc', ['PPh 21 TER', 'blue']], ['bpjs', 'BPJS', 'shield', ['Kesehatan & TK', 'emerald']],
-    ['payroll', 'Payroll & Bank', 'card', null], ['services', 'Services & Tools', 'wrench', null],
+    ['payroll', 'Payroll & Bank', 'card', null], ['leave', 'Cuti & Kehadiran', 'clock', null], ['services', 'Services & Tools', 'wrench', null],
     ['documents', 'Documents', 'fileText', null], ['audit', 'Audit Trail & Logs', 'history', null]
   ];
 
@@ -455,6 +455,7 @@
         <div class="mk-content" data-mk-content="family" hidden></div>
         <div class="mk-content" data-mk-content="talent" hidden></div>
         <div class="mk-content" data-mk-content="payroll" hidden></div>
+        <div class="mk-content" data-mk-content="leave" hidden></div>
         <div class="mk-content" data-mk-content="services" hidden></div>
         <div class="mk-content" data-mk-content="documents" hidden></div>
         <div class="mk-content" data-mk-content="audit" hidden></div>
@@ -470,7 +471,26 @@
       const clayHead = (icon, title, desc, right) => `<div class="mk-section-head"><div><div class="mk-section-title">${MK(icon)} ${esc(title)}</div>${desc ? `<div class="mk-section-desc">${esc(desc)}</div>` : ''}</div>${right || ''}</div>`;
       const emptyBox = (msg) => `<div class="mk-empty">${clayOrb('blue', 'inbox')}<h3>Belum ada data</h3><p>${esc(msg)}</p></div>`;
       const REL_LABEL = { SPOUSE: 'Pasangan', CHILD: 'Anak', PARENT: 'Orang Tua', SIBLING: 'Saudara', OTHER: 'Lainnya' };
+      const LEAVE_STATUS = { PRESENT: ['emerald', 'Hadir'], LATE: ['amber', 'Terlambat'], ABSENT: ['coral', 'Alpa'], LEAVE: ['blue', 'Cuti'], SICK: ['purple', 'Sakit'], PERMIT: ['slate', 'Izin'] };
       const loaders = {
+        leave: async () => {
+          const year = new Date().getFullYear(), period = new Date().toISOString().slice(0, 7);
+          const [balD, attD] = await Promise.all([
+            api(`/api/hr/leave-balances?employeeId=${params.id}&year=${year}`).catch(() => ({ items: [] })),
+            api(`/api/hr/attendance?employeeId=${params.id}&period=${period}`).catch(() => ({ items: [] }))
+          ]);
+          const bal = (balD.items || [])[0] || {};
+          const ent = Number(bal.entitlement) || 0, used = Number(bal.used) || 0, rem = Number(bal.remaining != null ? bal.remaining : ent - used) || 0;
+          const pct = ent ? Math.round((used / ent) * 100) : 0;
+          const att = attD.items || [], counts = att.reduce((o, r) => (o[r.status] = (o[r.status] || 0) + 1, o), {});
+          const summary = Object.entries(LEAVE_STATUS).filter(([k]) => counts[k]).map(([k, v]) => `<div class="mk-inset mk-out"><span>${esc(v[1])}</span><b class="${v[0]}">${counts[k]}</b></div>`).join('');
+          return `<section class="mk-surface">${clayHead('clock', 'Cuti & Kehadiran', 'Saldo cuti tahun berjalan, ringkasan kehadiran, dan riwayat — terhubung ke modul HR.', `<a class="mk-btn sm" href="#/hr/leave">${MK('gitPr')} Kelola di HR</a>`)}<div class="mk-section-body mk-col">
+            <div class="mk-g mk-g3"><div class="mk-inset mk-out"><span>Hak Cuti ${year}</span><b>${ent} hari</b></div><div class="mk-inset mk-out"><span>Terpakai</span><b class="amber">${used} hari</b></div><div class="mk-inset mk-out"><span>Sisa Cuti</span><b class="emerald">${rem} hari</b></div></div>
+            <div class="mk-tl-wrap"><div class="mk-o-caps">Pemakaian Cuti (${used}/${ent})</div><div class="mk-band"><div class="mk-band-track"><span class="mk-band-fill" data-w="${pct}"></span></div></div></div>
+            <div class="mk-tl-wrap"><div class="mk-o-caps">Ringkasan Kehadiran — ${esc(period)}</div>${summary ? `<div class="mk-g mk-g4">${summary}</div>` : emptyBox('Belum ada catatan kehadiran bulan ini.')}</div>
+            <div class="mk-tl-wrap"><div class="mk-o-caps">Riwayat Kehadiran Terbaru</div>${att.length ? `<div class="mk-col">${att.slice(0, 8).map((r) => { const st = LEAVE_STATUS[r.status] || ['slate', r.status]; return `<div class="mk-inset mk-fam-row"><div class="mk-flex1"><b>${fmtDate(r.workDate)}</b><small>${r.checkIn ? fmtDateTime(r.checkIn) : '—'}${r.checkOut ? ' → ' + fmtDateTime(r.checkOut) : ''}${r.source ? ' · ' + esc(r.source) : ''}</small></div><span class="mk-badge ${st[0]}">${esc(st[1])}</span></div>`; }).join('')}</div>` : emptyBox('Belum ada catatan kehadiran.')}</div>
+          </div></section>`;
+        },
         family: async () => {
           const d = await api(`${B}/family`).catch(() => ({ items: [] }));
           const items = d.items || [], canEdit = can('employee.edit');
@@ -618,6 +638,9 @@
             try { await api(`${B}/bank-accounts`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Rekening didaftarkan', 'Menunggu verifikasi (payment-hold aktif).'); loaded.payroll = false; show('payroll'); }
             catch (error) { toast('Gagal mendaftarkan rekening', error.message, 'coral'); }
           });
+        }
+        if (key === 'leave') {
+          panel.querySelectorAll('.mk-band-fill[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
         }
         if (key === 'family') {
           const reloadFam = () => { loaded.family = false; show('family'); };
