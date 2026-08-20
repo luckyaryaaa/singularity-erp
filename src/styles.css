@@ -2175,3 +2175,16 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-slip-btns{display:flex;gap:8px}
 @media (max-width:640px){.mk-slip-cols{grid-template-columns:1fr}.mk-slip-meta{grid-template-columns:1fr 1fr}}
 @media print{.mk-slip,.mk-slip *{visibility:visible}.mk-slip{position:absolute;left:0;top:0;width:100%;padding:16px;background:#fff}.mk-slip .mk-btn,.mk-slip-foot .mk-slip-btns{display:none}.mk-slip-doc{box-shadow:none;border:0;margin:0}}
+.mk-reg-wrap{overflow-x:auto}
+.mk-reg{width:100%;border-collapse:collapse;font:600 12.5px 'Plus Jakarta Sans';min-width:760px}
+.mk-reg thead th{text-align:left;font:800 9px 'Plus Jakarta Sans';text-transform:uppercase;letter-spacing:.06em;color:var(--mk-muted);padding:9px 10px;border-bottom:1px solid var(--mk-line);position:sticky;top:0;background:#fff;z-index:1}
+.mk-reg th.r,.mk-reg td.r{text-align:right;font-family:'JetBrains Mono','Plus Jakarta Sans';white-space:nowrap}
+.mk-reg tbody td{padding:9px 10px;border-bottom:1px solid #f1f5f9;color:var(--mk-slate)}
+.mk-reg tbody tr{cursor:pointer;transition:background .12s}
+.mk-reg tbody tr:hover{background:#f8fafc}
+.mk-reg td.b{font-weight:800;color:#047857}
+.mk-reg-emp b{display:block;font:700 12.5px 'Plus Jakarta Sans';color:#0f172a}
+.mk-reg-emp small{color:var(--mk-muted);font-size:10.5px}
+.mk-reg tfoot td{padding:11px 10px;border-top:2px solid #cbd5e1;font-weight:800;color:#0f172a;background:#f8fafc}
+.mk-reg tfoot td.r{text-align:right;font-family:'JetBrains Mono','Plus Jakarta Sans'}
+.mk-reg-empty{text-align:center;color:var(--mk-muted);padding:20px}

@@ -45,8 +45,47 @@
       }
       const create = can('payroll.create');
       main.innerHTML = pageHead({ eyebrow: 'PENGGAJIAN', title: 'Payroll', sub: 'Kalkulasi gaji mengambil gaji pokok, komponen, kehadiran, BPJS, dan PPh 21 secara terkendali.', actions: create ? `<button class="btn primary" id="payrollCreate">${ICONS.plus} Hitung payroll</button>` : '' }) + '<section id="payrollTable"></section>';
-      this._table = dataTable(main.querySelector('#payrollTable'), { key: 'documents:PAYROLL_RUN', endpoint: '/api/documents', params: { type: 'PAYROLL_RUN' }, title: 'Payroll run', eyebrow: 'PAYROLL', columns: [{ label: 'Periode', render: docCell }, { label: 'Karyawan', render: r => `${r.payload?.headcount || '—'} orang` }, { label: 'Gaji bersih', right: true, render: r => `<span class="money">${fmtIDR(r.amount)}</span>` }, { label: 'BPJS', right: true, render: r => fmtIDR(r.payload?.bpjs || 0) }, { label: 'PPh 21', right: true, render: r => fmtIDR(r.payload?.pph21 || 0) }, { label: 'Status', render: r => chip(r.status) }], statusFilter: ['DRAFT', 'WAITING_APPROVAL', 'APPROVED', 'CLOSED', 'VOID'], onRow: (row, reload) => openDrawer(row.id, { onChange: reload }), empty: { icon: 'payslip', title: 'Belum ada payroll run' } });
-      main.querySelector('#payrollCreate')?.addEventListener('click', async () => { const value = await formDialog({ title: 'Hitung payroll', description: 'Sistem menghitung seluruh karyawan aktif. Hasil dibuat sebagai draft untuk ditinjau sebelum approval dan posting.', fields: [{ name: 'period', label: 'Periode penggajian', type: 'month', value: new Date().toISOString().slice(0, 7), required: true }, { name: 'title', label: 'Judul payroll', value: `Payroll ${new Date().toISOString().slice(0, 7)}` }], submitLabel: 'Hitung payroll' }); if (!value) return; try { const result = await api('/api/payroll/runs', { method: 'POST', body: value }); toast('Payroll dihitung', `${result.headcount} karyawan · ${fmtIDR(result.total)}`); this._table.reload(); openDrawer(result.document.id, { onChange: () => this._table.reload() }); } catch (error) { toast('Kalkulasi gagal', error.message, 'coral'); } });
+      this._table = dataTable(main.querySelector('#payrollTable'), { key: 'documents:PAYROLL_RUN', endpoint: '/api/documents', params: { type: 'PAYROLL_RUN' }, title: 'Payroll run', eyebrow: 'PAYROLL', columns: [{ label: 'Periode', render: docCell }, { label: 'Karyawan', render: r => `${r.payload?.headcount || '—'} orang` }, { label: 'Gaji bersih', right: true, render: r => `<span class="money">${fmtIDR(r.amount)}</span>` }, { label: 'BPJS', right: true, render: r => fmtIDR(r.payload?.bpjs || 0) }, { label: 'PPh 21', right: true, render: r => fmtIDR(r.payload?.pph21 || 0) }, { label: 'Status', render: r => chip(r.status) }], statusFilter: ['DRAFT', 'WAITING_APPROVAL', 'APPROVED', 'CLOSED', 'VOID'], onRow: (row) => router.go('#/payroll/runs/' + row.id), empty: { icon: 'payslip', title: 'Belum ada payroll run' } });
+      main.querySelector('#payrollCreate')?.addEventListener('click', async () => { const value = await formDialog({ title: 'Hitung payroll', description: 'Sistem menghitung seluruh karyawan aktif. Hasil dibuat sebagai draft untuk ditinjau sebelum approval dan posting.', fields: [{ name: 'period', label: 'Periode penggajian', type: 'month', value: new Date().toISOString().slice(0, 7), required: true }, { name: 'title', label: 'Judul payroll', value: `Payroll ${new Date().toISOString().slice(0, 7)}` }], submitLabel: 'Hitung payroll' }); if (!value) return; try { const result = await api('/api/payroll/runs', { method: 'POST', body: value }); toast('Payroll dihitung', `${result.headcount} karyawan · ${fmtIDR(result.total)}`); router.go('#/payroll/runs/' + result.document.id); } catch (error) { toast('Kalkulasi gagal', error.message, 'coral'); } });
+    }
+  };
+
+  // Payroll Register — drill-down per-karyawan untuk satu payroll run (read-only,
+  // lifecycle/approval tetap via document drawer). Sumber: /api/payroll/runs/:id/items.
+  const payrollRegisterPage = {
+    permission: 'payroll.view',
+    async render(main, params, signal) {
+      const id = params.id;
+      let doc, items;
+      try { [doc, items] = await Promise.all([api('/api/documents/' + id, { signal }), api('/api/payroll/runs/' + id + '/items', { signal })]); }
+      catch (error) { main.innerHTML = pageHead({ eyebrow: 'PENGGAJIAN · REGISTER', title: 'Payroll Register' }) + `<section class="panel"><div class="empty-state">${clayOrb('coral', 'alert')}<h3>Gagal memuat register</h3><p>${esc(error.message)}</p></div></section>`; return; }
+      const rows = (Array.isArray(items) ? items : (items && items.items) || []).map((r) => { const base = Number(r.baseSalary) || 0, allow = Number(r.allowances) || 0, ot = Number(r.overtime) || 0, ded = Number(r.deductions) || 0, bpjsE = Number(r.bpjsEmployee) || 0, bpjsC = Number(r.bpjsCompany) || 0, pph = Number(r.pph21) || 0, net = Number(r.netPay) || 0; return { employeeId: r.employeeId, employeeName: r.employeeName, nik: r.nik, department: r.department, base, allow, ot, ded, bpjsE, bpjsC, pph, net, gross: base + allow + ot }; });
+      const T = rows.reduce((o, r) => { o.base += r.base; o.allow += r.allow; o.ot += r.ot; o.ded += r.ded; o.bpjsE += r.bpjsE; o.bpjsC += r.bpjsC; o.pph += r.pph; o.net += r.net; o.gross += r.gross; return o; }, { base: 0, allow: 0, ot: 0, ded: 0, bpjsE: 0, bpjsC: 0, pph: 0, net: 0, gross: 0 });
+      const period = (doc.payload && doc.payload.period) || '—', status = doc.status || doc.lifecycleStatus || '';
+      const metric = (label, value, note, icon, tone) => `<article class="mk-surface mk-metric"><div class="mk-m-copy"><span class="mk-m-k">${esc(label)}</span><div class="mk-m-v">${esc(value)}</div><span class="mk-m-note mk-mu">${esc(note)}</span></div><div class="mk-m-ic mk-ic-${tone}">${ICONS[icon] || ''}</div></article>`;
+      const canManage = can('payroll.approve') || can('payroll.submit') || can('payroll.post') || can('payroll.create');
+      main.innerHTML = pageHead({ eyebrow: 'PENGGAJIAN · REGISTER', title: `Payroll Register — ${esc(period)}`, sub: `${esc(doc.documentNumber || '')} · ${rows.length} karyawan · status ${esc(String(status))}`, actions: `<button class="btn secondary" id="regBack">← Kembali</button><button class="btn secondary" id="regCsv">${ICONS.doc || ''} Export CSV</button>${canManage ? `<button class="btn primary" id="regManage">${ICONS.gear || ''} Kelola / Approval</button>` : ''}` }) + `<div class="mk360 mk-analytics">
+        <div class="mk-g mk-g4">
+          ${metric('Headcount', String(rows.length), 'karyawan diproses', 'people', 'blue')}
+          ${metric('Total Bruto', fmtIDR(T.gross), 'pokok + tunjangan + lembur', 'wallet', 'blue')}
+          ${metric('Total PPh 21', fmtIDR(T.pph), 'pajak dipotong', 'shield', 'amber')}
+          ${metric('Total Gaji Bersih', fmtIDR(T.net), 'take home pay', 'checkCircle', 'emerald')}
+        </div>
+        <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.payslip || ''} Register per Karyawan</div><span class="mk-mu">BPJS perusahaan ${fmtIDR(T.bpjsC)} · total potongan karyawan ${fmtIDR(T.bpjsE + T.pph + T.ded)}</span></div>
+        <div class="mk-section-body"><div class="mk-reg-wrap"><table class="mk-reg"><thead><tr><th>Karyawan</th><th class="r">Gaji Pokok</th><th class="r">Tunjangan</th><th class="r">Lembur</th><th class="r">Potongan</th><th class="r">BPJS Kar.</th><th class="r">PPh 21</th><th class="r">Gaji Bersih</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr data-emp="${esc(r.employeeId || '')}"><td><div class="mk-reg-emp"><b>${esc(r.employeeName)}</b><small>${esc(r.nik || '')} · ${esc(r.department || '')}</small></div></td><td class="r">${fmtIDR(r.base)}</td><td class="r">${fmtIDR(r.allow)}</td><td class="r">${fmtIDR(r.ot)}</td><td class="r">${fmtIDR(r.ded)}</td><td class="r">${fmtIDR(r.bpjsE)}</td><td class="r">${fmtIDR(r.pph)}</td><td class="r b">${fmtIDR(r.net)}</td></tr>`).join('') || `<tr><td colspan="8" class="mk-reg-empty">Belum ada item payroll pada run ini.</td></tr>`}</tbody>
+        <tfoot><tr><td>Total (${rows.length})</td><td class="r">${fmtIDR(T.base)}</td><td class="r">${fmtIDR(T.allow)}</td><td class="r">${fmtIDR(T.ot)}</td><td class="r">${fmtIDR(T.ded)}</td><td class="r">${fmtIDR(T.bpjsE)}</td><td class="r">${fmtIDR(T.pph)}</td><td class="r b">${fmtIDR(T.net)}</td></tr></tfoot>
+        </table></div></div></section>
+      </div>`;
+      main.querySelector('#regBack')?.addEventListener('click', () => router.go('#/payroll'));
+      main.querySelector('#regManage')?.addEventListener('click', () => openDrawer(id, { onChange: () => this.render(main, params) }));
+      main.querySelectorAll('.mk-reg tbody tr[data-emp]').forEach((tr) => tr.addEventListener('click', () => { const e = tr.dataset.emp; if (e) router.go('#/masters/employees/detail/' + e); }));
+      main.querySelector('#regCsv')?.addEventListener('click', () => {
+        const head = ['Karyawan', 'NIK', 'Departemen', 'Gaji Pokok', 'Tunjangan', 'Lembur', 'Potongan', 'BPJS Karyawan', 'PPh 21', 'Gaji Bersih'];
+        const csv = [head.join(',')].concat(rows.map((r) => [r.employeeName, r.nik || '', r.department || '', r.base, r.allow, r.ot, r.ded, r.bpjsE, r.pph, r.net].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))).join('\r\n');
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })); a.download = `payroll-register-${period}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+        toast('CSV diunduh', `payroll-register-${period}.csv`);
+      });
     }
   };
 
@@ -190,6 +229,7 @@
     }
   }));
   R('/payroll', payrollPage);
+  R('/payroll/runs/:id', payrollRegisterPage);
 
   // ── Employee Self-Service: Data Saya + pengkinian identitas (maker-checker) ──
   const svcLen = (d) => { if (!d) return '—'; const st = new Date(d), now = new Date(); let m = (now.getFullYear() - st.getFullYear()) * 12 + (now.getMonth() - st.getMonth()); if (now.getDate() < st.getDate()) m--; if (!(m >= 0)) m = 0; const y = Math.floor(m / 12), mm = m % 12; return y ? `${y} th${mm ? ` ${mm} bln` : ''}` : `${mm} bln`; };
