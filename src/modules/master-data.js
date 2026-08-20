@@ -337,6 +337,7 @@
     ['workflow', 'Workflow Approval', 'gitPr', ['Maker-Checker', 'amber']], ['employment', 'Employment & Position', 'briefcase', null],
     ['family', 'Keluarga & Tanggungan', 'user', ['PTKP', 'blue']],
     ['talent', 'Performance & Talent', 'award', ['9-Box', 'purple']],
+    ['offboarding', 'Offboarding & Pesangon', 'briefcase', ['Exit', 'coral']],
     ['tax', 'Pajak', 'calc', ['PPh 21 TER', 'blue']], ['bpjs', 'BPJS', 'shield', ['Kesehatan & TK', 'emerald']],
     ['payroll', 'Payroll & Bank', 'card', null], ['leave', 'Cuti & Kehadiran', 'clock', null], ['services', 'Services & Tools', 'wrench', null],
     ['documents', 'Documents', 'fileText', null], ['audit', 'Audit Trail & Logs', 'history', null]
@@ -344,7 +345,7 @@
   // Pengelompokan tab (2-tier): grup → sub-tab, agar tidak sesak (pola SAP/Workday).
   const MK_GROUPS = [
     { id: 'profil', label: 'Profil', icon: 'user', tabs: ['overview', 'family', 'documents'] },
-    { id: 'kepegawaian', label: 'Kepegawaian', icon: 'briefcase', tabs: ['employment', 'leave', 'talent'] },
+    { id: 'kepegawaian', label: 'Kepegawaian', icon: 'briefcase', tabs: ['employment', 'leave', 'talent', 'offboarding'] },
     { id: 'kompensasi', label: 'Kompensasi & Pajak', icon: 'card', tabs: ['payroll', 'tax', 'bpjs'] },
     { id: 'governance', label: 'Tata Kelola', icon: 'shield', tabs: ['workflow', 'ocr', 'services', 'audit'] }
   ];
@@ -461,6 +462,7 @@
         <div class="mk-content" data-mk-content="employment" hidden></div>
         <div class="mk-content" data-mk-content="family" hidden></div>
         <div class="mk-content" data-mk-content="talent" hidden></div>
+        <div class="mk-content" data-mk-content="offboarding" hidden></div>
         <div class="mk-content" data-mk-content="payroll" hidden></div>
         <div class="mk-content" data-mk-content="leave" hidden></div>
         <div class="mk-content" data-mk-content="services" hidden></div>
@@ -479,7 +481,22 @@
       const emptyBox = (msg) => `<div class="mk-empty">${clayOrb('blue', 'inbox')}<h3>Belum ada data</h3><p>${esc(msg)}</p></div>`;
       const REL_LABEL = { SPOUSE: 'Pasangan', CHILD: 'Anak', PARENT: 'Orang Tua', SIBLING: 'Saudara', OTHER: 'Lainnya' };
       const LEAVE_STATUS = { PRESENT: ['emerald', 'Hadir'], LATE: ['amber', 'Terlambat'], ABSENT: ['coral', 'Alpa'], LEAVE: ['blue', 'Cuti'], SICK: ['purple', 'Sakit'], PERMIT: ['slate', 'Izin'] };
+      const CLEARANCE_ITEMS = [['assets', 'Pengembalian aset (laptop, ID card, dll)'], ['handover', 'Serah terima pekerjaan'], ['exit_interview', 'Exit interview'], ['finance', 'Penyelesaian keuangan & kasbon'], ['access', 'Penonaktifan akun & akses'], ['docs', 'Dokumen & paklaring']];
       const loaders = {
+        offboarding: async () => {
+          const d = await api(`${B}/offboarding`).catch(() => ({ basis: {}, reasons: [] }));
+          const rec = d.record && d.record.status !== 'CANCELLED' ? d.record : null, basis = d.basis || {}, canEdit = can('employee.edit');
+          const RLBL = Object.fromEntries(d.reasons || []);
+          const basisCard = `<div class="mk-g mk-g3"><div class="mk-inset mk-out"><span>Masa Kerja</span><b>${basis.tenureYears || 0} th</b></div><div class="mk-inset mk-out"><span>Upah Dasar (pokok+tetap)</span><b>${money(basis.monthlyWage || 0)}</b></div><div class="mk-inset mk-out"><span>Sisa Cuti</span><b class="blue">${basis.unusedLeaveDays || 0} hari</b></div></div>`;
+          if (!rec) return `<section class="mk-surface">${clayHead('briefcase', 'Offboarding & Pesangon', 'Proses keluar karyawan (resign/PHK/pensiun) + kalkulasi pesangon PP 35/2021 + paklaring.', canEdit ? `<button class="mk-btn primary sm mk-cor" id="mkOffbStart">${MK('plus')} Mulai Offboarding</button>` : '')}<div class="mk-section-body mk-col">${basisCard}<div class="mk-note"><div class="mk-flex1">Belum ada proses offboarding aktif.${canEdit ? ' Klik "Mulai Offboarding" untuk menghitung pesangon (UP + UPMK + UPH) sesuai alasan & masa kerja, lalu jalankan clearance.' : ''}</div></div></div></section>`;
+          const done = rec.status === 'COMPLETED';
+          const breakdown = `<div class="mk-tl-wrap"><div class="mk-o-caps">Rincian Pesangon — ${esc(RLBL[rec.reason] || rec.reason)} · PP 35/2021</div><table class="mk-slip-t"><tbody><tr><td>Uang Pesangon (UP)</td><td class="r">${money(rec.upAmount)}</td></tr><tr><td>Penghargaan Masa Kerja (UPMK)</td><td class="r">${money(rec.upmkAmount)}</td></tr><tr><td>Penggantian Hak (UPH — sisa cuti)</td><td class="r">${money(rec.uphAmount)}</td></tr>${Number(rec.separationPay) ? `<tr><td>Uang Pisah</td><td class="r">${money(rec.separationPay)}</td></tr>` : ''}<tr class="tot"><td>Total Pesangon</td><td class="r">${money(rec.totalAmount)}</td></tr></tbody></table></div>`;
+          const clearance = `<div class="mk-tl-wrap"><div class="mk-o-caps">Clearance / Serah Terima</div><div class="mk-bpjs-progs">${CLEARANCE_ITEMS.map(([k, label]) => `<label class="mk-bpjs-prog"><input type="checkbox" data-offb-clear="${k}"${rec.clearance && rec.clearance[k] ? ' checked' : ''}${done || !canEdit ? ' disabled' : ''}><span class="mk-bpjs-prog-b"><b>${esc(label)}</b></span></label>`).join('')}</div></div>`;
+          const actions = done
+            ? `<div class="mk-note emerald"><div class="mk-flex1"><b>Offboarding selesai</b> · efektif ${fmtDate(rec.effectiveDate)} · status karyawan ARCHIVED.</div><button class="mk-btn sm" id="mkOffbPaklaring">${MK('printer')} Cetak Paklaring</button></div>`
+            : canEdit ? `<div class="mk-bpjs-acts"><button class="mk-btn primary sm" id="mkOffbComplete">${MK('check')} Selesaikan Offboarding</button><button class="mk-btn sm" id="mkOffbPaklaring">${MK('printer')} Paklaring</button><button class="mk-btn sm mk-cor" id="mkOffbCancel">Batalkan</button></div>` : '';
+          return `<section class="mk-surface">${clayHead('briefcase', 'Offboarding & Pesangon', `${esc(RLBL[rec.reason] || rec.reason)} · efektif ${fmtDate(rec.effectiveDate)}`, `<span class="mk-badge ${done ? 'emerald' : 'amber'}">${done ? 'Selesai' : 'Proses clearance'}</span>`)}<div class="mk-section-body mk-col">${basisCard}${breakdown}${clearance}${actions}<div id="mkOffbOut" data-offb-id="${esc(rec.id)}" data-offb-status="${esc(rec.status)}"></div></div></section>`;
+        },
         leave: async () => {
           const year = new Date().getFullYear(), period = new Date().toISOString().slice(0, 7);
           const [balD, attD] = await Promise.all([
@@ -648,6 +665,54 @@
         }
         if (key === 'leave') {
           panel.querySelectorAll('.mk-band-fill[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
+        }
+        if (key === 'offboarding') {
+          const reload = () => { loaded.offboarding = false; show('offboarding'); };
+          const offbId = () => panel.querySelector('#mkOffbOut')?.dataset.offbId;
+          panel.querySelector('#mkOffbStart')?.addEventListener('click', async () => {
+            const dd = await api(`${B}/offboarding`).catch(() => ({ reasons: [] }));
+            const v = await formDialog({ title: `Mulai Offboarding — ${ov.name || ''}`, description: 'Pesangon dihitung otomatis (PP 35/2021) dari masa kerja, upah dasar, & sisa cuti.', fields: [
+              { name: 'reason', label: 'Alasan keluar', type: 'select', options: dd.reasons || [], required: true },
+              { name: 'effectiveDate', label: 'Tanggal efektif keluar', type: 'date', value: new Date().toISOString().slice(0, 10), required: true },
+              { name: 'lastWorkingDate', label: 'Hari kerja terakhir', type: 'date' },
+              { name: 'notes', label: 'Catatan', type: 'textarea', rows: 2 }
+            ], submitLabel: 'Hitung & Mulai' });
+            if (!v) return;
+            try { await api(`${B}/offboarding`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Offboarding dimulai', 'Pesangon dihitung. Lengkapi clearance & selesaikan.'); reload(); }
+            catch (error) { toast('Gagal memulai offboarding', error.message, 'coral'); }
+          });
+          panel.querySelectorAll('[data-offb-clear]').forEach((c) => c.addEventListener('change', async () => {
+            const clearance = {}; panel.querySelectorAll('[data-offb-clear]').forEach((x) => { clearance[x.dataset.offbClear] = x.checked; });
+            try { await api(`${B}/offboarding/${offbId()}/clearance`, { method: 'POST', body: { clearance }, idempotencyKey: newIdemKey() }); } catch (error) { toast('Gagal menyimpan clearance', error.message, 'coral'); }
+          }));
+          panel.querySelector('#mkOffbComplete')?.addEventListener('click', async () => {
+            const ans = await actionDialog({ title: 'Selesaikan offboarding', description: 'Status karyawan menjadi non-aktif (ARCHIVED) dan pesangon final. Tindakan ini sulit dibatalkan.', confirmLabel: 'Selesaikan', danger: true });
+            if (ans === null) return;
+            try { await api(`${B}/offboarding/${offbId()}/complete`, { method: 'POST', body: {}, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Offboarding selesai', 'Karyawan dinonaktifkan (ARCHIVED).'); reload(); }
+            catch (error) { toast('Gagal menyelesaikan', error.message, 'coral'); }
+          });
+          panel.querySelector('#mkOffbCancel')?.addEventListener('click', async () => {
+            const ans = await actionDialog({ title: 'Batalkan offboarding', description: 'Proses offboarding dibatalkan; status karyawan tidak berubah.', confirmLabel: 'Batalkan', danger: true });
+            if (ans === null) return;
+            try { await api(`${B}/offboarding/${offbId()}/cancel`, { method: 'POST', body: {}, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Offboarding dibatalkan'); reload(); }
+            catch (error) { toast('Gagal membatalkan', error.message, 'coral'); }
+          });
+          panel.querySelector('#mkOffbPaklaring')?.addEventListener('click', async () => {
+            const dd = await api(`${B}/offboarding`).catch(() => ({})); const rec = dd.record, basis = dd.basis || {}; if (!rec) return;
+            const RLBL = dd.reasons ? Object.fromEntries(dd.reasons) : {};
+            const out = panel.querySelector('#mkOffbOut');
+            out.innerHTML = `<div class="mk-slip"><div class="mk-slip-doc">
+              <div class="mk-slip-head"><div class="mk-slip-brand"><div class="mk-slip-logo">S</div><div><b>PT Singularity Teknofastindo</b><span>Head Office · Bekasi</span></div></div><div class="mk-slip-title"><h3>SURAT KETERANGAN KERJA</h3><span>Paklaring</span></div></div>
+              <p class="mk-paklaring-p">Yang bertanda tangan di bawah ini, manajemen PT Singularity Teknofastindo, dengan ini menerangkan bahwa:</p>
+              <div class="mk-slip-meta"><div><label>Nama</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK</label><b>${esc(ov.nik || '—')}</b></div><div><label>Jabatan</label><b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></div></div>
+              <p class="mk-paklaring-p">telah bekerja di perusahaan kami terhitung sejak <b>${basis.joinDate ? fmtDate(basis.joinDate) : '—'}</b> sampai dengan <b>${fmtDate(rec.effectiveDate)}</b> (masa kerja ${rec.tenureYears} tahun), dengan jabatan terakhir sebagaimana tersebut di atas. Yang bersangkutan berhenti bekerja dengan alasan <b>${esc(RLBL[rec.reason] || rec.reason)}</b> dan telah menyelesaikan seluruh kewajibannya.</p>
+              <p class="mk-paklaring-p">Selama bekerja, yang bersangkutan menunjukkan dedikasi, loyalitas, dan kinerja yang baik. Surat keterangan ini diberikan untuk dapat dipergunakan sebagaimana mestinya.</p>
+              <div class="mk-slip-foot"><span>Bekasi, ${new Date().toISOString().slice(0, 10)} · PT Singularity Teknofastindo</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkPakBack">Tutup</button><button class="mk-btn primary sm" id="mkPakPrint">${MK('printer')} Cetak / PDF</button></div></div>
+            </div></div>`;
+            out.querySelector('#mkPakPrint')?.addEventListener('click', () => window.print());
+            out.querySelector('#mkPakBack')?.addEventListener('click', () => { out.innerHTML = ''; });
+            out.scrollIntoView({ block: 'nearest' });
+          });
         }
         if (key === 'family') {
           const reloadFam = () => { loaded.family = false; show('family'); };

@@ -950,4 +950,88 @@ async function deleteFamily(client, id, memberId, user, requestId) {
   return { deleted: memberId };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily };
+// ── Offboarding & Pesangon (UU Cipta Kerja / PP 35/2021) ───────────────────
+// Pengali pesangon (UP) & penghargaan masa kerja (UPMK) per alasan PHK; UPH =
+// nilai cuti belum diambil; uang pisah untuk resign/mangkir/pelanggaran berat.
+const OFFB_REASONS = {
+  RESIGN: { up: 0, upmk: 0, sep: true, label: 'Mengundurkan diri' },
+  TERM_EFISIENSI: { up: 0.5, upmk: 1, label: 'PHK efisiensi (perusahaan rugi)' },
+  TERM_CEGAH_RUGI: { up: 1, upmk: 1, label: 'PHK efisiensi (mencegah kerugian)' },
+  PENSIUN: { up: 1.75, upmk: 1, label: 'Pensiun' },
+  MENINGGAL: { up: 2, upmk: 1, label: 'Meninggal dunia' },
+  SAKIT_LAMA: { up: 2, upmk: 1, label: 'Sakit berkepanjangan' },
+  END_CONTRACT: { up: 0, upmk: 0, label: 'Berakhir kontrak (PKWT)' },
+  PELANGGARAN_BERAT: { up: 0, upmk: 0, sep: true, label: 'Pelanggaran berat' },
+  MANGKIR: { up: 0, upmk: 0, sep: true, label: 'Mangkir' },
+  LAINNYA: { up: 1, upmk: 1, label: 'Lainnya' }
+};
+const upMultiplier = (y) => { y = Number(y) || 0; if (y < 1) return 1; if (y < 8) return Math.floor(y) + 1; return 9; };
+const upmkMultiplier = (y) => { y = Number(y) || 0; if (y < 3) return 0; if (y < 6) return 2; if (y < 9) return 3; if (y < 12) return 4; if (y < 15) return 5; if (y < 18) return 6; if (y < 21) return 7; if (y < 24) return 8; return 10; };
+function pesangonCompute(reason, tenureYears, monthlyWage, unusedLeaveDays) {
+  const r = OFFB_REASONS[reason] || OFFB_REASONS.LAINNYA, wage = Math.max(0, Number(monthlyWage) || 0);
+  const up = Math.round(r.up * upMultiplier(tenureYears) * wage);
+  const upmk = Math.round(r.upmk * upmkMultiplier(tenureYears) * wage);
+  const uph = Math.round((wage / 25) * (Number(unusedLeaveDays) || 0));
+  const separation = r.sep ? Math.round(wage) : 0;
+  return { up, upmk, uph, separation, total: up + upmk + uph + separation, label: r.label, upX: r.up * upMultiplier(tenureYears), upmkX: r.upmk * upmkMultiplier(tenureYears) };
+}
+async function offboardingBasis(client, emp) {
+  const tenure = emp.join_date ? Number(((Date.now() - new Date(emp.join_date).getTime()) / (365.25 * 86400000)).toFixed(2)) : 0;
+  const comp = (await client.query(`SELECT base_salary, fixed_allowance FROM employee_compensation_history WHERE employee_id=$1 AND approval_status='APPROVED' ORDER BY effective_from DESC LIMIT 1`, [emp.id])).rows[0] || {};
+  const wage = (Number(comp.base_salary) || Number(emp.base_salary) || 0) + (Number(comp.fixed_allowance) || 0);
+  const leave = (await client.query(`SELECT (entitlement-used) rem FROM leave_balances WHERE employee_id=$1 AND year=extract(year from current_date)::int LIMIT 1`, [emp.id])).rows[0];
+  return { tenureYears: tenure, monthlyWage: wage, unusedLeaveDays: leave ? Math.max(0, Number(leave.rem) || 0) : 0, joinDate: emp.join_date, name: emp.name, status: emp.lifecycle_status };
+}
+async function getOffboarding(client, id, user) {
+  assertPermission(user, 'employee.view');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Data pesangon membutuhkan izin payroll.');
+  const emp = await parentRow(client, 'employees', id);
+  const record = (await client.query(`SELECT * FROM employee_offboarding WHERE employee_id=$1 ORDER BY created_at DESC LIMIT 1`, [id])).rows[0];
+  const basis = await offboardingBasis(client, emp);
+  return { record: record ? runtime.camel(record) : null, basis, reasons: Object.entries(OFFB_REASONS).map(([k, v]) => [k, v.label]) };
+}
+async function initiateOffboarding(client, id, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Proses offboarding membutuhkan izin payroll.');
+  const emp = await parentRow(client, 'employees', id);
+  const open = (await client.query(`SELECT id FROM employee_offboarding WHERE employee_id=$1 AND status IN ('DRAFT','CLEARANCE')`, [id])).rows[0];
+  if (open) throw new AppError('DUPLICATE_REQUEST', 'Proses offboarding aktif sudah ada untuk karyawan ini.');
+  const reason = OFFB_REASONS[body.reason] ? body.reason : 'LAINNYA';
+  const eff = /^\d{4}-\d{2}-\d{2}$/.test(body.effectiveDate || '') ? body.effectiveDate : new Date().toISOString().slice(0, 10);
+  const basis = await offboardingBasis(client, emp);
+  const p = pesangonCompute(reason, basis.tenureYears, basis.monthlyWage, basis.unusedLeaveDays);
+  const row = (await client.query(`INSERT INTO employee_offboarding
+    (employee_id, reason, effective_date, last_working_date, tenure_years, monthly_wage, unused_leave_days, up_amount, upmk_amount, uph_amount, separation_pay, total_amount, status, notes, initiated_by)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'CLEARANCE',$13,$14) RETURNING *`,
+    [id, reason, eff, body.lastWorkingDate || eff, basis.tenureYears, basis.monthlyWage, basis.unusedLeaveDays, p.up, p.upmk, p.uph, p.separation, p.total, body.notes || null, user.id])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: 'OFFBOARDING_INIT', module: 'employee', entityType: 'EMPLOYEE_OFFBOARDING', entityId: id, newValue: { reason, effectiveDate: eff, total: p.total }, requestId, branchId: user.branchId });
+  return { ...runtime.camel(row), breakdown: p };
+}
+async function updateOffboardingClearance(client, id, offbId, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Aksi offboarding membutuhkan izin payroll.');
+  await parentRow(client, 'employees', id);
+  const row = (await client.query(`UPDATE employee_offboarding SET clearance=$3::jsonb, notes=COALESCE($4,notes), updated_at=now() WHERE id=$2 AND employee_id=$1 AND status IN ('DRAFT','CLEARANCE') RETURNING *`, [id, offbId, JSON.stringify(body.clearance || {}), body.notes || null])).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Proses offboarding tidak ditemukan / sudah selesai.');
+  return runtime.camel(row);
+}
+async function decideOffboarding(client, id, offbId, action, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Aksi offboarding membutuhkan izin payroll.');
+  await parentRow(client, 'employees', id);
+  const offb = (await client.query(`SELECT * FROM employee_offboarding WHERE id=$2 AND employee_id=$1 FOR UPDATE`, [id, offbId])).rows[0];
+  if (!offb) throw new AppError('RESOURCE_NOT_FOUND', 'Proses offboarding tidak ditemukan.');
+  if (action === 'cancel') {
+    if (offb.status === 'COMPLETED') throw new AppError('VALIDATION_ERROR', 'Offboarding yang sudah selesai tidak dapat dibatalkan.');
+    const row = (await client.query(`UPDATE employee_offboarding SET status='CANCELLED', updated_at=now() WHERE id=$1 RETURNING *`, [offbId])).rows[0];
+    await runtime.audit(client, { userId: user.id, action: 'OFFBOARDING_CANCEL', module: 'employee', entityType: 'EMPLOYEE_OFFBOARDING', entityId: id, requestId, branchId: user.branchId });
+    return runtime.camel(row);
+  }
+  if (offb.status !== 'CLEARANCE' && offb.status !== 'DRAFT') throw new AppError('VALIDATION_ERROR', 'Hanya proses aktif yang dapat diselesaikan.');
+  const row = (await client.query(`UPDATE employee_offboarding SET status='COMPLETED', completed_by=$2, completed_at=now(), updated_at=now() WHERE id=$1 RETURNING *`, [offbId, user.id])).rows[0];
+  await client.query(`UPDATE employees SET active=false, lifecycle_status='ARCHIVED', updated_at=now() WHERE id=$1`, [id]);
+  await runtime.audit(client, { userId: user.id, action: 'OFFBOARDING_COMPLETE', module: 'employee', entityType: 'EMPLOYEE_OFFBOARDING', entityId: id, newValue: { reason: offb.reason, total: Number(offb.total_amount) }, requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding };

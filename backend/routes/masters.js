@@ -116,6 +116,13 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m){const body=await readBody(req);ctx.status=body.id?200:201;return masterData.saveFamily(client,m[1],body,ctx.user,ctx.requestId);}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/family\/([0-9a-f-]{36})$/);
   if(method==='DELETE'&&m)return masterData.deleteFamily(client,m[1],m[2],ctx.user,ctx.requestId);
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/offboarding$/);
+  if(method==='GET'&&m)return masterData.getOffboarding(client,m[1],ctx.user);
+  if(method==='POST'&&m){const body=await readBody(req);ctx.status=201;return masterData.initiateOffboarding(client,m[1],body,ctx.user,ctx.requestId);}
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/offboarding\/([0-9a-f-]{36})\/clearance$/);
+  if(method==='POST'&&m){const body=await readBody(req);return masterData.updateOffboardingClearance(client,m[1],m[2],body,ctx.user,ctx.requestId);}
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/offboarding\/([0-9a-f-]{36})\/(complete|cancel)$/);
+  if(method==='POST'&&m)return masterData.decideOffboarding(client,m[1],m[2],m[3],ctx.user,ctx.requestId);
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/tax-auto$/);
   if(method==='POST'&&m){const body=await readBody(req);return masterData.autoTaxProfile(client,m[1],body,ctx.user,ctx.requestId);}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/(bank-accounts|compensation)\/([0-9a-f-]{36})\/(approve|reject)$/);
