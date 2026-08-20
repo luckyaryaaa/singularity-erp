@@ -2188,3 +2188,5 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-reg tfoot td{padding:11px 10px;border-top:2px solid #cbd5e1;font-weight:800;color:#0f172a;background:#f8fafc}
 .mk-reg tfoot td.r{text-align:right;font-family:'JetBrains Mono','Plus Jakarta Sans'}
 .mk-reg-empty{text-align:center;color:var(--mk-muted);padding:20px}
+.mk-reg-static tbody tr{cursor:default}
+.mk-reg-static tbody td .mk-btn{margin-right:6px}

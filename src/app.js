@@ -114,7 +114,8 @@
           route('#/hr/leave', 'Cuti', 'clock', 'leave.view')
         ] },
         { id: 'payroll', label: 'Payroll', items: [
-          route('#/payroll', 'Payroll', 'payslip', 'payroll.view|payroll.view_self')
+          route('#/payroll', 'Payroll', 'payslip', 'payroll.view|payroll.view_self'),
+          route('#/hr/loans', 'Kasbon & Pinjaman', 'wallet', 'employee.view')
         ] },
         { id: 'self-service', label: 'Self-Service', items: [
           route('#/hr/my-profile', 'Data Saya', 'people', 'employee.view_self'),

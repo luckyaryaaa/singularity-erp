@@ -767,4 +767,87 @@ async function pph21Annual(client, id, body, user) {
   return { monthlyBruto, grossAnnual, biayaJabatan: Math.round(biayaJabatan), jht: Math.round(jht), jp: Math.round(jp), bpjsDeduct: Math.round(bpjsDeduct), ptkp, ptkpAmt, pkp, terRate, monthlyTer, terJanNov, pphAnnual, december, hasNpwp, cat, method };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual };
+// ── Kasbon / Pinjaman Karyawan ─────────────────────────────────────────────
+// Pengajuan → persetujuan (maker-checker, SoD) → potongan payroll otomatis via
+// payroll_components (kind=DEDUCTION, recurring) yang SUDAH dibaca payroll run.
+// Lunas/batal → komponen dinonaktifkan. Tidak menyentuh engine payroll.
+const LOAN_TYPES = ['KASBON', 'INSTALLMENT', 'EMERGENCY'];
+const LOAN_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'ACTIVE', 'SETTLED', 'CANCELLED'];
+const loanTotals = (principal, interestRate, tenor) => {
+  const p = Math.max(0, Number(principal) || 0), r = Math.max(0, Number(interestRate) || 0), n = Math.max(1, Math.min(120, Number(tenor) || 1));
+  const total = Math.round(p * (1 + r)); return { total, installment: Math.round(total / n), tenor: n };
+};
+
+async function listLoans(client, user, filters = {}) {
+  assertPermission(user, 'employee.view');
+  const params = [], where = [];
+  if (user.role === 'employee') {
+    if (!user.employeeId) throw new AppError('RESOURCE_NOT_FOUND', 'Akun belum ditautkan ke data karyawan.');
+    params.push(user.employeeId); where.push(`l.employee_id = $${params.length}`);
+  } else if (!canSeeSalary(user)) { throw new AppError('PERMISSION_DENIED', 'Data pinjaman membutuhkan izin payroll.'); }
+  if (filters.status && LOAN_STATUSES.includes(filters.status)) { params.push(filters.status); where.push(`l.status = $${params.length}`); }
+  const rows = (await client.query(`SELECT l.*, e.name employee_name, e.nik, e.department FROM employee_loans l JOIN employees e ON e.id = l.employee_id ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY l.created_at DESC`, params)).rows.map(runtime.camel);
+  const summary = rows.reduce((o, r) => {
+    if (r.status === 'PENDING') o.pending += 1;
+    if (r.status === 'ACTIVE' || r.status === 'APPROVED') { o.active += 1; o.outstanding += Number(r.outstandingAmount) || 0; o.monthly += Number(r.installmentAmount) || 0; }
+    return o;
+  }, { pending: 0, active: 0, outstanding: 0, monthly: 0 });
+  return { items: rows, summary };
+}
+
+async function requestLoan(client, body, user, requestId) {
+  assertPermission(user, 'employee.view');
+  const employeeId = body.employeeId || (user.role === 'employee' ? user.employeeId : null);
+  if (!employeeId) throw new AppError('VALIDATION_ERROR', 'Karyawan wajib dipilih.');
+  if (user.role === 'employee') { if (employeeId !== user.employeeId) throw new AppError('PERMISSION_DENIED', 'Hanya dapat mengajukan untuk diri sendiri.'); }
+  else if (!canSeeSalary(user)) { throw new AppError('PERMISSION_DENIED', 'Pengajuan pinjaman atas nama karyawan membutuhkan izin payroll.'); }
+  await parentRow(client, 'employees', employeeId);
+  const type = LOAN_TYPES.includes(body.loanType) ? body.loanType : 'KASBON';
+  const principal = Number(body.principalAmount) || 0;
+  if (principal <= 0) throw new AppError('VALIDATION_ERROR', 'Jumlah pinjaman harus lebih dari 0.');
+  const interest = Math.max(0, Number(body.interestRate) || 0);
+  const { total, installment, tenor } = loanTotals(principal, interest, body.tenorMonths);
+  const startPeriod = /^\d{4}-\d{2}$/.test(body.startPeriod || '') ? body.startPeriod : new Date().toISOString().slice(0, 7);
+  const cnt = (await client.query(`SELECT count(*)::int c FROM employee_loans WHERE created_at >= date_trunc('month', now())`)).rows[0].c;
+  const loanNumber = `KSB-${new Date().toISOString().slice(0, 7).replace('-', '')}-${String(cnt + 1).padStart(3, '0')}`;
+  const row = (await client.query(`INSERT INTO employee_loans (employee_id, loan_number, loan_type, principal_amount, tenor_months, installment_amount, interest_rate, purpose, start_period, status, outstanding_amount, requested_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'PENDING',$10,$11) RETURNING *`,
+    [employeeId, loanNumber, type, principal, tenor, installment, interest, body.purpose || null, startPeriod, total, user.id])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: 'LOAN_REQUEST', module: 'employee', entityType: 'EMPLOYEE_LOAN', entityId: row.id, newValue: { loanNumber, principal, tenor, installment, type }, requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
+
+async function decideLoan(client, { id, decision, note, user, requestId }) {
+  assertPermission(user, 'employee.view');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Persetujuan pinjaman membutuhkan izin payroll.');
+  const loan = (await client.query(`SELECT * FROM employee_loans WHERE id = $1 FOR UPDATE`, [id])).rows[0];
+  if (!loan) throw new AppError('RESOURCE_NOT_FOUND', 'Pinjaman tidak ditemukan.');
+  if (loan.status !== 'PENDING') throw new AppError('VALIDATION_ERROR', 'Hanya pengajuan berstatus PENDING yang dapat diputuskan.');
+  if (decision === 'reject') {
+    const row = (await client.query(`UPDATE employee_loans SET status='REJECTED', approved_by=$2, decided_at=now(), decision_note=$3, updated_at=now() WHERE id=$1 RETURNING *`, [id, user.id, note || null])).rows[0];
+    await runtime.audit(client, { userId: user.id, action: 'LOAN_REJECT', module: 'employee', entityType: 'EMPLOYEE_LOAN', entityId: id, newValue: { note: note || null }, requestId, branchId: user.branchId });
+    return runtime.camel(row);
+  }
+  if (loan.requested_by && loan.requested_by === user.id) throw new AppError('PERMISSION_DENIED', 'Segregation of Duties: penyetuju tidak boleh sama dengan pengaju.');
+  const code = `LOAN-${loan.loan_number}`.slice(0, 30);
+  await client.query(`INSERT INTO payroll_components (employee_id, code, name, kind, amount, recurring, active) VALUES ($1,$2,$3,'DEDUCTION',$4,true,true) ON CONFLICT (employee_id, code) DO UPDATE SET amount=EXCLUDED.amount, name=EXCLUDED.name, active=true, updated_at=now()`,
+    [loan.employee_id, code, `Cicilan pinjaman ${loan.loan_number}`, loan.installment_amount]);
+  const row = (await client.query(`UPDATE employee_loans SET status='ACTIVE', approved_by=$2, decided_at=now(), decision_note=$3, deduction_code=$4, updated_at=now() WHERE id=$1 RETURNING *`, [id, user.id, note || null, code])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: 'LOAN_APPROVE', module: 'employee', entityType: 'EMPLOYEE_LOAN', entityId: id, newValue: { installment: Number(loan.installment_amount), deductionCode: code }, requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
+
+async function closeLoan(client, { id, action, user, requestId }) {
+  assertPermission(user, 'employee.view');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Aksi pinjaman membutuhkan izin payroll.');
+  const loan = (await client.query(`SELECT * FROM employee_loans WHERE id=$1 FOR UPDATE`, [id])).rows[0];
+  if (!loan) throw new AppError('RESOURCE_NOT_FOUND', 'Pinjaman tidak ditemukan.');
+  if (!['ACTIVE', 'APPROVED'].includes(loan.status)) throw new AppError('VALIDATION_ERROR', 'Hanya pinjaman aktif yang dapat dilunasi/dibatalkan.');
+  const newStatus = action === 'cancel' ? 'CANCELLED' : 'SETTLED';
+  const outstanding = newStatus === 'SETTLED' ? 0 : Number(loan.outstanding_amount) || 0;
+  if (loan.deduction_code) await client.query(`UPDATE payroll_components SET active=false, updated_at=now() WHERE employee_id=$1 AND code=$2`, [loan.employee_id, loan.deduction_code]);
+  const row = (await client.query(`UPDATE employee_loans SET status=$2, outstanding_amount=$3, updated_at=now() WHERE id=$1 RETURNING *`, [id, newStatus, outstanding])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: newStatus === 'SETTLED' ? 'LOAN_SETTLE' : 'LOAN_CANCEL', module: 'employee', entityType: 'EMPLOYEE_LOAN', entityId: id, requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan };

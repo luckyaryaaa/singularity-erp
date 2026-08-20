@@ -35,6 +35,13 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&p==='/api/hr/self-updates'){return{items:await masterData.listSelfUpdates(client,ctx.user,url.searchParams.get('status'))};}
   m=p.match(/^\/api\/hr\/self-updates\/([0-9a-f-]{36})\/(approve|reject)$/);
   if(method==='POST'&&m){const body=await readBody(req);return idempotent(`hr.self.decide:${m[1]}`,body,200,()=>masterData.decideSelfUpdate(client,{id:m[1],decision:m[2],reason:body.reason,user:ctx.user,requestId:ctx.requestId}));}
+  // ── Kasbon / Pinjaman Karyawan — pengajuan + persetujuan (SoD) + potongan payroll otomatis ──
+  if(method==='GET'&&p==='/api/hr/loans'){assertPermission(ctx.user,'employee.view');return masterData.listLoans(client,ctx.user,{status:url.searchParams.get('status')});}
+  if(method==='POST'&&p==='/api/hr/loans'){assertPermission(ctx.user,'employee.view');const body=await readBody(req);return idempotent('hr.loan.request',body,201,()=>masterData.requestLoan(client,body,ctx.user,ctx.requestId));}
+  m=p.match(/^\/api\/hr\/loans\/([0-9a-f-]{36})\/(approve|reject)$/);
+  if(method==='POST'&&m){const body=await readBody(req);return idempotent(`hr.loan.decide:${m[1]}`,body,200,()=>masterData.decideLoan(client,{id:m[1],decision:m[2],note:body.note,user:ctx.user,requestId:ctx.requestId}));}
+  m=p.match(/^\/api\/hr\/loans\/([0-9a-f-]{36})\/(settle|cancel)$/);
+  if(method==='POST'&&m){const body=await readBody(req);return idempotent(`hr.loan.close:${m[1]}`,body,200,()=>masterData.closeLoan(client,{id:m[1],action:m[2],user:ctx.user,requestId:ctx.requestId}));}
   return NO_MATCH;
 }
 

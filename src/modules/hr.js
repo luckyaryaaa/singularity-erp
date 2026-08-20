@@ -231,6 +231,71 @@
   R('/payroll', payrollPage);
   R('/payroll/runs/:id', payrollRegisterPage);
 
+  // Kasbon / Pinjaman Karyawan — pengajuan + persetujuan (SoD) + potongan payroll
+  // otomatis (approve → payroll_components DEDUCTION; lunas/batal → nonaktif).
+  const LOAN_TYPE_LABEL = { KASBON: 'Kasbon', INSTALLMENT: 'Cicilan', EMERGENCY: 'Darurat' };
+  const LOAN_STATUS_TONE = { PENDING: 'amber', APPROVED: 'blue', ACTIVE: 'blue', SETTLED: 'mint', REJECTED: 'coral', CANCELLED: 'gray' };
+  const loansPage = {
+    permission: 'employee.view',
+    async render(main, _p, signal) {
+      let d, emps;
+      try { [d, emps] = await Promise.all([api('/api/hr/loans', { signal }), api('/api/employees?limit=200', { signal }).catch(() => ({ items: [] }))]); }
+      catch (error) { main.innerHTML = pageHead({ eyebrow: 'PENGGAJIAN · PINJAMAN', title: 'Pinjaman Karyawan' }) + `<section class="panel"><div class="empty-state">${clayOrb('coral', 'alert')}<h3>Gagal memuat</h3><p>${esc(error.message)}</p></div></section>`; return; }
+      const items = d.items || [], s = d.summary || {};
+      const metric = (label, value, note, icon, tone) => `<article class="mk-surface mk-metric"><div class="mk-m-copy"><span class="mk-m-k">${esc(label)}</span><div class="mk-m-v">${esc(value)}</div><span class="mk-m-note mk-mu">${esc(note)}</span></div><div class="mk-m-ic mk-ic-${tone}">${ICONS[icon] || ''}</div></article>`;
+      const statusChip = (st) => `<span class="chip ${LOAN_STATUS_TONE[st] || 'gray'}">${esc(st)}</span>`;
+      const actionsFor = (r) => r.status === 'PENDING'
+        ? `<button class="mk-btn sm" data-loan-approve="${esc(r.id)}">Setujui</button><button class="mk-btn sm mk-cor" data-loan-reject="${esc(r.id)}">Tolak</button>`
+        : (r.status === 'ACTIVE' || r.status === 'APPROVED')
+          ? `<button class="mk-btn sm" data-loan-settle="${esc(r.id)}">Lunasi</button><button class="mk-btn sm mk-cor" data-loan-cancel="${esc(r.id)}">Batal</button>`
+          : '<span class="mk-mu">—</span>';
+      main.innerHTML = pageHead({ eyebrow: 'PENGGAJIAN · PINJAMAN', title: 'Kasbon & Pinjaman Karyawan', sub: 'Pengajuan, persetujuan (SoD), dan potongan cicilan otomatis yang terhubung ke payroll.', actions: `<button class="btn primary" id="loanNew">${ICONS.plus} Ajukan Pinjaman</button>` }) + `<div class="mk360 mk-analytics">
+        <div class="mk-g mk-g4">
+          ${metric('Pengajuan Pending', String(s.pending || 0), 'menunggu persetujuan', 'clock', 'amber')}
+          ${metric('Pinjaman Aktif', String(s.active || 0), 'sedang berjalan', 'checkCircle', 'blue')}
+          ${metric('Total Outstanding', fmtIDR(s.outstanding || 0), 'sisa pokok belum lunas', 'wallet', 'blue')}
+          ${metric('Cicilan / Bulan', fmtIDR(s.monthly || 0), 'potongan payroll aktif', 'payslip', 'emerald')}
+        </div>
+        <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.wallet || ''} Daftar Pinjaman</div><span class="mk-mu">Cicilan disetujui → potongan payroll otomatis</span></div>
+        <div class="mk-section-body"><div class="mk-reg-wrap"><table class="mk-reg mk-reg-static"><thead><tr><th>Karyawan</th><th>No. / Jenis</th><th class="r">Pokok</th><th class="r">Tenor</th><th class="r">Cicilan/bln</th><th class="r">Sisa</th><th>Status</th><th>Aksi</th></tr></thead>
+        <tbody>${items.map((r) => `<tr><td><div class="mk-reg-emp"><b>${esc(r.employeeName)}</b><small>${esc(r.nik || '')} · ${esc(r.department || '')}</small></div></td><td><b>${esc(r.loanNumber)}</b><small class="mk-mu"> ${esc(LOAN_TYPE_LABEL[r.loanType] || r.loanType)}${r.startPeriod ? ' · mulai ' + esc(r.startPeriod) : ''}</small></td><td class="r">${fmtIDR(r.principalAmount)}</td><td class="r">${esc(String(r.tenorMonths))} bln</td><td class="r">${fmtIDR(r.installmentAmount)}</td><td class="r b">${fmtIDR(r.outstandingAmount)}</td><td>${statusChip(r.status)}</td><td>${actionsFor(r)}</td></tr>`).join('') || `<tr><td colspan="8" class="mk-reg-empty">Belum ada pinjaman terdaftar.</td></tr>`}</tbody>
+        </table></div></div></section>
+      </div>`;
+      const reload = () => this.render(main, _p);
+      main.querySelector('#loanNew')?.addEventListener('click', async () => {
+        const v = await formDialog({ title: 'Ajukan Pinjaman / Kasbon', description: 'Cicilan otomatis dipotong dari payroll setelah disetujui (SoD: penyetuju ≠ pengaju).', fields: [
+          { name: 'employeeId', label: 'Karyawan', type: 'select', options: (emps.items || []).map((e) => [e.id, `${e.name} · ${e.nik || ''}`]), required: true },
+          { name: 'loanType', label: 'Jenis', type: 'select', options: [['KASBON', 'Kasbon (cash advance)'], ['INSTALLMENT', 'Pinjaman cicilan'], ['EMERGENCY', 'Darurat']], value: 'KASBON' },
+          { name: 'principalAmount', label: 'Jumlah pokok (IDR)', type: 'number', min: 0, required: true },
+          { name: 'tenorMonths', label: 'Tenor (bulan)', type: 'number', min: 1, value: 1, required: true },
+          { name: 'interestRate', label: 'Bunga total (mis. 0.05 = 5%)', type: 'number', min: 0, step: '0.01', value: 0 },
+          { name: 'startPeriod', label: 'Mulai potong', type: 'month', value: new Date().toISOString().slice(0, 7) },
+          { name: 'purpose', label: 'Keperluan', type: 'textarea', rows: 2 }
+        ], submitLabel: 'Ajukan' });
+        if (!v) return;
+        try { await api('/api/hr/loans', { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Pengajuan dibuat', 'Menunggu persetujuan.'); reload(); }
+        catch (error) { toast('Gagal mengajukan', error.message, 'coral'); }
+      });
+      const decide = async (id, decision) => {
+        const ans = await actionDialog({ title: decision === 'approve' ? 'Setujui pinjaman' : 'Tolak pinjaman', description: decision === 'approve' ? 'Cicilan akan otomatis dipotong payroll. Penyetuju harus berbeda dari pengaju (SoD).' : 'Beri alasan penolakan.', requireReason: decision === 'reject', confirmLabel: decision === 'approve' ? 'Setujui' : 'Tolak', danger: decision === 'reject' });
+        if (decision === 'reject' ? !ans : ans === null) return;
+        try { await api(`/api/hr/loans/${id}/${decision}`, { method: 'POST', body: { note: ans && ans.reason }, idempotencyKey: newIdemKey() }); toast(decision === 'approve' ? 'Disetujui' : 'Ditolak'); reload(); }
+        catch (error) { toast('Gagal memutuskan', error.message, 'coral'); }
+      };
+      const close = async (id, action) => {
+        const ans = await actionDialog({ title: action === 'settle' ? 'Lunasi pinjaman' : 'Batalkan pinjaman', description: 'Potongan payroll untuk pinjaman ini akan dihentikan.', confirmLabel: action === 'settle' ? 'Lunasi' : 'Batalkan', danger: action === 'cancel' });
+        if (ans === null) return;
+        try { await api(`/api/hr/loans/${id}/${action}`, { method: 'POST', body: {}, idempotencyKey: newIdemKey() }); toast(action === 'settle' ? 'Pinjaman lunas' : 'Pinjaman dibatalkan'); reload(); }
+        catch (error) { toast('Gagal', error.message, 'coral'); }
+      };
+      main.querySelectorAll('[data-loan-approve]').forEach((b) => b.addEventListener('click', () => decide(b.dataset.loanApprove, 'approve')));
+      main.querySelectorAll('[data-loan-reject]').forEach((b) => b.addEventListener('click', () => decide(b.dataset.loanReject, 'reject')));
+      main.querySelectorAll('[data-loan-settle]').forEach((b) => b.addEventListener('click', () => close(b.dataset.loanSettle, 'settle')));
+      main.querySelectorAll('[data-loan-cancel]').forEach((b) => b.addEventListener('click', () => close(b.dataset.loanCancel, 'cancel')));
+    }
+  };
+  R('/hr/loans', loansPage);
+
   // ── Employee Self-Service: Data Saya + pengkinian identitas (maker-checker) ──
   const svcLen = (d) => { if (!d) return '—'; const st = new Date(d), now = new Date(); let m = (now.getFullYear() - st.getFullYear()) * 12 + (now.getMonth() - st.getMonth()); if (now.getDate() < st.getDate()) m--; if (!(m >= 0)) m = 0; const y = Math.floor(m / 12), mm = m % 12; return y ? `${y} th${mm ? ` ${mm} bln` : ''}` : `${mm} bln`; };
   const SELF_GENDER = { MALE: 'Laki-laki', FEMALE: 'Perempuan' };
