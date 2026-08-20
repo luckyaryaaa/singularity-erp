@@ -341,6 +341,16 @@
     ['documents', 'Documents', 'fileText', null], ['audit', 'Audit Trail & Logs', 'history', null]
   ];
 
+  // Tabel TER Bulanan PP 58/2023 (presisi) — [batas atas bruto, tarif]. Kategori A/B/C.
+  const TER_TABLE = {
+    A: [[5400000, 0], [5650000, 0.0025], [5950000, 0.005], [6300000, 0.0075], [6750000, 0.01], [7500000, 0.0125], [8550000, 0.015], [9650000, 0.0175], [10050000, 0.02], [10350000, 0.0225], [10700000, 0.025], [11050000, 0.03], [11600000, 0.035], [12500000, 0.04], [13750000, 0.05], [15100000, 0.06], [16950000, 0.07], [19750000, 0.08], [24150000, 0.09], [26450000, 0.1], [28000000, 0.11], [30050000, 0.12], [32400000, 0.13], [35400000, 0.14], [39100000, 0.15], [43850000, 0.16], [47800000, 0.17], [51400000, 0.18], [56300000, 0.19], [62200000, 0.2], [68600000, 0.21], [77500000, 0.22], [89000000, 0.23], [103000000, 0.24], [125000000, 0.25], [157000000, 0.26], [206000000, 0.27], [337000000, 0.28], [454000000, 0.29], [550000000, 0.3], [695000000, 0.31], [910000000, 0.32], [1400000000, 0.33], [Infinity, 0.34]],
+    B: [[6200000, 0], [6500000, 0.0025], [6850000, 0.005], [7300000, 0.0075], [9200000, 0.01], [10750000, 0.015], [11250000, 0.02], [11600000, 0.025], [12600000, 0.03], [13600000, 0.04], [14950000, 0.05], [16400000, 0.06], [18450000, 0.07], [21850000, 0.08], [26000000, 0.09], [27700000, 0.1], [29350000, 0.11], [31450000, 0.12], [33950000, 0.13], [37100000, 0.14], [41100000, 0.15], [45800000, 0.16], [49500000, 0.17], [53800000, 0.18], [58500000, 0.19], [64000000, 0.2], [71000000, 0.21], [80000000, 0.22], [93000000, 0.23], [109000000, 0.24], [129000000, 0.25], [163000000, 0.26], [211000000, 0.27], [374000000, 0.28], [459000000, 0.29], [555000000, 0.3], [704000000, 0.31], [957000000, 0.32], [1405000000, 0.33], [Infinity, 0.34]],
+    C: [[6600000, 0], [6950000, 0.0025], [7350000, 0.005], [7800000, 0.0075], [8850000, 0.01], [9800000, 0.0125], [10950000, 0.015], [11200000, 0.0175], [12050000, 0.02], [12950000, 0.03], [14150000, 0.04], [15550000, 0.05], [17050000, 0.06], [19500000, 0.07], [22700000, 0.08], [26600000, 0.09], [28100000, 0.1], [30100000, 0.11], [32600000, 0.12], [35400000, 0.13], [38900000, 0.14], [43000000, 0.15], [47400000, 0.16], [51200000, 0.17], [55800000, 0.18], [60400000, 0.19], [66700000, 0.2], [74500000, 0.21], [83200000, 0.22], [95600000, 0.23], [110000000, 0.24], [134000000, 0.25], [169000000, 0.26], [221000000, 0.27], [390000000, 0.28], [463000000, 0.29], [561000000, 0.3], [709000000, 0.31], [965000000, 0.32], [1419000000, 0.33], [Infinity, 0.34]]
+  };
+  const terRateOf = (cat, bruto) => { const t = TER_TABLE[cat] || TER_TABLE.A; for (const [cap, r] of t) if (bruto <= cap) return r; return 0.34; };
+  const ptkpToCat = (p) => { p = String(p || '').toUpperCase(); if (['TK/0', 'TK/1', 'K/0'].includes(p)) return 'A'; if (['TK/2', 'TK/3', 'K/1', 'K/2'].includes(p)) return 'B'; if (p === 'K/3') return 'C'; return 'A'; };
+  const PTKP_OPTS = ['TK/0', 'TK/1', 'TK/2', 'TK/3', 'K/0', 'K/1', 'K/2', 'K/3'];
+
   const employeeClayDetail = {
     async render(main, params, signal) {
       if (!can('employee.view')) { main.innerHTML = `<section class="error-state">${clayOrb('amber', 'lock')}<h1>Akses dibatasi</h1></section>`; return; }
@@ -384,9 +394,9 @@
       const terCat = tax.terCategory || (['TK/0', 'TK/1', 'K/0'].includes(ptkpStatus) ? 'A' : ['TK/2', 'TK/3', 'K/1', 'K/2'].includes(ptkpStatus) ? 'B' : ptkpStatus === 'K/3' ? 'C' : 'A');
       const taxTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('calc')} PPh 21 TER Advanced Planner</div><div class="mk-section-desc">Gaji &amp; seluruh tunjangan otomatis dari data karyawan — sesuaikan Bonus/THR &amp; metode. PP 58/2023.</div></div><span class="mk-badge blue">Compliance v9.5</span></div><div class="mk-section-body"><div class="mk-io">
         <div class="mk-inset mk-io-panel">
-          <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Gaji Pokok <span class="mk-tag emerald">auto</span></label><input class="mk-input" type="number" id="mkTaxBase" value="${Number(comp.baseSalary) || 0}"></div><div><label class="mk-field-lbl">Tunjangan Tetap <span class="mk-tag emerald">auto</span></label><input class="mk-input" type="number" id="mkTaxFixed" value="${Number(comp.fixedAllowance) || 0}"></div><div><label class="mk-field-lbl">Tunjangan Variabel <span class="mk-tag emerald">auto</span></label><input class="mk-input" type="number" id="mkTaxVar" value="${Number(comp.variableAllowance) || 0}"></div><div><label class="mk-field-lbl">Bonus / THR</label><input class="mk-input" type="number" id="mkTaxBonus" value="0"></div></div>
+          <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Gaji Pokok <span class="mk-tag lock">auto · lock</span></label><input class="mk-input" type="number" id="mkTaxBase" value="${Number(comp.baseSalary) || 0}" readonly></div><div><label class="mk-field-lbl">Tunjangan Tetap <span class="mk-tag lock">lock</span></label><input class="mk-input" type="number" id="mkTaxFixed" value="${Number(comp.fixedAllowance) || 0}" readonly></div><div><label class="mk-field-lbl">Tunjangan Variabel <span class="mk-tag lock">lock</span></label><input class="mk-input" type="number" id="mkTaxVar" value="${Number(comp.variableAllowance) || 0}" readonly></div><div><label class="mk-field-lbl">Bonus / THR <span class="mk-tag emerald">adjust</span></label><input class="mk-input" type="number" id="mkTaxBonus" value="0"></div></div>
           <div><label class="mk-field-lbl">Metode Pemotongan Pajak</label><select class="mk-input" id="mkTaxMethod"><option value="GROSS"${(tax.taxMethod === 'GROSS' || !tax.taxMethod) ? ' selected' : ''}>Gross — dipotong dari gaji (ditanggung karyawan)</option><option value="NET"${tax.taxMethod === 'NET' ? ' selected' : ''}>Nett — ditanggung perusahaan</option><option value="GROSS_UP"${tax.taxMethod === 'GROSS_UP' ? ' selected' : ''}>Gross-up — tunjangan pajak</option></select></div>
-          <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Kategori PTKP <span class="mk-tag emerald">otomatis</span></label><select class="mk-input" id="mkTaxCat"><option value="A"${terCat === 'A' ? ' selected' : ''}>Kategori A</option><option value="B"${terCat === 'B' ? ' selected' : ''}>Kategori B</option><option value="C"${terCat === 'C' ? ' selected' : ''}>Kategori C</option></select></div><div><label class="mk-field-lbl">Status PTKP</label><input class="mk-input" id="mkTaxPtkp" value="${esc(ptkpStatus)}" readonly></div></div>
+          <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Status PTKP <span class="mk-tag emerald">adjust</span></label><select class="mk-input" id="mkTaxPtkp">${PTKP_OPTS.map((p) => `<option value="${p}"${p === ptkpStatus ? ' selected' : ''}>${p}</option>`).join('')}</select></div><div><label class="mk-field-lbl">Kategori TER <span class="mk-tag lock">otomatis</span></label><input class="mk-input" id="mkTaxCat" value="${terCat}" readonly></div></div>
           <div class="mk-g mk-g2"><div><label class="mk-field-lbl">Status NPWP</label><select class="mk-input" id="mkTaxNpwp"><option value="1"${tax.npwp ? ' selected' : ''}>Ber-NPWP</option><option value="0"${!tax.npwp ? ' selected' : ''}>Tanpa NPWP (+20%)</option></select></div><div class="mk-annual-btn"><button class="mk-btn primary" id="mkTaxAnnual">${MK('calc')} Hitung Tahunan &amp; Desember</button></div></div>
         </div>
         <div class="mk-surface mk-io-out mk-io-panel">
@@ -536,11 +546,10 @@
       wireCommon(main);
       const calcTax = () => {
         const base = Number(main.querySelector('#mkTaxBase').value) || 0, fixed = Number(main.querySelector('#mkTaxFixed').value) || 0, vari = Number(main.querySelector('#mkTaxVar').value) || 0, bonus = Number(main.querySelector('#mkTaxBonus').value) || 0;
-        const cat = main.querySelector('#mkTaxCat').value, method = main.querySelector('#mkTaxMethod').value, npwp = (main.querySelector('#mkTaxNpwp') || {}).value !== '0';
-        const bruto = base + fixed + vari + bonus; let rate = 0;
-        if (cat === 'A') rate = bruto > 10000000 ? 0.02 : bruto > 5400000 ? 0.0025 : 0;
-        else if (cat === 'B') rate = bruto > 11000000 ? 0.03 : bruto > 6200000 ? 0.015 : 0;
-        else rate = bruto > 12000000 ? 0.04 : 0.02;
+        const ptkp = main.querySelector('#mkTaxPtkp').value, cat = ptkpToCat(ptkp), method = main.querySelector('#mkTaxMethod').value, npwp = (main.querySelector('#mkTaxNpwp') || {}).value !== '0';
+        main.querySelector('#mkTaxCat').value = cat;
+        const bruto = base + fixed + vari + bonus;
+        const rate = terRateOf(cat, bruto);
         const er = rate * (npwp ? 1 : 1.2);
         const pct = (x) => (x * 100).toFixed(3).replace(/\.?0+$/, '');
         let pph21, thp, cost, rec;
@@ -577,7 +586,7 @@
         out.querySelector('#mkTax1721Print')?.addEventListener('click', () => window.print());
         out.querySelector('#mkTax1721Back')?.addEventListener('click', () => { out.innerHTML = ''; calcAnnual(); });
       };
-      ['#mkTaxBase', '#mkTaxFixed', '#mkTaxVar', '#mkTaxBonus', '#mkTaxCat', '#mkTaxMethod', '#mkTaxNpwp'].forEach((sel) => main.querySelector(sel)?.addEventListener('input', calcTax));
+      ['#mkTaxBonus', '#mkTaxMethod', '#mkTaxPtkp', '#mkTaxNpwp'].forEach((sel) => main.querySelector(sel)?.addEventListener('input', calcTax));
       main.querySelector('#mkTaxAnnual')?.addEventListener('click', calcAnnual);
       main.querySelector('#mkTaxSave')?.addEventListener('click', async () => {
         const cat = main.querySelector('#mkTaxCat').value, ptkp = main.querySelector('#mkTaxPtkp').value, method = main.querySelector('#mkTaxMethod').value;

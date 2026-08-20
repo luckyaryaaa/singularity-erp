@@ -1909,6 +1909,8 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-btn.primary:hover{background:linear-gradient(135deg,#1d4ed8,#1e40af);color:#fff;box-shadow:7px 7px 20px rgba(37,99,235,.42),-3px -3px 10px #fff}
 .mk-input{width:100%;background:#f8fafc;box-shadow:inset 3px 3px 6px var(--mk-line),inset -3px -3px 6px #fff;border:1px solid var(--mk-line);border-radius:12px;padding:10px 12px;font:700 12px 'Plus Jakarta Sans',var(--font-body);color:var(--mk-ink)}
 .mk-input:focus{outline:none;box-shadow:inset 3px 3px 6px var(--mk-line),inset -3px -3px 6px #fff,0 0 0 3px rgba(37,99,235,.25)}
+.mk-input[readonly]{background:#eef2f7;color:#64748b;cursor:default}
+.mk-tag.lock{background:#e2e8f0;color:#64748b}
 
 /* Banner */
 .mk-banner{padding:24px;position:relative;overflow:hidden}
