@@ -2205,6 +2205,8 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-fam-tags{display:flex;gap:6px;flex-wrap:wrap}
 .mk-fam-act{display:flex;gap:6px;flex-shrink:0}
 .mk-note:has(.mk-flex1){display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mk-cert-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.mk-cert-tags .mk-tag{background:#eef2ff;color:#4338ca}
 .mk-contract{display:flex;flex-direction:column;gap:5px;padding:12px 14px}
 .mk-contract .mk-rowb{gap:8px}
 .mk-contract .mk-v{font:700 12.5px 'JetBrains Mono','Plus Jakarta Sans';color:#1e293b}
