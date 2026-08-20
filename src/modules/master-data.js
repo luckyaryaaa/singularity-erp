@@ -426,7 +426,7 @@
           <div class="mk-bpjs-progs">${BPJS_PROGRAMS.map((p) => `<label class="mk-bpjs-prog"><input type="checkbox" data-bpjs-prog="${p.key}" checked><span class="mk-bpjs-prog-b"><b>${esc(p.short)}</b><small>${esc(p.label)}</small></span></label>`).join('')}</div>
           <div class="mk-note emerald"><b>${MK('heart')} Skema:</b> "Iuran" = porsi karyawan dipotong dari gaji, sisanya perusahaan. "Ditanggung penuh perusahaan" = seluruh iuran (termasuk porsi karyawan) dibayar perusahaan, potongan karyawan Rp 0. JKK &amp; JKM selalu 100% perusahaan.</div>
         </div>
-        <div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Rincian Iuran per Program<button class="mk-btn sm" id="mkBpjsPrint">${MK('printer')} Cetak Rincian</button></div>
+        <div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Rincian Iuran per Program<span class="mk-bpjs-acts">${can('employee.edit') ? `<button class="mk-btn primary sm" id="mkBpjsSave">${MK('check')} Simpan ke Profil</button>` : ''}<button class="mk-btn sm" id="mkBpjsPrint">${MK('printer')} Cetak Rincian</button></span></div>
           <div class="mk-reg-wrap"><table class="mk-reg mk-reg-static"><thead><tr><th>Program</th><th class="r">Dasar Upah</th><th class="r">Perusahaan</th><th class="r">Karyawan</th><th class="r">Total / bln</th></tr></thead><tbody id="mkBpjsRows"></tbody><tfoot id="mkBpjsFoot"></tfoot></table></div>
         </div>
         <div class="mk-g mk-g3"><div class="mk-inset mk-out"><span>Total Iuran / bln</span><b class="blue" id="mkBpjsTotal">—</b></div><div class="mk-inset mk-out"><span>Ditanggung Perusahaan</span><b class="emerald" id="mkBpjsEr">—</b></div><div class="mk-inset mk-out"><span>Dipotong dari Karyawan</span><b class="indigo" id="mkBpjsEe">—</b></div></div>
@@ -687,7 +687,28 @@
       main.querySelector('#mkBpjsSalary')?.addEventListener('input', calcBpjs);
       main.querySelectorAll('[data-bpjs-prog]').forEach((c) => c.addEventListener('change', calcBpjs));
       main.querySelector('#mkBpjsPrint')?.addEventListener('click', printBpjs);
-      main.querySelector('#mkBpjsSalary') && calcBpjs();
+      main.querySelector('#mkBpjsSave')?.addEventListener('click', async () => {
+        const programs = BPJS_PROGRAMS.filter((p) => main.querySelector(`[data-bpjs-prog="${p.key}"]`).checked).map((p) => p.key);
+        if (!programs.length) { toast('Pilih minimal satu program', '', 'coral'); return; }
+        const body = { scheme: main.querySelector('#mkBpjsScheme').value, wageBase: Number(main.querySelector('#mkBpjsSalary').value) || 0, jkkRisk: Number(main.querySelector('#mkBpjsRisk').value) || 0.0024, programs, effectiveFrom: new Date().toISOString().slice(0, 10) };
+        try { const r = await api(`${B}/bpjs-config`, { method: 'POST', body, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Konfigurasi BPJS disimpan', `${r.programs.length} program · skema ${r.scheme === 'FULL_COMPANY' ? 'ditanggung perusahaan' : 'iuran'}.`); }
+        catch (error) { toast('Gagal menyimpan konfigurasi BPJS', error.message, 'coral'); }
+      });
+      (async () => {
+        try {
+          const rows = ((await api(`${B}/bpjs`)).items || []).filter((r) => !r.activeTo);
+          if (rows.length) {
+            const activeSet = new Set(rows.map((r) => String(r.program || '').toLowerCase()));
+            BPJS_PROGRAMS.forEach((p) => { const c = main.querySelector(`[data-bpjs-prog="${p.key}"]`); if (c) c.checked = activeSet.has(p.key); });
+            const wb = Number(rows[0].wageBase); if (wb) main.querySelector('#mkBpjsSalary').value = Math.round(wb);
+            const splittable = rows.filter((r) => ['KESEHATAN', 'JHT', 'JP'].includes(String(r.program || '').toUpperCase()));
+            if (splittable.length && splittable.every((r) => Number(r.employeePct) === 0)) main.querySelector('#mkBpjsScheme').value = 'FULL_COMPANY';
+            const jkk = rows.find((r) => String(r.program || '').toUpperCase() === 'JKK');
+            if (jkk && jkk.riskCategory != null) { const sel = main.querySelector('#mkBpjsRisk'), val = Number(jkk.riskCategory); const opt = Array.from(sel.options).find((o) => Math.abs(Number(o.value) - val) < 1e-9); if (opt) sel.value = opt.value; }
+          }
+        } catch (_) { /* pakai default */ }
+        calcBpjs();
+      })();
     }
   };
 

@@ -850,4 +850,42 @@ async function closeLoan(client, { id, action, user, requestId }) {
   return runtime.camel(row);
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan };
+// ── BPJS — simpan konfigurasi kepesertaan (program + skema iuran) ke profil ──
+// Tarif kanonik di server; skema FULL_COMPANY memindahkan porsi karyawan ke
+// perusahaan (employee_pct=0). Disimpan sebagai % (mis. 4.000) agar konsisten
+// dengan sub-resource 'bpjs'. Tidak menyentuh engine payroll.
+const BPJS_PROGRAMS_BE = {
+  KESEHATAN: { erPct: 0.04, eePct: 0.01, cap: 12000000 },
+  JHT: { erPct: 0.037, eePct: 0.02, cap: 0 },
+  JKK: { erPct: 0.0024, eePct: 0, cap: 0, risk: true },
+  JKM: { erPct: 0.003, eePct: 0, cap: 0 },
+  JP: { erPct: 0.02, eePct: 0.01, cap: 10042300 }
+};
+async function saveBpjsConfig(client, employeeId, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Konfigurasi BPJS membutuhkan izin payroll.');
+  await parentRow(client, 'employees', employeeId);
+  const scheme = body.scheme === 'FULL_COMPANY' ? 'FULL_COMPANY' : 'SPLIT';
+  const wageBase = Number(body.wageBase) || 0;
+  const jkkRisk = Number(body.jkkRisk) || 0.0024;
+  const eff = /^\d{4}-\d{2}-\d{2}$/.test(body.effectiveFrom || '') ? body.effectiveFrom : new Date().toISOString().slice(0, 10);
+  const active = (Array.isArray(body.programs) ? body.programs : []).map((k) => String(k).toUpperCase()).filter((k) => BPJS_PROGRAMS_BE[k]);
+  // Tutup seluruh profil aktif lama pada/ setelah tanggal efektif (histori utuh).
+  await client.query(`UPDATE employee_bpjs_profiles SET active_to=$2::date-1 WHERE employee_id=$1 AND (active_to IS NULL OR active_to>=$2::date)`, [employeeId, eff]);
+  const saved = [];
+  for (const prog of active) {
+    const def = BPJS_PROGRAMS_BE[prog];
+    const erFrac = def.risk ? jkkRisk : def.erPct;
+    let erPct = erFrac * 100, eePct = def.eePct * 100;
+    if (scheme === 'FULL_COMPANY') { erPct += eePct; eePct = 0; }
+    await client.query(`INSERT INTO employee_bpjs_profiles (id, employee_id, program, wage_base, risk_category, employer_pct, employee_pct, ceiling_amount, active_from)
+      VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8)
+      ON CONFLICT (employee_id, program, active_from) DO UPDATE SET wage_base=EXCLUDED.wage_base, risk_category=EXCLUDED.risk_category, employer_pct=EXCLUDED.employer_pct, employee_pct=EXCLUDED.employee_pct, ceiling_amount=EXCLUDED.ceiling_amount, active_to=NULL`,
+      [employeeId, prog, wageBase, def.risk ? String(jkkRisk) : null, erPct.toFixed(3), eePct.toFixed(3), def.cap || null, eff]);
+    saved.push(prog);
+  }
+  await runtime.audit(client, { userId: user.id, action: 'BPJS_CONFIG', module: 'employee', entityType: 'EMPLOYEE_BPJS', entityId: employeeId, newValue: { scheme, programs: saved, wageBase, effectiveFrom: eff }, requestId, branchId: user.branchId });
+  return { scheme, programs: saved, wageBase, effectiveFrom: eff };
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig };
