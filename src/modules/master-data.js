@@ -526,8 +526,8 @@
           </div></section>`;
         },
         employment: async () => {
-          const [tl, , conD] = await Promise.all([api(`${B}/timeline`), api(`${B}/positions`), api(`${B}/contracts`)]);
-          const contracts = conD.items || [], canEdit = can('employee.edit');
+          const [tl, posD, conD] = await Promise.all([api(`${B}/timeline`), api(`${B}/positions`), api(`${B}/contracts`)]);
+          const contracts = conD.items || [], positions = posD.items || [], canEdit = can('employee.edit');
           const cStatus = (c) => {
             if (!c.endDate) return { tone: 'emerald', label: 'Tanpa batas (tetap)' };
             const days = Math.ceil((new Date(c.endDate) - new Date()) / 86400000);
@@ -538,7 +538,7 @@
           const active = contracts.slice().sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
           const al = active ? cStatus(active) : null;
           const alertBox = al && (al.tone === 'coral' || al.tone === 'amber') ? `<div class="mk-note ${al.tone}"><div class="mk-flex1"><b>Perhatian kontrak:</b> ${esc(active.contractType || 'Kontrak')} ${esc(active.contractNumber || '')} — ${esc(al.label)}.${canEdit ? ' Segera proses perpanjangan atau pengangkatan tetap.' : ''}</div></div>` : '';
-          return `<section class="mk-surface">${clayHead('briefcase', 'Employment & Career History', 'Riwayat jabatan, penempatan, kontrak, dan perjalanan karier.', `<span class="mk-badge blue">${(tl.items || []).length} peristiwa</span>`)}<div class="mk-section-body mk-col"><div class="mk-g mk-g3"><div class="mk-inset mk-field"><label>Jabatan Aktif</label><div class="mk-v">${esc(pos.positionTitle || ov.jobTitle || '—')}</div></div><div class="mk-inset mk-field"><label>Status Kepegawaian</label><div class="mk-v mk-em">${esc(emp.employmentStatus || ov.lifecycleStatus || 'ACTIVE')}</div></div><div class="mk-inset mk-field"><label>Bergabung</label><div class="mk-v">${ov.joinDate ? fmtDate(ov.joinDate) : '—'} · ${esc(serviceLength(ov.joinDate))}</div></div></div>${alertBox}<div class="mk-tl-wrap"><div class="mk-o-caps">Riwayat Karier (Timeline)</div>${mkTimeline(tl.items || [])}</div><div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Kontrak Kerja${canEdit ? `<button class="mk-btn sm" id="mkContractAdd">${MK('plus')} Tambah / Perpanjang</button>` : ''}</div>${contracts.length ? `<div class="mk-g mk-g2">${contracts.map((c) => { const s = cStatus(c); return `<div class="mk-inset mk-contract"><div class="mk-rowb"><b>${esc(c.contractType || 'Kontrak')}</b><span class="mk-badge ${s.tone}">${esc(s.label)}</span></div><small class="mk-mu">${esc(c.contractNumber || '—')}</small><div class="mk-v">${fmtDate(c.startDate)} → ${c.endDate ? fmtDate(c.endDate) : 'tanpa batas'}</div>${c.probationEnd ? `<small class="mk-mu">Probation s.d. ${fmtDate(c.probationEnd)}</small>` : ''}</div>`; }).join('')}</div>` : emptyBox('Belum ada kontrak terdaftar.')}</div></div></section>`;
+          return `<section class="mk-surface">${clayHead('briefcase', 'Employment & Career History', 'Riwayat jabatan, penempatan, kontrak, dan perjalanan karier.', `${canEdit ? `<button class="mk-btn primary sm" id="mkMoveAdd">${MK('plus')} Mutasi / Promosi</button>` : ''}<span class="mk-badge blue">${(tl.items || []).length} peristiwa</span>`)}<div class="mk-section-body mk-col"><div class="mk-g mk-g3"><div class="mk-inset mk-field"><label>Jabatan Aktif</label><div class="mk-v">${esc(pos.positionTitle || ov.jobTitle || '—')}</div></div><div class="mk-inset mk-field"><label>Status Kepegawaian</label><div class="mk-v mk-em">${esc(emp.employmentStatus || ov.lifecycleStatus || 'ACTIVE')}</div></div><div class="mk-inset mk-field"><label>Bergabung</label><div class="mk-v">${ov.joinDate ? fmtDate(ov.joinDate) : '—'} · ${esc(serviceLength(ov.joinDate))}</div></div></div>${alertBox}<div class="mk-tl-wrap"><div class="mk-o-caps">Riwayat Jabatan &amp; Penempatan (Mutasi/Promosi)${positions.length ? ` · ${positions.length}` : ''}</div>${positions.length ? `<div class="mk-col">${positions.map((pp) => `<div class="mk-inset mk-fam-row"><span class="mk-fam-ic">${MK('briefcase')}</span><div class="mk-flex1"><b>${esc(pp.positionTitle || '—')}</b><small>${esc(pp.division || '')}${pp.salaryGrade ? ' · Grade ' + esc(pp.salaryGrade) : ''}${pp.workLocation ? ' · ' + esc(pp.workLocation) : ''}</small></div><span class="mk-badge slate">${pp.effectiveFrom ? fmtDate(pp.effectiveFrom) : ''}${pp.effectiveTo ? ' → ' + fmtDate(pp.effectiveTo) : ' → kini'}</span></div>`).join('')}</div>` : emptyBox('Belum ada riwayat jabatan.')}</div><div class="mk-tl-wrap"><div class="mk-o-caps">Riwayat Karier (Timeline)</div>${mkTimeline(tl.items || [])}</div><div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Kontrak Kerja${canEdit ? `<button class="mk-btn sm" id="mkContractAdd">${MK('plus')} Tambah / Perpanjang</button>` : ''}</div>${contracts.length ? `<div class="mk-g mk-g2">${contracts.map((c) => { const s = cStatus(c); return `<div class="mk-inset mk-contract"><div class="mk-rowb"><b>${esc(c.contractType || 'Kontrak')}</b><span class="mk-badge ${s.tone}">${esc(s.label)}</span></div><small class="mk-mu">${esc(c.contractNumber || '—')}</small><div class="mk-v">${fmtDate(c.startDate)} → ${c.endDate ? fmtDate(c.endDate) : 'tanpa batas'}</div>${c.probationEnd ? `<small class="mk-mu">Probation s.d. ${fmtDate(c.probationEnd)}</small>` : ''}</div>`; }).join('')}</div>` : emptyBox('Belum ada kontrak terdaftar.')}</div></div></section>`;
         },
         payroll: async () => {
           const [banksD, ca] = await Promise.all([api(`${B}/bank-accounts`), api(`${B}/compensation-analysis`).catch(() => null)]);
@@ -778,6 +778,22 @@
             if (!v) return;
             try { await api(`${B}/contracts`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Kontrak tersimpan', 'Riwayat kepegawaian diperbarui.'); loaded.employment = false; show('employment'); }
             catch (error) { toast('Gagal menyimpan kontrak', error.message, 'coral'); }
+          });
+          panel.querySelector('#mkMoveAdd')?.addEventListener('click', async () => {
+            const branches = await api('/api/branches').catch(() => ({ items: [] }));
+            const v = await formDialog({ title: `Mutasi / Promosi — ${ov.name || ''}`, description: 'Perpindahan/promosi efektif-dated. Jabatan baru menjadi riwayat & aktif per tanggal berlaku (jabatan lama otomatis kalah oleh yang terbaru).', fields: [
+              { name: 'moveType', label: 'Jenis Perpindahan', type: 'select', options: [['PROMOSI', 'Promosi'], ['MUTASI', 'Mutasi / Transfer'], ['DEMOSI', 'Demosi'], ['ROTASI', 'Rotasi']], value: 'PROMOSI' },
+              { name: 'positionTitle', label: 'Jabatan Baru', value: pos.positionTitle || ov.jobTitle || '', required: true },
+              { name: 'division', label: 'Divisi / Departemen', value: pos.division || '' },
+              { name: 'salaryGrade', label: 'Grade', value: pos.salaryGrade || '' },
+              { name: 'branchId', label: 'Cabang / Lokasi', type: 'select', options: [['', '— tetap —']].concat((branches.items || []).map((b) => [b.id, `${b.code} · ${b.name}`])) },
+              { name: 'workLocation', label: 'Lokasi Kerja' },
+              { name: 'effectiveFrom', label: 'Berlaku sejak', type: 'date', value: new Date().toISOString().slice(0, 10), required: true }
+            ], submitLabel: 'Ajukan perpindahan' });
+            if (!v) return;
+            const label = v.moveType; if (!v.branchId) delete v.branchId;
+            try { await api(`${B}/positions`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Perpindahan dicatat', `${label} → ${v.positionTitle}. Payroll & posisi menyesuaikan.`); loaded.employment = false; show('employment'); }
+            catch (error) { toast('Gagal mencatat perpindahan', error.message, 'coral'); }
           });
         }
         if (key === 'documents') {
