@@ -2190,3 +2190,11 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-reg-empty{text-align:center;color:var(--mk-muted);padding:20px}
 .mk-reg-static tbody tr{cursor:default}
 .mk-reg-static tbody td .mk-btn{margin-right:6px}
+.mk-bpjs-progs{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin:4px 0 2px}
+.mk-bpjs-prog{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:12px;background:#f8fafc;border:1px solid var(--mk-line);cursor:pointer;transition:background .12s}
+.mk-bpjs-prog:hover{background:#f1f5f9}
+.mk-bpjs-prog input{width:16px;height:16px;accent-color:#2563eb;cursor:pointer;flex-shrink:0}
+.mk-bpjs-prog-b b{display:block;font:800 12px 'Plus Jakarta Sans';color:#0f172a;line-height:1.2}
+.mk-bpjs-prog-b small{color:var(--mk-muted);font-size:10px}
+.mk-bpjs-off td{opacity:.4}
+.mk-slip-t td.r{text-align:right;font-family:'JetBrains Mono','Plus Jakarta Sans';color:#1e293b;font-weight:700;white-space:nowrap}

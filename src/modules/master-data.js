@@ -350,6 +350,16 @@
   const terRateOf = (cat, bruto) => { const t = TER_TABLE[cat] || TER_TABLE.A; for (const [cap, r] of t) if (bruto <= cap) return r; return 0.34; };
   const ptkpToCat = (p) => { p = String(p || '').toUpperCase(); if (['TK/0', 'TK/1', 'K/0'].includes(p)) return 'A'; if (['TK/2', 'TK/3', 'K/1', 'K/2'].includes(p)) return 'B'; if (p === 'K/3') return 'C'; return 'A'; };
   const PTKP_OPTS = ['TK/0', 'TK/1', 'TK/2', 'TK/3', 'K/0', 'K/1', 'K/2', 'K/3'];
+  // BPJS — komponen per program (tarif regulasi) + tingkat risiko JKK. erPct =
+  // porsi perusahaan, eePct = porsi karyawan, cap = batas atas dasar upah (0 = tanpa cap).
+  const BPJS_JKK_RISK = [['0.0024', 'Tk I — Sangat rendah (0,24%)'], ['0.0054', 'Tk II — Rendah (0,54%)'], ['0.0089', 'Tk III — Sedang (0,89%)'], ['0.0127', 'Tk IV — Tinggi (1,27%)'], ['0.0174', 'Tk V — Sangat tinggi (1,74%)']];
+  const BPJS_PROGRAMS = [
+    { key: 'kesehatan', short: 'Kesehatan', label: 'BPJS Kesehatan (JKN-KIS)', branch: 'Kesehatan', erPct: 0.04, eePct: 0.01, cap: 12000000, tone: 'emerald' },
+    { key: 'jht', short: 'JHT', label: 'Jaminan Hari Tua', branch: 'Ketenagakerjaan', erPct: 0.037, eePct: 0.02, cap: 0, tone: 'blue' },
+    { key: 'jkk', short: 'JKK', label: 'Jaminan Kecelakaan Kerja', branch: 'Ketenagakerjaan', erPct: 0.0024, eePct: 0, cap: 0, tone: 'amber', risk: true },
+    { key: 'jkm', short: 'JKM', label: 'Jaminan Kematian', branch: 'Ketenagakerjaan', erPct: 0.003, eePct: 0, cap: 0, tone: 'amber' },
+    { key: 'jp', short: 'JP', label: 'Jaminan Pensiun', branch: 'Ketenagakerjaan', erPct: 0.02, eePct: 0.01, cap: 10042300, tone: 'blue' }
+  ];
 
   const employeeClayDetail = {
     async render(main, params, signal) {
@@ -406,16 +416,22 @@
           ${can('employee.edit') ? `<button class="mk-btn primary sm" id="mkTaxSave">${MK('save')} Simpan ke Profil Pajak</button>` : ''}
         </div></div><div id="mkTaxAnnualOut" class="mk-annual-out"></div></div></section>`;
 
-      const bpjsTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('shield')} BPJS Kesehatan & Ketenagakerjaan</div><div class="mk-section-desc">Kepesertaan, faskes, dan kalkulator iuran otomatis (JKN + Jamsostek).</div></div><span class="mk-badge emerald">${Number(s.bpjsPrograms || 0)} program aktif</span></div><div class="mk-section-body"><div class="mk-io">
-        <div class="mk-inset mk-io-panel">
-          <div class="mk-o-caps">Simulator Iuran Bulanan</div>
-          <div><label class="mk-field-lbl">Upah / Gaji Dasar (IDR)</label><input class="mk-input" type="number" id="mkBpjsSalary" value="${Number(comp.baseSalary) || 6500000}"></div>
-          <div class="mk-note emerald"><b>${MK('heart')} Ketentuan:</b> Kesehatan 5% (4% perusahaan + 1% karyawan, cap Rp 12jt) · JHT 5.7% · JKK/JKM · JP 3% (cap Rp 10.04jt).</div>
+      const bpjsUpah = (Number(comp.baseSalary) || 0) + (Number(comp.fixedAllowance) || 0) || 6500000;
+      const bpjsTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('shield')} BPJS Kesehatan & Ketenagakerjaan</div><div class="mk-section-desc">Konfigurasi program &amp; skema iuran — sesuaikan dengan kebutuhan/kemampuan perusahaan. Kalkulator otomatis.</div></div><span class="mk-badge emerald" id="mkBpjsCount">— program aktif</span></div><div class="mk-section-body mk-col">
+        <div class="mk-inset mk-io-panel"><div class="mk-o-caps">Konfigurasi Kepesertaan &amp; Skema Iuran</div>
+          <div class="mk-g mk-g3"><div class="mk-field"><label>Dasar Upah / Gaji (IDR)</label><input class="mk-input" type="number" id="mkBpjsSalary" value="${bpjsUpah}"></div>
+          <div class="mk-field"><label>Skema Iuran</label><select class="mk-input" id="mkBpjsScheme"><option value="SPLIT">Iuran — karyawan + perusahaan</option><option value="FULL_COMPANY">Ditanggung penuh perusahaan</option></select></div>
+          <div class="mk-field"><label>Tingkat Risiko JKK</label><select class="mk-input" id="mkBpjsRisk">${BPJS_JKK_RISK.map(([v, l], i) => `<option value="${v}"${i === 0 ? ' selected' : ''}>${l}</option>`).join('')}</select></div></div>
+          <div class="mk-o-caps">Program BPJS Aktif — centang sesuai kebutuhan</div>
+          <div class="mk-bpjs-progs">${BPJS_PROGRAMS.map((p) => `<label class="mk-bpjs-prog"><input type="checkbox" data-bpjs-prog="${p.key}" checked><span class="mk-bpjs-prog-b"><b>${esc(p.short)}</b><small>${esc(p.label)}</small></span></label>`).join('')}</div>
+          <div class="mk-note emerald"><b>${MK('heart')} Skema:</b> "Iuran" = porsi karyawan dipotong dari gaji, sisanya perusahaan. "Ditanggung penuh perusahaan" = seluruh iuran (termasuk porsi karyawan) dibayar perusahaan, potongan karyawan Rp 0. JKK &amp; JKM selalu 100% perusahaan.</div>
         </div>
-        <div class="mk-surface mk-io-out mk-io-panel">
-          <div class="mk-o-caps bb">Hasil Simulasi Iuran</div>
-          <div class="mk-out-grid"><div class="mk-inset mk-out"><span>Total BPJS Kesehatan</span><b class="emerald" id="mkBpjsKes">—</b></div><div class="mk-inset mk-out"><span>Total BPJS TK</span><b class="blue" id="mkBpjsTk">—</b></div><div class="mk-inset mk-out mk-span2"><span>Potongan Karyawan / bln</span><b class="indigo" id="mkBpjsEmp">—</b></div></div>
-        </div></div></div></section>`;
+        <div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Rincian Iuran per Program<button class="mk-btn sm" id="mkBpjsPrint">${MK('printer')} Cetak Rincian</button></div>
+          <div class="mk-reg-wrap"><table class="mk-reg mk-reg-static"><thead><tr><th>Program</th><th class="r">Dasar Upah</th><th class="r">Perusahaan</th><th class="r">Karyawan</th><th class="r">Total / bln</th></tr></thead><tbody id="mkBpjsRows"></tbody><tfoot id="mkBpjsFoot"></tfoot></table></div>
+        </div>
+        <div class="mk-g mk-g3"><div class="mk-inset mk-out"><span>Total Iuran / bln</span><b class="blue" id="mkBpjsTotal">—</b></div><div class="mk-inset mk-out"><span>Ditanggung Perusahaan</span><b class="emerald" id="mkBpjsEr">—</b></div><div class="mk-inset mk-out"><span>Dipotong dari Karyawan</span><b class="indigo" id="mkBpjsEe">—</b></div></div>
+        <div id="mkBpjsPrintOut"></div>
+      </div></section>`;
 
 
       main.innerHTML = `<div class="mk360">
@@ -622,16 +638,55 @@
         catch (error) { toast('Gagal menyimpan profil pajak', error.message, 'coral'); }
       });
       main.querySelector('#mkTaxBase') && calcTax();
-      const calcBpjs = () => {
-        const base = Number(main.querySelector('#mkBpjsSalary').value) || 0;
-        const capKes = Math.min(base, 12000000), kesTotal = capKes * 0.05, kesEmp = capKes * 0.01;
-        const capJp = Math.min(base, 10042300), jht = base * 0.057, jkk = base * 0.0024, jkm = base * 0.003, jp = capJp * 0.03, jpEmp = capJp * 0.01;
-        const tkTotal = jht + jkk + jkm + jp, empTotal = kesEmp + base * 0.02 + jpEmp;
-        main.querySelector('#mkBpjsKes').textContent = rp(kesTotal);
-        main.querySelector('#mkBpjsTk').textContent = rp(tkTotal);
-        main.querySelector('#mkBpjsEmp').textContent = rp(empTotal) + ' /bln';
+      const bpjsCompute = () => {
+        const upah = Number(main.querySelector('#mkBpjsSalary').value) || 0;
+        const scheme = main.querySelector('#mkBpjsScheme').value;
+        const risk = Number(main.querySelector('#mkBpjsRisk').value) || 0.0024;
+        const rows = BPJS_PROGRAMS.map((p) => {
+          const on = main.querySelector(`[data-bpjs-prog="${p.key}"]`).checked;
+          const erPct = p.risk ? risk : p.erPct;
+          const capBase = p.cap ? Math.min(upah, p.cap) : upah;
+          let er = Math.round(capBase * erPct), ee = Math.round(capBase * p.eePct);
+          if (scheme === 'FULL_COMPANY') { er += ee; ee = 0; }
+          return { p, on, capBase, er, ee, total: er + ee, ratePct: ((erPct + p.eePct) * 100).toFixed(2).replace(/\.?0+$/, '') };
+        });
+        return { upah, scheme, rows };
       };
+      const calcBpjs = () => {
+        const { rows } = bpjsCompute();
+        let tEr = 0, tEe = 0, active = 0;
+        const html = rows.map((r) => {
+          if (r.on) { active += 1; tEr += r.er; tEe += r.ee; }
+          const sub = `${esc(r.p.label)} · ${r.ratePct}%${r.p.cap ? ' · cap ' + rp(r.p.cap) : ''}`;
+          return `<tr class="${r.on ? '' : 'mk-bpjs-off'}"><td><div class="mk-reg-emp"><b>${esc(r.p.short)}</b><small>${sub}</small></div></td><td class="r">${r.on ? rp(r.capBase) : '—'}</td><td class="r">${r.on ? rp(r.er) : '—'}</td><td class="r">${r.on ? (r.ee ? rp(r.ee) : 'Rp 0') : '—'}</td><td class="r b">${r.on ? rp(r.total) : '—'}</td></tr>`;
+        }).join('');
+        main.querySelector('#mkBpjsRows').innerHTML = html;
+        main.querySelector('#mkBpjsFoot').innerHTML = `<tr><td>Total (${active} program)</td><td class="r"></td><td class="r">${rp(tEr)}</td><td class="r">${rp(tEe)}</td><td class="r b">${rp(tEr + tEe)}</td></tr>`;
+        main.querySelector('#mkBpjsTotal').textContent = rp(tEr + tEe);
+        main.querySelector('#mkBpjsEr').textContent = rp(tEr);
+        main.querySelector('#mkBpjsEe').textContent = rp(tEe) + ' /bln';
+        main.querySelector('#mkBpjsCount').textContent = `${active} program aktif`;
+      };
+      const printBpjs = () => {
+        const { upah, scheme, rows } = bpjsCompute();
+        const on = rows.filter((r) => r.on);
+        const tEr = on.reduce((n, r) => n + r.er, 0), tEe = on.reduce((n, r) => n + r.ee, 0);
+        const out = main.querySelector('#mkBpjsPrintOut');
+        out.innerHTML = `<div class="mk-slip"><div class="mk-slip-doc">
+          <div class="mk-slip-head"><div class="mk-slip-brand"><div class="mk-slip-logo">S</div><div><b>PT Singularity Teknofastindo</b><span>Rincian Iuran BPJS</span></div></div><div class="mk-slip-title"><h3>RINCIAN IURAN BPJS</h3><span>${scheme === 'FULL_COMPANY' ? 'Ditanggung penuh perusahaan' : 'Skema iuran'}</span></div></div>
+          <div class="mk-slip-meta"><div><label>Karyawan</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK / ID</label><b>${esc(ov.nik || '—')}</b></div><div><label>Dasar Upah</label><b>${rp(upah)}</b></div></div>
+          <table class="mk-slip-t"><thead><tr><td>Program</td><td class="r">Perusahaan</td><td class="r">Karyawan</td></tr></thead><tbody>${on.map((r) => `<tr><td>${esc(r.p.short)} — ${esc(r.p.label)} (${r.ratePct}%)</td><td class="r">${rp(r.er)}</td><td class="r">${r.ee ? rp(r.ee) : 'Rp 0'}</td></tr>`).join('')}<tr class="tot"><td>Total / bln</td><td class="r">${rp(tEr)}</td><td class="r">${rp(tEe)}</td></tr></tbody></table>
+          <div class="mk-slip-net"><span>Total Iuran BPJS / bln</span><b>${rp(tEr + tEe)}</b></div>
+          <div class="mk-slip-foot"><span>Dihasilkan otomatis oleh Singularity HRIS · ${new Date().toISOString().slice(0, 10)}</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkBpjsPrintBack">Tutup</button><button class="mk-btn primary sm" id="mkBpjsPrintDo">${MK('printer')} Cetak / PDF</button></div></div>
+        </div></div>`;
+        out.querySelector('#mkBpjsPrintDo')?.addEventListener('click', () => window.print());
+        out.querySelector('#mkBpjsPrintBack')?.addEventListener('click', () => { out.innerHTML = ''; });
+        out.scrollIntoView({ block: 'nearest' });
+      };
+      ['#mkBpjsScheme', '#mkBpjsRisk'].forEach((sel) => main.querySelector(sel)?.addEventListener('change', calcBpjs));
       main.querySelector('#mkBpjsSalary')?.addEventListener('input', calcBpjs);
+      main.querySelectorAll('[data-bpjs-prog]').forEach((c) => c.addEventListener('change', calcBpjs));
+      main.querySelector('#mkBpjsPrint')?.addEventListener('click', printBpjs);
       main.querySelector('#mkBpjsSalary') && calcBpjs();
     }
   };
