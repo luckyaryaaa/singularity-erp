@@ -341,6 +341,13 @@
     ['payroll', 'Payroll & Bank', 'card', null], ['leave', 'Cuti & Kehadiran', 'clock', null], ['services', 'Services & Tools', 'wrench', null],
     ['documents', 'Documents', 'fileText', null], ['audit', 'Audit Trail & Logs', 'history', null]
   ];
+  // Pengelompokan tab (2-tier): grup → sub-tab, agar tidak sesak (pola SAP/Workday).
+  const MK_GROUPS = [
+    { id: 'profil', label: 'Profil', icon: 'user', tabs: ['overview', 'family', 'documents'] },
+    { id: 'kepegawaian', label: 'Kepegawaian', icon: 'briefcase', tabs: ['employment', 'leave', 'talent'] },
+    { id: 'kompensasi', label: 'Kompensasi & Pajak', icon: 'card', tabs: ['payroll', 'tax', 'bpjs'] },
+    { id: 'governance', label: 'Tata Kelola', icon: 'shield', tabs: ['workflow', 'ocr', 'services', 'audit'] }
+  ];
 
   // Tabel TER Bulanan PP 58/2023 (presisi) — [batas atas bruto, tarif]. Kategori A/B/C.
   const TER_TABLE = {
@@ -444,7 +451,7 @@
           <div class="mk-actions"><button class="mk-btn" data-mk-export>${MK('printer')} Export Summary</button>${editable ? `<button class="mk-btn primary" data-mk-identity>${MK('edit')} Pengkinian Data</button>` : ''}</div>
         </div></section>
 
-        <div class="mk-surface mk-tabbar"><div class="mk-tabs" role="tablist">${MK_TABS.map((t, i) => `<button class="mk-tab${i === 0 ? ' active' : ''}" data-mk-tab="${t[0]}" role="tab">${MK(t[2])} ${esc(t[1])}${t[3] ? `<span class="mk-chip ${t[3][1]}">${esc(t[3][0])}</span>` : ''}</button>`).join('')}</div></div>
+        <div class="mk-surface mk-tabbar"><div class="mk-groups" role="tablist">${MK_GROUPS.map((g, i) => `<button class="mk-group${i === 0 ? ' active' : ''}" data-mk-group="${g.id}" role="tab">${MK(g.icon)} ${esc(g.label)}<span class="mk-group-n">${g.tabs.length}</span></button>`).join('')}</div><div class="mk-subtabs" data-mk-subtabs role="tablist"></div></div>
 
         <div class="mk-content" data-mk-content="overview">${metrics}${dataPribadi}</div>
         <div class="mk-content" data-mk-content="tax" hidden>${taxTab}</div>
@@ -733,9 +740,17 @@
           });
         }
       };
+      const subLabel = (k) => { const t = MK_TABS.find((x) => x[0] === k); return `<button class="mk-tab" data-mk-tab="${k}" role="tab">${MK(t[2])} ${esc(t[1])}${t[3] ? `<span class="mk-chip ${t[3][1]}">${esc(t[3][0])}</span>` : ''}</button>`; };
+      const renderSubtabs = (key) => {
+        const group = MK_GROUPS.find((g) => g.tabs.includes(key)) || MK_GROUPS[0];
+        main.querySelectorAll('[data-mk-group]').forEach((b) => b.classList.toggle('active', b.dataset.mkGroup === group.id));
+        const sub = main.querySelector('[data-mk-subtabs]');
+        sub.innerHTML = group.tabs.map(subLabel).join('');
+        sub.querySelectorAll('.mk-tab[data-mk-tab]').forEach((b) => { b.classList.toggle('active', b.dataset.mkTab === key); b.addEventListener('click', () => show(b.dataset.mkTab)); });
+      };
       const show = async (key) => {
+        renderSubtabs(key);
         main.querySelectorAll('[data-mk-content]').forEach((el) => { el.hidden = el.dataset.mkContent !== key; });
-        main.querySelectorAll('.mk-tab[data-mk-tab]').forEach((b) => b.classList.toggle('active', b.dataset.mkTab === key));
         const panel = main.querySelector(`[data-mk-content="${key}"]`);
         if (panel && loaders[key] && !loaded[key]) {
           loaded[key] = true;
@@ -745,6 +760,8 @@
         }
       };
       main.querySelectorAll('[data-mk-tab]').forEach((b) => b.addEventListener('click', () => show(b.dataset.mkTab)));
+      main.querySelectorAll('[data-mk-group]').forEach((b) => b.addEventListener('click', () => { const g = MK_GROUPS.find((x) => x.id === b.dataset.mkGroup); const cur = main.querySelector('[data-mk-content]:not([hidden])')?.dataset.mkContent; if (g && !g.tabs.includes(cur)) show(g.tabs[0]); }));
+      renderSubtabs('overview');
       wireCommon(main);
       const calcTax = () => {
         const base = Number(main.querySelector('#mkTaxBase').value) || 0, fixed = Number(main.querySelector('#mkTaxFixed').value) || 0, vari = Number(main.querySelector('#mkTaxVar').value) || 0, bonus = Number(main.querySelector('#mkTaxBonus').value) || 0;
