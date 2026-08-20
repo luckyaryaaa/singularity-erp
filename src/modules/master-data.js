@@ -481,7 +481,21 @@
             <div class="mk-tl-wrap"><div class="mk-o-caps">Anggota Keluarga (${items.length})</div>${items.length ? `<div class="mk-col">${items.map(row).join('')}</div>` : emptyBox('Belum ada data keluarga.')}</div>
           </div></section>`;
         },
-        employment: async () => { const [tl, , conD] = await Promise.all([api(`${B}/timeline`), api(`${B}/positions`), api(`${B}/contracts`)]); const contracts = conD.items || []; return `<section class="mk-surface">${clayHead('briefcase', 'Employment & Career History', 'Riwayat jabatan, penempatan, kontrak, dan perjalanan karier.', `<span class="mk-badge blue">${(tl.items || []).length} peristiwa</span>`)}<div class="mk-section-body mk-col"><div class="mk-g mk-g3"><div class="mk-inset mk-field"><label>Jabatan Aktif</label><div class="mk-v">${esc(pos.positionTitle || ov.jobTitle || '—')}</div></div><div class="mk-inset mk-field"><label>Status Kepegawaian</label><div class="mk-v mk-em">${esc(emp.employmentStatus || ov.lifecycleStatus || 'ACTIVE')}</div></div><div class="mk-inset mk-field"><label>Bergabung</label><div class="mk-v">${ov.joinDate ? fmtDate(ov.joinDate) : '—'} · ${esc(serviceLength(ov.joinDate))}</div></div></div><div class="mk-tl-wrap"><div class="mk-o-caps">Riwayat Karier (Timeline)</div>${mkTimeline(tl.items || [])}</div>${contracts.length ? `<div class="mk-tl-wrap"><div class="mk-o-caps">Kontrak</div><div class="mk-g mk-g2">${contracts.map((c) => `<div class="mk-inset mk-field"><label>${esc(c.contractType || 'Kontrak')} · ${esc(c.contractNumber || '')}</label><div class="mk-v">${fmtDate(c.startDate)} → ${c.endDate ? fmtDate(c.endDate) : 'tanpa batas'}</div></div>`).join('')}</div></div>` : ''}</div></section>`; },
+        employment: async () => {
+          const [tl, , conD] = await Promise.all([api(`${B}/timeline`), api(`${B}/positions`), api(`${B}/contracts`)]);
+          const contracts = conD.items || [], canEdit = can('employee.edit');
+          const cStatus = (c) => {
+            if (!c.endDate) return { tone: 'emerald', label: 'Tanpa batas (tetap)' };
+            const days = Math.ceil((new Date(c.endDate) - new Date()) / 86400000);
+            if (days < 0) return { tone: 'coral', label: `Berakhir ${Math.abs(days)} hari lalu` };
+            if (days <= 60) return { tone: 'amber', label: `Berakhir dalam ${days} hari` };
+            return { tone: 'blue', label: `Aktif · sisa ${days} hari` };
+          };
+          const active = contracts.slice().sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
+          const al = active ? cStatus(active) : null;
+          const alertBox = al && (al.tone === 'coral' || al.tone === 'amber') ? `<div class="mk-note ${al.tone}"><div class="mk-flex1"><b>Perhatian kontrak:</b> ${esc(active.contractType || 'Kontrak')} ${esc(active.contractNumber || '')} — ${esc(al.label)}.${canEdit ? ' Segera proses perpanjangan atau pengangkatan tetap.' : ''}</div></div>` : '';
+          return `<section class="mk-surface">${clayHead('briefcase', 'Employment & Career History', 'Riwayat jabatan, penempatan, kontrak, dan perjalanan karier.', `<span class="mk-badge blue">${(tl.items || []).length} peristiwa</span>`)}<div class="mk-section-body mk-col"><div class="mk-g mk-g3"><div class="mk-inset mk-field"><label>Jabatan Aktif</label><div class="mk-v">${esc(pos.positionTitle || ov.jobTitle || '—')}</div></div><div class="mk-inset mk-field"><label>Status Kepegawaian</label><div class="mk-v mk-em">${esc(emp.employmentStatus || ov.lifecycleStatus || 'ACTIVE')}</div></div><div class="mk-inset mk-field"><label>Bergabung</label><div class="mk-v">${ov.joinDate ? fmtDate(ov.joinDate) : '—'} · ${esc(serviceLength(ov.joinDate))}</div></div></div>${alertBox}<div class="mk-tl-wrap"><div class="mk-o-caps">Riwayat Karier (Timeline)</div>${mkTimeline(tl.items || [])}</div><div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Kontrak Kerja${canEdit ? `<button class="mk-btn sm" id="mkContractAdd">${MK('plus')} Tambah / Perpanjang</button>` : ''}</div>${contracts.length ? `<div class="mk-g mk-g2">${contracts.map((c) => { const s = cStatus(c); return `<div class="mk-inset mk-contract"><div class="mk-rowb"><b>${esc(c.contractType || 'Kontrak')}</b><span class="mk-badge ${s.tone}">${esc(s.label)}</span></div><small class="mk-mu">${esc(c.contractNumber || '—')}</small><div class="mk-v">${fmtDate(c.startDate)} → ${c.endDate ? fmtDate(c.endDate) : 'tanpa batas'}</div>${c.probationEnd ? `<small class="mk-mu">Probation s.d. ${fmtDate(c.probationEnd)}</small>` : ''}</div>`; }).join('')}</div>` : emptyBox('Belum ada kontrak terdaftar.')}</div></div></section>`;
+        },
         payroll: async () => {
           const [banksD, ca] = await Promise.all([api(`${B}/bank-accounts`), api(`${B}/compensation-analysis`).catch(() => null)]);
           const banks = banksD.items || [];
@@ -620,6 +634,20 @@
             const ptkp = fam.derivedPtkp || 'TK/0', cat = ptkpToCat(ptkp);
             try { await api(`${B}/tax-profiles`, { method: 'POST', body: { taxScheme: 'PPH21', ptkpStatus: ptkp, terCategory: cat, effectiveFrom: new Date().toISOString().slice(0, 10) }, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('PTKP diterapkan', `Profil pajak → ${ptkp} (TER ${cat}). Kalkulasi PPh 21 menyesuaikan.`); }
             catch (error) { toast('Gagal menerapkan PTKP', error.message, 'coral'); }
+          });
+        }
+        if (key === 'employment') {
+          panel.querySelector('#mkContractAdd')?.addEventListener('click', async () => {
+            const v = await formDialog({ title: `Tambah / Perpanjang Kontrak — ${ov.name || ''}`, description: 'Kontrak baru dicatat sebagai riwayat kepegawaian. Kosongkan tanggal berakhir untuk PKWTT (tetap).', fields: [
+              { name: 'contractNumber', label: 'Nomor Kontrak', required: true },
+              { name: 'contractType', label: 'Jenis', type: 'select', options: [['PKWT', 'PKWT (kontrak)'], ['PKWTT', 'PKWTT (tetap)'], ['MAGANG', 'Magang'], ['OUTSOURCE', 'Outsource']], value: 'PKWT' },
+              { name: 'startDate', label: 'Mulai', type: 'date', value: new Date().toISOString().slice(0, 10), required: true },
+              { name: 'endDate', label: 'Berakhir (kosongkan jika tetap)', type: 'date' },
+              { name: 'probationEnd', label: 'Akhir masa percobaan (opsional)', type: 'date' }
+            ], submitLabel: 'Simpan kontrak' });
+            if (!v) return;
+            try { await api(`${B}/contracts`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Kontrak tersimpan', 'Riwayat kepegawaian diperbarui.'); loaded.employment = false; show('employment'); }
+            catch (error) { toast('Gagal menyimpan kontrak', error.message, 'coral'); }
           });
         }
         if (key === 'talent') {
