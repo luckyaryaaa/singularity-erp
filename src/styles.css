@@ -1890,8 +1890,14 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk360{--mk-canvas:#eef1f7;--mk-card:#fff;--mk-ink:#1e293b;--mk-slate:#475569;--mk-muted:#94a3b8;--mk-line:#e2e8f0;
   --mk-blue:#2563eb;--mk-blue-ink:#1d4ed8;--mk-emerald:#059669;--mk-amber:#d97706;--mk-purple:#7c3aed;
   --mk-lo:#dbe1ea;--mk-hi:#ffffff;
-  margin:0 auto;max-width:1640px;border-radius:24px;padding:22px 24px 40px;background:linear-gradient(135deg,#f5f7fa 0%,#e7ebf3 100%);
+  margin:0 auto;max-width:1640px;padding:0;background:transparent;
   font-family:'Plus Jakarta Sans',var(--font-body);color:var(--mk-ink);min-height:100%;display:flex;flex-direction:column;gap:20px}
+.mk-topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:-6px}
+.mk-back{display:inline-flex;align-items:center;gap:5px;padding:8px 15px;border-radius:11px;background:#fff;border:1px solid var(--mk-line);color:var(--mk-slate);font:800 11.5px 'Plus Jakarta Sans';text-decoration:none;box-shadow:3px 3px 8px var(--mk-lo),-3px -3px 8px var(--mk-hi);transition:transform .15s,color .15s}
+.mk-back:hover{color:var(--mk-blue);transform:translateX(-2px)}
+.mk-back svg{width:15px;height:15px}
+.mk-crumb{font:700 11px 'Plus Jakarta Sans';color:var(--mk-muted)}
+.mk-crumb i{color:var(--mk-muted);margin:0 3px;font-style:normal;opacity:.6}
 .mk360 *{box-sizing:border-box}
 .mk360 :where(svg){width:15px;height:15px;flex:none;vertical-align:middle}
 .mk-surface{background:var(--mk-card);border-radius:20px;box-shadow:10px 10px 24px var(--mk-lo),-10px -10px 24px var(--mk-hi);border:1px solid rgba(255,255,255,.8)}

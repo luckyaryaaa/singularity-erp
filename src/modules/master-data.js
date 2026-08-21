@@ -470,6 +470,7 @@
 
 
       main.innerHTML = `<div class="mk360">
+        <div class="mk-topbar"><a class="mk-back" href="#/hr/employees">${MK('chevronLeft') || '‹'} Kembali ke Direktori Karyawan</a><span class="mk-crumb">Karyawan <i>›</i> ${esc(ov.name || 'Employee 360')}</span></div>
         <section class="mk-surface mk-banner"><div class="mk-banner-row">
           <div class="mk-id"><div class="mk-avatar${ov.profileFileId ? ' has-photo' : ''}">${photo || esc(mkInitials(ov.name))}<span class="mk-dot" title="Aktif"></span></div>
             <div><div class="mk-id-tags"><h1>${esc(ov.name || ov.nik)}</h1><span class="mk-badge emerald">${MK('shieldCheck')} ${esc(ov.lifecycleStatus || 'ACTIVE')}</span>${ov.department ? `<span class="mk-badge blue">ORG: ${esc(ov.department)}</span>` : ''}</div>
