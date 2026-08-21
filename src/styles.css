@@ -1890,7 +1890,7 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk360{--mk-canvas:#eef1f7;--mk-card:#fff;--mk-ink:#1e293b;--mk-slate:#475569;--mk-muted:#94a3b8;--mk-line:#e2e8f0;
   --mk-blue:#2563eb;--mk-blue-ink:#1d4ed8;--mk-emerald:#059669;--mk-amber:#d97706;--mk-purple:#7c3aed;
   --mk-lo:#dbe1ea;--mk-hi:#ffffff;
-  margin:-22px -24px;padding:22px 24px 40px;background:linear-gradient(135deg,#f5f7fa 0%,#e7ebf3 100%);
+  margin:0 auto;max-width:1640px;border-radius:24px;padding:22px 24px 40px;background:linear-gradient(135deg,#f5f7fa 0%,#e7ebf3 100%);
   font-family:'Plus Jakarta Sans',var(--font-body);color:var(--mk-ink);min-height:100%;display:flex;flex-direction:column;gap:20px}
 .mk360 *{box-sizing:border-box}
 .mk360 :where(svg){width:15px;height:15px;flex:none;vertical-align:middle}
