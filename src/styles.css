@@ -1898,6 +1898,8 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-back svg{width:15px;height:15px}
 .mk-crumb{font:700 11px 'Plus Jakarta Sans';color:var(--mk-muted)}
 .mk-crumb i{color:var(--mk-muted);margin:0 3px;font-style:normal;opacity:.6}
+.mk-kpi-strip{--mk-lo:#dbe1ea;--mk-hi:#fff;--mk-line:#e2e8f0;--mk-muted:#94a3b8;--mk-slate:#475569;--mk-ink:#1e293b;--mk-blue:#2563eb;--mk-emerald:#059669;--mk-amber:#d97706;--mk-purple:#7c3aed;margin-bottom:22px}
+.mk-kpi-strip .mk-m-ic svg{width:20px;height:20px}
 .mk360 *{box-sizing:border-box}
 .mk360 :where(svg){width:15px;height:15px;flex:none;vertical-align:middle}
 .mk-surface{background:var(--mk-card);border-radius:20px;box-shadow:10px 10px 24px var(--mk-lo),-10px -10px 24px var(--mk-hi);border:1px solid rgba(255,255,255,.8)}
