@@ -410,6 +410,18 @@
           <div class="mk-inset mk-field mk-span2"><label>Alamat Domisili</label><div class="mk-v">${MK('mapPin')}<span class="mk-addr-v">${esc(personal.address || 'Belum dilengkapi')}</span></div></div>
         </div></section>`;
 
+      const strukturCard = `<section class="mk-surface mk-ovh"><div class="mk-section-head"><h2>${MK('briefcase')} Struktur &amp; Penempatan</h2></div><div class="mk-section-body mk-g mk-g4">
+        ${mkField('Jabatan', pos.positionTitle || ov.jobTitle || '—')}
+        ${mkField('Departemen / Divisi', null, { html: `${esc(ov.department || '—')}${pos.division ? ' · ' + esc(pos.division) : ''}` })}
+        ${mkField('Cabang / Lokasi', null, { html: `${esc(ov.branchName || '—')}${pos.workLocation ? ' · ' + esc(pos.workLocation) : ''}` })}
+        ${mkField('Grade', pos.salaryGrade || comp.salaryGrade || '—', { mono: true })}
+        ${mkField('Atasan (Garis Komando)', null, { html: sup.supervisorName ? `${esc(sup.supervisorName)}${sup.supervisorTitle ? ` <span class="mk-mu">· ${esc(sup.supervisorTitle)}</span>` : ''}` : '—' })}
+        ${mkField('Tipe & Status Kerja', null, { html: `<span class="mk-badge slate">${esc(emp.employmentType || 'PKWTT')}</span> <span class="mk-badge ${(emp.employmentStatus || ov.lifecycleStatus) === 'ACTIVE' ? 'emerald' : 'amber'}">${esc(emp.employmentStatus || ov.lifecycleStatus || 'ACTIVE')}</span>` })}
+      </div></section>`;
+      const KELENGKAPAN = [['Identitas (NIK KTP)', !!personal.nikKtp], ['Profil Pajak (PTKP/TER)', !!(tax && tax.ptkpStatus)], ['BPJS', (Number(s.bpjsPrograms) || 0) > 0], ['Rekening Payroll', !!s.payrollBank], ['Kontrak / Kepegawaian', (ov.subCounts && Number(ov.subCounts.contracts) > 0) || !!(emp && emp.employmentType)]];
+      const kDone = KELENGKAPAN.filter((c) => c[1]).length;
+      const kelengkapanCard = `<section class="mk-surface"><div class="mk-section-head"><h2>${MK('shieldCheck')} Kelengkapan Data</h2><span class="mk-badge ${kDone === KELENGKAPAN.length ? 'emerald' : 'amber'}">${kDone}/${KELENGKAPAN.length} lengkap</span></div><div class="mk-section-body"><div class="mk-g mk-g2">${KELENGKAPAN.map(([label, ok]) => `<div class="mk-inset mk-chk-item ${ok ? 'ok' : 'no'}"><b>${esc(label)}</b><span class="mk-badge ${ok ? 'emerald' : 'amber'}">${ok ? 'Lengkap' : 'Belum'}</span></div>`).join('')}</div></div></section>`;
+
       const ptkpStatus = tax.ptkpStatus || 'TK/0';
       const terCat = tax.terCategory || (['TK/0', 'TK/1', 'K/0'].includes(ptkpStatus) ? 'A' : ['TK/2', 'TK/3', 'K/1', 'K/2'].includes(ptkpStatus) ? 'B' : ptkpStatus === 'K/3' ? 'C' : 'A');
       const taxTab = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('calc')} PPh 21 TER Advanced Planner</div><div class="mk-section-desc">Gaji &amp; seluruh tunjangan otomatis dari data karyawan — sesuaikan Bonus/THR &amp; metode. PP 58/2023.</div></div><span class="mk-badge blue">Compliance v9.5</span></div><div class="mk-section-body"><div class="mk-io">
@@ -455,7 +467,7 @@
 
         <div class="mk-surface mk-tabbar"><div class="mk-groups" role="tablist">${MK_GROUPS.map((g, i) => `<button class="mk-group${i === 0 ? ' active' : ''}" data-mk-group="${g.id}" role="tab">${MK(g.icon)} ${esc(g.label)}<span class="mk-group-n">${g.tabs.length}</span></button>`).join('')}</div><div class="mk-subtabs" data-mk-subtabs role="tablist"></div></div>
 
-        <div class="mk-content" data-mk-content="overview">${metrics}${dataPribadi}</div>
+        <div class="mk-content" data-mk-content="overview">${metrics}${strukturCard}${dataPribadi}${kelengkapanCard}</div>
         <div class="mk-content" data-mk-content="tax" hidden>${taxTab}</div>
         <div class="mk-content" data-mk-content="bpjs" hidden>${bpjsTab}</div>
         <div class="mk-content" data-mk-content="ocr" hidden></div>
