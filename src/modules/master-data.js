@@ -291,12 +291,25 @@
     });
     if (!value) return;
     Object.keys(value).forEach((k) => { if (value[k] === '' || value[k] == null) delete value[k]; });
-    if (!Object.keys(value).length) { toast('Tidak ada perubahan', 'Isi minimal satu field untuk menyimpan.', 'amber'); return; }
+    const FLABEL = { nikKtp: 'NIK KTP', birthPlace: 'Tempat lahir', birthDate: 'Tgl lahir', gender: 'Jenis kelamin', maritalStatus: 'Status kawin', religion: 'Agama', bloodType: 'Gol. darah', phone: 'Telepon', personalEmail: 'Email', address: 'Alamat' };
+    const changes = Object.keys(value).filter((k) => { const oldV = k === 'nikKtp' ? rawNik : (personal[k] != null ? String(personal[k]) : ''); return String(value[k]) !== oldV; });
+    if (!changes.length) { toast('Tidak ada perubahan', 'Ubah minimal satu field untuk menyimpan.', 'amber'); return; }
+    // Tinjau perubahan (diff lama → baru) sebelum simpan.
+    const diff = changes.map((k) => k === 'nikKtp' ? 'NIK KTP: diperbarui (terenkripsi)' : `${FLABEL[k] || k}: ${personal[k] != null && personal[k] !== '' ? personal[k] : '(kosong)'} → ${value[k]}`).join('  ·  ');
+    const confirm = await actionDialog({ title: `Tinjau Pengkinian — ${changes.length} perubahan`, description: `Perubahan berikut akan disimpan & tercatat di audit trail:  ${diff}`, confirmLabel: 'Simpan perubahan' });
+    if (confirm === null) return;
     try {
       await api(`/api/masters/employees/${params.id}/personal`, { method: 'POST', body: value, idempotencyKey: newIdemKey() });
       invalidate(`master:${params.id}`);
       toast('Identitas diperbarui', 'Data diri tersimpan & tercatat di audit trail.');
-      rerender();
+      // Tawarkan lampiran dokumen pendukung (scan KTP dll) — opsional.
+      const attach = await actionDialog({ title: 'Lampirkan dokumen pendukung?', description: 'Unggah scan KTP / dokumen resmi sebagai bukti pengkinian (opsional).', confirmLabel: 'Unggah dokumen', cancelLabel: 'Lewati' });
+      if (attach !== null) {
+        const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*,application/pdf';
+        input.onchange = async () => { const f = input.files && input.files[0]; if (!f) { rerender(); return; } toast('Mengunggah…', f.name); try { const up = await uploadFile('/api/files?module=employee', f); await api(`/api/masters/employees/${params.id}/documents`, { method: 'POST', body: { title: `Dokumen Pengkinian ${new Date().toISOString().slice(0, 10)}`, documentType: 'KTP', fileId: up.id }, idempotencyKey: newIdemKey() }); toast('Dokumen terlampir', 'Tersimpan di tab Dokumen.'); } catch (e) { toast('Gagal melampirkan', e.message, 'coral'); } rerender(); };
+        input.oncancel = () => rerender();
+        input.click();
+      } else { rerender(); }
     } catch (error) { toast('Gagal menyimpan identitas', error.message, 'coral'); }
   };
 
