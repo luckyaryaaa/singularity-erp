@@ -582,13 +582,14 @@
           const expStatus = (dt) => { if (!dt) return null; const days = Math.ceil((new Date(dt) - new Date()) / 86400000); if (days < 0) return { tone: 'coral', label: `Kadaluarsa ${Math.abs(days)} hari lalu` }; if (days <= 60) return { tone: 'amber', label: `Kadaluarsa ${days} hari lagi` }; return { tone: 'emerald', label: `Sisa ${days} hari` }; };
           const expiring = [...docs, ...certs].filter((x) => { const s = expStatus(x.expiryDate); return s && s.tone !== 'emerald'; }).length;
           const alertBox = expiring ? `<div class="mk-note amber"><div class="mk-flex1"><b>${expiring} dokumen/sertifikat</b> akan atau sudah kadaluarsa — periksa &amp; perbarui untuk menjaga kepatuhan.</div></div>` : '';
-          const docCard = (d) => { const s = expStatus(d.expiryDate); return `<div class="mk-inset mk-doc"><span class="mk-doc-ic">${MK('fileText')}</span><div class="mk-flex1"><b>${esc(d.title || '—')}</b><small>${esc(DOC_TYPE[d.documentType] || d.documentType || '')}${d.expiryDate ? ' · exp ' + fmtDate(d.expiryDate) : ''}</small></div><div class="mk-fam-tags">${s ? `<span class="mk-badge ${s.tone}">${esc(s.label)}</span>` : ''}${d.verified ? `<span class="mk-badge emerald">${MK('check')}</span>` : '<span class="mk-badge slate">Belum verif</span>'}</div></div>`; };
-          const certCard = (c) => { const s = expStatus(c.expiryDate); const tags = c.skillTags ? String(c.skillTags).split(',').map((t) => t.trim()).filter(Boolean) : []; return `<div class="mk-inset mk-doc"><span class="mk-doc-ic">${MK('award')}</span><div class="mk-flex1"><b>${esc(c.name || '—')}</b><small>${esc(c.issuer || '')}${c.certificateNumber ? ' · ' + esc(c.certificateNumber) : ''}${c.expiryDate ? ' · exp ' + fmtDate(c.expiryDate) : ''}</small>${tags.length ? `<div class="mk-cert-tags">${tags.map((t) => `<span class="mk-tag">${esc(t)}</span>`).join('')}</div>` : ''}</div>${s ? `<span class="mk-badge ${s.tone}">${esc(s.label)}</span>` : ''}</div>`; };
+          const dl = (fid) => fid ? `<a class="mk-btn sm" href="/api/files/${esc(fid)}" target="_blank" rel="noopener">${MK('fileText')} File</a>` : '';
+          const docCard = (d) => { const s = expStatus(d.expiryDate); return `<div class="mk-inset mk-doc"><span class="mk-doc-ic">${MK('fileText')}</span><div class="mk-flex1"><b>${esc(d.title || '—')}</b><small>${esc(DOC_TYPE[d.documentType] || d.documentType || '')}${d.expiryDate ? ' · exp ' + fmtDate(d.expiryDate) : ''}</small></div><div class="mk-fam-tags">${s ? `<span class="mk-badge ${s.tone}">${esc(s.label)}</span>` : ''}${d.verified ? `<span class="mk-badge emerald">${MK('check')}</span>` : '<span class="mk-badge slate">Belum verif</span>'}${dl(d.fileId)}</div></div>`; };
+          const certCard = (c) => { const s = expStatus(c.expiryDate); const tags = c.skillTags ? String(c.skillTags).split(',').map((t) => t.trim()).filter(Boolean) : []; return `<div class="mk-inset mk-doc"><span class="mk-doc-ic">${MK('award')}</span><div class="mk-flex1"><b>${esc(c.name || '—')}</b><small>${esc(c.issuer || '')}${c.certificateNumber ? ' · ' + esc(c.certificateNumber) : ''}${c.expiryDate ? ' · exp ' + fmtDate(c.expiryDate) : ''}</small>${tags.length ? `<div class="mk-cert-tags">${tags.map((t) => `<span class="mk-tag">${esc(t)}</span>`).join('')}</div>` : ''}</div><div class="mk-fam-tags">${s ? `<span class="mk-badge ${s.tone}">${esc(s.label)}</span>` : ''}${dl(c.fileId)}</div></div>`; };
           return `<section class="mk-surface">${clayHead('fileText', 'Dokumen & Sertifikasi', 'Arsip dokumen kepegawaian, lisensi, dan sertifikasi dengan pelacakan masa berlaku.', `<span class="mk-badge slate">${docs.length + certs.length} berkas</span>`)}<div class="mk-section-body mk-col">
             <div class="mk-g mk-g3"><div class="mk-inset mk-out"><span>Dokumen</span><b>${docs.length}</b></div><div class="mk-inset mk-out"><span>Sertifikasi</span><b class="blue">${certs.length}</b></div><div class="mk-inset mk-out"><span>Akan Kadaluarsa</span><b class="${expiring ? 'amber' : 'emerald'}">${expiring}</b></div></div>
             ${alertBox}
-            <div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Dokumen Kepegawaian${canEdit ? `<button class="mk-btn sm" id="mkDocAdd">${MK('plus')} Tambah Dokumen</button>` : ''}</div>${docs.length ? `<div class="mk-g mk-g2">${docs.map(docCard).join('')}</div>` : emptyBox('Belum ada dokumen.')}</div>
-            <div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Sertifikasi &amp; Kompetensi${canEdit ? `<button class="mk-btn sm" id="mkCertAdd">${MK('plus')} Tambah Sertifikasi</button>` : ''}</div>${certs.length ? `<div class="mk-g mk-g2">${certs.map(certCard).join('')}</div>` : emptyBox('Belum ada sertifikasi.')}</div>
+            <div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Dokumen Kepegawaian${canEdit ? `<button class="mk-btn sm" id="mkDocAdd">${MK('plus')} Unggah / Tambah</button>` : ''}</div>${docs.length ? `<div class="mk-g mk-g2">${docs.map(docCard).join('')}</div>` : emptyBox('Belum ada dokumen.')}</div>
+            <div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Sertifikasi &amp; Kompetensi${canEdit ? `<button class="mk-btn sm" id="mkCertAdd">${MK('plus')} Unggah / Tambah</button>` : ''}</div>${certs.length ? `<div class="mk-g mk-g2">${certs.map(certCard).join('')}</div>` : emptyBox('Belum ada sertifikasi.')}</div>
           </div></section>`;
         },
         audit: async () => { const rows = (await api(`${B}/audit`)).items || []; return `<section class="mk-surface">${clayHead('history', 'Audit Trail & Logs', 'Jejak perubahan data karyawan.', `<span class="mk-badge slate">${rows.length} entri</span>`)}<div class="mk-section-body">${rows.length ? `<ol class="mk-audit">${rows.map((r) => `<li class="mk-audit-row"><span class="mk-audit-ic">${MK('history')}</span><div class="mk-flex1"><div class="mk-rowb"><b>${esc(r.action || r.entityType || 'Perubahan')}</b><span class="mk-tl-date">${r.occurredAt ? fmtDate(r.occurredAt) : ''}</span></div><small>${esc(r.entityType || '')}${r.reason ? ` · ${esc(r.reason)}` : ''}</small></div></li>`).join('')}</ol>` : emptyBox('Belum ada aktivitas audit.')}</div></section>`; },
@@ -839,29 +840,36 @@
           });
         }
         if (key === 'documents') {
-          panel.querySelector('#mkDocAdd')?.addEventListener('click', async () => {
-            const v = await formDialog({ title: `Tambah Dokumen — ${ov.name || ''}`, description: 'Catat dokumen kepegawaian + masa berlaku untuk pelacakan kepatuhan.', fields: [
-              { name: 'title', label: 'Judul Dokumen', required: true },
+          const pickFile = (onDone) => {
+            const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*,application/pdf,.doc,.docx,.xls,.xlsx';
+            let handled = false; const finish = (fileId, fname) => { if (handled) return; handled = true; onDone(fileId, fname); };
+            input.onchange = async () => { const file = input.files && input.files[0]; if (!file) return finish(null, ''); toast('Mengunggah file…', file.name); try { const up = await uploadFile(`/api/files?module=employee`, file); finish(up.id, up.originalFilename || file.name); } catch (e) { toast('Gagal unggah file', e.message, 'coral'); } };
+            input.oncancel = () => finish(null, '');
+            input.click();
+          };
+          panel.querySelector('#mkDocAdd')?.addEventListener('click', () => pickFile(async (fileId, fname) => {
+            const v = await formDialog({ title: `Tambah / Unggah Dokumen — ${ov.name || ''}`, description: fileId ? 'File terunggah (dipindai antivirus) — lengkapi metadata.' : 'Catat metadata dokumen; file bisa diunggah dari sini juga.', fields: [
+              { name: 'title', label: 'Judul Dokumen', value: fname || '', required: true },
               { name: 'documentType', label: 'Jenis', type: 'select', options: [['KTP', 'KTP'], ['NPWP', 'NPWP'], ['KK', 'Kartu Keluarga'], ['CONTRACT', 'Kontrak'], ['CERTIFICATE', 'Sertifikat'], ['TRAINING', 'Pelatihan'], ['LICENSE', 'Lisensi/Izin'], ['MEDICAL', 'Medis'], ['OTHER', 'Lainnya']], value: 'OTHER' },
               { name: 'expiryDate', label: 'Masa berlaku s.d. (opsional)', type: 'date' }
             ], submitLabel: 'Simpan dokumen' });
-            if (!v) return;
-            try { await api(`${B}/documents`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Dokumen tersimpan'); loaded.documents = false; show('documents'); }
+            if (!v) return; if (fileId) v.fileId = fileId;
+            try { await api(`${B}/documents`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Dokumen tersimpan', fileId ? 'File tertaut.' : ''); loaded.documents = false; show('documents'); }
             catch (error) { toast('Gagal menyimpan dokumen', error.message, 'coral'); }
-          });
-          panel.querySelector('#mkCertAdd')?.addEventListener('click', async () => {
-            const v = await formDialog({ title: `Tambah Sertifikasi — ${ov.name || ''}`, description: 'Sertifikasi/lisensi dengan masa berlaku & kompetensi (matriks skill).', fields: [
-              { name: 'name', label: 'Nama Sertifikasi', required: true },
+          }));
+          panel.querySelector('#mkCertAdd')?.addEventListener('click', () => pickFile(async (fileId, fname) => {
+            const v = await formDialog({ title: `Tambah / Unggah Sertifikasi — ${ov.name || ''}`, description: fileId ? 'File terunggah — lengkapi metadata.' : 'Sertifikasi/lisensi + kompetensi (matriks skill).', fields: [
+              { name: 'name', label: 'Nama Sertifikasi', value: fname || '', required: true },
               { name: 'issuer', label: 'Penerbit' },
               { name: 'certificateNumber', label: 'Nomor Sertifikat' },
               { name: 'issuedDate', label: 'Tanggal terbit', type: 'date' },
               { name: 'expiryDate', label: 'Masa berlaku s.d. (opsional)', type: 'date' },
               { name: 'skillTags', label: 'Kompetensi (pisahkan dengan koma)' }
             ], submitLabel: 'Simpan sertifikasi' });
-            if (!v) return;
-            try { await api(`${B}/certifications`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Sertifikasi tersimpan'); loaded.documents = false; show('documents'); }
+            if (!v) return; if (fileId) v.fileId = fileId;
+            try { await api(`${B}/certifications`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Sertifikasi tersimpan', fileId ? 'File tertaut.' : ''); loaded.documents = false; show('documents'); }
             catch (error) { toast('Gagal menyimpan sertifikasi', error.message, 'coral'); }
-          });
+          }));
         }
         if (key === 'talent') {
           panel.querySelectorAll('.mk-band-fill[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
