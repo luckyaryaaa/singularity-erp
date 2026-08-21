@@ -1034,4 +1034,38 @@ async function decideOffboarding(client, id, offbId, action, user, requestId) {
   return runtime.camel(row);
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding };
+// ── Surat Peringatan (SP) & Disiplin ───────────────────────────────────────
+const SP_LEVELS = ['TEGURAN', 'SP1', 'SP2', 'SP3'];
+async function listDisciplinary(client, id, user) {
+  assertPermission(user, 'employee.view');
+  await parentRow(client, 'employees', id);
+  await client.query(`UPDATE employee_disciplinary SET status='EXPIRED', updated_at=now() WHERE employee_id=$1 AND status='ACTIVE' AND expiry_date IS NOT NULL AND expiry_date < current_date`, [id]);
+  const rows = (await client.query(`SELECT * FROM employee_disciplinary WHERE employee_id=$1 ORDER BY issued_date DESC, created_at DESC`, [id])).rows.map(runtime.camel);
+  const active = rows.filter((r) => r.status === 'ACTIVE');
+  const highest = ['SP3', 'SP2', 'SP1', 'TEGURAN'].find((lv) => active.some((r) => r.level === lv)) || null;
+  return { items: rows, activeCount: active.length, highestActive: highest };
+}
+async function addDisciplinary(client, id, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  await parentRow(client, 'employees', id);
+  const level = SP_LEVELS.includes(String(body.level || '').toUpperCase()) ? String(body.level).toUpperCase() : 'SP1';
+  const violation = String(body.violation || '').trim();
+  if (!violation) throw new AppError('VALIDATION_ERROR', 'Uraian pelanggaran wajib diisi.');
+  const issued = /^\d{4}-\d{2}-\d{2}$/.test(body.issuedDate || '') ? body.issuedDate : new Date().toISOString().slice(0, 10);
+  const expiry = /^\d{4}-\d{2}-\d{2}$/.test(body.expiryDate || '') ? body.expiryDate : null;
+  const row = (await client.query(`INSERT INTO employee_disciplinary (employee_id, level, violation, issued_date, expiry_date, notes, issued_by, status)
+    VALUES ($1,$2,$3,$4::date, COALESCE($5::date, ($4::date + interval '6 months')::date), $6, $7, 'ACTIVE') RETURNING *`,
+    [id, level, violation, issued, expiry, body.notes || null, user.id])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: 'DISCIPLINARY_ADD', module: 'employee', entityType: 'EMPLOYEE_DISCIPLINARY', entityId: id, newValue: { level, violation }, requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
+async function decideDisciplinary(client, id, spId, action, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  await parentRow(client, 'employees', id);
+  const row = (await client.query(`UPDATE employee_disciplinary SET status='REVOKED', updated_at=now() WHERE id=$2 AND employee_id=$1 RETURNING id`, [id, spId])).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND', 'Surat peringatan tidak ditemukan.');
+  await runtime.audit(client, { userId: user.id, action: 'DISCIPLINARY_REVOKE', module: 'employee', entityType: 'EMPLOYEE_DISCIPLINARY', entityId: id, requestId, branchId: user.branchId });
+  return { revoked: spId };
+}
+
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary };

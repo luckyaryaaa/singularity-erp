@@ -340,14 +340,15 @@
     ['offboarding', 'Offboarding & Pesangon', 'briefcase', ['Exit', 'coral']],
     ['tax', 'Pajak', 'calc', ['PPh 21 TER', 'blue']], ['bpjs', 'BPJS', 'shield', ['Kesehatan & TK', 'emerald']],
     ['payroll', 'Payroll & Bank', 'card', null], ['leave', 'Cuti & Kehadiran', 'clock', null], ['services', 'Services & Tools', 'wrench', null],
-    ['documents', 'Documents', 'fileText', null], ['audit', 'Audit Trail & Logs', 'history', null]
+    ['documents', 'Documents', 'fileText', null], ['audit', 'Audit Trail & Logs', 'history', null],
+    ['letters', 'Surat & Disiplin', 'fileText', null]
   ];
   // Pengelompokan tab (2-tier): grup → sub-tab, agar tidak sesak (pola SAP/Workday).
   const MK_GROUPS = [
     { id: 'profil', label: 'Profil', icon: 'user', tabs: ['overview', 'family', 'documents'] },
     { id: 'kepegawaian', label: 'Kepegawaian', icon: 'briefcase', tabs: ['employment', 'leave', 'talent', 'offboarding'] },
     { id: 'kompensasi', label: 'Kompensasi & Pajak', icon: 'card', tabs: ['payroll', 'tax', 'bpjs'] },
-    { id: 'governance', label: 'Tata Kelola', icon: 'shield', tabs: ['workflow', 'ocr', 'services', 'audit'] }
+    { id: 'governance', label: 'Tata Kelola', icon: 'shield', tabs: ['workflow', 'ocr', 'letters', 'services', 'audit'] }
   ];
 
   // Tabel TER Bulanan PP 58/2023 (presisi) — [batas atas bruto, tarif]. Kategori A/B/C.
@@ -468,6 +469,7 @@
         <div class="mk-content" data-mk-content="services" hidden></div>
         <div class="mk-content" data-mk-content="documents" hidden></div>
         <div class="mk-content" data-mk-content="audit" hidden></div>
+        <div class="mk-content" data-mk-content="letters" hidden></div>
       </div>`;
 
       main.querySelectorAll('[data-party-photo]').forEach((img) => img.addEventListener('error', () => { img.hidden = true; }, { once: true }));
@@ -496,6 +498,18 @@
             ? `<div class="mk-note emerald"><div class="mk-flex1"><b>Offboarding selesai</b> · efektif ${fmtDate(rec.effectiveDate)} · status karyawan ARCHIVED.</div><button class="mk-btn sm" id="mkOffbPaklaring">${MK('printer')} Cetak Paklaring</button></div>`
             : canEdit ? `<div class="mk-bpjs-acts"><button class="mk-btn primary sm" id="mkOffbComplete">${MK('check')} Selesaikan Offboarding</button><button class="mk-btn sm" id="mkOffbPaklaring">${MK('printer')} Paklaring</button><button class="mk-btn sm mk-cor" id="mkOffbCancel">Batalkan</button></div>` : '';
           return `<section class="mk-surface">${clayHead('briefcase', 'Offboarding & Pesangon', `${esc(RLBL[rec.reason] || rec.reason)} · efektif ${fmtDate(rec.effectiveDate)}`, `<span class="mk-badge ${done ? 'emerald' : 'amber'}">${done ? 'Selesai' : 'Proses clearance'}</span>`)}<div class="mk-section-body mk-col">${basisCard}${breakdown}${clearance}${actions}<div id="mkOffbOut" data-offb-id="${esc(rec.id)}" data-offb-status="${esc(rec.status)}"></div></div></section>`;
+        },
+        letters: async () => {
+          const d = await api(`${B}/disciplinary`).catch(() => ({ items: [] }));
+          const items = d.items || [], canEdit = can('employee.edit');
+          const LV = { TEGURAN: ['slate', 'Teguran'], SP1: ['amber', 'SP 1'], SP2: ['coral', 'SP 2'], SP3: ['coral', 'SP 3'] };
+          const ST = { ACTIVE: ['blue', 'Berlaku'], EXPIRED: ['slate', 'Kadaluarsa'], REVOKED: ['emerald', 'Dicabut'] };
+          const spRow = (s) => { const lv = LV[s.level] || ['slate', s.level], st = ST[s.status] || ['slate', s.status]; return `<div class="mk-inset mk-fam-row"><span class="mk-badge ${lv[0]}">${esc(lv[1])}</span><div class="mk-flex1"><b>${esc(s.violation)}</b><small>Terbit ${fmtDate(s.issuedDate)}${s.expiryDate ? ' · berlaku s.d. ' + fmtDate(s.expiryDate) : ''}</small></div><span class="mk-badge ${st[0]}">${esc(st[1])}</span>${canEdit ? `<div class="mk-fam-act"><button class="mk-btn sm" data-sp-print="${esc(s.id)}">Cetak</button>${s.status === 'ACTIVE' ? `<button class="mk-btn sm mk-cor" data-sp-revoke="${esc(s.id)}">Cabut</button>` : ''}</div>` : ''}</div>`; };
+          return `<section class="mk-surface">${clayHead('fileText', 'Surat & Disiplin', 'Generator surat resmi (keterangan kerja) & administrasi Surat Peringatan (SP).', canEdit ? `<button class="mk-btn primary sm" id="mkSuratKerja">${MK('printer')} Surat Keterangan Kerja</button>` : '')}<div class="mk-section-body mk-col">
+            <div class="mk-g mk-g2"><div class="mk-inset mk-out"><span>SP Aktif Tertinggi</span><b class="${d.highestActive ? 'coral' : 'emerald'}">${esc(d.highestActive || 'Tidak ada')}</b></div><div class="mk-inset mk-out"><span>Jumlah SP Aktif</span><b>${d.activeCount || 0}</b></div></div>
+            <div class="mk-tl-wrap"><div class="mk-rowb mk-o-caps bb">Surat Peringatan (SP)${canEdit ? `<button class="mk-btn sm mk-cor" id="mkSpAdd">${MK('plus')} Terbitkan SP</button>` : ''}</div>${items.length ? `<div class="mk-col">${items.map(spRow).join('')}</div>` : emptyBox('Belum ada catatan disiplin.')}</div>
+            <div id="mkSuratOut"></div>
+          </div></section>`;
         },
         leave: async () => {
           const year = new Date().getFullYear(), period = new Date().toISOString().slice(0, 7);
@@ -682,6 +696,34 @@
             out.querySelector('#mkThrBack')?.addEventListener('click', () => { out.innerHTML = ''; });
             out.scrollIntoView({ block: 'nearest' });
           });
+        }
+        if (key === 'letters') {
+          const reload = () => { loaded.letters = false; show('letters'); };
+          const suratDoc = (title, subtitle, bodyHtml) => `<div class="mk-slip"><div class="mk-slip-doc"><div class="mk-slip-head"><div class="mk-slip-brand"><div class="mk-slip-logo">S</div><div><b>PT Singularity Teknofastindo</b><span>Head Office · Bekasi</span></div></div><div class="mk-slip-title"><h3>${esc(title)}</h3><span>${esc(subtitle)}</span></div></div><div class="mk-slip-meta"><div><label>Nama</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK</label><b>${esc(ov.nik || '—')}</b></div><div><label>Jabatan</label><b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></div></div>${bodyHtml}<div class="mk-slip-foot"><span>Bekasi, ${new Date().toISOString().slice(0, 10)} · PT Singularity Teknofastindo</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkSuratBack">Tutup</button><button class="mk-btn primary sm" id="mkSuratPrint">${MK('printer')} Cetak / PDF</button></div></div></div></div>`;
+          const showSurat = (html) => { const out = panel.querySelector('#mkSuratOut'); out.innerHTML = html; out.querySelector('#mkSuratPrint')?.addEventListener('click', () => window.print()); out.querySelector('#mkSuratBack')?.addEventListener('click', () => { out.innerHTML = ''; }); out.scrollIntoView({ block: 'nearest' }); };
+          panel.querySelector('#mkSuratKerja')?.addEventListener('click', () => showSurat(suratDoc('SURAT KETERANGAN KERJA', 'Karyawan Aktif', `<p class="mk-paklaring-p">Yang bertanda tangan di bawah ini, manajemen PT Singularity Teknofastindo, dengan ini menerangkan bahwa nama tersebut di atas adalah benar karyawan aktif perusahaan kami${ov.joinDate ? ` terhitung sejak <b>${fmtDate(ov.joinDate)}</b>` : ''} dengan jabatan sebagaimana tercantum, dan sampai saat ini masih bekerja dengan baik.</p><p class="mk-paklaring-p">Surat keterangan ini dibuat untuk dapat dipergunakan sebagaimana mestinya.</p>`)));
+          panel.querySelector('#mkSpAdd')?.addEventListener('click', async () => {
+            const v = await formDialog({ title: `Terbitkan Surat Peringatan — ${ov.name || ''}`, description: 'SP berlaku default 6 bulan sejak tanggal terbit (kecuali diisi).', fields: [
+              { name: 'level', label: 'Tingkat', type: 'select', options: [['TEGURAN', 'Teguran'], ['SP1', 'SP 1'], ['SP2', 'SP 2'], ['SP3', 'SP 3']], value: 'SP1' },
+              { name: 'violation', label: 'Uraian pelanggaran', type: 'textarea', rows: 2, required: true },
+              { name: 'issuedDate', label: 'Tanggal terbit', type: 'date', value: new Date().toISOString().slice(0, 10), required: true },
+              { name: 'expiryDate', label: 'Berlaku s.d. (kosongkan = 6 bln)', type: 'date' }
+            ], submitLabel: 'Terbitkan' });
+            if (!v) return;
+            try { await api(`${B}/disciplinary`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('SP diterbitkan'); reload(); }
+            catch (error) { toast('Gagal menerbitkan SP', error.message, 'coral'); }
+          });
+          panel.querySelectorAll('[data-sp-print]').forEach((b) => b.addEventListener('click', async () => {
+            const sp = ((await api(`${B}/disciplinary`).catch(() => ({}))).items || []).find((x) => x.id === b.dataset.spPrint); if (!sp) return;
+            const LVL = { TEGURAN: 'SURAT TEGURAN', SP1: 'SURAT PERINGATAN I', SP2: 'SURAT PERINGATAN II', SP3: 'SURAT PERINGATAN III' }[sp.level] || sp.level;
+            showSurat(suratDoc(LVL, `Terbit ${fmtDate(sp.issuedDate)}`, `<p class="mk-paklaring-p">Dengan surat ini, manajemen PT Singularity Teknofastindo memberikan <b>${esc(LVL)}</b> kepada karyawan tersebut di atas sehubungan dengan pelanggaran:</p><p class="mk-paklaring-p"><b>${esc(sp.violation)}</b></p><p class="mk-paklaring-p">Surat peringatan ini berlaku${sp.expiryDate ? ` sampai dengan <b>${fmtDate(sp.expiryDate)}</b>` : ''}. Yang bersangkutan diharapkan memperbaiki diri dan tidak mengulangi pelanggaran; apabila berulang, perusahaan dapat mengambil tindakan sesuai peraturan yang berlaku.</p>`));
+          }));
+          panel.querySelectorAll('[data-sp-revoke]').forEach((b) => b.addEventListener('click', async () => {
+            const ans = await actionDialog({ title: 'Cabut SP', description: 'Surat peringatan ini akan ditandai dicabut.', confirmLabel: 'Cabut', danger: true });
+            if (ans === null) return;
+            try { await api(`${B}/disciplinary/${b.dataset.spRevoke}/revoke`, { method: 'POST', body: {}, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('SP dicabut'); reload(); }
+            catch (error) { toast('Gagal mencabut', error.message, 'coral'); }
+          }));
         }
         if (key === 'leave') {
           panel.querySelectorAll('.mk-band-fill[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
