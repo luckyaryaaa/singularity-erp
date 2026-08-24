@@ -418,6 +418,14 @@
       catch (error) { main.innerHTML = `<section class="error-state">${clayOrb('coral', 'alert')}<h1>Gagal memuat</h1><p>${esc(error.message)}</p></section>`; return; }
       let personal = {};
       try { const pr = await api(`/api/masters/employees/${params.id}/personal`); personal = (pr && pr.items && pr.items[0]) || {}; } catch (_) { /* opsional */ }
+      // Identitas perusahaan tenant (white-label) untuk kop/footer semua dokumen HR.
+      let company = {};
+      try { company = await api('/api/company/identity'); } catch (_) { company = {}; }
+      const coName = company.legalName || (window.MAT.state && window.MAT.state.user && window.MAT.state.user.tenantName) || 'Perusahaan';
+      const coInitial = ((coName.replace(/^(PT|CV|UD|PT\.|CV\.)\s+/i, '').trim().match(/\p{L}/u) || ['C'])[0]).toUpperCase();
+      const coBrand = (sub) => `<div class="mk-slip-brand"><div class="mk-slip-logo">${esc(coInitial)}</div><div><b>${esc(coName)}</b><span>${esc(sub || company.tagline || '')}</span></div></div>`;
+      const coFootText = company.documentFooter || 'Dihasilkan otomatis oleh Singularity HRIS';
+      const coCity = (company.address && String(company.address).split(',').pop().trim()) || 'Bekasi';
       const s = ov.enterpriseSummary || {}, pos = s.currentPosition || {}, comp = s.compensation || {}, tax = s.tax || {}, leave = s.leaveBalance || {}, emp = s.employment || {}, sup = s.supervisor || {};
       const editable = can('employee.edit');
       const compTotal = (Number(comp.baseSalary) || 0) + (Number(comp.fixedAllowance) || 0) + (Number(comp.variableAllowance) || 0);
@@ -717,13 +725,13 @@
             const per = new Date(pv + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
             const out = panel.querySelector('#mkSlipOut');
             out.innerHTML = `<div class="mk-slip"><div class="mk-slip-doc">
-              <div class="mk-slip-head"><div class="mk-slip-brand"><div class="mk-slip-logo">S</div><div><b>PT Singularity Teknofastindo</b><span>${esc(ov.branchName || 'Head Office')}</span></div></div><div class="mk-slip-title"><h3>SLIP GAJI KARYAWAN</h3><span>Periode ${esc(per)}</span></div></div>
+              <div class="mk-slip-head">${coBrand(ov.branchName || 'Head Office')}<div class="mk-slip-title"><h3>SLIP GAJI KARYAWAN</h3><span>Periode ${esc(per)}</span></div></div>
               <div class="mk-slip-meta"><div><label>Nama Karyawan</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK / ID</label><b>${esc(ov.nik || '—')}</b></div><div><label>Jabatan</label><b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></div><div><label>Unit / Organisasi</label><b>${esc(ov.department || '—')}</b></div><div><label>Status PTKP</label><b>${esc(ptkp)} · TER ${esc(cat)}</b></div><div><label>NPWP</label><b>${npwp ? 'Ber-NPWP' : 'Tanpa NPWP'}</b></div></div>
               <div class="mk-slip-cols"><div class="mk-slip-col"><div class="mk-slip-ch">Penghasilan (A)</div><table class="mk-slip-t"><tbody><tr><td>Gaji Pokok</td><td>${money(base)}</td></tr><tr><td>Tunjangan Tetap</td><td>${money(fixed)}</td></tr><tr><td>Tunjangan Variabel</td><td>${money(vari)}</td></tr>${bonus > 0 ? `<tr><td>Bonus / THR</td><td>${money(bonus)}</td></tr>` : ''}<tr class="tot"><td>Total Bruto</td><td>${money(gross)}</td></tr></tbody></table></div>
               <div class="mk-slip-col"><div class="mk-slip-ch">Potongan (B)</div><table class="mk-slip-t"><tbody><tr><td>BPJS Kesehatan (1%)</td><td>${money(kesEmp)}</td></tr><tr><td>BPJS JHT (2%)</td><td>${money(jhtEmp)}</td></tr><tr><td>BPJS JP (1%)</td><td>${money(jpEmp)}</td></tr><tr><td>PPh 21 (TER ${esc(cat)}${npwp ? '' : ' +20%'})</td><td>${money(pph)}</td></tr><tr class="tot"><td>Total Potongan</td><td>${money(deductions)}</td></tr></tbody></table></div></div>
               <div class="mk-slip-net"><span>Gaji Bersih Diterima (A − B)</span><b>${money(thp)}</b></div>
               <div class="mk-slip-er"><span class="mk-o-caps">Kontribusi Perusahaan (di luar THP) — BPJS atas upah tetap</span><div class="mk-slip-erg"><span>BPJS Perusahaan (Kes 4% · JKK · JKM · JHT 3,7% · JP 2%)<b>${money(bpjsEr)}</b></span><span>Total Biaya Perusahaan (Cost to Company)<b>${money(ctc)}</b></span></div></div>
-              <div class="mk-slip-foot"><span>Dokumen dihasilkan otomatis oleh Singularity HRIS · ${new Date().toISOString().slice(0, 10)} · Rahasia</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkSlipBack">Tutup</button><button class="mk-btn primary sm" id="mkSlipPrint">${MK('printer')} Cetak / PDF</button></div></div>
+              <div class="mk-slip-foot"><span>${esc(coFootText)} · ${new Date().toISOString().slice(0, 10)} · Rahasia</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkSlipBack">Tutup</button><button class="mk-btn primary sm" id="mkSlipPrint">${MK('printer')} Cetak / PDF</button></div></div>
             </div></div>`;
             out.querySelector('#mkSlipPrint')?.addEventListener('click', () => window.print());
             out.querySelector('#mkSlipBack')?.addEventListener('click', () => { out.innerHTML = ''; });
@@ -771,11 +779,11 @@
             const b = panel.querySelector('#mkThrSlip'), thr = Number(b.dataset.thr) || 0, months = b.dataset.thrm, wage = Number(b.dataset.thrw) || 0;
             const out = panel.querySelector('#mkSlipOut');
             out.innerHTML = `<div class="mk-slip"><div class="mk-slip-doc">
-              <div class="mk-slip-head"><div class="mk-slip-brand"><div class="mk-slip-logo">S</div><div><b>PT Singularity Teknofastindo</b><span>Head Office · Bekasi</span></div></div><div class="mk-slip-title"><h3>SLIP THR</h3><span>Tunjangan Hari Raya</span></div></div>
+              <div class="mk-slip-head">${coBrand(ov.branchName || 'Head Office')}<div class="mk-slip-title"><h3>SLIP THR</h3><span>Tunjangan Hari Raya</span></div></div>
               <div class="mk-slip-meta"><div><label>Nama</label><b>${esc(ov.name || '—')}</b></div><div><label>Masa Kerja</label><b>${esc(String(months))} bln</b></div><div><label>Upah (pokok+tetap)</label><b>${rp(wage)}</b></div></div>
               <table class="mk-slip-t"><tbody><tr><td>Tunjangan Hari Raya${Number(months) >= 12 ? ' (1× upah)' : ' (pro-rata ' + esc(String(months)) + '/12)'}</td><td class="r">${rp(thr)}</td></tr><tr class="tot"><td>THR Diterima</td><td class="r">${rp(thr)}</td></tr></tbody></table>
               <div class="mk-slip-net"><span>THR Diterima</span><b>${rp(thr)}</b></div>
-              <div class="mk-slip-foot"><span>Dihasilkan otomatis oleh Singularity HRIS · ${new Date().toISOString().slice(0, 10)}</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkThrBack">Tutup</button><button class="mk-btn primary sm" id="mkThrPrint">${MK('printer')} Cetak / PDF</button></div></div>
+              <div class="mk-slip-foot"><span>${esc(coFootText)} · ${new Date().toISOString().slice(0, 10)}</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkThrBack">Tutup</button><button class="mk-btn primary sm" id="mkThrPrint">${MK('printer')} Cetak / PDF</button></div></div>
             </div></div>`;
             out.querySelector('#mkThrPrint')?.addEventListener('click', () => window.print());
             out.querySelector('#mkThrBack')?.addEventListener('click', () => { out.innerHTML = ''; });
@@ -784,9 +792,9 @@
         }
         if (key === 'letters') {
           const reload = () => { loaded.letters = false; show('letters'); };
-          const suratDoc = (title, subtitle, bodyHtml) => `<div class="mk-slip"><div class="mk-slip-doc"><div class="mk-slip-head"><div class="mk-slip-brand"><div class="mk-slip-logo">S</div><div><b>PT Singularity Teknofastindo</b><span>Head Office · Bekasi</span></div></div><div class="mk-slip-title"><h3>${esc(title)}</h3><span>${esc(subtitle)}</span></div></div><div class="mk-slip-meta"><div><label>Nama</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK</label><b>${esc(ov.nik || '—')}</b></div><div><label>Jabatan</label><b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></div></div>${bodyHtml}<div class="mk-slip-foot"><span>Bekasi, ${new Date().toISOString().slice(0, 10)} · PT Singularity Teknofastindo</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkSuratBack">Tutup</button><button class="mk-btn primary sm" id="mkSuratPrint">${MK('printer')} Cetak / PDF</button></div></div></div></div>`;
+          const suratDoc = (title, subtitle, bodyHtml) => `<div class="mk-slip"><div class="mk-slip-doc"><div class="mk-slip-head">${coBrand(ov.branchName || 'Head Office')}<div class="mk-slip-title"><h3>${esc(title)}</h3><span>${esc(subtitle)}</span></div></div><div class="mk-slip-meta"><div><label>Nama</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK</label><b>${esc(ov.nik || '—')}</b></div><div><label>Jabatan</label><b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></div></div>${bodyHtml}<div class="mk-slip-foot"><span>${esc(coCity)}, ${new Date().toISOString().slice(0, 10)} · ${esc(coName)}</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkSuratBack">Tutup</button><button class="mk-btn primary sm" id="mkSuratPrint">${MK('printer')} Cetak / PDF</button></div></div></div></div>`;
           const showSurat = (html) => { const out = panel.querySelector('#mkSuratOut'); out.innerHTML = html; out.querySelector('#mkSuratPrint')?.addEventListener('click', () => window.print()); out.querySelector('#mkSuratBack')?.addEventListener('click', () => { out.innerHTML = ''; }); out.scrollIntoView({ block: 'nearest' }); };
-          panel.querySelector('#mkSuratKerja')?.addEventListener('click', () => showSurat(suratDoc('SURAT KETERANGAN KERJA', 'Karyawan Aktif', `<p class="mk-paklaring-p">Yang bertanda tangan di bawah ini, manajemen PT Singularity Teknofastindo, dengan ini menerangkan bahwa nama tersebut di atas adalah benar karyawan aktif perusahaan kami${ov.joinDate ? ` terhitung sejak <b>${fmtDate(ov.joinDate)}</b>` : ''} dengan jabatan sebagaimana tercantum, dan sampai saat ini masih bekerja dengan baik.</p><p class="mk-paklaring-p">Surat keterangan ini dibuat untuk dapat dipergunakan sebagaimana mestinya.</p>`)));
+          panel.querySelector('#mkSuratKerja')?.addEventListener('click', () => showSurat(suratDoc('SURAT KETERANGAN KERJA', 'Karyawan Aktif', `<p class="mk-paklaring-p">Yang bertanda tangan di bawah ini, manajemen ${esc(coName)}, dengan ini menerangkan bahwa nama tersebut di atas adalah benar karyawan aktif perusahaan kami${ov.joinDate ? ` terhitung sejak <b>${fmtDate(ov.joinDate)}</b>` : ''} dengan jabatan sebagaimana tercantum, dan sampai saat ini masih bekerja dengan baik.</p><p class="mk-paklaring-p">Surat keterangan ini dibuat untuk dapat dipergunakan sebagaimana mestinya.</p>`)));
           panel.querySelector('#mkSpAdd')?.addEventListener('click', async () => {
             const v = await formDialog({ title: `Terbitkan Surat Peringatan — ${ov.name || ''}`, description: 'SP berlaku default 6 bulan sejak tanggal terbit (kecuali diisi).', fields: [
               { name: 'level', label: 'Tingkat', type: 'select', options: [['TEGURAN', 'Teguran'], ['SP1', 'SP 1'], ['SP2', 'SP 2'], ['SP3', 'SP 3']], value: 'SP1' },
@@ -801,7 +809,7 @@
           panel.querySelectorAll('[data-sp-print]').forEach((b) => b.addEventListener('click', async () => {
             const sp = ((await api(`${B}/disciplinary`).catch(() => ({}))).items || []).find((x) => x.id === b.dataset.spPrint); if (!sp) return;
             const LVL = { TEGURAN: 'SURAT TEGURAN', SP1: 'SURAT PERINGATAN I', SP2: 'SURAT PERINGATAN II', SP3: 'SURAT PERINGATAN III' }[sp.level] || sp.level;
-            showSurat(suratDoc(LVL, `Terbit ${fmtDate(sp.issuedDate)}`, `<p class="mk-paklaring-p">Dengan surat ini, manajemen PT Singularity Teknofastindo memberikan <b>${esc(LVL)}</b> kepada karyawan tersebut di atas sehubungan dengan pelanggaran:</p><p class="mk-paklaring-p"><b>${esc(sp.violation)}</b></p><p class="mk-paklaring-p">Surat peringatan ini berlaku${sp.expiryDate ? ` sampai dengan <b>${fmtDate(sp.expiryDate)}</b>` : ''}. Yang bersangkutan diharapkan memperbaiki diri dan tidak mengulangi pelanggaran; apabila berulang, perusahaan dapat mengambil tindakan sesuai peraturan yang berlaku.</p>`));
+            showSurat(suratDoc(LVL, `Terbit ${fmtDate(sp.issuedDate)}`, `<p class="mk-paklaring-p">Dengan surat ini, manajemen ${esc(coName)} memberikan <b>${esc(LVL)}</b> kepada karyawan tersebut di atas sehubungan dengan pelanggaran:</p><p class="mk-paklaring-p"><b>${esc(sp.violation)}</b></p><p class="mk-paklaring-p">Surat peringatan ini berlaku${sp.expiryDate ? ` sampai dengan <b>${fmtDate(sp.expiryDate)}</b>` : ''}. Yang bersangkutan diharapkan memperbaiki diri dan tidak mengulangi pelanggaran; apabila berulang, perusahaan dapat mengambil tindakan sesuai peraturan yang berlaku.</p>`));
           }));
           panel.querySelectorAll('[data-sp-revoke]').forEach((b) => b.addEventListener('click', async () => {
             const ans = await actionDialog({ title: 'Cabut SP', description: 'Surat peringatan ini akan ditandai dicabut.', confirmLabel: 'Cabut', danger: true });
@@ -849,12 +857,12 @@
             const RLBL = dd.reasons ? Object.fromEntries(dd.reasons) : {};
             const out = panel.querySelector('#mkOffbOut');
             out.innerHTML = `<div class="mk-slip"><div class="mk-slip-doc">
-              <div class="mk-slip-head"><div class="mk-slip-brand"><div class="mk-slip-logo">S</div><div><b>PT Singularity Teknofastindo</b><span>Head Office · Bekasi</span></div></div><div class="mk-slip-title"><h3>SURAT KETERANGAN KERJA</h3><span>Paklaring</span></div></div>
-              <p class="mk-paklaring-p">Yang bertanda tangan di bawah ini, manajemen PT Singularity Teknofastindo, dengan ini menerangkan bahwa:</p>
+              <div class="mk-slip-head">${coBrand(ov.branchName || 'Head Office')}<div class="mk-slip-title"><h3>SURAT KETERANGAN KERJA</h3><span>Paklaring</span></div></div>
+              <p class="mk-paklaring-p">Yang bertanda tangan di bawah ini, manajemen ${esc(coName)}, dengan ini menerangkan bahwa:</p>
               <div class="mk-slip-meta"><div><label>Nama</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK</label><b>${esc(ov.nik || '—')}</b></div><div><label>Jabatan</label><b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></div></div>
               <p class="mk-paklaring-p">telah bekerja di perusahaan kami terhitung sejak <b>${basis.joinDate ? fmtDate(basis.joinDate) : '—'}</b> sampai dengan <b>${fmtDate(rec.effectiveDate)}</b> (masa kerja ${rec.tenureYears} tahun), dengan jabatan terakhir sebagaimana tersebut di atas. Yang bersangkutan berhenti bekerja dengan alasan <b>${esc(RLBL[rec.reason] || rec.reason)}</b> dan telah menyelesaikan seluruh kewajibannya.</p>
               <p class="mk-paklaring-p">Selama bekerja, yang bersangkutan menunjukkan dedikasi, loyalitas, dan kinerja yang baik. Surat keterangan ini diberikan untuk dapat dipergunakan sebagaimana mestinya.</p>
-              <div class="mk-slip-foot"><span>Bekasi, ${new Date().toISOString().slice(0, 10)} · PT Singularity Teknofastindo</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkPakBack">Tutup</button><button class="mk-btn primary sm" id="mkPakPrint">${MK('printer')} Cetak / PDF</button></div></div>
+              <div class="mk-slip-foot"><span>${esc(coCity)}, ${new Date().toISOString().slice(0, 10)} · ${esc(coName)}</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkPakBack">Tutup</button><button class="mk-btn primary sm" id="mkPakPrint">${MK('printer')} Cetak / PDF</button></div></div>
             </div></div>`;
             out.querySelector('#mkPakPrint')?.addEventListener('click', () => window.print());
             out.querySelector('#mkPakBack')?.addEventListener('click', () => { out.innerHTML = ''; });
@@ -1111,9 +1119,9 @@
         const out = main.querySelector('#mkTaxAnnualOut');
         out.innerHTML = `<div class="mk-1721"><div class="mk-1721-doc">
           <div class="mk-1721-head"><div><h3>BUKTI PEMOTONGAN PPh PASAL 21</h3><span>FORMULIR 1721-A1 · Masa Jan–Des ${new Date().getFullYear()}</span></div><span class="mk-badge ${r.hasNpwp ? 'blue' : 'amber'}">${r.hasNpwp ? 'Ber-NPWP' : 'Non-NPWP'}</span></div>
-          <div class="mk-1721-grid"><div><label>Pemotong</label><b>PT Singularity Teknofastindo</b></div><div><label>Penerima</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK</label><b>${esc(ov.nik || '—')}</b></div><div><label>Jabatan</label><b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></div><div><label>Status PTKP</label><b>${esc(r.ptkp)}</b></div><div><label>Kategori TER</label><b>${esc(r.cat)}</b></div></div>
+          <div class="mk-1721-grid"><div><label>Pemotong</label><b>${esc(coName)}</b></div><div><label>Penerima</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK</label><b>${esc(ov.nik || '—')}</b></div><div><label>Jabatan</label><b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></div><div><label>Status PTKP</label><b>${esc(r.ptkp)}</b></div><div><label>Kategori TER</label><b>${esc(r.cat)}</b></div></div>
           <table class="mk-1721-table"><tbody><tr><td>Penghasilan Bruto Setahun</td><td>${money(r.grossAnnual)}</td></tr><tr><td>Pengurangan — Biaya Jabatan (5%, maks 6 jt)</td><td>(${money(r.biayaJabatan)})</td></tr><tr><td>Pengurangan — Iuran BPJS (JHT + JP)</td><td>(${money(r.bpjsDeduct)})</td></tr><tr><td>Penghasilan Tidak Kena Pajak (PTKP ${esc(r.ptkp)})</td><td>(${money(r.ptkpAmt)})</td></tr><tr class="hl"><td>Penghasilan Kena Pajak (PKP)</td><td>${money(r.pkp)}</td></tr><tr class="hl"><td>PPh 21 Terutang Setahun</td><td>${money(r.pphAnnual)}</td></tr><tr><td>PPh 21 Telah Dipotong (TER Jan–Nov)</td><td>${money(r.terJanNov)}</td></tr><tr class="hl"><td>PPh 21 Kurang Dipotong (Desember)</td><td>${money(r.december)}</td></tr></tbody></table>
-          <div class="mk-1721-foot"><span>Dihasilkan otomatis oleh Singularity HRIS · ${new Date().toISOString().slice(0, 10)}</span><div class="mk-1721-btns"><button class="mk-btn sm" id="mkTax1721Back">Kembali</button><button class="mk-btn primary sm" id="mkTax1721Print">${MK('printer')} Cetak</button></div></div>
+          <div class="mk-1721-foot"><span>${esc(coFootText)} · ${new Date().toISOString().slice(0, 10)}</span><div class="mk-1721-btns"><button class="mk-btn sm" id="mkTax1721Back">Kembali</button><button class="mk-btn primary sm" id="mkTax1721Print">${MK('printer')} Cetak</button></div></div>
         </div></div>`;
         out.querySelector('#mkTax1721Print')?.addEventListener('click', () => window.print());
         out.querySelector('#mkTax1721Back')?.addEventListener('click', () => { out.innerHTML = ''; calcAnnual(); });
@@ -1163,11 +1171,11 @@
         const tEr = on.reduce((n, r) => n + r.er, 0), tEe = on.reduce((n, r) => n + r.ee, 0);
         const out = main.querySelector('#mkBpjsPrintOut');
         out.innerHTML = `<div class="mk-slip"><div class="mk-slip-doc">
-          <div class="mk-slip-head"><div class="mk-slip-brand"><div class="mk-slip-logo">S</div><div><b>PT Singularity Teknofastindo</b><span>Rincian Iuran BPJS</span></div></div><div class="mk-slip-title"><h3>RINCIAN IURAN BPJS</h3><span>${scheme === 'FULL_COMPANY' ? 'Ditanggung penuh perusahaan' : 'Skema iuran'}</span></div></div>
+          <div class="mk-slip-head">${coBrand('Rincian Iuran BPJS')}<div class="mk-slip-title"><h3>RINCIAN IURAN BPJS</h3><span>${scheme === 'FULL_COMPANY' ? 'Ditanggung penuh perusahaan' : 'Skema iuran'}</span></div></div>
           <div class="mk-slip-meta"><div><label>Karyawan</label><b>${esc(ov.name || '—')}</b></div><div><label>NIK / ID</label><b>${esc(ov.nik || '—')}</b></div><div><label>Dasar Upah</label><b>${rp(upah)}</b></div></div>
           <table class="mk-slip-t"><thead><tr><td>Program</td><td class="r">Perusahaan</td><td class="r">Karyawan</td></tr></thead><tbody>${on.map((r) => `<tr><td>${esc(r.p.short)} — ${esc(r.p.label)} (${r.ratePct}%)</td><td class="r">${rp(r.er)}</td><td class="r">${r.ee ? rp(r.ee) : 'Rp 0'}</td></tr>`).join('')}<tr class="tot"><td>Total / bln</td><td class="r">${rp(tEr)}</td><td class="r">${rp(tEe)}</td></tr></tbody></table>
           <div class="mk-slip-net"><span>Total Iuran BPJS / bln</span><b>${rp(tEr + tEe)}</b></div>
-          <div class="mk-slip-foot"><span>Dihasilkan otomatis oleh Singularity HRIS · ${new Date().toISOString().slice(0, 10)}</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkBpjsPrintBack">Tutup</button><button class="mk-btn primary sm" id="mkBpjsPrintDo">${MK('printer')} Cetak / PDF</button></div></div>
+          <div class="mk-slip-foot"><span>${esc(coFootText)} · ${new Date().toISOString().slice(0, 10)}</span><div class="mk-slip-btns"><button class="mk-btn sm" id="mkBpjsPrintBack">Tutup</button><button class="mk-btn primary sm" id="mkBpjsPrintDo">${MK('printer')} Cetak / PDF</button></div></div>
         </div></div>`;
         out.querySelector('#mkBpjsPrintDo')?.addEventListener('click', () => window.print());
         out.querySelector('#mkBpjsPrintBack')?.addEventListener('click', () => { out.innerHTML = ''; });

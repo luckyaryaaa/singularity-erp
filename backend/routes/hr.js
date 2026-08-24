@@ -31,6 +31,7 @@ async function dispatch(client, req, url, ctx) {
   m=p.match(/^\/api\/payroll\/runs\/([^/]+)\/items$/);if(method==='GET'&&m){if(ctx.user.role==='employee')assertPermission(ctx.user,'payroll.view_self');else assertPermission(ctx.user,'payroll.view');return{items:await businessOps.payrollItems(client,m[1],ctx.user)};}
   if(method==='GET'&&p==='/api/payroll/my'){assertPermission(ctx.user,'payroll.view_self');return{items:await businessOps.payrollSelf(client,ctx.user)};}
   if(method==='GET'&&p==='/api/hr/workforce-analytics'){assertPermission(ctx.user,'employee.view');return masterData.workforceAnalytics(client,ctx.user);}
+  if(method==='GET'&&p==='/api/company/identity'){return masterData.companyIdentity(client,ctx.user);}
   if(method==='GET'&&p==='/api/hr/import-batches'){return masterData.listImportBatches(client,ctx.user,{module:url.searchParams.get('module')||undefined,limit:url.searchParams.get('limit')});}
   if(method==='GET'&&p==='/api/hr/recruitment-overview'){return recruitment.recruitmentOverview(client,ctx.user);}
   if(method==='GET'&&p==='/api/hr/requisitions'){return recruitment.listRequisitions(client,ctx.user,{status:url.searchParams.get('status')||undefined});}
