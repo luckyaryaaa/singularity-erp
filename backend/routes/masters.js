@@ -136,6 +136,11 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m)return masterData.listGoals(client,m[1],ctx.user);
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/goals\/([0-9a-f-]{36})\/progress$/);
   if(method==='POST'&&m){const body=await readBody(req);return masterData.updateGoalProgress(client,m[1],m[2],body,ctx.user,ctx.requestId);}
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/reviews$/);
+  if(method==='GET'&&m)return masterData.listReviews(client,m[1],ctx.user);
+  if(method==='POST'&&m){const body=await readBody(req);ctx.status=201;return masterData.createReview(client,m[1],body,ctx.user,ctx.requestId);}
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/reviews\/([0-9a-f-]{36})$/);
+  if(method==='POST'&&m){const body=await readBody(req);return masterData.updateReview(client,m[1],m[2],body,ctx.user,ctx.requestId);}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/(bank-accounts|compensation)\/([0-9a-f-]{36})\/(approve|reject)$/);
   if(method==='POST'&&m){const body=await readBody(req);return masterData.decideEmployeeSensitive(client,{employeeId:m[1],kind:m[2],rowId:m[3],decision:m[4],reason:body.reason,user:ctx.user,requestId:ctx.requestId});}
   m=p.match(/^\/api\/masters\/products\/([0-9a-f-]{36})\/cost-revisions\/([0-9a-f-]{36})\/(review|approve|lock|activate)$/);

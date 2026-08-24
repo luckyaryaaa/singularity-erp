@@ -1131,6 +1131,55 @@ async function updateGoalProgress(client, id, goalId, body, user, requestId) {
     entityId: goalId, newValue: { progress: row.progress, status: row.status }, requestId, branchId: user.branchId });
   return runtime.camel(row);
 }
+// Performance Review — self-assessment, penilaian manajer, kompetensi (jsonb), rating, workflow status.
+const REVIEW_TYPES = ['ANNUAL', 'MID_YEAR', 'PROBATION', 'PROJECT', 'QUARTERLY'];
+const REVIEW_STATUS = ['DRAFT', 'SELF_SUBMITTED', 'MANAGER_REVIEW', 'CALIBRATED', 'FINALIZED'];
+async function listReviews(client, id, user) {
+  assertPermission(user, 'employee.view');
+  await parentRow(client, 'employees', id);
+  const rows = (await client.query(`SELECT * FROM employee_reviews WHERE employee_id=$1 ORDER BY created_at DESC`, [id])).rows.map(runtime.camel);
+  const finalized = rows.filter((r) => r.status === 'FINALIZED');
+  const avg = finalized.length ? Math.round((finalized.reduce((a, r) => a + (Number(r.rating) || 0), 0) / finalized.length) * 10) / 10 : null;
+  return { items: rows, finalizedCount: finalized.length, avgRating: avg };
+}
+async function createReview(client, id, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  await parentRow(client, 'employees', id);
+  const period = String(body.period || '').trim();
+  if (!period) throw new AppError('VALIDATION_ERROR', 'Periode review wajib diisi.');
+  const type = REVIEW_TYPES.includes(String(body.reviewType || '').toUpperCase()) ? String(body.reviewType).toUpperCase() : 'ANNUAL';
+  const rating = (body.rating != null && body.rating !== '') ? Math.max(1, Math.min(5, Number(body.rating))) : null;
+  const comp = (body.competencies && typeof body.competencies === 'object' && !Array.isArray(body.competencies)) ? body.competencies : {};
+  const status = REVIEW_STATUS.includes(String(body.status || '').toUpperCase()) ? String(body.status).toUpperCase() : 'DRAFT';
+  const row = (await client.query(`INSERT INTO employee_reviews
+    (employee_id, period, review_type, self_assessment, manager_review, strengths, improvements, competencies, rating, status, reviewer_id, created_by)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$11) RETURNING *`,
+    [id, period, type, body.selfAssessment || null, body.managerReview || null, body.strengths || null, body.improvements || null,
+      JSON.stringify(comp), rating, status, user.id])).rows[0];
+  await runtime.audit(client, { userId: user.id, action: 'REVIEW_CREATE', module: 'employee', entityType: 'EMPLOYEE_REVIEW',
+    entityId: row.id, newValue: { period, type, status }, requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
+async function updateReview(client, id, reviewId, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  await parentRow(client, 'employees', id);
+  const sets = [], vals = [id, reviewId]; let n = 2;
+  if (body.status !== undefined && body.status !== '') {
+    const st = REVIEW_STATUS.includes(String(body.status).toUpperCase()) ? String(body.status).toUpperCase() : null;
+    if (!st) throw new AppError('VALIDATION_ERROR', 'Status review tidak valid.');
+    sets.push(`status=$${++n}`); vals.push(st);
+    if (st === 'CALIBRATED' || st === 'FINALIZED') sets.push('calibrated=true');
+  }
+  if (body.rating !== undefined && body.rating !== '') { sets.push(`rating=$${++n}`); vals.push(Math.max(1, Math.min(5, Number(body.rating)))); }
+  if (body.managerReview !== undefined) { sets.push(`manager_review=$${++n}`); vals.push(body.managerReview || null); }
+  if (!sets.length) throw new AppError('VALIDATION_ERROR', 'Tidak ada perubahan.');
+  const row = (await client.query(`UPDATE employee_reviews SET ${sets.join(',')}, updated_at=now()
+    WHERE employee_id=$1 AND id=$2 RETURNING *`, vals)).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND');
+  await runtime.audit(client, { userId: user.id, action: 'REVIEW_UPDATE', module: 'employee', entityType: 'EMPLOYEE_REVIEW',
+    entityId: reviewId, newValue: { status: row.status, rating: row.rating }, requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
 async function addDisciplinary(client, id, body, user, requestId) {
   assertPermission(user, 'employee.edit');
   await parentRow(client, 'employees', id);
@@ -1154,4 +1203,4 @@ async function decideDisciplinary(client, id, spId, action, user, requestId) {
   return { revoked: spId };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview };
