@@ -339,12 +339,36 @@
     check: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
     save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
     heart: '<path d="M20.8 6.6a5 5 0 0 0-8.8-2 5 5 0 0 0-8.8 2c-1 3 1.5 6 8.8 11 7.3-5 9.8-8 8.8-11z"/><path d="M3.5 12h4l1.5-3 2 5 1.5-2h4.5"/>',
-    plus: '<path d="M12 5v14M5 12h14"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+    plus: '<path d="M12 5v14M5 12h14"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+    close: '<path d="M18 6 6 18M6 6l12 12"/>',
+    download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'
   };
   const MK = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${MKI[n] || ''}</svg>`;
   const mkInitials = (v) => String(v || '?').trim().split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
   const mkAge = (d) => { if (!d) return null; const a = Math.floor((Date.now() - new Date(d).getTime()) / 31557600000); return Number.isFinite(a) ? a : null; };
   const mkField = (label, value, opts = {}) => `<div class="mk-inset mk-field"><div class="mk-field-top"><label>${esc(label)}</label>${opts.tag ? `<span class="mk-tag ${opts.tag[1]}">${esc(opts.tag[0])}</span>` : ''}</div><div class="mk-v ${opts.mono ? 'mono' : ''}">${opts.html || esc(value ?? '—')}${opts.copy ? `<button class="mk-copy" data-mk-copy="${esc(opts.copy)}" title="Salin">${MK('copy')}</button>` : ''}</div></div>`;
+  // Penampil berkas in-app (modal + iframe same-origin). Gambar/PDF tampil inline; tipe lain sarankan unduh.
+  const openFileViewer = (fid, title) => {
+    if (!fid) return;
+    document.getElementById('mkViewer')?.remove();
+    const url = `/api/files/${encodeURIComponent(fid)}`;
+    const ov = document.createElement('div');
+    ov.id = 'mkViewer';
+    ov.className = 'mk-viewer';
+    ov.innerHTML = `<div class="mk-viewer-doc" role="dialog" aria-modal="true" aria-label="${esc(title || 'Pratinjau dokumen')}">
+      <div class="mk-viewer-head"><b>${MK('fileText')} ${esc(title || 'Pratinjau Dokumen')}</b><div class="mk-viewer-act"><a class="mk-btn sm" href="${url}" target="_blank" rel="noopener">${MK('download')} Unduh</a><button class="mk-btn sm" data-mk-vclose type="button">${MK('close')} Tutup</button></div></div>
+      <div class="mk-viewer-body"><iframe class="mk-viewer-frame" title="${esc(title || 'Dokumen')}" referrerpolicy="no-referrer"></iframe></div>
+      <div class="mk-viewer-foot"><small>Berkas gambar &amp; PDF tampil langsung. Jika tipe lain (Excel/Word) tidak tampil, gunakan tombol Unduh.</small></div>
+    </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector('.mk-viewer-frame').src = url;
+    const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+    ov.querySelector('[data-mk-vclose]')?.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+  };
   const MK_TABS = [
     ['overview', 'Overview & Master', 'user', null], ['ocr', 'AI OCR KTP/NPWP', 'scanText', ['AI Engine', 'purple']],
     ['workflow', 'Workflow Approval', 'gitPr', ['Maker-Checker', 'amber']], ['employment', 'Employment & Position', 'briefcase', null],
@@ -610,9 +634,9 @@
           const expStatus = (dt) => { if (!dt) return null; const days = Math.ceil((new Date(dt) - new Date()) / 86400000); if (days < 0) return { tone: 'coral', label: `Kadaluarsa ${Math.abs(days)} hari lalu` }; if (days <= 60) return { tone: 'amber', label: `Kadaluarsa ${days} hari lagi` }; return { tone: 'emerald', label: `Sisa ${days} hari` }; };
           const expiring = [...docs, ...certs].filter((x) => { const s = expStatus(x.expiryDate); return s && s.tone !== 'emerald'; }).length;
           const alertBox = expiring ? `<div class="mk-note amber"><div class="mk-flex1"><b>${expiring} dokumen/sertifikat</b> akan atau sudah kadaluarsa — periksa &amp; perbarui untuk menjaga kepatuhan.</div></div>` : '';
-          const dl = (fid) => fid ? `<a class="mk-btn sm" href="/api/files/${esc(fid)}" target="_blank" rel="noopener">${MK('fileText')} File</a>` : '';
-          const docCard = (d) => { const s = expStatus(d.expiryDate); return `<div class="mk-inset mk-doc"><span class="mk-doc-ic">${MK('fileText')}</span><div class="mk-flex1"><b>${esc(d.title || '—')}</b><small>${esc(DOC_TYPE[d.documentType] || d.documentType || '')}${d.expiryDate ? ' · exp ' + fmtDate(d.expiryDate) : ''}</small></div><div class="mk-fam-tags">${s ? `<span class="mk-badge ${s.tone}">${esc(s.label)}</span>` : ''}${d.verified ? `<span class="mk-badge emerald">${MK('check')}</span>` : '<span class="mk-badge slate">Belum verif</span>'}${dl(d.fileId)}</div></div>`; };
-          const certCard = (c) => { const s = expStatus(c.expiryDate); const tags = c.skillTags ? String(c.skillTags).split(',').map((t) => t.trim()).filter(Boolean) : []; return `<div class="mk-inset mk-doc"><span class="mk-doc-ic">${MK('award')}</span><div class="mk-flex1"><b>${esc(c.name || '—')}</b><small>${esc(c.issuer || '')}${c.certificateNumber ? ' · ' + esc(c.certificateNumber) : ''}${c.expiryDate ? ' · exp ' + fmtDate(c.expiryDate) : ''}</small>${tags.length ? `<div class="mk-cert-tags">${tags.map((t) => `<span class="mk-tag">${esc(t)}</span>`).join('')}</div>` : ''}</div><div class="mk-fam-tags">${s ? `<span class="mk-badge ${s.tone}">${esc(s.label)}</span>` : ''}${dl(c.fileId)}</div></div>`; };
+          const dl = (fid, title) => fid ? `<button class="mk-btn sm" data-mk-view="${esc(fid)}" data-mk-view-t="${esc(title || 'Dokumen')}">${MK('eye')} Lihat</button><a class="mk-btn sm" href="/api/files/${esc(fid)}" target="_blank" rel="noopener">${MK('download')} Unduh</a>` : '';
+          const docCard = (d) => { const s = expStatus(d.expiryDate); return `<div class="mk-inset mk-doc"><span class="mk-doc-ic">${MK('fileText')}</span><div class="mk-flex1"><b>${esc(d.title || '—')}</b><small>${esc(DOC_TYPE[d.documentType] || d.documentType || '')}${d.expiryDate ? ' · exp ' + fmtDate(d.expiryDate) : ''}</small></div><div class="mk-fam-tags">${s ? `<span class="mk-badge ${s.tone}">${esc(s.label)}</span>` : ''}${d.verified ? `<span class="mk-badge emerald">${MK('check')}</span>` : '<span class="mk-badge slate">Belum verif</span>'}${dl(d.fileId, d.title)}</div></div>`; };
+          const certCard = (c) => { const s = expStatus(c.expiryDate); const tags = c.skillTags ? String(c.skillTags).split(',').map((t) => t.trim()).filter(Boolean) : []; return `<div class="mk-inset mk-doc"><span class="mk-doc-ic">${MK('award')}</span><div class="mk-flex1"><b>${esc(c.name || '—')}</b><small>${esc(c.issuer || '')}${c.certificateNumber ? ' · ' + esc(c.certificateNumber) : ''}${c.expiryDate ? ' · exp ' + fmtDate(c.expiryDate) : ''}</small>${tags.length ? `<div class="mk-cert-tags">${tags.map((t) => `<span class="mk-tag">${esc(t)}</span>`).join('')}</div>` : ''}</div><div class="mk-fam-tags">${s ? `<span class="mk-badge ${s.tone}">${esc(s.label)}</span>` : ''}${dl(c.fileId, c.name)}</div></div>`; };
           return `<section class="mk-surface">${clayHead('fileText', 'Dokumen & Sertifikasi', 'Arsip dokumen kepegawaian, lisensi, dan sertifikasi dengan pelacakan masa berlaku.', `<span class="mk-badge slate">${docs.length + certs.length} berkas</span>`)}<div class="mk-section-body mk-col">
             <div class="mk-g mk-g3"><div class="mk-inset mk-out"><span>Dokumen</span><b>${docs.length}</b></div><div class="mk-inset mk-out"><span>Sertifikasi</span><b class="blue">${certs.length}</b></div><div class="mk-inset mk-out"><span>Akan Kadaluarsa</span><b class="${expiring ? 'amber' : 'emerald'}">${expiring}</b></div></div>
             ${alertBox}
@@ -893,6 +917,7 @@
           });
         }
         if (key === 'documents') {
+          panel.querySelectorAll('[data-mk-view]').forEach((b) => b.addEventListener('click', () => openFileViewer(b.dataset.mkView, b.dataset.mkViewT)));
           const pickFile = (onDone) => {
             const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*,application/pdf,.doc,.docx,.xls,.xlsx';
             let handled = false; const finish = (fileId, fname) => { if (handled) return; handled = true; onDone(fileId, fname); };
