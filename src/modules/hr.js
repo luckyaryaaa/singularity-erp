@@ -605,4 +605,89 @@
     }
   };
   R('/hr/recruitment', recruitmentPage);
+
+  // ── Learning & Development (LMS) — katalog program + pendaftaran ───────────
+  const PROG_CAT = { TECHNICAL: 'Teknis', LEADERSHIP: 'Kepemimpinan', COMPLIANCE: 'Kepatuhan', SOFT_SKILL: 'Soft Skill', SAFETY: 'K3/Safety', ONBOARDING: 'Onboarding', PRODUCT: 'Produk', OTHER: 'Lainnya' };
+  const PROG_MODE = { IN_HOUSE: 'In-house', EXTERNAL: 'Eksternal', ONLINE: 'Online', BLENDED: 'Blended' };
+  const PROG_ST = { DRAFT: ['slate', 'Draft'], ACTIVE: ['emerald', 'Aktif'], ARCHIVED: ['slate', 'Arsip'] };
+  const ENR_ST = { ENROLLED: ['slate', 'Terdaftar'], IN_PROGRESS: ['amber', 'Berjalan'], COMPLETED: ['emerald', 'Selesai'], CANCELLED: ['slate', 'Batal'], FAILED: ['coral', 'Gagal'] };
+  const learningPage = {
+    permission: 'employee.view',
+    async render(main, _p, signal) {
+      const [ov, progs, enrolls] = await Promise.all([
+        api('/api/hr/learning-overview', { signal }).catch(() => ({})),
+        api('/api/hr/training-programs', { signal }).catch(() => ({ items: [] })),
+        api('/api/hr/enrollments', { signal }).catch(() => ({ items: [] }))
+      ]);
+      const P = ov.programs || {}, E = ov.enrollments || {}, programs = progs.items || [], enrollments = enrolls.items || [], editable = can('employee.edit');
+      const metric = (label, value, note, icon, tone) => `<article class="mk-surface mk-metric"><div class="mk-m-copy"><span class="mk-m-k">${esc(label)}</span><div class="mk-m-v">${esc(String(value))}</div><span class="mk-m-note mk-mu">${esc(note)}</span></div><div class="mk-m-ic mk-ic-${tone}">${ICONS[icon] || ''}</div></article>`;
+      const progCard = (p) => { const s = PROG_ST[p.status] || PROG_ST.ACTIVE; return `<div class="mk-inset mk-prog"><div class="mk-goal-top"><div class="mk-flex1"><div class="mk-goal-h"><b>${esc(p.title)}</b><span class="mk-badge slate">${esc(PROG_CAT[p.category] || p.category)}</span><span class="mk-badge ${s[0]}">${esc(s[1])}</span></div><small class="mk-mu">${esc(p.code)} · ${esc(PROG_MODE[p.deliveryMode] || p.deliveryMode)}${p.provider ? ' · ' + esc(p.provider) : ''}${p.durationHours ? ' · ' + p.durationHours + ' jam' : ''}${p.cost ? ' · ' + fmtIDR(p.cost) : ''}</small>${p.description ? `<small class="mk-mu">${esc(p.description)}</small>` : ''}</div><span class="mk-req-count"><b>${p.completedCount || 0}/${p.enrollmentCount || 0}</b><small>selesai</small></span></div>${editable ? `<div class="mk-bo-actions"><button class="mk-btn sm" data-prog-enroll="${esc(p.id)}" data-prog-t="${esc(p.title)}">${ICONS.plus || ''} Daftarkan</button><button class="mk-btn sm" data-prog-edit="${esc(p.id)}" data-prog-s="${esc(p.status)}">Kelola</button></div>` : ''}</div>`; };
+      const enrollRow = (e) => { const s = ENR_ST[e.status] || ENR_ST.ENROLLED; return `<div class="mk-inset mk-bo-row"><div class="mk-flex1"><div class="mk-goal-h"><b>${esc(e.employeeName)}</b><span class="mk-badge ${s[0]}">${esc(s[1])}</span>${e.score != null ? `<span class="mk-badge blue">Skor ${e.score}</span>` : ''}</div><small class="mk-mu">${esc(e.programTitle)} · ${esc(e.programCode)}${e.employeeDepartment ? ' · ' + esc(e.employeeDepartment) : ''}${e.completedAt ? ' · selesai ' + fmtDate(e.completedAt) : ''}</small></div>${editable ? `<button class="mk-btn sm" data-enr="${esc(e.id)}" data-es="${esc(e.status)}" data-esc="${e.score != null ? esc(String(e.score)) : ''}" data-en="${esc(e.employeeName)}">Kelola</button>` : ''}</div>`; };
+      main.innerHTML = pageHead({ eyebrow: 'HRD · LEARNING & DEVELOPMENT', title: 'Learning & Development', sub: 'Katalog program pelatihan dan pendaftaran/riwayat pelatihan karyawan — lacak penyelesaian & skor.', actions: editable ? `<button class="btn primary" id="progNew">${ICONS.plus} Buat Program</button>` : '' }) + `<div class="mk360 mk-analytics">
+        <div class="mk-g mk-g4">
+          ${metric('Program Aktif', P.active || 0, `${P.total || 0} total program`, 'job', 'blue')}
+          ${metric('Pendaftaran Aktif', E.active || 0, `${E.total || 0} total · ${E.employeesTrained || 0} karyawan`, 'people', 'amber')}
+          ${metric('Pelatihan Selesai', E.completed || 0, 'penyelesaian tercatat', 'checkCircle', 'emerald')}
+          ${metric('Rata-rata Skor', E.avgScore || 0, 'dari pelatihan selesai', 'shield', 'purple')}
+        </div>
+        <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.job || ''} Katalog Program (${programs.length})</div></div><div class="mk-section-body">${programs.length ? `<div class="mk-req-grid">${programs.map(progCard).join('')}</div>` : '<div class="mk-empty">Belum ada program. Buat program pelatihan untuk memulai.</div>'}</div></section>
+        <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.people || ''} Pendaftaran Terbaru (${enrollments.length})</div></div><div class="mk-section-body">${enrollments.length ? `<div class="mk-col">${enrollments.map(enrollRow).join('')}</div>` : '<div class="mk-empty">Belum ada pendaftaran pelatihan.</div>'}</div></section>
+      </div>`;
+      const reload = () => this.render(main);
+      main.querySelector('#progNew')?.addEventListener('click', async () => {
+        const v = await formDialog({ title: 'Buat Program Pelatihan', description: 'Kode otomatis (TRN-tahun-urut) bila dikosongkan.', fields: [
+          { name: 'title', label: 'Judul Program', required: true },
+          { name: 'category', label: 'Kategori', type: 'select', options: Object.entries(PROG_CAT), value: 'TECHNICAL' },
+          { name: 'deliveryMode', label: 'Metode', type: 'select', options: Object.entries(PROG_MODE), value: 'IN_HOUSE' },
+          { name: 'provider', label: 'Penyelenggara' },
+          { name: 'durationHours', label: 'Durasi (jam)', type: 'number', min: 0 },
+          { name: 'cost', label: 'Biaya / peserta', type: 'number', min: 0 },
+          { name: 'status', label: 'Status', type: 'select', options: [['ACTIVE', 'Aktif'], ['DRAFT', 'Draft'], ['ARCHIVED', 'Arsip']], value: 'ACTIVE' },
+          { name: 'description', label: 'Deskripsi', type: 'textarea', rows: 2 }
+        ], submitLabel: 'Buat program' });
+        if (!v) return;
+        try { await api('/api/hr/training-programs', { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Program dibuat'); reload(); }
+        catch (error) { toast('Gagal membuat program', error.message, 'coral'); }
+      });
+      const enrollDialog = async (programId, programTitle) => {
+        let emps = [];
+        try { const d = await api('/api/employees?pageSize=200'); emps = (d.items || []).map((x) => [x.id, `${x.name} · ${x.department || '—'}`]); } catch (_) { emps = []; }
+        if (!emps.length) { toast('Tidak ada karyawan', 'Data karyawan tidak tersedia.', 'coral'); return; }
+        const progOpts = programId ? null : programs.map((p) => [p.id, `${p.title} (${p.code})`]);
+        const fields = [{ name: 'employeeId', label: 'Karyawan', type: 'select', options: emps, required: true }];
+        if (progOpts) fields.push({ name: 'programId', label: 'Program', type: 'select', options: progOpts, required: true });
+        fields.push(
+          { name: 'status', label: 'Status', type: 'select', options: Object.entries(ENR_ST).map(([k, val]) => [k, val[1]]), value: 'ENROLLED' },
+          { name: 'score', label: 'Skor (jika selesai)', type: 'number', min: 0, max: 100 },
+          { name: 'notes', label: 'Catatan', type: 'textarea', rows: 2 }
+        );
+        const v = await formDialog({ title: programTitle ? `Daftarkan Peserta — ${programTitle}` : 'Daftarkan Pelatihan', fields, submitLabel: 'Daftarkan' });
+        if (!v) return; if (programId) v.programId = programId;
+        try { await api('/api/hr/enrollments', { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Pendaftaran tersimpan'); reload(); }
+        catch (error) { toast('Gagal mendaftarkan', error.message, 'coral'); }
+      };
+      main.querySelectorAll('[data-prog-enroll]').forEach((b) => b.addEventListener('click', () => enrollDialog(b.dataset.progEnroll, b.dataset.progT)));
+      main.querySelectorAll('[data-prog-edit]').forEach((b) => b.addEventListener('click', async () => {
+        const v = await formDialog({ title: 'Kelola Program', fields: [
+          { name: 'status', label: 'Status', type: 'select', options: Object.entries(PROG_ST).map(([k, val]) => [k, val[1]]), value: b.dataset.progS || 'ACTIVE' },
+          { name: 'provider', label: 'Penyelenggara' },
+          { name: 'cost', label: 'Biaya / peserta', type: 'number', min: 0 }
+        ], submitLabel: 'Simpan' });
+        if (!v) return;
+        try { await api(`/api/hr/training-programs/${b.dataset.progEdit}`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Program diperbarui'); reload(); }
+        catch (error) { toast('Gagal memperbarui', error.message, 'coral'); }
+      }));
+      main.querySelectorAll('[data-enr]').forEach((b) => b.addEventListener('click', async () => {
+        const v = await formDialog({ title: `Kelola Pelatihan — ${b.dataset.en}`, description: 'Perbarui status & skor. Status "Selesai" mencatat tanggal penyelesaian otomatis.', fields: [
+          { name: 'status', label: 'Status', type: 'select', options: Object.entries(ENR_ST).map(([k, val]) => [k, val[1]]), value: b.dataset.es || 'ENROLLED' },
+          { name: 'score', label: 'Skor (0–100)', type: 'number', min: 0, max: 100, value: b.dataset.esc || '' },
+          { name: 'notes', label: 'Catatan', type: 'textarea', rows: 2 }
+        ], submitLabel: 'Simpan perubahan' });
+        if (!v) return;
+        try { await api(`/api/hr/enrollments/${b.dataset.enr}`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Pelatihan diperbarui'); reload(); }
+        catch (error) { toast('Gagal memperbarui', error.message, 'coral'); }
+      }));
+    }
+  };
+  R('/hr/learning', learningPage);
 })();
