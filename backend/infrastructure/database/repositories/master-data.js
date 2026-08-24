@@ -1045,6 +1045,55 @@ async function listDisciplinary(client, id, user) {
   const highest = ['SP3', 'SP2', 'SP1', 'TEGURAN'].find((lv) => active.some((r) => r.level === lv)) || null;
   return { items: rows, activeCount: active.length, highestActive: highest };
 }
+// Agregasi notifikasi proaktif lintas domain: kontrak, probation, SP aktif, dokumen & sertifikasi kadaluarsa.
+async function employeeAlerts(client, id, user) {
+  assertPermission(user, 'employee.view');
+  await parentRow(client, 'employees', id);
+  const alerts = [];
+  const daysTo = (d) => Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+  const tone = (d) => (d < 0 || d <= 30) ? 'coral' : d <= 60 ? 'amber' : 'blue';
+  const c = (await client.query(`SELECT contract_number, contract_type, end_date, probation_end, permanent_date
+    FROM employee_contracts WHERE employee_id=$1 ORDER BY start_date DESC NULLS LAST LIMIT 1`, [id])).rows[0];
+  if (c && !c.permanent_date && c.end_date) {
+    const days = daysTo(c.end_date);
+    if (days <= 90) alerts.push({ kind: 'CONTRACT', tab: 'employment', severity: tone(days), days,
+      title: days < 0 ? 'Kontrak PKWT sudah berakhir' : `Kontrak PKWT berakhir ${days} hari lagi`,
+      detail: `${(c.contract_type || 'PKWT')} ${(c.contract_number || '')} — ${days < 0 ? 'segera proses status kepegawaian' : 'proses perpanjangan / pengangkatan tetap'}`.trim() });
+  }
+  if (c && c.probation_end) {
+    const days = daysTo(c.probation_end);
+    if (days >= 0 && days <= 30) alerts.push({ kind: 'PROBATION', tab: 'employment', severity: 'blue', days,
+      title: `Masa percobaan berakhir ${days} hari lagi`, detail: 'Jadwalkan evaluasi akhir masa percobaan.' });
+  }
+  (await client.query(`SELECT level, violation, expiry_date FROM employee_disciplinary
+    WHERE employee_id=$1 AND status='ACTIVE' AND (expiry_date IS NULL OR expiry_date >= current_date)
+    ORDER BY issued_date DESC`, [id])).rows.forEach((s) => {
+    const days = s.expiry_date ? daysTo(s.expiry_date) : null;
+    alerts.push({ kind: 'DISCIPLINARY', tab: 'letters', severity: 'amber', days,
+      title: `${s.level} aktif`, detail: `${(s.violation || '').slice(0, 120)}${s.expiry_date ? ` — berlaku s.d. ${new Date(s.expiry_date).toISOString().slice(0, 10)}` : ''}`.trim() });
+  });
+  (await client.query(`SELECT title, document_type, expiry_date FROM employee_documents
+    WHERE employee_id=$1 AND expiry_date IS NOT NULL AND expiry_date < current_date + interval '90 days'
+    ORDER BY expiry_date ASC`, [id])).rows.forEach((d) => {
+    const days = daysTo(d.expiry_date);
+    alerts.push({ kind: 'DOCUMENT', tab: 'documents', severity: tone(days), days,
+      title: days < 0 ? `Dokumen kadaluarsa: ${d.title}` : `Dokumen akan kadaluarsa: ${d.title}`,
+      detail: `${(d.document_type || 'Dokumen')} — ${days < 0 ? `lewat ${Math.abs(days)} hari` : `${days} hari lagi`}` });
+  });
+  (await client.query(`SELECT name, issuer, expiry_date FROM employee_certifications
+    WHERE employee_id=$1 AND expiry_date IS NOT NULL AND expiry_date < current_date + interval '90 days'
+    ORDER BY expiry_date ASC`, [id])).rows.forEach((r) => {
+    const days = daysTo(r.expiry_date);
+    alerts.push({ kind: 'CERTIFICATION', tab: 'documents', severity: tone(days), days,
+      title: days < 0 ? `Sertifikasi kadaluarsa: ${r.name}` : `Sertifikasi akan kadaluarsa: ${r.name}`,
+      detail: `${(r.issuer || '')} — ${days < 0 ? `lewat ${Math.abs(days)} hari` : `${days} hari lagi`}`.trim() });
+  });
+  const rank = { coral: 0, amber: 1, blue: 2 };
+  alerts.sort((a, b) => (rank[a.severity] - rank[b.severity]) || ((a.days ?? 9999) - (b.days ?? 9999)));
+  const counts = { coral: 0, amber: 0, blue: 0 };
+  alerts.forEach((a) => { counts[a.severity] += 1; });
+  return { items: alerts, total: alerts.length, counts };
+}
 async function addDisciplinary(client, id, body, user, requestId) {
   assertPermission(user, 'employee.edit');
   await parentRow(client, 'employees', id);
@@ -1068,4 +1117,4 @@ async function decideDisciplinary(client, id, spId, action, user, requestId) {
   return { revoked: spId };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts };

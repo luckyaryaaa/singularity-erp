@@ -342,7 +342,9 @@
     plus: '<path d="M12 5v14M5 12h14"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
     close: '<path d="M18 6 6 18M6 6l12 12"/>',
-    download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'
+    download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>',
+    bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+    chevronRight: '<path d="m9 6 6 6-6 6"/>'
   };
   const MK = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${MKI[n] || ''}</svg>`;
   const mkInitials = (v) => String(v || '?').trim().split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
@@ -505,7 +507,7 @@
 
         <div class="mk-surface mk-tabbar"><div class="mk-groups" role="tablist">${MK_GROUPS.map((g, i) => `<button class="mk-group${i === 0 ? ' active' : ''}" data-mk-group="${g.id}" role="tab">${MK(g.icon)} ${esc(g.label)}<span class="mk-group-n">${g.tabs.length}</span></button>`).join('')}</div><div class="mk-subtabs" data-mk-subtabs role="tablist"></div></div>
 
-        <div class="mk-content" data-mk-content="overview">${metrics}${strukturCard}${dataPribadi}${kelengkapanCard}</div>
+        <div class="mk-content" data-mk-content="overview"><div id="mkAlerts"></div>${metrics}${strukturCard}${dataPribadi}${kelengkapanCard}</div>
         <div class="mk-content" data-mk-content="tax" hidden>${taxTab}</div>
         <div class="mk-content" data-mk-content="bpjs" hidden>${bpjsTab}</div>
         <div class="mk-content" data-mk-content="ocr" hidden></div>
@@ -992,6 +994,15 @@
       main.querySelectorAll('[data-mk-group]').forEach((b) => b.addEventListener('click', () => { const g = MK_GROUPS.find((x) => x.id === b.dataset.mkGroup); const cur = main.querySelector('[data-mk-content]:not([hidden])')?.dataset.mkContent; if (g && !g.tabs.includes(cur)) show(g.tabs[0]); }));
       renderSubtabs('overview');
       wireCommon(main);
+      // Notifikasi proaktif — agregasi item kedaluwarsa lintas domain (kontrak, SP, dokumen, sertifikasi).
+      const ALERT_ICON = { CONTRACT: 'briefcase', PROBATION: 'clock', DISCIPLINARY: 'fileText', DOCUMENT: 'fileText', CERTIFICATION: 'award' };
+      api(`${B}/alerts`).then((d) => {
+        const el = main.querySelector('#mkAlerts'); const items = (d && d.items) || [];
+        if (!el || !items.length) return;
+        const cc = d.counts || {}, cnt = (n, tone, label) => n ? `<span class="mk-badge ${tone}">${n} ${label}</span>` : '';
+        el.innerHTML = `<section class="mk-surface mk-alerts"><div class="mk-section-head"><h2>${MK('bell')} Pusat Perhatian <span class="mk-mu">· ${items.length}</span></h2><div class="mk-hdr-meta">${cnt(cc.coral, 'coral', 'mendesak')}${cnt(cc.amber, 'amber', 'segera')}${cnt(cc.blue, 'blue', 'info')}</div></div><div class="mk-section-body mk-col">${items.map((a) => `<button type="button" class="mk-alert t-${esc(a.severity)}" data-mk-tab="${esc(a.tab)}"><span class="mk-alert-ic">${MK(ALERT_ICON[a.kind] || 'info')}</span><div class="mk-flex1"><b>${esc(a.title)}</b><small>${esc(a.detail)}</small></div><span class="mk-alert-go">${MK('chevronRight')}</span></button>`).join('')}</div></section>`;
+        el.querySelectorAll('[data-mk-tab]').forEach((b) => b.addEventListener('click', () => show(b.dataset.mkTab)));
+      }).catch(() => {});
       const calcTax = () => {
         const base = Number(main.querySelector('#mkTaxBase').value) || 0, fixed = Number(main.querySelector('#mkTaxFixed').value) || 0, vari = Number(main.querySelector('#mkTaxVar').value) || 0, bonus = Number(main.querySelector('#mkTaxBonus').value) || 0;
         const ptkp = main.querySelector('#mkTaxPtkp').value, cat = ptkpToCat(ptkp), method = main.querySelector('#mkTaxMethod').value, npwp = (main.querySelector('#mkTaxNpwp') || {}).value !== '0';
