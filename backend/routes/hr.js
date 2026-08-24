@@ -5,6 +5,7 @@ const businessOps = require('../infrastructure/database/repositories/business-op
 const runtime = require('../infrastructure/database/repositories/runtime');
 const hrOps = require('../infrastructure/database/repositories/hr-operations');
 const masterData = require('../infrastructure/database/repositories/master-data');
+const recruitment = require('../infrastructure/database/repositories/recruitment');
 const { NO_MATCH } = require('./shared');
 
 async function dispatch(client, req, url, ctx) {
@@ -30,6 +31,16 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&p==='/api/payroll/my'){assertPermission(ctx.user,'payroll.view_self');return{items:await businessOps.payrollSelf(client,ctx.user)};}
   if(method==='GET'&&p==='/api/hr/workforce-analytics'){assertPermission(ctx.user,'employee.view');return masterData.workforceAnalytics(client,ctx.user);}
   if(method==='GET'&&p==='/api/hr/import-batches'){return masterData.listImportBatches(client,ctx.user,{module:url.searchParams.get('module')||undefined,limit:url.searchParams.get('limit')});}
+  if(method==='GET'&&p==='/api/hr/recruitment-overview'){return recruitment.recruitmentOverview(client,ctx.user);}
+  if(method==='GET'&&p==='/api/hr/requisitions'){return recruitment.listRequisitions(client,ctx.user,{status:url.searchParams.get('status')||undefined});}
+  if(method==='POST'&&p==='/api/hr/requisitions'){const body=await readBody(req);ctx.status=201;return recruitment.createRequisition(client,ctx.user,body,ctx.requestId);}
+  m=p.match(/^\/api\/hr\/requisitions\/([0-9a-f-]{36})$/);
+  if(method==='GET'&&m)return recruitment.getRequisition(client,m[1],ctx.user);
+  if(method==='POST'&&m){const body=await readBody(req);return recruitment.updateRequisition(client,m[1],body,ctx.user,ctx.requestId);}
+  if(method==='GET'&&p==='/api/hr/candidates'){return recruitment.listCandidates(client,ctx.user,{requisitionId:url.searchParams.get('requisitionId')||undefined,stage:url.searchParams.get('stage')||undefined});}
+  if(method==='POST'&&p==='/api/hr/candidates'){const body=await readBody(req);ctx.status=201;return recruitment.createCandidate(client,ctx.user,body,ctx.requestId);}
+  m=p.match(/^\/api\/hr\/candidates\/([0-9a-f-]{36})$/);
+  if(method==='POST'&&m){const body=await readBody(req);return recruitment.updateCandidate(client,m[1],body,ctx.user,ctx.requestId);}
   // ── Employee Self-Service: Data Saya + pengkinian identitas (maker-checker) ──
   if(method==='GET'&&p==='/api/hr/my-profile'){assertPermission(ctx.user,'employee.view_self');return masterData.myProfile(client,ctx.user);}
   if(method==='POST'&&p==='/api/hr/my-profile/identity-request'){assertPermission(ctx.user,'employee.view_self');const body=await readBody(req);return idempotent('hr.self.identity',body,201,()=>masterData.submitIdentityRequest(client,ctx.user,body,ctx.requestId));}

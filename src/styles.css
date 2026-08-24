@@ -2132,6 +2132,29 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-bo-col b{display:block;font:800 11.5px 'JetBrains Mono','Plus Jakarta Sans',monospace;color:#1e293b}
 .mk-bo-col small{color:var(--mk-muted);font-size:10.5px;word-break:break-word}
 .mk-bo-row{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.mk-req-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.mk-req{text-align:left;cursor:pointer;padding:16px;display:flex;flex-direction:column;gap:12px;border:1px solid transparent;transition:transform .12s ease,box-shadow .12s ease}
+.mk-req:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(15,23,42,.1)}
+.mk-req-top{display:flex;align-items:flex-start;gap:12px}
+.mk-req-count{flex:none;text-align:center;display:flex;flex-direction:column;gap:1px}
+.mk-req-count b{font:800 20px 'Plus Jakarta Sans',system-ui,sans-serif;color:#2563eb;line-height:1}
+.mk-req-count small{font-size:9px;color:var(--mk-muted);text-transform:uppercase;letter-spacing:.03em}
+.mk-req-meta{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--mk-slate)}
+.mk-req-meta span{display:inline-flex;align-items:center;gap:4px}
+.mk-req-meta svg{width:14px;height:14px}
+.mk-req-detail{display:flex;flex-direction:column;gap:10px}
+.mk-req-p{font-size:12px;color:var(--mk-slate);line-height:1.5;margin:0}
+.mk-pipe{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.mk-pipe-col{background:#f8fafc;border:1px solid var(--mk-line);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:10px;min-height:120px}
+.mk-pipe-head{display:flex;align-items:center;justify-content:space-between}
+.mk-pipe-head b{font:800 14px 'Plus Jakarta Sans',system-ui,sans-serif;color:#334155}
+.mk-pipe-body{display:flex;flex-direction:column;gap:8px}
+.mk-pipe-empty{color:#cbd5e1;text-align:center;padding:10px;font-size:12px}
+.mk-cand{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;background:#fff}
+.mk-cand b{font:700 12.5px 'Plus Jakarta Sans',system-ui,sans-serif;color:#1e293b}
+.mk-cand small{display:block;color:var(--mk-muted);font-size:10.5px;margin-top:2px}
+@media(max-width:900px){.mk-pipe{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.mk-pipe{grid-template-columns:1fr}}
 .mk-audit{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .mk-audit-row{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--mk-line);border-radius:12px;background:#f8fafc}
 .mk-audit-ic{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:#eef2f7;color:#475569}

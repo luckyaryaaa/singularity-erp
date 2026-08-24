@@ -500,4 +500,109 @@
     }
   };
   R('/hr/bulk-ops', bulkOpsPage);
+
+  // ── Rekrutmen / ATS — lowongan + pipeline kandidat ────────────────────────
+  const REQ_ST = { DRAFT: ['slate', 'Draft'], OPEN: ['emerald', 'Dibuka'], ON_HOLD: ['amber', 'Ditahan'], CLOSED: ['slate', 'Ditutup'], FILLED: ['blue', 'Terisi'], CANCELLED: ['coral', 'Dibatalkan'] };
+  const REQ_PRIO = { LOW: ['slate', 'Rendah'], MEDIUM: ['blue', 'Sedang'], HIGH: ['amber', 'Tinggi'], URGENT: ['coral', 'Mendesak'] };
+  const CAND_ST = { APPLIED: ['slate', 'Melamar'], SCREENING: ['blue', 'Skrining'], INTERVIEW: ['amber', 'Interview'], OFFER: ['purple', 'Penawaran'], HIRED: ['emerald', 'Diterima'], REJECTED: ['coral', 'Ditolak'], WITHDRAWN: ['slate', 'Mengundurkan'] };
+  const CAND_SRC = { JOB_PORTAL: 'Job Portal', REFERRAL: 'Referral', LINKEDIN: 'LinkedIn', WALK_IN: 'Walk-in', AGENCY: 'Agensi', CAMPUS: 'Kampus', OTHER: 'Lainnya' };
+  const PIPE_STAGES = ['APPLIED', 'SCREENING', 'INTERVIEW', 'OFFER'];
+  const EMP_TYPE_OPTS = [['PKWTT', 'PKWTT (tetap)'], ['PKWT', 'PKWT (kontrak)'], ['INTERN', 'Magang'], ['CONTRACT', 'Kontrak lepas'], ['OUTSOURCE', 'Outsource']];
+  const rStars = (n) => { const v = Math.round(Number(n) || 0); return v ? `<span class="mk-stars" title="${v}/5">${'★'.repeat(v)}${'☆'.repeat(5 - v)}</span>` : ''; };
+
+  const recruitmentPage = {
+    permission: 'employee.view',
+    async render(main, _p, signal) {
+      if (this._reqId) return this._pipeline(main, signal);
+      const [ov, reqs] = await Promise.all([api('/api/hr/recruitment-overview', { signal }).catch(() => ({})), api('/api/hr/requisitions', { signal }).catch(() => ({ items: [] }))]);
+      const k = ov.kpi || {}, c = ov.candidates || {}, items = reqs.items || [], editable = can('employee.edit');
+      const metric = (label, value, note, icon, tone) => `<article class="mk-surface mk-metric"><div class="mk-m-copy"><span class="mk-m-k">${esc(label)}</span><div class="mk-m-v">${esc(String(value))}</div><span class="mk-m-note mk-mu">${esc(note)}</span></div><div class="mk-m-ic mk-ic-${tone}">${ICONS[icon] || ''}</div></article>`;
+      const card = (r) => { const st = REQ_ST[r.status] || REQ_ST.OPEN, pr = REQ_PRIO[r.priority] || REQ_PRIO.MEDIUM; return `<button type="button" class="mk-surface mk-req" data-req="${esc(r.id)}"><div class="mk-req-top"><div class="mk-flex1"><div class="mk-goal-h"><b>${esc(r.title)}</b><span class="mk-badge ${st[0]}">${esc(st[1])}</span><span class="mk-badge ${pr[0]}">${esc(pr[1])}</span></div><small class="mk-mu">${esc(r.code)} · ${esc(r.department || '—')}${r.location ? ' · ' + esc(r.location) : ''}</small></div><span class="mk-req-count"><b>${r.activeCount || 0}</b><small>kandidat aktif</small></span></div><div class="mk-req-meta"><span>${ICONS.people || ''} ${r.hiredCount || 0}/${r.headcount || 1} terisi</span><span>${esc((EMP_TYPE_OPTS.find((e) => e[0] === r.employmentType) || [, r.employmentType])[1] || '')}</span>${r.targetDate ? `<span>Target ${fmtDate(r.targetDate)}</span>` : ''}${r.salaryRange ? `<span>${esc(r.salaryRange)}</span>` : ''}</div></button>`; };
+      main.innerHTML = pageHead({ eyebrow: 'HRD · REKRUTMEN / ATS', title: 'Rekrutmen — Lowongan & Kandidat', sub: 'Kelola lowongan (requisition) dan pipeline kandidat: melamar → skrining → interview → penawaran → diterima.', actions: editable ? `<button class="btn primary" id="reqNew">${ICONS.plus} Buat Lowongan</button>` : '' }) + `<div class="mk360 mk-analytics">
+        <div class="mk-g mk-g4">
+          ${metric('Lowongan Dibuka', k.openReqs || 0, `${k.openHeadcount || 0} posisi dibutuhkan`, 'job', 'blue')}
+          ${metric('Kandidat Aktif', c.active || 0, `dari ${c.total || 0} total pelamar`, 'people', 'amber')}
+          ${metric('Tahap Interview', c.interviewing || 0, `${c.offers || 0} di penawaran`, 'clock', 'purple')}
+          ${metric('Diterima (Hired)', c.hired || 0, 'akuisisi talenta', 'checkCircle', 'emerald')}
+        </div>
+        <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.job || ''} Daftar Lowongan (${items.length})</div></div><div class="mk-section-body">${items.length ? `<div class="mk-req-grid">${items.map(card).join('')}</div>` : '<div class="mk-empty">Belum ada lowongan. Buat requisition untuk memulai rekrutmen.</div>'}</div></section>
+      </div>`;
+      main.querySelectorAll('[data-req]').forEach((b) => b.addEventListener('click', () => { this._reqId = b.dataset.req; this.render(main); }));
+      main.querySelector('#reqNew')?.addEventListener('click', async () => {
+        const v = await formDialog({ title: 'Buat Lowongan (Requisition)', description: 'Kode otomatis (REQ-tahun-urut) bila dikosongkan.', fields: [
+          { name: 'title', label: 'Judul Posisi', required: true },
+          { name: 'department', label: 'Departemen' },
+          { name: 'location', label: 'Lokasi' },
+          { name: 'employmentType', label: 'Tipe', type: 'select', options: EMP_TYPE_OPTS, value: 'PKWTT' },
+          { name: 'headcount', label: 'Jumlah Kebutuhan', type: 'number', min: 1, value: 1 },
+          { name: 'priority', label: 'Prioritas', type: 'select', options: [['MEDIUM', 'Sedang'], ['LOW', 'Rendah'], ['HIGH', 'Tinggi'], ['URGENT', 'Mendesak']], value: 'MEDIUM' },
+          { name: 'status', label: 'Status', type: 'select', options: [['OPEN', 'Dibuka'], ['DRAFT', 'Draft'], ['ON_HOLD', 'Ditahan']], value: 'OPEN' },
+          { name: 'salaryRange', label: 'Rentang Gaji (mis. 8–12 jt)' },
+          { name: 'hiringManager', label: 'Hiring Manager' },
+          { name: 'targetDate', label: 'Target Terisi', type: 'date' },
+          { name: 'requirements', label: 'Kualifikasi', type: 'textarea', rows: 2 },
+          { name: 'description', label: 'Deskripsi', type: 'textarea', rows: 2 }
+        ], submitLabel: 'Buat lowongan' });
+        if (!v) return;
+        try { await api('/api/hr/requisitions', { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Lowongan dibuat'); this.render(main); }
+        catch (error) { toast('Gagal membuat lowongan', error.message, 'coral'); }
+      });
+    },
+    async _pipeline(main, signal) {
+      let req, cands;
+      try { [req, cands] = await Promise.all([api(`/api/hr/requisitions/${this._reqId}`, { signal }), api(`/api/hr/candidates?requisitionId=${this._reqId}`, { signal }).catch(() => ({ items: [] }))]); }
+      catch (error) { this._reqId = null; toast('Lowongan tidak ditemukan', error.message, 'coral'); return this.render(main); }
+      const list = cands.items || [], editable = can('employee.edit');
+      const st = REQ_ST[req.status] || REQ_ST.OPEN, pr = REQ_PRIO[req.priority] || REQ_PRIO.MEDIUM;
+      const cardOf = (c) => { const cs = CAND_ST[c.stage] || CAND_ST.APPLIED; return `<div class="mk-inset mk-cand"><div class="mk-flex1"><div class="mk-goal-h"><b>${esc(c.name)}</b>${rStars(c.rating)}</div><small class="mk-mu">${esc(CAND_SRC[c.source] || c.source || '')}${c.currentTitle ? ' · ' + esc(c.currentTitle) : ''}${c.expectedSalary ? ' · exp ' + fmtIDR(c.expectedSalary) : ''}</small>${c.email || c.phone ? `<small class="mk-mu">${esc(c.email || '')}${c.email && c.phone ? ' · ' : ''}${esc(c.phone || '')}</small>` : ''}</div>${editable ? `<button class="mk-btn sm" data-cand="${esc(c.id)}" data-cs="${esc(c.stage)}" data-cr="${c.rating != null ? esc(String(c.rating)) : ''}" data-cn="${esc(c.name)}">Kelola</button>` : `<span class="mk-badge ${cs[0]}">${esc(cs[1])}</span>`}</div>`; };
+      const column = (stage) => { const cs = CAND_ST[stage], inStage = list.filter((c) => c.stage === stage); return `<div class="mk-pipe-col"><div class="mk-pipe-head"><span class="mk-badge ${cs[0]}">${esc(cs[1])}</span><b>${inStage.length}</b></div><div class="mk-pipe-body">${inStage.length ? inStage.map(cardOf).join('') : '<div class="mk-pipe-empty">—</div>'}</div></div>`; };
+      const terminal = list.filter((c) => ['HIRED', 'REJECTED', 'WITHDRAWN'].includes(c.stage));
+      main.innerHTML = pageHead({ eyebrow: `REKRUTMEN · ${esc(req.code)}`, title: esc(req.title), sub: `${esc(req.department || '—')}${req.location ? ' · ' + esc(req.location) : ''} · ${req.headcount} posisi`, actions: `<button class="btn secondary" id="reqBack">← Kembali</button>${editable ? `<button class="btn secondary" id="reqEdit">${ICONS.gear || ''} Kelola Lowongan</button><button class="btn primary" id="candNew">${ICONS.plus} Tambah Kandidat</button>` : ''}` }) + `<div class="mk360 mk-analytics">
+        <section class="mk-surface"><div class="mk-section-body mk-req-detail"><div class="mk-goal-h"><span class="mk-badge ${st[0]}">${esc(st[1])}</span><span class="mk-badge ${pr[0]}">${esc(pr[1])}</span><span class="mk-badge slate">${esc((EMP_TYPE_OPTS.find((e) => e[0] === req.employmentType) || [, req.employmentType])[1] || '')}</span>${req.salaryRange ? `<span class="mk-badge blue">${esc(req.salaryRange)}</span>` : ''}${req.hiringManager ? `<span class="mk-mu">HM: ${esc(req.hiringManager)}</span>` : ''}${req.targetDate ? `<span class="mk-mu">Target ${fmtDate(req.targetDate)}</span>` : ''}</div>${req.requirements ? `<p class="mk-req-p"><b>Kualifikasi:</b> ${esc(req.requirements)}</p>` : ''}${req.description ? `<p class="mk-req-p">${esc(req.description)}</p>` : ''}</div></section>
+        <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.people || ''} Pipeline Kandidat (${list.length})</div></div><div class="mk-section-body"><div class="mk-pipe">${PIPE_STAGES.map(column).join('')}</div>${terminal.length ? `<div class="mk-tl-wrap"><div class="mk-o-caps bb">Selesai (${terminal.length})</div><div class="mk-g mk-g2">${terminal.map(cardOf).join('')}</div></div>` : ''}</div></section>
+      </div>`;
+      main.querySelector('#reqBack').addEventListener('click', () => { this._reqId = null; this.render(main); });
+      const reloadPipe = () => this.render(main);
+      main.querySelector('#candNew')?.addEventListener('click', async () => {
+        const v = await formDialog({ title: `Tambah Kandidat — ${req.title}`, fields: [
+          { name: 'name', label: 'Nama Kandidat', required: true },
+          { name: 'email', label: 'Email', type: 'email' },
+          { name: 'phone', label: 'Telepon', type: 'tel' },
+          { name: 'source', label: 'Sumber', type: 'select', options: Object.entries(CAND_SRC), value: 'JOB_PORTAL' },
+          { name: 'currentTitle', label: 'Posisi Saat Ini' },
+          { name: 'expectedSalary', label: 'Ekspektasi Gaji', type: 'number', min: 0 },
+          { name: 'stage', label: 'Tahap Awal', type: 'select', options: PIPE_STAGES.map((s) => [s, CAND_ST[s][1]]), value: 'APPLIED' },
+          { name: 'rating', label: 'Rating Awal', type: 'select', options: [['', '—'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], value: '' },
+          { name: 'notes', label: 'Catatan', type: 'textarea', rows: 2 }
+        ], submitLabel: 'Tambah kandidat' });
+        if (!v) return; v.requisitionId = this._reqId;
+        try { await api('/api/hr/candidates', { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Kandidat ditambahkan'); reloadPipe(); }
+        catch (error) { toast('Gagal menambahkan', error.message, 'coral'); }
+      });
+      main.querySelector('#reqEdit')?.addEventListener('click', async () => {
+        const v = await formDialog({ title: `Kelola Lowongan — ${req.code}`, fields: [
+          { name: 'status', label: 'Status', type: 'select', options: Object.entries(REQ_ST).map(([k, val]) => [k, val[1]]), value: req.status },
+          { name: 'priority', label: 'Prioritas', type: 'select', options: Object.entries(REQ_PRIO).map(([k, val]) => [k, val[1]]), value: req.priority },
+          { name: 'headcount', label: 'Jumlah Kebutuhan', type: 'number', min: 1, value: req.headcount || 1 },
+          { name: 'hiringManager', label: 'Hiring Manager', value: req.hiringManager || '' },
+          { name: 'salaryRange', label: 'Rentang Gaji', value: req.salaryRange || '' },
+          { name: 'targetDate', label: 'Target Terisi', type: 'date', value: req.targetDate ? String(req.targetDate).slice(0, 10) : '' }
+        ], submitLabel: 'Simpan' });
+        if (!v) return;
+        try { await api(`/api/hr/requisitions/${this._reqId}`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Lowongan diperbarui'); reloadPipe(); }
+        catch (error) { toast('Gagal memperbarui', error.message, 'coral'); }
+      });
+      main.querySelectorAll('[data-cand]').forEach((b) => b.addEventListener('click', async () => {
+        const v = await formDialog({ title: `Kelola Kandidat — ${b.dataset.cn}`, description: 'Pindahkan tahap pipeline, beri rating, dan catatan.', fields: [
+          { name: 'stage', label: 'Tahap', type: 'select', options: Object.entries(CAND_ST).map(([k, val]) => [k, val[1]]), value: b.dataset.cs || 'APPLIED' },
+          { name: 'rating', label: 'Rating', type: 'select', options: [['', '—'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], value: b.dataset.cr || '' },
+          { name: 'notes', label: 'Catatan', type: 'textarea', rows: 2 }
+        ], submitLabel: 'Simpan perubahan' });
+        if (!v) return;
+        try { await api(`/api/hr/candidates/${b.dataset.cand}`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Kandidat diperbarui'); reloadPipe(); }
+        catch (error) { toast('Gagal memperbarui', error.message, 'coral'); }
+      }));
+    }
+  };
+  R('/hr/recruitment', recruitmentPage);
 })();
