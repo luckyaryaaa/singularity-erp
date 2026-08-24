@@ -2178,6 +2178,8 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-9cell{position:relative;min-height:56px;border-radius:11px;padding:8px;display:flex;align-items:center;justify-content:center;text-align:center;border:1px solid var(--mk-line);background:#fff}
 .mk-9cell.t-emerald{background:#f0fdf7}.mk-9cell.t-blue{background:#eff6ff}.mk-9cell.t-amber{background:#fffbeb}.mk-9cell.t-coral{background:#fef2f2}
 .mk-9lbl{font:700 10px 'Plus Jakarta Sans';color:var(--mk-slate);line-height:1.2}
+.mk-9cell:has(.mk-9cnt){flex-direction:column;gap:3px}
+.mk-9cnt{font:800 17px 'Plus Jakarta Sans','JetBrains Mono',sans-serif;color:#0f172a;line-height:1}
 .mk-9cell.on{box-shadow:0 0 0 2px #2563eb,6px 6px 16px var(--mk-lo);border-color:#2563eb;z-index:1}
 .mk-9cell.on .mk-9lbl{color:#0f172a;font-weight:800}
 .mk-9dot{position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;background:#2563eb;color:#fff;display:grid;place-items:center;box-shadow:0 3px 8px -2px rgba(37,99,235,.7)}

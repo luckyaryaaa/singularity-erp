@@ -684,7 +684,37 @@ async function workforceAnalytics(client, user) {
   const byGrade = (await client.query(`SELECT COALESCE(p.salary_grade,'—') label, count(DISTINCT p.employee_id)::int value FROM employee_positions p WHERE p.effective_from<=current_date AND (p.effective_to IS NULL OR p.effective_to>=current_date) GROUP BY 1 ORDER BY 1`)).rows;
   const spanRow = (await client.query(`SELECT count(DISTINCT supervisor_employee_id)::int managers, count(*)::int reports FROM employee_positions WHERE supervisor_employee_id IS NOT NULL AND effective_from<=current_date AND (effective_to IS NULL OR effective_to>=current_date)`)).rows[0];
   const span = Number(spanRow.managers) ? Number((Number(spanRow.reports) / Number(spanRow.managers)).toFixed(1)) : 0;
-  return { kpi, byDept, tenure, gender, byGrade, span };
+  // People analytics lanjutan — distribusi talenta (9-box), flight risk, goals, review, & kepatuhan.
+  const nbRows = (await client.query(`SELECT performance_rating pr, potential pot, count(*)::int c
+    FROM employee_talent WHERE performance_rating IS NOT NULL AND potential IS NOT NULL GROUP BY 1,2`)).rows;
+  const nineBox = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  let talentAssessed = 0;
+  nbRows.forEach((r) => { const pr = Number(r.pr), pl = pr <= 2 ? 0 : pr === 3 ? 1 : 2, ptl = { LOW: 0, MEDIUM: 1, HIGH: 2 }[r.pot]; if (ptl != null) { nineBox[pl][ptl] += r.c; talentAssessed += r.c; } });
+  const flightRisk = runtime.camel((await client.query(`SELECT
+    count(*) FILTER (WHERE flight_risk='LOW')::int low,
+    count(*) FILTER (WHERE flight_risk='MEDIUM')::int medium,
+    count(*) FILTER (WHERE flight_risk='HIGH')::int high FROM employee_talent`)).rows[0]);
+  const succession = (await client.query(`SELECT CASE succession_readiness
+      WHEN 'READY_NOW' THEN 'Siap sekarang' WHEN 'READY_1_2Y' THEN '1–2 tahun'
+      WHEN 'READY_3Y' THEN '3 tahun' WHEN 'NOT_READY' THEN 'Belum siap' ELSE '—' END label,
+    count(*)::int value FROM employee_talent WHERE succession_readiness IS NOT NULL GROUP BY succession_readiness ORDER BY value DESC`)).rows;
+  const goals = runtime.camel((await client.query(`SELECT
+    count(DISTINCT employee_id)::int with_goals,
+    count(*) FILTER (WHERE status='AT_RISK')::int at_risk,
+    count(*) FILTER (WHERE status='DONE')::int done,
+    COALESCE(round(avg(progress) FILTER (WHERE status<>'CANCELLED')),0)::int avg_progress FROM employee_goals`)).rows[0]);
+  const reviews = runtime.camel((await client.query(`SELECT
+    count(*) FILTER (WHERE status='FINALIZED')::int finalized,
+    count(*) FILTER (WHERE status NOT IN ('FINALIZED','DRAFT'))::int in_progress,
+    COALESCE(round(avg(rating) FILTER (WHERE status='FINALIZED'),1),0)::numeric avg_rating FROM employee_reviews`)).rows[0]);
+  const compliance = runtime.camel((await client.query(`SELECT
+    (SELECT count(*)::int FROM employee_contracts WHERE end_date IS NOT NULL AND permanent_date IS NULL AND end_date >= current_date AND end_date < current_date + interval '60 days') contracts_expiring,
+    (SELECT count(*)::int FROM employee_documents WHERE expiry_date IS NOT NULL AND expiry_date >= current_date AND expiry_date < current_date + interval '60 days') docs_expiring,
+    (SELECT count(*)::int FROM employee_certifications WHERE expiry_date IS NOT NULL AND expiry_date >= current_date AND expiry_date < current_date + interval '60 days') certs_expiring,
+    (SELECT count(*)::int FROM employee_disciplinary WHERE status='ACTIVE') active_sp,
+    (SELECT count(*)::int FROM employee_offboarding WHERE status NOT IN ('COMPLETED','CANCELLED')) offboarding_open`)).rows[0]);
+  reviews.avgRating = Number(reviews.avgRating) || 0;
+  return { kpi, byDept, tenure, gender, byGrade, span, nineBox, talentAssessed, flightRisk, succession, goals, reviews, compliance };
 }
 
 // Performance & Talent — 9-box (baris = performance rendah/med/tinggi,

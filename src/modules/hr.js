@@ -419,6 +419,30 @@
           <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.wallet || ''} Sebaran Grade</div></div><div class="mk-section-body">${bars(d.byGrade || [], 'purple')}</div></section>
           <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.people || ''} Demografi & Span of Control</div></div><div class="mk-section-body mk-col">${bars(d.gender || [], 'amber')}<div class="mk-inset mk-out"><span>Span of Control — rata-rata bawahan / manajer</span><b class="blue">${d.span || 0}</b></div></div></section>
         </div>
+        ${(() => {
+          const g = d.goals || {}, rv = d.reviews || {}, cmp = d.compliance || {}, attn = (cmp.contractsExpiring || 0) + (cmp.docsExpiring || 0) + (cmp.certsExpiring || 0);
+          const NB_LABELS = [['Underperformer', 'Inconsistent', 'Enigma'], ['Effective', 'Core Player', 'High Potential'], ['Trusted Pro', 'High Performer', 'Star']];
+          const NB_TONE = [['coral', 'coral', 'amber'], ['amber', 'blue', 'emerald'], ['blue', 'emerald', 'emerald']];
+          const nb = d.nineBox || [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+          const nineBoxGrid = `<div class="mk-9box"><span class="mk-9yax">Kinerja →</span><div class="mk-9grid">${[2, 1, 0].map((r) => `<div class="mk-9row">${[0, 1, 2].map((c) => `<div class="mk-9cell t-${NB_TONE[r][c]}"><span class="mk-9lbl">${NB_LABELS[r][c]}</span><span class="mk-9cnt">${nb[r][c]}</span></div>`).join('')}</div>`).join('')}</div></div><div class="mk-9xax"><span>Potensi rendah</span><span>Potensi tinggi</span></div>`;
+          const fr = d.flightRisk || {}, frArr = [{ label: 'Rendah', value: fr.low || 0 }, { label: 'Sedang', value: fr.medium || 0 }, { label: 'Tinggi', value: fr.high || 0 }];
+          return `<div class="mk-g mk-g4">
+            ${metric('Talenta Terkalibrasi', d.talentAssessed || 0, `dari ${k.total || 0} karyawan (9-box)`, 'award', 'purple')}
+            ${metric('Rata-rata Progres Goal', (g.avgProgress || 0) + '%', `${g.done || 0} selesai · ${g.atRisk || 0} at-risk`, 'checkCircle', 'blue')}
+            ${metric('Review Final', rv.finalized || 0, rv.avgRating ? `rata-rata ${rv.avgRating}/5` : 'belum ada final', 'shield', 'emerald')}
+            ${metric('Butuh Perhatian', attn, 'kontrak/dokumen kedaluwarsa ≤60 hari', 'clock', 'amber')}
+          </div>
+          <div class="mk-g mk-g2">
+            <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.award || ICONS.shield || ''} Distribusi Talenta (9-Box) — ${d.talentAssessed || 0} terkalibrasi</div></div><div class="mk-section-body">${nineBoxGrid}</div></section>
+            <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.people || ''} Flight Risk & Kesiapan Suksesi</div></div><div class="mk-section-body mk-col"><div class="mk-o-caps">Flight Risk</div>${bars(frArr, 'amber')}<div class="mk-o-caps">Kesiapan Suksesi</div>${bars(d.succession || [], 'blue')}</div></section>
+          </div>
+          <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.clock || ''} Kepatuhan & Perhatian Tenaga Kerja</div></div><div class="mk-section-body"><div class="mk-g mk-g4">
+            <div class="mk-inset mk-out"><span>Kontrak berakhir ≤60 hari</span><b class="${cmp.contractsExpiring ? 'amber' : 'emerald'}">${cmp.contractsExpiring || 0}</b></div>
+            <div class="mk-inset mk-out"><span>Dokumen &amp; sertifikat kedaluwarsa ≤60 hari</span><b class="${(cmp.docsExpiring || 0) + (cmp.certsExpiring || 0) ? 'amber' : 'emerald'}">${(cmp.docsExpiring || 0) + (cmp.certsExpiring || 0)}</b></div>
+            <div class="mk-inset mk-out"><span>SP aktif</span><b class="${cmp.activeSp ? 'coral' : 'emerald'}">${cmp.activeSp || 0}</b></div>
+            <div class="mk-inset mk-out"><span>Offboarding berjalan</span><b class="${cmp.offboardingOpen ? 'amber' : 'emerald'}">${cmp.offboardingOpen || 0}</b></div>
+          </div></div></section>`;
+        })()}
       </div>`;
       main.querySelectorAll('.mk-chart-bar i[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
     }
