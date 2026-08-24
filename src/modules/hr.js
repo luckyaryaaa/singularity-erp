@@ -448,4 +448,56 @@
     }
   };
   R('/hr/analytics', workforceAnalyticsPage);
+
+  // ── Operasi Massal — bulk import/update via CSV + riwayat batch ────────────
+  const BULK_TEMPLATES = {
+    employees: { label: 'Karyawan', fileModule: 'employee', cols: ['nik', 'name', 'department', 'jobTitle', 'baseSalary', 'branchId', 'joinDate', 'bpjs', 'active'], example: ['3275010101990001', 'Budi Santoso', 'FINANCE', 'Staff Finance', '5000000', '', '2024-01-15', 'true', 'true'], note: 'Baris dicocokkan berdasarkan NIK — NIK sudah ada → update, baru → tambah. branchId (UUID cabang) wajib untuk karyawan baru; boleh dikosongkan saat update.' },
+    attendance: { label: 'Kehadiran', fileModule: 'attendance', cols: ['nik', 'work_date', 'check_in', 'check_out', 'status', 'notes'], example: ['3275010101990001', '2026-08-20', '08:00', '17:00', 'PRESENT', ''], note: 'Kehadiran di-upsert per (NIK, tanggal). status: PRESENT / ABSENT / LEAVE / SICK / LATE.' }
+  };
+  const bulkOpsPage = {
+    permission: 'employee.import',
+    async render(main, _p, signal) {
+      this._module = BULK_TEMPLATES[this._module] ? this._module : 'employees';
+      let batches = { items: [] };
+      try { batches = await api(`/api/hr/import-batches?module=${this._module}&_ts=${Date.now()}`, { signal }); } catch (_) { batches = { items: [] }; }
+      const t = BULK_TEMPLATES[this._module];
+      const tone = (b) => (b.errorRows > 0 ? (b.successRows > 0 ? 'amber' : 'coral') : 'emerald');
+      main.innerHTML = pageHead({ eyebrow: 'HRD · OPERASI MASSAL', title: 'Operasi Massal — Import & Update', sub: 'Tambah/perbarui data dalam jumlah besar via CSV. Unduh template, isi, unggah — hasil & error tercatat pada riwayat.' }) + `<div class="mk360 mk-analytics">
+        <div class="mk-g mk-g2">
+          <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.job || ''} Unggah CSV</div></div><div class="mk-section-body mk-col">
+            <label class="mk-bo-field"><span>Jenis Data</span><select class="mk-input" id="boModule">${Object.entries(BULK_TEMPLATES).map(([k, v]) => `<option value="${k}"${k === this._module ? ' selected' : ''}>${esc(v.label)}</option>`).join('')}</select></label>
+            <div class="mk-note">${esc(t.note)}</div>
+            <div class="mk-bo-actions"><button class="mk-btn" id="boTemplate">${ICONS.download || ''} Unduh Template CSV</button><button class="mk-btn primary" id="boUpload">${ICONS.plus || ''} Unggah &amp; Proses</button><input id="boFile" type="file" accept=".csv,text/csv" hidden></div>
+          </div></section>
+          <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.shield || ''} Kolom Template — ${esc(t.label)}</div></div><div class="mk-section-body"><div class="mk-bo-cols">${t.cols.map((c, i) => `<div class="mk-inset mk-bo-col"><b>${esc(c)}</b><small>${esc(String(t.example[i] ?? '') || '—')}</small></div>`).join('')}</div></div></section>
+        </div>
+        <section class="mk-surface"><div class="mk-section-head"><div class="mk-section-title">${ICONS.clock || ''} Riwayat Operasi (${batches.items.length})</div></div><div class="mk-section-body">${batches.items.length ? `<div class="mk-col">${batches.items.map((b) => `<div class="mk-inset mk-bo-row"><div class="mk-flex1"><div class="mk-goal-h"><b>${esc(b.fileName || 'import.csv')}</b><span class="mk-badge slate">${esc(b.module)}</span><span class="mk-badge ${tone(b)}">${b.successRows}/${b.totalRows} sukses${b.errorRows ? ` · ${b.errorRows} error` : ''}</span></div><small class="mk-mu">${relTime(b.createdAt)}</small></div>${(b.errorRows && (b.errors || []).length) ? `<button class="mk-btn sm" data-bo-err="${esc(b.id)}">Lihat error</button>` : ''}</div>`).join('')}</div>` : '<div class="mk-empty">Belum ada operasi massal. Unduh template lalu unggah CSV untuk memulai.</div>'}</div></section>
+      </div>`;
+      main.querySelector('#boModule')?.addEventListener('change', (e) => { this._module = e.target.value; this.render(main, _p); });
+      main.querySelector('#boTemplate')?.addEventListener('click', () => {
+        const esc2 = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+        const csv = t.cols.join(',') + '\r\n' + t.example.map(esc2).join(',') + '\r\n';
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `template-${this._module}.csv`;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+        toast('Template diunduh', `template-${this._module}.csv`);
+      });
+      const picker = main.querySelector('#boFile');
+      main.querySelector('#boUpload')?.addEventListener('click', () => picker.click());
+      picker?.addEventListener('change', async () => {
+        const file = picker.files[0]; if (!file) return;
+        try {
+          const saved = await uploadFile(`/api/files?module=${encodeURIComponent(t.fileModule)}`, file);
+          await api('/api/jobs', { method: 'POST', body: { type: 'IMPORT_CSV', params: { module: this._module, fileId: saved.id } } });
+          toast('Operasi massal dijadwalkan', `${file.name} diproses di latar belakang — riwayat diperbarui otomatis.`);
+          setTimeout(() => this.render(main, _p), 2500);
+        } catch (error) { toast('Gagal memproses', error.message, 'coral'); }
+      });
+      main.querySelectorAll('[data-bo-err]').forEach((btn) => btn.addEventListener('click', async () => {
+        const b = batches.items.find((x) => x.id === btn.dataset.boErr); if (!b) return;
+        const list = (b.errors || []).map((e) => `• Baris ${e.line || '?'}: ${e.message}`).join('\n') || 'Tidak ada detail error.';
+        await actionDialog({ title: `Error impor — ${b.fileName || ''}`, description: list, confirmLabel: 'Tutup' });
+      }));
+    }
+  };
+  R('/hr/bulk-ops', bulkOpsPage);
 })();

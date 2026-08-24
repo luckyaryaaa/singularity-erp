@@ -2124,6 +2124,14 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-review{display:flex;flex-direction:column;gap:8px;padding:14px}
 .mk-review .mk-goal-kr{margin-top:3px}
 .mk-stars{color:#f59e0b;font-size:13px;letter-spacing:1.5px;white-space:nowrap}
+.mk-bo-field{display:flex;flex-direction:column;gap:6px}
+.mk-bo-field span{font:700 11px 'Plus Jakarta Sans',system-ui,sans-serif;color:var(--mk-slate);text-transform:uppercase;letter-spacing:.04em}
+.mk-bo-actions{display:flex;gap:10px;flex-wrap:wrap}
+.mk-bo-cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.mk-bo-col{padding:10px 12px}
+.mk-bo-col b{display:block;font:800 11.5px 'JetBrains Mono','Plus Jakarta Sans',monospace;color:#1e293b}
+.mk-bo-col small{color:var(--mk-muted);font-size:10.5px;word-break:break-word}
+.mk-bo-row{display:flex;align-items:center;gap:12px;padding:12px 14px}
 .mk-audit{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .mk-audit-row{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--mk-line);border-radius:12px;background:#f8fafc}
 .mk-audit-ic{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:#eef2f7;color:#475569}

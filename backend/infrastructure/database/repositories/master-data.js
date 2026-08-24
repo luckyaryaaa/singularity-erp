@@ -716,6 +716,17 @@ async function workforceAnalytics(client, user) {
   reviews.avgRating = Number(reviews.avgRating) || 0;
   return { kpi, byDept, tenure, gender, byGrade, span, nineBox, talentAssessed, flightRisk, succession, goals, reviews, compliance };
 }
+// Operasi massal — riwayat batch import/update CSV (di-scope ke pemohon; import_batches
+// tanpa tenant_id sehingga hanya batch milik user yang ditampilkan demi isolasi tenant).
+async function listImportBatches(client, user, { module, limit = 20 } = {}) {
+  assertPermission(user, 'employee.import');
+  const params = [user.id]; let where = 'created_by = $1';
+  if (module) { params.push(String(module)); where += ` AND module = $${params.length}`; }
+  params.push(Math.min(Math.max(Number(limit) || 20, 1), 50));
+  const rows = (await client.query(`SELECT id, module, file_name, total_rows, success_rows, error_rows, errors, created_at
+    FROM import_batches WHERE ${where} ORDER BY created_at DESC LIMIT $${params.length}`, params)).rows.map(runtime.camel);
+  return { items: rows };
+}
 
 // Performance & Talent — 9-box (baris = performance rendah/med/tinggi,
 // kolom = potential rendah/med/tinggi). Label standar talent management.
@@ -1233,4 +1244,4 @@ async function decideDisciplinary(client, id, spId, action, user, requestId) {
   return { revoked: spId };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches };

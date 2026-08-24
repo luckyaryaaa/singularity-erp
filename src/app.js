@@ -109,6 +109,7 @@
         { id: 'workforce', label: 'Workforce & Time', items: [
           route('#/hr/employees', 'Karyawan', 'people', 'employee.view'),
           route('#/hr/analytics', 'Analytics SDM', 'chart', 'employee.view'),
+          route('#/hr/bulk-ops', 'Operasi Massal', 'gear', 'employee.import'),
           route('#/hr/attendance', 'Kehadiran', 'clock', 'attendance.view'),
           route('#/hr/workforce', 'Shift & kalender', 'gear', 'attendance.view'),
           route('#/hr/leave', 'Cuti', 'clock', 'leave.view')
