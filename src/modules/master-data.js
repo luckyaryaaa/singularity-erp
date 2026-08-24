@@ -651,7 +651,7 @@
         ocr: async () => `<section class="mk-surface">${clayHead('scanText', 'AI-Powered Document OCR', 'Ekstraksi otomatis KTP/NPWP via AI Vision Engine (simulasi).', '<span class="mk-badge purple">OCR Engine v2.4</span>')}<div class="mk-section-body"><div class="mk-io"><div class="mk-inset mk-io-panel"><div class="mk-o-caps">1. Pilih &amp; Unggah Dokumen</div><select class="mk-input" id="mkOcrType"><option value="ktp">KTP (Kartu Tanda Penduduk)</option><option value="npwp">NPWP</option></select><div class="mk-drop" id="mkDrop">${MK('scanText')}<b>Klik untuk memuat sampel dokumen</b><small>JPG, PNG, PDF · maks 5 MB</small></div><button class="mk-btn primary" id="mkOcrRun">${MK('sparkles')} Jalankan AI OCR &amp; Auto-Extract</button></div><div class="mk-surface mk-io-out mk-io-panel"><div class="mk-rowb mk-o-caps bb">Hasil Ekstraksi AI<span class="mk-badge amber" id="mkOcrBadge">Menunggu</span></div><div class="mk-g mk-g2"><div><label class="mk-field-lbl">NIK Terdeteksi</label><input class="mk-input" id="mkOcrNik" placeholder="—"></div><div><label class="mk-field-lbl">Nama Lengkap</label><input class="mk-input" id="mkOcrName" placeholder="—"></div><div><label class="mk-field-lbl">Tempat/Tgl Lahir</label><input class="mk-input" id="mkOcrTtl" placeholder="—"></div><div><label class="mk-field-lbl">Alamat</label><input class="mk-input" id="mkOcrAddr" placeholder="—"></div></div><button class="mk-btn primary" id="mkOcrApply">${MK('edit')} Terapkan ke Pengkinian Identitas</button></div></div></div></section>`,
         services: async () => `<section class="mk-surface">${clayHead('wrench', 'Services & Tools', 'Layanan mandiri &amp; alat bantu karyawan.', '')}<div class="mk-section-body"><div class="mk-g mk-g3">${[['Data Saya', 'Portal self-service', 'user', '#/hr/my-profile'], ['Kalkulator Pajak', 'PPh 21 TER Planner', 'calc', 'tab:tax'], ['Simulasi BPJS', 'Iuran bulanan', 'shield', 'tab:bpjs'], ['Riwayat Karier', 'Timeline karier', 'history', 'tab:employment'], ['Pengkinian Identitas', 'Ajukan perubahan data', 'edit', 'identity'], ['Export Profil', 'Ringkasan PDF', 'printer', 'export']].map((t) => `<button class="mk-inset mk-tool" data-mk-tool="${t[3]}"><span class="mk-tool-ic">${MK(t[2])}</span><b>${esc(t[0])}</b><small>${esc(t[1])}</small></button>`).join('')}</div></div></section>`,
         talent: async () => {
-          const tl = await api(`${B}/talent`).catch(() => ({}));
+          const [tl, gd] = await Promise.all([api(`${B}/talent`).catch(() => ({})), api(`${B}/goals`).catch(() => ({ items: [] }))]);
           const perfR = Number(tl.performanceRating) || 0;
           const goalsPct = Number(tl.goalsTotal) ? Math.round((Number(tl.goalsCompleted) / Number(tl.goalsTotal)) * 100) : 0;
           const LB = [['Underperformer', 'Inconsistent', 'Enigma'], ['Effective', 'Core Player', 'High Potential'], ['Trusted Pro', 'High Performer', 'Star']];
@@ -659,10 +659,19 @@
           const SUCC = { READY_NOW: 'Siap sekarang', READY_1_2Y: '1–2 tahun', READY_3Y: '3 tahun', NOT_READY: 'Belum siap' };
           const grid = [2, 1, 0].map((r) => `<div class="mk-9row">${[0, 1, 2].map((c) => { const on = tl.box && tl.box.perf === r && tl.box.pot === c; return `<div class="mk-9cell t-${TN[r][c]}${on ? ' on' : ''}"><span class="mk-9lbl">${LB[r][c]}</span>${on ? `<span class="mk-9dot">${MK('user')}</span>` : ''}</div>`; }).join('')}</div>`).join('');
           const noteTone = tl.boxTone === 'emerald' ? 'emerald' : tl.boxTone === 'coral' ? 'coral' : tl.boxTone === 'amber' ? 'amber' : '';
+          const goals = gd.items || [], canEditG = can('employee.edit');
+          const GST = { DRAFT: ['slate', 'Draft'], ON_TRACK: ['emerald', 'On Track'], AT_RISK: ['coral', 'At Risk'], DONE: ['blue', 'Selesai'], CANCELLED: ['slate', 'Batal'] };
+          const GCAT = { OKR: 'OKR', BUSINESS: 'Bisnis', DEVELOPMENT: 'Pengembangan', BEHAVIOR: 'Perilaku' };
+          const goalRow = (g) => { const st = GST[g.status] || GST.ON_TRACK, prog = Number(g.progress) || 0; return `<div class="mk-inset mk-goal"><div class="mk-goal-top"><div class="mk-flex1"><div class="mk-goal-h"><b>${esc(g.objective)}</b><span class="mk-badge slate">${esc(GCAT[g.category] || g.category || 'OKR')}</span>${g.weight ? `<span class="mk-badge blue">Bobot ${g.weight}%</span>` : ''}<span class="mk-badge ${st[0]}">${esc(st[1])}</span></div>${g.keyResults ? `<small class="mk-goal-kr">${esc(g.keyResults)}</small>` : ''}${(g.metric || g.dueDate) ? `<small class="mk-mu">${g.metric ? esc(g.metric) : ''}${(g.metric && g.dueDate) ? ' · ' : ''}${g.dueDate ? 'due ' + fmtDate(g.dueDate) : ''}</small>` : ''}</div>${canEditG ? `<button class="mk-btn sm" data-mk-goal="${esc(g.id)}" data-mk-goalp="${prog}" data-mk-goalstat="${esc(g.status || 'ON_TRACK')}" data-mk-goaln="${esc(g.objective)}">${MK('edit')} Update</button>` : ''}</div><div class="mk-goal-prog"><div class="mk-band"><div class="mk-band-track"><span class="mk-band-fill" data-w="${prog}"></span></div></div><span class="mk-goal-pct">${prog}%</span></div></div>`; };
+          const att = Number(gd.attainment) || 0;
+          const goalsCard = `<section class="mk-surface"><div class="mk-section-head"><div><div class="mk-section-title">${MK('award')} Goals &amp; OKR</div><div class="mk-section-desc">Sasaran kinerja berbobot dengan pelacakan progres — pencapaian keseluruhan dihitung otomatis (weighted).</div></div><div class="mk-hdr-meta"><span class="mk-badge ${att >= 80 ? 'emerald' : att >= 50 ? 'amber' : 'coral'}">Attainment ${att}%</span>${canEditG ? `<button class="mk-btn primary sm" id="mkGoalAdd">${MK('plus')} Tambah Goal</button>` : ''}</div></div><div class="mk-section-body mk-col">
+            <div class="mk-g mk-g4"><div class="mk-inset mk-out"><span>Pencapaian (weighted)</span><b class="${att >= 80 ? 'emerald' : att >= 50 ? 'blue' : 'coral'}">${att}%</b></div><div class="mk-inset mk-out"><span>Goal Aktif</span><b>${gd.active || 0}</b></div><div class="mk-inset mk-out"><span>At Risk</span><b class="${gd.atRisk ? 'coral' : ''}">${gd.atRisk || 0}</b></div><div class="mk-inset mk-out"><span>Selesai</span><b class="blue">${gd.done || 0}</b></div></div>
+            ${goals.length ? `<div class="mk-col">${goals.map(goalRow).join('')}</div>` : emptyBox('Belum ada goal/OKR. Tambahkan sasaran kinerja untuk periode ini.')}
+          </div></section>`;
           return `<section class="mk-surface">${clayHead('award', 'Performance & Talent (9-Box)', 'Kalibrasi kinerja, potensi, flight-risk, dan kesiapan suksesi.', can('employee.edit') ? `<button class="mk-btn primary sm" id="mkTalentEdit">${MK('edit')} Kalibrasi</button>` : '')}<div class="mk-section-body"><div class="mk-io">
             <div class="mk-inset mk-io-panel"><div class="mk-o-caps">9-Box Talent Grid</div><div class="mk-9box"><span class="mk-9yax">Kinerja →</span><div class="mk-9grid">${grid}</div></div><div class="mk-9xax"><span>Potensi rendah</span><span>Potensi tinggi</span></div>${tl.boxLabel ? `<div class="mk-note ${noteTone}"><b>Posisi:</b> ${esc(tl.boxLabel)}</div>` : `<div class="mk-note">Belum dikalibrasi — set kinerja &amp; potensi lewat tombol "Kalibrasi".</div>`}</div>
-            <div class="mk-inset mk-io-panel"><div class="mk-o-caps">Ringkasan Talenta</div><div class="mk-g mk-g2"><div class="mk-inset mk-out"><span>Performance</span><b>${perfR ? perfR + ' / 5' : '—'}</b></div><div class="mk-inset mk-out"><span>Potensi</span><b class="blue">${esc(tl.potential || '—')}</b></div><div class="mk-inset mk-out"><span>Flight Risk</span><b class="${tl.flightRisk === 'HIGH' ? '' : ''}">${esc(tl.flightRisk || '—')}</b></div><div class="mk-inset mk-out"><span>Kesiapan Suksesi</span><b>${esc(SUCC[tl.successionReadiness] || tl.successionReadiness || '—')}</b></div></div><div class="mk-o-caps">Progres Goal${tl.goalsTotal ? ` — ${tl.goalsCompleted}/${tl.goalsTotal}` : ''}</div><div class="mk-band"><div class="mk-band-track"><span class="mk-band-fill" data-w="${goalsPct}"></span></div></div>${tl.notes ? `<div class="mk-note">${esc(tl.notes)}</div>` : ''}</div>
-          </div></div></section>`;
+            <div class="mk-inset mk-io-panel"><div class="mk-o-caps">Ringkasan Talenta</div><div class="mk-g mk-g2"><div class="mk-inset mk-out"><span>Performance</span><b>${perfR ? perfR + ' / 5' : '—'}</b></div><div class="mk-inset mk-out"><span>Potensi</span><b class="blue">${esc(tl.potential || '—')}</b></div><div class="mk-inset mk-out"><span>Flight Risk</span><b class="${tl.flightRisk === 'HIGH' ? '' : ''}">${esc(tl.flightRisk || '—')}</b></div><div class="mk-inset mk-out"><span>Kesiapan Suksesi</span><b>${esc(SUCC[tl.successionReadiness] || tl.successionReadiness || '—')}</b></div></div><div class="mk-o-caps">Progres Goal (kalibrasi manual)${tl.goalsTotal ? ` — ${tl.goalsCompleted}/${tl.goalsTotal}` : ''}</div><div class="mk-band"><div class="mk-band-track"><span class="mk-band-fill" data-w="${goalsPct}"></span></div></div>${tl.notes ? `<div class="mk-note">${esc(tl.notes)}</div>` : ''}</div>
+          </div></div></section>${goalsCard}`;
         }
       };
       const wireCommon = (root) => {
@@ -969,6 +978,31 @@
             try { await api(`${B}/talent`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); toast('Talent tersimpan', 'Kalibrasi 9-box diperbarui.'); loaded.talent = false; show('talent'); }
             catch (error) { toast('Gagal menyimpan', error.message, 'coral'); }
           });
+          panel.querySelector('#mkGoalAdd')?.addEventListener('click', async () => {
+            const v = await formDialog({ title: `Tambah Goal / OKR — ${ov.name || ''}`, description: 'Sasaran kinerja periode berjalan. Bobot dipakai menghitung pencapaian tertimbang (weighted attainment).', fields: [
+              { name: 'objective', label: 'Objective / Sasaran', required: true },
+              { name: 'keyResults', label: 'Key Results (uraian)', type: 'textarea', rows: 2 },
+              { name: 'category', label: 'Kategori', type: 'select', options: [['OKR', 'OKR'], ['BUSINESS', 'Bisnis'], ['DEVELOPMENT', 'Pengembangan'], ['BEHAVIOR', 'Perilaku']], value: 'OKR' },
+              { name: 'metric', label: 'Metrik / Target ukur' },
+              { name: 'weight', label: 'Bobot (%)', type: 'number', min: 0, max: 100, value: 0 },
+              { name: 'period', label: 'Periode', value: String(new Date().getFullYear()) },
+              { name: 'progress', label: 'Progres awal (%)', type: 'number', min: 0, max: 100, value: 0 },
+              { name: 'status', label: 'Status', type: 'select', options: [['ON_TRACK', 'On Track'], ['DRAFT', 'Draft'], ['AT_RISK', 'At Risk'], ['DONE', 'Selesai']], value: 'ON_TRACK' },
+              { name: 'dueDate', label: 'Tenggat', type: 'date' }
+            ], submitLabel: 'Simpan goal' });
+            if (!v) return;
+            try { await api(`${B}/goals`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Goal tersimpan'); loaded.talent = false; show('talent'); }
+            catch (error) { toast('Gagal menyimpan goal', error.message, 'coral'); }
+          });
+          panel.querySelectorAll('[data-mk-goal]').forEach((b) => b.addEventListener('click', async () => {
+            const v = await formDialog({ title: `Update Progres — ${b.dataset.mkGoaln || 'Goal'}`, fields: [
+              { name: 'progress', label: 'Progres (%)', type: 'number', min: 0, max: 100, value: Number(b.dataset.mkGoalp) || 0, required: true },
+              { name: 'status', label: 'Status', type: 'select', options: [['ON_TRACK', 'On Track'], ['AT_RISK', 'At Risk'], ['DONE', 'Selesai'], ['DRAFT', 'Draft'], ['CANCELLED', 'Batal']], value: b.dataset.mkGoalstat || 'ON_TRACK' }
+            ], submitLabel: 'Perbarui progres' });
+            if (!v) return;
+            try { await api(`${B}/goals/${b.dataset.mkGoal}/progress`, { method: 'POST', body: v, idempotencyKey: newIdemKey() }); invalidate(`master:${params.id}`); toast('Progres diperbarui'); loaded.talent = false; show('talent'); }
+            catch (error) { toast('Gagal memperbarui', error.message, 'coral'); }
+          }));
         }
       };
       const subLabel = (k) => { const t = MK_TABS.find((x) => x[0] === k); return `<button class="mk-tab" data-mk-tab="${k}" role="tab">${MK(t[2])} ${esc(t[1])}${t[3] ? `<span class="mk-chip ${t[3][1]}">${esc(t[3][0])}</span>` : ''}</button>`; };

@@ -66,7 +66,9 @@ const REGISTRY = {
         encrypted: { field: 'restricted_notes', purpose: 'employee_restricted.restricted_notes' },
         guard: (u) => assertPermission(u,'employee.edit'), viewGuard: (u) => assertPermission(u,'employee.edit') },
       'access': { table: 'employee_access_assignments', fk: 'employee_id', order: 'access_start DESC',
-        cols: ['user_id','role','org_scope','access_start','access_end','review_note'] }
+        cols: ['user_id','role','org_scope','access_start','access_end','review_note'] },
+      'goals': { table: 'employee_goals', fk: 'employee_id', order: 'created_at DESC',
+        cols: ['period','category','objective','key_results','metric','weight','progress','status','start_date','due_date'] }
     }
   },
   customers: {
@@ -1094,6 +1096,41 @@ async function employeeAlerts(client, id, user) {
   alerts.forEach((a) => { counts[a.severity] += 1; });
   return { items: alerts, total: alerts.length, counts };
 }
+// Goals/OKR — daftar + ringkasan pencapaian berbobot (weighted attainment).
+const GOAL_STATUS = ['DRAFT', 'ON_TRACK', 'AT_RISK', 'DONE', 'CANCELLED'];
+async function listGoals(client, id, user) {
+  assertPermission(user, 'employee.view');
+  await parentRow(client, 'employees', id);
+  const rows = (await client.query(`SELECT * FROM employee_goals WHERE employee_id=$1 ORDER BY
+    CASE status WHEN 'AT_RISK' THEN 0 WHEN 'ON_TRACK' THEN 1 WHEN 'DRAFT' THEN 2 WHEN 'DONE' THEN 3 ELSE 4 END,
+    due_date NULLS LAST, created_at DESC`, [id])).rows.map(runtime.camel);
+  const scored = rows.filter((r) => r.status !== 'CANCELLED');
+  const totalWeight = scored.reduce((a, r) => a + (Number(r.weight) || 0), 0);
+  const attainment = totalWeight > 0
+    ? Math.round(scored.reduce((a, r) => a + (Number(r.weight) || 0) * (Number(r.progress) || 0), 0) / totalWeight)
+    : (scored.length ? Math.round(scored.reduce((a, r) => a + (Number(r.progress) || 0), 0) / scored.length) : 0);
+  return { items: rows, attainment, totalWeight, active: scored.length,
+    atRisk: rows.filter((r) => r.status === 'AT_RISK').length, done: rows.filter((r) => r.status === 'DONE').length };
+}
+async function updateGoalProgress(client, id, goalId, body, user, requestId) {
+  assertPermission(user, 'employee.edit');
+  await parentRow(client, 'employees', id);
+  const hasProgress = body.progress !== undefined && body.progress !== null && body.progress !== '';
+  const progress = hasProgress ? Math.max(0, Math.min(100, Math.round(Number(body.progress)))) : null;
+  if (hasProgress && !Number.isFinite(progress)) throw new AppError('VALIDATION_ERROR', 'Progres harus 0–100.');
+  let status = GOAL_STATUS.includes(String(body.status || '').toUpperCase()) ? String(body.status).toUpperCase() : null;
+  if (progress !== null && progress >= 100 && !status) status = 'DONE';
+  if (progress === null && !status) throw new AppError('VALIDATION_ERROR', 'Progres atau status wajib diisi.');
+  const sets = [], vals = [id, goalId]; let n = 2;
+  if (progress !== null) { sets.push(`progress=$${++n}`); vals.push(progress); }
+  if (status) { sets.push(`status=$${++n}`); vals.push(status); }
+  const row = (await client.query(`UPDATE employee_goals SET ${sets.join(',')}, updated_at=now()
+    WHERE employee_id=$1 AND id=$2 RETURNING *`, vals)).rows[0];
+  if (!row) throw new AppError('RESOURCE_NOT_FOUND');
+  await runtime.audit(client, { userId: user.id, action: 'GOAL_UPDATE', module: 'employee', entityType: 'EMPLOYEE_GOAL',
+    entityId: goalId, newValue: { progress: row.progress, status: row.status }, requestId, branchId: user.branchId });
+  return runtime.camel(row);
+}
 async function addDisciplinary(client, id, body, user, requestId) {
   assertPermission(user, 'employee.edit');
   await parentRow(client, 'employees', id);
@@ -1117,4 +1154,4 @@ async function decideDisciplinary(client, id, spId, action, user, requestId) {
   return { revoked: spId };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress };
