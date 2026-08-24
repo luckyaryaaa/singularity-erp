@@ -744,6 +744,31 @@ async function companyIdentity(client, user) {
     tagline: c.tagline || null, documentFooter: c.documentFooter || null
   };
 }
+// Data slip gaji untuk mesin dokumen resmi (renderDocument) — komponen penghasilan
+// (positif) & potongan (negatif) sebagai baris; grand total = THP. Kalkulasi identik
+// dengan slip on-screen (TER PP 58/2023 + BPJS per-komponen).
+async function payslipData(client, id, { period, bonus } = {}, user) {
+  const ov = await overview(client, 'employees', id, user);
+  const s = ov.enterpriseSummary || {}, comp = s.compensation || {}, tax = s.tax || {}, pos = s.currentPosition || {};
+  const base = Number(comp.baseSalary) || 0, fixed = Number(comp.fixedAllowance) || 0, vari = Number(comp.variableAllowance) || 0, bon = Math.max(0, Number(bonus) || 0);
+  const upah = base + fixed, gross = base + fixed + vari + bon;
+  const ptkp = tax.ptkpStatus || 'TK/0', npwp = !(tax.npwp === false || tax.npwp === 0 || tax.npwp === '0');
+  const cat = tax.terCategory || ptkpToCatBE(ptkp);
+  const kesEmp = Math.round(Math.min(upah, 12000000) * 0.01), jhtEmp = Math.round(upah * 0.02), jpEmp = Math.round(Math.min(upah, 10042300) * 0.01);
+  const pph = Math.round(gross * terMonthlyRate(cat, gross) * (npwp ? 1 : 1.2));
+  const net = gross - (kesEmp + jhtEmp + jpEmp + pph);
+  const rows = [['Gaji Pokok', base], ['Tunjangan Tetap', fixed], ['Tunjangan Variabel', vari], ['Bonus / THR', bon]].filter((r) => r[1] > 0)
+    .concat([['(-) BPJS Kesehatan (1%)', -kesEmp], ['(-) BPJS JHT (2%)', -jhtEmp], ['(-) BPJS Jaminan Pensiun (1%)', -jpEmp], [`(-) PPh 21 (TER ${cat}${npwp ? '' : ' +20% non-NPWP'})`, -pph]]);
+  const lines = rows.map(([description, amt], i) => ({ lineNo: i + 1, description, qty: 1, uom: '', unitPrice: amt, discountPct: 0, taxPct: 0, lineTotal: amt }));
+  const per = /^\d{4}-\d{2}$/.test(period || '') ? period : new Date().toISOString().slice(0, 7);
+  const perLabel = new Date(per + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  const document = {
+    documentType: 'PAYSLIP', documentNumber: `SLIP/${per}/${ov.nik || String(id).slice(0, 8)}`,
+    status: 'APPROVED', amount: net, partyName: ov.name || '-', createdAt: new Date().toISOString(),
+    payload: { period: perLabel, customerAddress: `${pos.positionTitle || ov.jobTitle || '-'}${ov.department ? ' · ' + ov.department : ''}`, attn: `NIK ${ov.nik || '-'}`, terms: perLabel }
+  };
+  return { document, lines, net, period: per };
+}
 
 // Performance & Talent — 9-box (baris = performance rendah/med/tinggi,
 // kolom = potential rendah/med/tinggi). Label standar talent management.
@@ -1261,4 +1286,4 @@ async function decideDisciplinary(client, id, spId, action, user, requestId) {
   return { revoked: spId };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity, payslipData };

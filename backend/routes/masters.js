@@ -8,6 +8,8 @@ const masterGovernance = require('../infrastructure/database/repositories/master
 const masterWizards = require('../infrastructure/database/repositories/master-wizards');
 const businessPartners = require('../infrastructure/database/repositories/business-partners');
 const changeRequests = require('../infrastructure/database/repositories/change-requests');
+const organization = require('../infrastructure/database/repositories/organization');
+const docRender = require('../infrastructure/files/document-render');
 const masterModules={customers:'customer',suppliers:'supplier',products:'product',employees:'employee'};
 const { NO_MATCH } = require('./shared');
 
@@ -132,6 +134,16 @@ async function dispatch(client, req, url, ctx) {
   if(method==='POST'&&m){const body=await readBody(req);return masterData.autoTaxProfile(client,m[1],body,ctx.user,ctx.requestId);}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/alerts$/);
   if(method==='GET'&&m)return masterData.employeeAlerts(client,m[1],ctx.user);
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/payslip-pdf$/);
+  if(method==='GET'&&m){
+    const data=await masterData.payslipData(client,m[1],{period:url.searchParams.get('period'),bonus:url.searchParams.get('bonus')},ctx.user);
+    const profile=await organization.overview(client,ctx.user);
+    data.document.organizationIdentitySnapshot={legalName:profile.legalName,tradeName:profile.tradeName,tagline:profile.tagline,operationalAddress:profile.operationalAddress||profile.legalAddress,npwp:profile.npwp,phone:profile.phone,whatsapp:profile.whatsapp,email:profile.email,website:profile.website,documentFooter:profile.documentFooter};
+    const assets=await organization.documentAssets(client,null).catch(()=>({}));
+    const rendered=docRender.renderDocument({document:data.document,lines:data.lines,template:{title:'SLIP GAJI KARYAWAN',partyLabel:'Karyawan',showTerbilang:true,signatureLabel:'Mengetahui, HRD',termsTitle:'Periode',showQr:true},assets});
+    ctx.download={item:{originalFilename:`slip-gaji-${data.period}.pdf`,mimeType:'application/pdf',disposition:'inline'},buffer:rendered.buffer};
+    return null;
+  }
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/goals$/);
   if(method==='GET'&&m)return masterData.listGoals(client,m[1],ctx.user);
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/goals\/([0-9a-f-]{36})\/progress$/);
