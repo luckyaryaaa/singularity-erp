@@ -18,6 +18,17 @@ const moneyRp = (v) => 'Rp ' + Math.round(Number(v || 0)).toLocaleString('id-ID'
 const INK = '0.106 0.149 0.212', SLATE = '0.271 0.325 0.404', MUTE = '0.470 0.518 0.588';
 const HAIR = '0.855 0.878 0.914', SOFT = '0.960 0.968 0.980', ACCENT = '0.098 0.294 0.573', ACCENTSOFT = '0.905 0.929 0.969';
 
+// ── Metrik font (AFM Helvetica / Helvetica-Bold, /1000 em, ASCII 32..126) ────
+// Lebar akurat — huruf KAPITAL & bold jauh lebih lebar dari perkiraan kasar,
+// jadi right()/center() tak lagi meleset (judul HURUF BESAR tak lari dari margin).
+const HW = '278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584'.split(',').map(Number);
+const HB = '278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584'.split(',').map(Number);
+function strWidth(str, size = 9, bold = false) {
+  const T = bold ? HB : HW, s = String(str); let w = 0;
+  for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i) - 32; w += (c >= 0 && c < 95 ? T[c] : (bold ? 611 : 556)); }
+  return w / 1000 * size;
+}
+
 // ── Terbilang (angka → kata, Bahasa Indonesia) ──────────────────────────────
 const SATUAN = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
 function terbilang(n) {
@@ -45,8 +56,8 @@ class Page {
     this.ops.push(`BT ${color} rg /${bold ? 'FB' : 'F1'} ${size} Tf 1 0 0 1 ${x.toFixed(1)} ${(PH - y).toFixed(1)} Tm (${esc(str)}) Tj ET`);
     return this;
   }
-  right(xRight, y, str, opt = {}) { this.text(xRight - (String(str).length * (opt.size || 9) * (opt.bold ? 0.53 : 0.5)), y, str, opt); return this; }
-  center(xc, y, str, opt = {}) { this.text(xc - (String(str).length * (opt.size || 9) * (opt.bold ? 0.53 : 0.5)) / 2, y, str, opt); return this; }
+  right(xRight, y, str, opt = {}) { this.text(xRight - strWidth(str, opt.size || 9, opt.bold), y, str, opt); return this; }
+  center(xc, y, str, opt = {}) { this.text(xc - strWidth(str, opt.size || 9, opt.bold) / 2, y, str, opt); return this; }
   line(x1, y1, x2, y2, w = 0.6, color = HAIR) { this.ops.push(`${w} w ${color} RG ${x1.toFixed(1)} ${(PH - y1).toFixed(1)} m ${x2.toFixed(1)} ${(PH - y2).toFixed(1)} l S`); return this; }
   rect(x, y, w, h, { fill, stroke, sw = 0.6 } = {}) {
     if (fill) this.ops.push(`${fill} rg ${x.toFixed(1)} ${(PH - y - h).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re f`);
@@ -235,12 +246,11 @@ function renderDocument(data) {
   const cline = [org.npwp && `NPWP ${org.npwp}`, org.phone && `Telp ${org.phone}`, org.email].filter(Boolean).join('     ');
   if (cline) { p.text(nx, hy, cline.slice(0, 98), { size: 7.5, color: MUTE }); hy += 10; }
 
-  // Identitas dokumen (kanan): judul aksen (auto-fit agar tak menabrak nama PT) + nomor + pil status.
-  const strW = (s, size, bold) => String(s).length * size * (bold ? 0.53 : 0.5);
-  const nameEnd = nx + strW(orgName.slice(0, 46), 13.5, true);            // ujung kanan nama perusahaan
-  const titleLeft = Math.min(MR - 118, Math.max(300, nameEnd + 18));      // mulai judul: setelah nama + jeda, minimal x=300
-  let titleSize = 18;                                                     // kecilkan 18→11 sampai muat di zona kanan
-  while (titleSize > 11 && strW(title, titleSize, true) > MR - titleLeft) titleSize -= 0.5;
+  // Identitas dokumen (kanan): judul aksen (auto-fit agar tak menabrak nama PT / lari dari margin) + nomor + pil status.
+  const nameEnd = nx + strWidth(orgName.slice(0, 46), 13.5, true);        // ujung kanan nama perusahaan (metrik akurat)
+  const titleLeft = Math.min(MR - 110, Math.max(300, nameEnd + 20));      // mulai judul: setelah nama + jeda, minimal x=300
+  let titleSize = 18;                                                     // kecilkan 18→10.5 sampai muat di zona kanan
+  while (titleSize > 10.5 && strWidth(title, titleSize, true) > MR - titleLeft) titleSize -= 0.5;
   p.right(MR, 57, title, { size: titleSize, bold: true, color: ACCENT });
   p.right(MR, 71, doc.documentNumber || '', { size: 9.5, bold: true, color: INK });
   const st = String(doc.status || '').toUpperCase();
