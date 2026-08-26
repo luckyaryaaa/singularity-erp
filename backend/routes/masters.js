@@ -13,6 +13,17 @@ const docRender = require('../infrastructure/files/document-render');
 const masterModules={customers:'customer',suppliers:'supplier',products:'product',employees:'employee'};
 const { NO_MATCH } = require('./shared');
 
+// Render dokumen HR (blok/surat) lewat mesin dokumen terpadu (renderDocument).
+async function renderHrDoc(client, ctx, builderName, midArgs, filename) {
+  const profile = await organization.overview(client, ctx.user);
+  const snap = { legalName: profile.legalName, tradeName: profile.tradeName, tagline: profile.tagline, npwp: profile.npwp, operationalAddress: profile.operationalAddress || profile.legalAddress, legalAddress: profile.legalAddress, phone: profile.phone, whatsapp: profile.whatsapp, email: profile.email, website: profile.website, documentFooter: profile.documentFooter, signatory: profile.signatory };
+  const { document, body, options } = await masterData[builderName](client, ...midArgs, ctx.user, snap);
+  document.organizationIdentitySnapshot = snap;
+  const assets = await organization.documentAssets(client, null).catch(() => ({}));
+  const rendered = docRender.renderDocument({ document, body, template: options, assets });
+  ctx.download = { item: { originalFilename: filename, mimeType: 'application/pdf', disposition: 'inline' }, buffer: rendered.buffer };
+}
+
 async function dispatch(client, req, url, ctx) {
   const p=url.pathname, method=req.method;
   let m;
@@ -144,6 +155,14 @@ async function dispatch(client, req, url, ctx) {
     ctx.download={item:{originalFilename:`slip-gaji-${data.period}.pdf`,mimeType:'application/pdf',disposition:'inline'},buffer:rendered.buffer};
     return null;
   }
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/paklaring-pdf$/);
+  if(method==='GET'&&m){await renderHrDoc(client,ctx,'paklaringData',[m[1]],'surat-keterangan-kerja.pdf');return null;}
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/sp-pdf\/([0-9a-f-]{36})$/);
+  if(method==='GET'&&m){await renderHrDoc(client,ctx,'spLetterData',[m[1],m[2]],'surat-peringatan.pdf');return null;}
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/pph1721-pdf$/);
+  if(method==='GET'&&m){await renderHrDoc(client,ctx,'pph1721Data',[m[1],{year:url.searchParams.get('year')?Number(url.searchParams.get('year')):undefined}],'bukti-potong-1721.pdf');return null;}
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/bpjs-pdf$/);
+  if(method==='GET'&&m){await renderHrDoc(client,ctx,'bpjsRincianData',[m[1]],'rincian-bpjs.pdf');return null;}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/goals$/);
   if(method==='GET'&&m)return masterData.listGoals(client,m[1],ctx.user);
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/goals\/([0-9a-f-]{36})\/progress$/);

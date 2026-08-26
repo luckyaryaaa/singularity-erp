@@ -244,8 +244,53 @@ function renderDocument(data) {
   const headBottom = Math.max(hy + 6, 98);
   p.rect(ML, headBottom, MR - ML, 1.4, { fill: ACCENT });      // satu garis kop aksen
 
-  // ══ PARTY (kiri) + META (kanan) ══════════════════════════════════════════
-  let y = headBottom + 22;
+  // ══ ISI: mode blok/surat (data.body) atau line-item (tabel) ═══════════════
+  const CW = MR - ML;
+  const drawDocBlocks = (startY) => {
+    let yy = startY;
+    const para = (text, o = {}) => {
+      const size = o.size || 9.5, lh = o.lh || 14.5, maxC = Math.floor(CW / (size * 0.487));
+      let line = '';
+      for (const w of String(text).split(/\s+/)) {
+        if (line && (line + ' ' + w).length > maxC) { p.text(ML, yy + size, line, { size, color: o.color || INK }); yy += lh; line = w; }
+        else line = line ? line + ' ' + w : w;
+      }
+      if (line) { p.text(ML, yy + size, line, { size, color: o.color || INK }); yy += lh; }
+    };
+    for (const blk of data.body) {
+      if (!blk) continue;
+      if (blk.type === 'space') { yy += blk.h || 12; continue; }
+      if (blk.type === 'letterhead') {
+        if (blk.place || blk.date) p.right(MR, yy + 9, `${blk.place || ''}${blk.place && blk.date ? ', ' : ''}${blk.date || ''}`, { size: 9, color: INK });
+        let a = yy;
+        [['Nomor', blk.number], ['Lampiran', blk.attachment], ['Perihal', blk.subject]].filter(([, v]) => v).forEach(([k, v]) => { p.text(ML, a + 9, k, { size: 9, color: MUTE }); p.text(ML + 60, a + 9, `: ${v}`, { size: 9, bold: k === 'Perihal', color: INK }); a += 14; });
+        yy = Math.max(a, yy + 14) + 8;
+        if (blk.recipient) { p.text(ML, yy + 9, 'Kepada Yth.', { size: 9, color: INK }); yy += 21; String(blk.recipient).split('\n').forEach((r) => { p.text(ML, yy, r, { size: 9, bold: true, color: INK }); yy += 13; }); yy += 6; }
+        continue;
+      }
+      if (blk.type === 'heading') { yy += 6; p.text(ML, yy + 9, String(blk.text), { size: blk.size || 11, bold: true, color: INK }); yy += (blk.size || 11) + 6; if (blk.rule) { p.line(ML, yy - 2, MR, yy - 2, 0.6, HAIR); yy += 4; } continue; }
+      if (blk.type === 'para') { yy += 3; para(blk.text, blk); yy += (blk.gap ?? 7); continue; }
+      if (blk.type === 'meta') { const lw = blk.labelW || 120, ind = blk.indent || 0; (blk.rows || []).forEach(([k, v]) => { p.text(ML + ind, yy + 10, k, { size: 9, color: MUTE }); p.text(ML + ind + lw, yy + 10, `: ${v}`, { size: 9, bold: blk.bold !== false, color: INK }); yy += 15; }); yy += (blk.gap ?? 6); continue; }
+      if (blk.type === 'table') {
+        const heads = blk.head || [], rows = blk.rows || [], n = heads.length || 1;
+        const widths = blk.widths || heads.map(() => CW / n);
+        const rights = blk.right || heads.map((_, i) => i > 0);
+        const xs = []; let cx = ML; widths.forEach((w) => { xs.push(cx); cx += w; });
+        const tstart = yy;
+        p.rect(ML, yy, CW, 20, { fill: SOFT });
+        heads.forEach((h, i) => { const tx = rights[i] ? xs[i] + widths[i] - 6 : xs[i] + 6; rights[i] ? p.right(tx, yy + 13, String(h), { size: 7.5, bold: true, color: SLATE }) : p.text(tx, yy + 13, String(h), { size: 7.5, bold: true, color: SLATE }); });
+        p.line(ML, yy + 20, MR, yy + 20, 1, ACCENT); yy += 20;
+        rows.forEach((r, ri) => { const strong = (blk.strongRows || []).includes(ri); if (strong) p.rect(ML, yy, CW, 20, { fill: ACCENTSOFT }); r.forEach((c, i) => { const tx = rights[i] ? xs[i] + widths[i] - 6 : xs[i] + 6; const o = { size: 8.5, bold: strong || (i === 0 && blk.boldFirst), color: strong ? ACCENT : (i === 0 ? INK : SLATE) }; rights[i] ? p.right(tx, yy + 13.5, String(c), o) : p.text(tx, yy + 13.5, String(c).slice(0, 46), o); }); p.line(ML, yy + 20, MR, yy + 20, 0.5, HAIR); yy += 20; });
+        p.rect(ML, tstart, CW, yy - tstart, { stroke: HAIR });
+        yy += (blk.gap ?? 8); continue;
+      }
+      if (blk.type === 'total') { const bw = blk.width || 260, bx = MR - bw; p.rect(bx, yy, bw, 26, { fill: ACCENTSOFT }); p.text(bx + 12, yy + 17, String(blk.label), { size: 10, bold: true, color: ACCENT }); p.right(MR - 12, yy + 17, String(blk.value), { size: 11.5, bold: true, color: ACCENT }); yy += (blk.gap ?? 12) + 26; continue; }
+    }
+    return yy;
+  };
+  let y = headBottom + 22, contentBottom, shown = [];
+  if (Array.isArray(data.body)) { y = drawDocBlocks(y); contentBottom = y; }
+  else {
   const partyLbl = (opt.partyLabel || (payroll ? 'Karyawan' : isQuo ? 'Ditujukan Kepada' : 'Ditagihkan Kepada')).toUpperCase();
   p.text(ML, y, partyLbl, { size: 7, bold: true, color: MUTE });
   p.text(ML, y + 16, String(doc.partyName || data.party?.name || '-').slice(0, 46), { size: 11, bold: true, color: INK });
@@ -287,7 +332,7 @@ function renderDocument(data) {
   };
   drawHead(p, y); y += HROW;
   const maxRows = payroll ? 18 : 14;
-  const shown = normalized.slice(0, maxRows);
+  shown = normalized.slice(0, maxRows);
   shown.forEach((l) => { drawRow(p, y, l); y += HROW; });
   const minBottom = tableTop + HROW + HROW * (payroll ? Math.max(shown.length, 4) : 6);
   if (y < minBottom && normalized.length <= shown.length) y = minBottom;
@@ -354,9 +399,11 @@ function renderDocument(data) {
   }
   const notes = Array.isArray(opt.notes) ? opt.notes.filter(Boolean).slice(0, 4) : [];
   if (notes.length) { ly += 4; p.text(ML, ly, (opt.notesTitle || 'Catatan').toUpperCase(), { size: 7, bold: true, color: MUTE }); ly += 13; notes.forEach((t) => { p.text(ML, ly, '- ' + String(t).slice(0, 58), { size: 7.5, color: SLATE }); ly += 11; }); }
+  contentBottom = Math.max(ly, ry);
+  }
 
   // ══ TANDA TANGAN ═════════════════════════════════════════════════════════
-  let bottom = Math.max(ly, ry) + 26;
+  let bottom = contentBottom + 26;
   if (opt.showSignature !== false) {
     const sy = bottom, boxW = 200, rx = MR - boxW, sig = org.signatory || {};
     p.text(rx, sy, opt.signatureLabel || (payroll ? 'Disahkan oleh,' : 'Hormat kami,'), { size: 8, color: SLATE });
@@ -365,8 +412,8 @@ function renderDocument(data) {
     p.line(rx, sy + 50, rx + boxW, sy + 50, 0.6, SLATE);
     p.text(rx, sy + 62, (sig.name || org.legalName || '(Nama Jelas)').slice(0, 34), { size: 8.5, bold: true, color: INK });
     p.text(rx, sy + 73, (sig.positionTitle || 'Pejabat Berwenang').slice(0, 34), { size: 7.5, color: MUTE });
-    if (!payroll) {
-      p.text(ML, sy, 'Diterima oleh,', { size: 8, color: SLATE });
+    if (opt.receiverBox === true || (!payroll && !Array.isArray(data.body) && opt.receiverBox !== false)) {
+      p.text(ML, sy, opt.receiverLabel || 'Diterima oleh,', { size: 8, color: SLATE });
       p.line(ML, sy + 50, ML + boxW, sy + 50, 0.6, SLATE);
       p.text(ML, sy + 62, '(  .....................................  )', { size: 8, color: MUTE });
       p.text(ML, sy + 73, 'Nama & Stempel', { size: 7.5, color: MUTE });
