@@ -302,6 +302,7 @@ function renderDocument(data) {
     p.right(MR - 10, ry + (o.big ? 16 : 12), val, { size: o.big ? 11.5 : 8.5, bold: o.valBold !== false, color: o.valColor || INK });
     ry += (o.h || 17);
   };
+  let payable = grand;                          // nilai final yang benar-benar dibayar (untuk terbilang)
   if (payroll) {
     const earn = normalized.filter((l) => l.lineTotal > 0).reduce((s, l) => s + l.lineTotal, 0);
     const ded = normalized.filter((l) => l.lineTotal < 0).reduce((s, l) => s - l.lineTotal, 0);
@@ -310,18 +311,37 @@ function renderDocument(data) {
     p.line(sX, ry + 1, MR, ry + 1, 0.8, HAIR); ry += 4;
     sumRow('GAJI BERSIH (THP)', money(grand), { fill: ACCENTSOFT, big: true, bold: true, h: 26, valColor: ACCENT });
   } else {
-    sumRow('Subtotal', money(subtotal), { valBold: false });
-    if (discTotal > 0.5) sumRow('Diskon', '(' + money(discTotal) + ')', { valColor: RED, valBold: false });
+    // Alur pajak Indonesia: PPN DITAMBAH (dibayar pelanggan), PPh DIPOTONG (withholding).
+    // payload: pphType ('PPh 23'/'PPh 4(2)'/'PPh 22'), pphRate (%), atau pph/pph23 (nominal).
+    const pphRate = Number(doc.payload?.pphRate ?? (doc.payload?.pph23 != null ? 2 : 0)) || 0;
+    const pphType = doc.payload?.pphType || (doc.payload?.pph23 != null ? 'PPh 23' : 'PPh');
+    const pphAmt = doc.payload?.pph != null ? Number(doc.payload.pph)
+      : doc.payload?.pph23 != null ? Number(doc.payload.pph23)
+      : (pphRate ? Math.round(subtotal * pphRate / 100) : 0);
+    if (discTotal > 0.5) {
+      sumRow('Subtotal', money(subtotal + discTotal), { valBold: false });
+      sumRow('Diskon', '(' + money(discTotal) + ')', { valColor: RED, valBold: false });
+      sumRow('DPP', money(subtotal), { valBold: false });
+    } else {
+      sumRow('DPP (Dasar Pengenaan Pajak)', money(subtotal), { valBold: false });
+    }
     sumRow(`PPN ${taxTotal > 0.5 ? '11%' : '0%'}`, money(taxTotal), { valBold: false });
-    if (doc.payload?.pph23) sumRow('PPh 23', '(' + money(doc.payload.pph23) + ')', { valColor: RED, valBold: false });
     p.line(sX, ry + 1, MR, ry + 1, 0.8, HAIR); ry += 4;
-    sumRow('TOTAL', money(grand), { fill: ACCENTSOFT, big: true, bold: true, h: 26, valColor: ACCENT });
+    if (pphAmt > 0.5) {
+      sumRow('Total Tagihan', money(grand), { fill: SOFT, bold: true, h: 20, labelColor: INK });
+      sumRow(`Dipotong ${pphType} (${pphRate}%)`, '(' + money(pphAmt) + ')', { valColor: RED, valBold: false });
+      p.line(sX, ry + 1, MR, ry + 1, 0.8, HAIR); ry += 4;
+      payable = grand - pphAmt;
+      sumRow('JUMLAH DIBAYAR', money(payable), { fill: ACCENTSOFT, big: true, bold: true, h: 26, valColor: ACCENT });
+    } else {
+      sumRow('TOTAL', money(grand), { fill: ACCENTSOFT, big: true, bold: true, h: 26, valColor: ACCENT });
+    }
   }
-  // Terbilang (bawah ringkasan, dibungkus ≤2 baris).
+  // Terbilang (nilai final dibayar), dibungkus ≤2 baris.
   if (opt.showTerbilang !== false) {
     p.text(sX, ry + 15, 'Terbilang:', { size: 7, bold: true, color: MUTE });
     const wrap = (s, n) => { const out = []; let ln = ''; for (const w of String(s).split(' ')) { if ((ln + ' ' + w).trim().length > n) { out.push(ln.trim()); ln = w; } else ln += ' ' + w; } if (ln.trim()) out.push(ln.trim()); return out; };
-    wrap(terbilangRupiah(grand), 44).slice(0, 2).forEach((ln, i) => p.text(sX, ry + 26 + i * 10, ln, { size: 7.5, color: SLATE }));
+    wrap(terbilangRupiah(payable), 44).slice(0, 2).forEach((ln, i) => p.text(sX, ry + 26 + i * 10, ln, { size: 7.5, color: SLATE }));
     ry += 46;
   }
 
@@ -353,17 +373,20 @@ function renderDocument(data) {
     }
   }
 
-  // ══ FOOTER + QR ══════════════════════════════════════════════════════════
+  // ══ FOOTER — dua zona rapi: identitas (kiri) + blok verifikasi (kanan) ═════
   const drawFooter = (pg) => {
-    const fy = PH - 44;
+    const fy = PH - 50;
     pg.line(ML, fy, MR, fy, 0.6, HAIR);
-    const footBits = [org.phone && `T ${org.phone}`, org.email, org.website].filter(Boolean).join('    ·    ');
-    pg.text(ML, fy + 13, (org.documentFooter || footBits || orgName).slice(0, 94), { size: 7, color: MUTE });
-    pg.text(ML, fy + 23, `Diterbitkan oleh ${orgName} · ${esc(TEMPLATE_VERSION)}`, { size: 6.5, color: MUTE });
+    pg.text(ML, fy + 13, orgName.slice(0, 42), { size: 7.5, bold: true, color: SLATE });
+    const footBits = [org.phone && `Telp ${org.phone}`, org.email, org.website].filter(Boolean).join('   ·   ');
+    if (footBits) pg.text(ML, fy + 24, footBits.slice(0, 78), { size: 7, color: MUTE });
+    pg.text(ML, fy + 34, (org.documentFooter || 'Dokumen diproses secara elektronik; sah tanpa tanda tangan basah bila terverifikasi.').slice(0, 90), { size: 6.5, color: MUTE });
     if (opt.showQr !== false) {
-      drawQr(pg, MR - 32, fy - 1, 32, url);
-      pg.right(MR - 40, fy + 13, `Verifikasi: ${code}`, { size: 6.5, color: SLATE });
-      pg.right(MR - 40, fy + 23, 'Pindai QR untuk keaslian', { size: 6, color: MUTE });
+      const qs = 36, qx = MR - qs, qy = fy + 5;
+      drawQr(pg, qx, qy, qs, url);
+      pg.right(qx - 12, fy + 13, 'VERIFIKASI DOKUMEN', { size: 6, bold: true, color: MUTE });
+      pg.right(qx - 12, fy + 25, code, { size: 9, bold: true, color: ACCENT });
+      pg.right(qx - 12, fy + 35, 'Pindai QR untuk cek keaslian', { size: 6, color: MUTE });
     }
   };
   drawFooter(p);
@@ -383,7 +406,7 @@ function renderDocument(data) {
     drawFooter(pg);
     pages.push(pg);
   }
-  pages.forEach((pg, i) => pg.center((ML + MR) / 2, PH - 14, `Halaman ${i + 1} dari ${pages.length}`, { size: 7, color: MUTE }));
+  pages.forEach((pg, i) => pg.center((ML + MR) / 2, PH - 6, `Halaman ${i + 1} dari ${pages.length}`, { size: 6.5, color: MUTE }));
 
   // ══ TANDA TANGAN DIGITAL (PAdES) + RAKIT ═════════════════════════════════
   const pdfSign = require('../../core/pdf-sign');
