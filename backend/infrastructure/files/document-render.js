@@ -235,8 +235,13 @@ function renderDocument(data) {
   const cline = [org.npwp && `NPWP ${org.npwp}`, org.phone && `Telp ${org.phone}`, org.email].filter(Boolean).join('     ');
   if (cline) { p.text(nx, hy, cline.slice(0, 98), { size: 7.5, color: MUTE }); hy += 10; }
 
-  // Identitas dokumen (kanan): judul aksen + nomor + pil status.
-  p.right(MR, 57, title, { size: 18, bold: true, color: ACCENT });
+  // Identitas dokumen (kanan): judul aksen (auto-fit agar tak menabrak nama PT) + nomor + pil status.
+  const strW = (s, size, bold) => String(s).length * size * (bold ? 0.53 : 0.5);
+  const nameEnd = nx + strW(orgName.slice(0, 46), 13.5, true);            // ujung kanan nama perusahaan
+  const titleLeft = Math.min(MR - 118, Math.max(300, nameEnd + 18));      // mulai judul: setelah nama + jeda, minimal x=300
+  let titleSize = 18;                                                     // kecilkan 18→11 sampai muat di zona kanan
+  while (titleSize > 11 && strW(title, titleSize, true) > MR - titleLeft) titleSize -= 0.5;
+  p.right(MR, 57, title, { size: titleSize, bold: true, color: ACCENT });
   p.right(MR, 71, doc.documentNumber || '', { size: 9.5, bold: true, color: INK });
   const st = String(doc.status || '').toUpperCase();
   if (st) { const sw = st.length * 4.8 + 16; p.rect(MR - sw, 77, sw, 13, { fill: SOFT }); p.text(MR - sw + 8, 86, st, { size: 7, bold: true, color: statusFill(doc.status) }); }
@@ -467,10 +472,11 @@ function renderDocument(data) {
 function statusFill(status) {
   return { APPROVED: '0.16 0.55 0.34', COMPLETED: '0.16 0.55 0.34', CLOSED: '0.4 0.4 0.4', PAID: '0.16 0.55 0.34', DRAFT: '0.6 0.6 0.6', VOID: '0.7 0.2 0.2', REJECTED: '0.7 0.2 0.2' }[status] || '0.2 0.4 0.7';
 }
+const MONTHS_LONG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 function fmtDate(v) {
   if (!v) return '-';
   const d = new Date(v); if (isNaN(d)) return String(v).slice(0, 10);
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 module.exports = { renderDocument, terbilangRupiah, TEMPLATE_VERSION };

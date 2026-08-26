@@ -771,7 +771,7 @@ async function payslipData(client, id, { period, bonus } = {}, user) {
 }
 // ── Dokumen HR via mesin blok (renderDocument data.body): paklaring, SP, 1721-A1, BPJS ──
 const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-const fmtLongDate = (d) => { const x = new Date(d); return isNaN(x) ? '-' : `${x.getDate()} ${MONTHS_ID[x.getMonth()]} ${x.getFullYear()}`; };
+const fmtLongDate = (d) => { const x = new Date(d); return isNaN(x) ? '-' : `${String(x.getDate()).padStart(2, '0')} ${MONTHS_ID[x.getMonth()]} ${x.getFullYear()}`; };
 const tenureText = (from) => { const now = new Date(), f = new Date(from); let mo = (now.getFullYear() - f.getFullYear()) * 12 + (now.getMonth() - f.getMonth()); if (now.getDate() < f.getDate()) mo--; const y = Math.floor(mo / 12), m = ((mo % 12) + 12) % 12; return `${y > 0 ? y + ' tahun ' : ''}${m} bulan`.trim() || '0 bulan'; };
 const orgCity = (org) => { const seg = String(org.operationalAddress || org.legalAddress || '').split(',').map((s) => s.trim()).filter(Boolean); return (seg[seg.length - 1] || '').replace(/\b\d{4,}\b/g, '').trim() || 'Bekasi'; };
 const rpNum = (v) => 'Rp ' + Math.round(Number(v) || 0).toLocaleString('id-ID');
@@ -798,6 +798,7 @@ async function spLetterData(client, id, spId, user, org) {
   const sp = (await client.query('SELECT level, violation, issued_date, expiry_date, notes FROM employee_disciplinary WHERE id=$1 AND employee_id=$2', [spId, id])).rows[0];
   if (!sp) throw new AppError('RESOURCE_NOT_FOUND', 'Surat peringatan tidak ditemukan.');
   const LVL = { TEGURAN: 'SURAT TEGURAN', SP1: 'SURAT PERINGATAN PERTAMA (SP-1)', SP2: 'SURAT PERINGATAN KEDUA (SP-2)', SP3: 'SURAT PERINGATAN KETIGA (SP-3)' }[sp.level] || String(sp.level);
+  const HEAD = sp.level === 'TEGURAN' ? 'SURAT TEGURAN' : 'SURAT PERINGATAN';   // judul kop ringkas; jenjang lengkap tetap di Perihal
   const coName = org.legalName || 'perusahaan', num = `${sp.level}/HRD/${new Date(sp.issued_date).getFullYear()}/${String(ov.nik || id).slice(-4)}`;
   const body = [
     { type: 'letterhead', number: num, subject: LVL, place: orgCity(org), date: fmtLongDate(sp.issued_date) },
@@ -808,7 +809,7 @@ async function spLetterData(client, id, spId, user, org) {
     { type: 'para', text: `Surat peringatan ini berlaku${sp.expiry_date ? ` sampai dengan ${fmtLongDate(sp.expiry_date)}` : ' selama 6 (enam) bulan'}. Yang bersangkutan diharapkan memperbaiki diri dan tidak mengulangi pelanggaran serupa. Apabila pelanggaran terulang, perusahaan dapat mengambil tindakan lebih lanjut sesuai peraturan perusahaan dan ketentuan yang berlaku.` },
     { type: 'para', text: 'Demikian surat peringatan ini dibuat untuk menjadi perhatian dan dilaksanakan sebagaimana mestinya.' }
   ];
-  return { document: { documentType: 'SURAT_PERINGATAN', documentNumber: num, status: 'APPROVED', createdAt: new Date(sp.issued_date).toISOString(), amount: 0, partyName: ov.name }, body, options: { title: LVL, signatureLabel: 'Hormat kami,', showTerbilang: false, receiverBox: true, receiverLabel: 'Diterima & disetujui karyawan,' } };
+  return { document: { documentType: 'SURAT_PERINGATAN', documentNumber: num, status: 'APPROVED', createdAt: new Date(sp.issued_date).toISOString(), amount: 0, partyName: ov.name }, body, options: { title: HEAD, signatureLabel: 'Hormat kami,', showTerbilang: false, receiverBox: true, receiverLabel: 'Diterima & disetujui karyawan,' } };
 }
 async function pph1721Data(client, id, { year } = {}, user, org) {
   assertPermission(user, 'employee.view');
@@ -824,6 +825,8 @@ async function pph1721Data(client, id, { year } = {}, user, org) {
   const pph = Math.round(progressiveAnnual(pkp) * (tax.npwp === false ? 1.2 : 1));
   const yr = year || new Date().getFullYear();
   const body = [
+    { type: 'heading', text: 'Formulir 1721-A1 — Pemotongan PPh Pasal 21', size: 10.5, rule: true },
+    { type: 'space', h: 2 },
     { type: 'kv2', labelW: 95, rows: [[['Masa Pajak', `Januari – Desember ${yr}`], ['Status PTKP', tax.ptkpStatus || 'TK/0']], [['Nama Penerima', ov.name || '-'], ['Ber-NPWP', tax.npwp === false ? 'Tidak' : 'Ya']], [['NIK', ov.nik || '-'], ['Jabatan', pos.positionTitle || ov.jobTitle || '-']]] },
     { type: 'space', h: 4 },
     { type: 'table', head: ['URAIAN', 'JUMLAH'], widths: [365, 150], right: [false, true], rows: [
@@ -838,7 +841,7 @@ async function pph1721Data(client, id, { year } = {}, user, org) {
     { type: 'space', h: 6 },
     { type: 'para', text: 'Bukti pemotongan ini diterbitkan sesuai UU HPP dan PP 58/2023. Pemotongan bulanan menggunakan Tarif Efektif Rata-rata (TER); jumlah di atas merupakan rekonsiliasi PPh 21 tahunan.', size: 8, color: '0.470 0.518 0.588' }
   ];
-  return { document: { documentType: 'BUKTI_POTONG_1721', documentNumber: `1721A1/${yr}/${String(ov.nik || id).slice(-4)}`, status: 'APPROVED', createdAt: new Date().toISOString(), amount: pph, partyName: ov.name }, body, options: { title: 'BUKTI POTONG PPh 21 · FORM 1721-A1', signatureLabel: 'Pemotong Pajak,', showTerbilang: false, receiverBox: false } };
+  return { document: { documentType: 'BUKTI_POTONG_1721', documentNumber: `1721A1/${yr}/${String(ov.nik || id).slice(-4)}`, status: 'APPROVED', createdAt: new Date().toISOString(), amount: pph, partyName: ov.name }, body, options: { title: 'BUKTI POTONG PPh 21', signatureLabel: 'Pemotong Pajak,', showTerbilang: false, receiverBox: false } };
 }
 async function bpjsRincianData(client, id, user, org) {
   assertPermission(user, 'employee.view');
