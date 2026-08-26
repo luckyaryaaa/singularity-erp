@@ -9,17 +9,6 @@ const { Client } = require('pg');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Template dokumen resmi di-seed migrasi 036. Diekstrak dari file migrasi (bukan
-// diduplikasi) agar isi seed pemulihan selalu identik dengan sumber aslinya.
-function documentTemplatesSeed() {
-  try {
-    const sql = fs.readFileSync(path.join(__dirname, '..', 'data', 'migrations', '036_document_templates.sql'), 'utf8');
-    const match = sql.match(/INSERT INTO document_templates[\s\S]*?;/);
-    if (!match) return null;
-    return match[0].replace(/;\s*$/, ' ON CONFLICT (document_type,version) DO NOTHING;');
-  } catch { return null; }
-}
-
 // Peta peran-akun (CASH_BANK, AR/AP_CONTROL, COGS, dst) → bagan akun. Di-seed
 // lintas migrasi 039/062/068; wajib ada agar Executive Cockpit & posting jalan.
 function accountRolesSeed() {
@@ -71,9 +60,6 @@ const SEEDS = [
   }
 ];
 
-// Sumber: migrasi 036 — template dokumen resmi (kop, warna, T&C, tanda tangan).
-const tplSeedSql = documentTemplatesSeed();
-if (tplSeedSql) SEEDS.push({ table: 'document_templates', sql: tplSeedSql });
 // Sumber: migrasi 039/062/068 — peta peran akun → bagan akun.
 const accRoleSql = accountRolesSeed();
 if (accRoleSql) SEEDS.push({ table: 'account_roles', sql: accRoleSql });

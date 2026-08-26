@@ -219,75 +219,6 @@
     }
   };
 
-  // ── Template dokumen resmi (designer, configuration-driven §35) ────────────
-  // Judul, warna aksen, label rekanan, syarat & ketentuan, catatan kaki, dan
-  // blok tampil/sembunyi didesain pengguna di sini; setiap simpanan membuat
-  // versi baru (histori tak hilang) dan dokumen lama tetap memakai snapshot-nya.
-  const TPL_LABEL = { INVOICE: 'Invoice / Faktur', QUOTATION: 'Surat Penawaran', SALES_ORDER: 'Sales Order', PURCHASE_ORDER: 'Purchase Order', DELIVERY: 'Surat Jalan', RMA: 'Retur / RMA', SUPPLIER_INVOICE: 'Tagihan Supplier' };
-  const templatesPage = {
-    permission: 'settings.view',
-    async render(main, _p, signal) {
-      const data = asList(await api('/api/document-templates', { signal }));
-      const editable = can('settings.edit');
-      const card = (t) => {
-        const c = t.config || {}, accent = c.accentColor || '#1a2b4d';
-        const flags = [['QR', c.showQr !== false], ['Tanda tangan', c.showSignature !== false], ['Terbilang', c.showTerbilang !== false]];
-        return `<article class="tpl-card">
-          <div class="tpl-preview" data-accent="${esc(accent)}">
-            <span class="tpl-kop"></span><span class="tpl-title">${esc(c.title || t.documentType)}</span>
-            <span class="tpl-line"></span><span class="tpl-line short"></span>
-            <span class="tpl-rows"></span><span class="tpl-total"></span>
-          </div>
-          <div class="tpl-meta">
-            <header><div><p class="eyebrow">${esc(TPL_LABEL[t.documentType] || t.documentType)}</p><h3>${esc(t.name || c.title || t.documentType)}</h3></div><span class="chip gray">v${t.version}</span></header>
-            <div class="tpl-flags">${flags.map(([l, on]) => `<span class="tpl-flag ${on ? 'on' : ''}">${on ? '●' : '○'} ${esc(l)}</span>`).join('')}</div>
-            <div class="tpl-actions">
-              <a class="btn secondary sm" href="/api/document-templates/${esc(t.documentType)}/preview" target="_blank" rel="noopener">${ICONS.doc} Pratinjau</a>
-              ${editable ? `<button class="btn primary sm" data-tpl-edit="${esc(t.documentType)}">${ICONS.gear} Desain</button>` : ''}
-            </div>
-          </div>
-        </article>`;
-      };
-      main.innerHTML = pageHead({ eyebrow: 'SISTEM · DOKUMEN', title: 'Template dokumen resmi', sub: 'Desain kop, warna, syarat & ketentuan, tanda tangan, dan QR tiap dokumen. Setiap perubahan tersimpan sebagai versi baru; dokumen lama tetap identik dengan snapshot-nya.' })
-        + `<section class="tpl-grid">${data.length ? data.map(card).join('') : '<div class="empty-state"><h3>Belum ada template</h3><p>Jalankan migrasi basis data untuk memuat template awal.</p></div>'}</section>`;
-
-      // Warna aksen di-set via CSSOM (bukan atribut style inline) agar patuh CSP
-      // style-src 'self' — hanya nilai heksadesimal yang diterima.
-      main.querySelectorAll('.tpl-preview[data-accent]').forEach((el) => {
-        const c = /^#[0-9a-fA-F]{3,8}$/.test(el.dataset.accent || '') ? el.dataset.accent : '#1a2b4d';
-        el.style.setProperty('--accent', c);
-      });
-
-      main.querySelectorAll('[data-tpl-edit]').forEach((btn) => btn.addEventListener('click', async () => {
-        const t = data.find((x) => x.documentType === btn.dataset.tplEdit); if (!t) return;
-        const c = t.config || {};
-        const value = await formDialog({
-          title: `Desain template — ${TPL_LABEL[t.documentType] || t.documentType}`,
-          description: 'Perubahan membuat versi baru. Warna aksen mewarnai kop, tabel, dan total. Syarat & ketentuan satu poin per baris (maks 5 tampil).',
-          initial: { name: t.name, title: c.title, accentColor: c.accentColor || '#1a2b4d', partyLabel: c.partyLabel, termsTitle: c.termsTitle, terms: (c.terms || []).join('\n'), signatureLabel: c.signatureLabel, footerNote: c.footerNote, showQr: c.showQr !== false, showSignature: c.showSignature !== false, showTerbilang: c.showTerbilang !== false },
-          fields: [
-            { name: 'name', label: 'Nama template', required: true },
-            { name: 'title', label: 'Judul dokumen (mis. INVOICE)', required: true },
-            { name: 'accentColor', label: 'Warna aksen', type: 'color' },
-            { name: 'partyLabel', label: 'Label rekanan (mis. Bill To / Proposed To)' },
-            { name: 'termsTitle', label: 'Judul catatan (mis. Remarks / Notes)' },
-            { name: 'terms', label: 'Syarat & ketentuan (satu per baris)', type: 'textarea', rows: 5 },
-            { name: 'signatureLabel', label: 'Label tanda tangan (mis. Prepared By)' },
-            { name: 'footerNote', label: 'Catatan kaki', type: 'textarea', rows: 2 },
-            { name: 'showQr', label: 'Tampilkan QR verifikasi', type: 'checkbox' },
-            { name: 'showSignature', label: 'Tampilkan blok tanda tangan', type: 'checkbox' },
-            { name: 'showTerbilang', label: 'Tampilkan terbilang', type: 'checkbox' }
-          ],
-          submitLabel: 'Simpan versi baru'
-        });
-        if (!value) return;
-        const config = { title: value.title, accentColor: value.accentColor, partyLabel: value.partyLabel, termsTitle: value.termsTitle, terms: String(value.terms || '').split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 12), signatureLabel: value.signatureLabel, footerNote: value.footerNote, showQr: value.showQr, showSignature: value.showSignature, showTerbilang: value.showTerbilang };
-        try { await api('/api/document-templates', { method: 'POST', body: { documentType: t.documentType, name: value.name, config } }); toast('Template disimpan', `${TPL_LABEL[t.documentType] || t.documentType} — versi baru dibuat.`); this.render(main); }
-        catch (error) { toast('Gagal menyimpan', error.message, 'coral'); }
-      }));
-    }
-  };
-
   // ── Master detail enterprise (tab-based, R014/R015) ───────────────────────
   // Konfigurasi tab per master: judul, sub-resource endpoint, kolom, form.
 
@@ -379,5 +310,4 @@
   R('/organization/chart', orgChartPage);
   R('/organization/workforce',workforcePage);
   R('/system/settings', settings);
-  R('/system/document-templates', templatesPage);
 })();

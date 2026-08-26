@@ -165,7 +165,6 @@
           route('#/system/selftest', 'Self test', 'shield', 'selftest.view')
         ] },
         { id: 'configuration', label: 'Configuration', items: [
-          route('#/system/document-templates', 'Template dokumen', 'doc', 'settings.view'),
           route('#/system/settings', 'Pengaturan', 'gear', 'settings.view')
         ] }
       ]

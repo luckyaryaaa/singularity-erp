@@ -39,7 +39,7 @@ if (postgresMode) {
 }
 
 const root = __dirname;
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.woff2': 'font/woff2', '.json': 'application/json' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.woff2': 'font/woff2', '.json': 'application/json', '.pdf': 'application/pdf', '.png': 'image/png' };
 // App shell keeps the hardened baseline. The Singularity gateway under /login/ is
 // a self-contained first-party bundle whose built markup carries a few inline
 // style attributes, so it gets the same policy plus 'unsafe-inline' for styles
