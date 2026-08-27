@@ -123,7 +123,25 @@
   R('/hr/employees', masterPage({
     endpoint: '/api/employees', key: 'employees', permission: 'employee.view', title: 'Karyawan', eyebrow: 'HRD', detailType: 'employees',
     presentation: { subtitle: 'Klik profil untuk membuka Employee 360 — identitas, kepegawaian, kompensasi, pajak, BPJS, dan tata kelola data.', kpis: async () => { const d = await api('/api/hr/workforce-analytics').catch(() => ({})); const k = d.kpi || {}; return [{ label: 'Total Headcount', value: k.total || 0, note: `${k.active || 0} aktif`, tone: 'blue', icon: 'people' }, { label: 'Cakupan BPJS', value: k.bpjsCovered || 0, note: `dari ${k.total || 0} karyawan`, tone: 'emerald', icon: 'shield' }, { label: 'Rata-rata Data Quality', value: (k.avgQuality || 0) + '%', note: (k.avgQuality || 0) >= 80 ? 'golden record' : 'perlu dilengkapi', tone: 'amber', icon: 'checkCircle' }, { label: 'Hire Baru (90 hari)', value: k.newHires90d || 0, note: 'akuisisi talenta', tone: 'blue', icon: 'people' }]; } },
-    fields:async()=>{const branches=await api('/api/branches');return[{name:'nik',label:'NIK',required:true},{name:'name',label:'Nama lengkap',required:true},{name:'department',label:'Departemen',required:true},{name:'jobTitle',label:'Jabatan'},{name:'baseSalary',label:'Gaji pokok',type:'number',min:0,required:true},{name:'branchId',label:'Lokasi kerja',type:'select',options:branches.items.map(x=>[x.id,`${x.code} · ${x.name}`]),required:true},{name:'joinDate',label:'Tanggal bergabung',type:'date'},{name:'bpjs',label:'Terdaftar BPJS',type:'checkbox'},{name:'active',label:'Karyawan aktif',type:'checkbox'}];},
+    fields:async()=>{
+      const branches=await api('/api/branches');
+      let depts=[];try{const emps=await api('/api/employees?limit=250');depts=[...new Set(emps.items.map(e=>e.department).filter(Boolean))];}catch(_){}
+      const deptList=[...new Set([...depts,'Produksi','Engineering','Quality Control','Finance','HRD','Procurement','Warehouse','Sales & Marketing','IT','General Affairs','Maintenance'])];
+      return [
+        {type:'section',label:'Identitas Karyawan',icon:ICONS.people,hint:'Kode Karyawan (EMP-…) dibuat otomatis oleh sistem.'},
+        {name:'name',label:'Nama lengkap',required:true,hint:'Sesuai dokumen resmi.'},
+        {name:'nik',label:'No. Induk / NIP internal',required:true,hint:'Nomor kepegawaian internal — BUKAN NIK KTP (diisi terpisah & terenkripsi di tab Data Pribadi).'},
+        {type:'section',label:'Penempatan',icon:ICONS.building},
+        {name:'department',label:'Departemen',required:true,list:deptList,hint:'Pilih dari daftar atau ketik departemen baru.'},
+        {name:'jobTitle',label:'Jabatan'},
+        {name:'branchId',label:'Lokasi kerja / cabang',type:'select',options:branches.items.map(x=>[x.id,`${x.code} · ${x.name}`]),required:true},
+        {name:'joinDate',label:'Tanggal bergabung',type:'date',value:new Date().toISOString().slice(0,10)},
+        {type:'section',label:'Kompensasi & Kepesertaan',icon:ICONS.wallet},
+        {name:'baseSalary',label:'Gaji pokok (Rp)',type:'number',min:0,step:1000,required:true,hint:'Tunjangan tetap/variabel diatur di tab Kompensasi setelah karyawan dibuat.'},
+        {name:'bpjs',label:'Didaftarkan BPJS Ketenagakerjaan & Kesehatan',type:'checkbox'},
+        {name:'active',label:'Karyawan aktif',type:'checkbox'}
+      ];
+    },
     columns: [
       { label: 'Karyawan', render: (r) => `<div class="emp-cell"><span class="emp-cell-av"><span class="emp-cell-fallback">${empInitials(r.name)}</span>${r.profileFileId ? `<img data-party-photo src="/api/files/${esc(r.profileFileId)}" alt="" loading="lazy" decoding="async">` : ''}</span><span class="emp-cell-copy"><b>${esc(r.name)}</b><small><span class="emp-code">${esc(r.employeeCode || '—')}</span><i>·</i>${esc(r.jobTitle || '—')}</small></span></div>` },
       { label: 'Departemen & Lokasi', render: (r) => `<div class="emp-cell-copy"><b>${esc(r.department || '—')}</b><small>${esc(r.branchName || '—')}</small></div>` },
