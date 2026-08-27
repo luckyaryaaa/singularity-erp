@@ -1565,7 +1565,7 @@
   R('/masters/:type/detail/:id', masterDetail);
   R('/masters/customers', masterPage({
     endpoint: '/api/customers', key: 'customers', permission: 'customer.view', title: 'Pelanggan', eyebrow: 'MASTER DATA', detailType: 'customers',
-    presentation:{party:'customer',pageTitle:'Master Customer',headline:'Customer portfolio yang siap ditindaklanjuti',description:'Identitas, kebijakan kredit, pajak, risiko, dan kualitas data dalam satu direktori enterprise.',tableEyebrow:'CUSTOMER INTELLIGENCE',tableTitle:'Customer portfolio'},
+    presentation:{shell:'mk-dir',tableClass:'party-directory-table',pageTitle:'Master Customer',subtitle:'Identitas, kebijakan kredit, risiko, dan kualitas data pelanggan dalam satu direktori enterprise.',tableEyebrow:'CUSTOMER INTELLIGENCE',tableTitle:'Customer portfolio',kpis:async()=>{const jt=(v)=>{v=Number(v)||0;const a=Math.abs(v);return a>=1e9?'Rp '+(v/1e9).toFixed(2)+' M':a>=1e6?'Rp '+Math.round(v/1e6).toLocaleString('id-ID')+' jt':'Rp '+v.toLocaleString('id-ID');};const s=await api('/api/masters/customers/summary').catch(()=>({}));return [{label:'Total Pelanggan',value:String(s.total||0),note:`${s.active||0} aktif`,tone:'blue',icon:'people'},{label:'Piutang (AR)',value:jt(s.arOutstanding),note:`${jt(s.arOverdue)} jatuh tempo`,tone:s.arOverdue>0?'coral':'mint',icon:'inbox'},{label:'Batas Kredit',value:jt(s.creditLimit),note:'Total limit portfolio',tone:'purple',icon:'doc'},{label:'Kualitas Data',value:(s.avgQuality||0)+'%',note:'Rata-rata MDM',tone:'amber',icon:'checkCircle'}];}},
     fields: EDIT_FIELDS.customers,
     columns: [
       { label: 'Customer identity', key:'identity', render: (r) => partyIdentityCell(r, 'customer') },
@@ -1577,7 +1577,7 @@
   }));
   R('/masters/suppliers', masterPage({
     endpoint: '/api/suppliers', key: 'suppliers', permission: 'supplier.view', title: 'Supplier', eyebrow: 'MASTER DATA', detailType: 'suppliers',
-    presentation:{party:'supplier',pageTitle:'Master Supplier',headline:'Supplier network dengan kontrol menyeluruh',description:'Profil vendor, performa, onboarding, risiko, dan compliance disajikan dalam satu supplier cockpit.',tableEyebrow:'SUPPLIER INTELLIGENCE',tableTitle:'Supplier network'},
+    presentation:{shell:'mk-dir',tableClass:'party-directory-table',pageTitle:'Master Supplier',subtitle:'Profil vendor, performa, onboarding, risiko, dan compliance dalam satu supplier cockpit.',tableEyebrow:'SUPPLIER INTELLIGENCE',tableTitle:'Supplier network',kpis:async()=>{const s=await api('/api/masters/suppliers/summary').catch(()=>({}));return [{label:'Total Supplier',value:String(s.total||0),note:`${s.active||0} aktif`,tone:'blue',icon:'people'},{label:'Rata-rata Performa',value:(s.avgPerformance||0)+'%',note:'Skor vendor',tone:(s.avgPerformance||0)>=80?'mint':'amber',icon:'checkCircle'},{label:'COI Pending',value:String(s.coiPending||0),note:'Conflict of interest',tone:s.coiPending>0?'coral':'mint',icon:'inbox'},{label:'Belum Approved',value:String(s.notApproved||0),note:'Perlu onboarding',tone:s.notApproved>0?'amber':'blue',icon:'doc'}];}},
     fields: EDIT_FIELDS.suppliers,
     columns: [
       { label: 'Supplier identity', key:'identity', render: (r) => partyIdentityCell(r, 'supplier') },

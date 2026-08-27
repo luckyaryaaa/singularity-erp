@@ -94,6 +94,8 @@ async function dispatch(client, req, url, ctx) {
   m=p.match(/^\/api\/business-partners\/([0-9a-f-]{36})$/);
   if(method==='GET'&&m){assertPermission(ctx.user,'business_partner.view');return businessPartners.detail(client,m[1]);}
 
+  m=p.match(/^\/api\/masters\/(customers|suppliers)\/summary$/);
+  if(method==='GET'&&m){assertPermission(ctx.user,`${masterModules[m[1]]}.view`);return masterData.partyDirectorySummary(client,m[1],ctx.user);}
   m=p.match(/^\/api\/(customers|suppliers|products|employees)$/);
   if(method==='GET'&&m){assertPermission(ctx.user,`${masterModules[m[1]]}.view`);return operations.listMaster(client,m[1],Object.fromEntries(url.searchParams),ctx.user);}
   if(method==='POST'&&m){const name=m[1],module=masterModules[name],body=await readBody(req);assertPermission(ctx.user,`${module}.create`);const item=await operations.createMaster(client,name,body,ctx.user);await runtime.audit(client,{userId:ctx.user.id,action:'CREATE',module,entityType:module.toUpperCase(),entityId:item.id,newValue:item,requestId:ctx.requestId,branchId:ctx.user.branchId});ctx.status=201;return item;}

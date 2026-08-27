@@ -1446,4 +1446,25 @@ async function decideDisciplinary(client, id, spId, action, user, requestId) {
   return { revoked: spId };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity, payslipData, paklaringData, spLetterData, pph1721Data, bpjsRincianData, settlementData, idCardData };
+// Ringkasan direktori Business Partner (KPI strip) — agregat tenant-scoped.
+async function partyDirectorySummary(client, kind, user) {
+  const OUT = "(amount - COALESCE(NULLIF(payload->>'paid','')::numeric,0))";
+  if (kind === 'customers') {
+    assertPermission(user, 'customer.view');
+    const t = (await client.query(`SELECT count(*)::int total, count(*) FILTER(WHERE active)::int active,
+      COALESCE(sum(credit_limit_amount),0)::bigint credit, COALESCE(round(avg(data_quality_score)),0)::int quality FROM customers`)).rows[0];
+    const ar = (await client.query(`SELECT COALESCE(sum(${OUT}) FILTER(WHERE status<>'CLOSED'),0)::bigint outstanding,
+      COALESCE(sum(${OUT}) FILTER(WHERE status<>'CLOSED' AND due_date<current_date),0)::bigint overdue
+      FROM business_documents WHERE document_type='INVOICE' AND status NOT IN('VOID','CANCELLED','REJECTED','DRAFT')`)).rows[0];
+    return { total: t.total, active: t.active, creditLimit: Number(t.credit), avgQuality: t.quality, arOutstanding: Number(ar.outstanding), arOverdue: Number(ar.overdue) };
+  }
+  assertPermission(user, 'supplier.view');
+  const t = (await client.query(`SELECT count(*)::int total, count(*) FILTER(WHERE active)::int active,
+    COALESCE(round(avg(NULLIF(last_performance_score,0))),0)::int perf,
+    count(*) FILTER(WHERE NOT COALESCE(coi_declared,false))::int coi_pending,
+    count(*) FILTER(WHERE onboarding_status<>'APPROVED')::int not_approved,
+    COALESCE(round(avg(data_quality_score)),0)::int quality FROM suppliers`)).rows[0];
+  return { total: t.total, active: t.active, avgPerformance: t.perf, coiPending: t.coi_pending, notApproved: t.not_approved, avgQuality: t.quality };
+}
+
+module.exports = { REGISTRY, overview, partyDirectorySummary, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity, payslipData, paklaringData, spLetterData, pph1721Data, bpjsRincianData, settlementData, idCardData };
