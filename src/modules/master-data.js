@@ -265,40 +265,74 @@
     return y ? `${y} th${m ? ` ${m} bln` : ''}` : `${m} bln`;
   };
 
-  // Perbaiki data POKOK kepegawaian (nama, NIP, departemen, jabatan, cabang,
-  // tgl gabung, status) — mis. salah input saat Tambah Karyawan. Gaji lewat tab
-  // Kompensasi; NIK KTP lewat Pengkinian Data. PATCH /api/employees/:id.
-  const openEmployeeEdit = async (params, ov, rerender) => {
+  // Ubah Data Karyawan TERPADU (pola Workday "Edit Worker"): satu formulir
+  // berseksi untuk Data Pokok (PATCH /employees), Data Pribadi/KTP + Kontak
+  // (POST /personal), dengan tinjau perubahan gabungan lalu simpan ke endpoint
+  // masing-masing. Gaji tetap di tab Kompensasi (revisi effective-dated); Kode
+  // Karyawan EMP-… terkunci; "Tambah Karyawan" = buat data baru (di direktori).
+  const openEmployeeManage = async (params, ov, rerender) => {
     const branches = await api('/api/branches').catch(() => ({ items: [] }));
     let depts = [];
     try { const emps = await api('/api/employees?limit=250'); depts = [...new Set(emps.items.map((e) => e.department).filter(Boolean))]; } catch (_) { /* opsional */ }
     const deptList = [...new Set([...depts, 'Produksi', 'Engineering', 'Quality Control', 'Finance', 'HRD', 'Procurement', 'Warehouse', 'Sales & Marketing', 'IT', 'General Affairs', 'Maintenance'])];
+    let personal = {};
+    try { const r = await api(`/api/masters/employees/${params.id}/personal`); personal = (r.items && r.items[0]) || (r && r.nikKtp !== undefined ? r : {}); } catch (_) { /* profil belum ada */ }
+    const rawNik = personal.nikKtp && !String(personal.nikKtp).includes('•') ? personal.nikKtp : '';
     const value = await formDialog({
-      title: `Edit Data Karyawan — ${ov.name || ''}`,
-      description: 'Perbaiki data pokok kepegawaian (mis. salah ketik saat input). Perubahan tercatat di audit trail. Gaji diubah di tab Kompensasi; NIK KTP di Pengkinian Data.',
+      title: `Ubah Data Karyawan — ${ov.name || ''}`,
+      description: 'Satu formulir untuk memperbaiki/melengkapi seluruh data karyawan. Perubahan ditinjau dulu lalu tercatat di audit trail. Gaji diubah di tab Kompensasi (revisi resmi).',
       fields: [
-        { type: 'section', label: 'Identitas Karyawan', icon: ICONS.people, hint: `Kode Karyawan ${ov.employeeCode || ''} dibuat otomatis & tidak dapat diubah.` },
+        { type: 'section', label: 'Data Pokok Kepegawaian', icon: ICONS.job, hint: `Kode Karyawan ${ov.employeeCode || ''} dibuat otomatis & tidak dapat diubah.` },
         { name: 'name', label: 'Nama lengkap', required: true },
         { name: 'nik', label: 'No. Induk / NIP internal', required: true, hint: 'Nomor kepegawaian internal — BUKAN NIK KTP.' },
-        { type: 'section', label: 'Penempatan', icon: ICONS.building },
         { name: 'department', label: 'Departemen', required: true, list: deptList, hint: 'Pilih dari daftar atau ketik baru.' },
         { name: 'jobTitle', label: 'Jabatan' },
         { name: 'branchId', label: 'Lokasi kerja / cabang', type: 'select', options: branches.items.map((x) => [x.id, `${x.code} · ${x.name}`]), required: true },
         { name: 'joinDate', label: 'Tanggal bergabung', type: 'date' },
-        { name: 'active', label: 'Karyawan aktif', type: 'checkbox' }
+        { name: 'active', label: 'Karyawan aktif', type: 'checkbox' },
+        { type: 'section', label: 'Identitas Pribadi (KTP)', icon: ICONS.people, hint: 'NIK KTP dienkripsi. Kosongkan field bila tidak diubah.' },
+        { name: 'nikKtp', label: 'NIK KTP (16 digit)', hint: rawNik ? 'Terenkripsi — isi ulang hanya bila berubah.' : 'Kosongkan bila tidak diubah.' },
+        { name: 'birthPlace', label: 'Tempat lahir' },
+        { name: 'birthDate', label: 'Tanggal lahir', type: 'date' },
+        { name: 'gender', label: 'Jenis kelamin', type: 'select', options: [['', '—'], ['MALE', 'Laki-laki'], ['FEMALE', 'Perempuan']] },
+        { name: 'maritalStatus', label: 'Status perkawinan', type: 'select', options: [['', '—'], ['BELUM KAWIN', 'Belum kawin'], ['KAWIN', 'Kawin'], ['CERAI HIDUP', 'Cerai hidup'], ['CERAI MATI', 'Cerai mati']] },
+        { name: 'religion', label: 'Agama', type: 'select', options: [['', '—'], ['ISLAM', 'Islam'], ['KRISTEN', 'Kristen'], ['KATOLIK', 'Katolik'], ['HINDU', 'Hindu'], ['BUDDHA', 'Buddha'], ['KONGHUCU', 'Konghucu']] },
+        { name: 'bloodType', label: 'Golongan darah', type: 'select', options: [['', '—'], ['A', 'A'], ['B', 'B'], ['AB', 'AB'], ['O', 'O']] },
+        { type: 'section', label: 'Kontak & Alamat', icon: ICONS.building },
+        { name: 'phone', label: 'Telepon / HP', type: 'tel' },
+        { name: 'personalEmail', label: 'Email pribadi', type: 'email' },
+        { name: 'address', label: 'Alamat domisili', type: 'textarea', rows: 2 }
       ],
-      initial: { name: ov.name, nik: ov.nik, department: ov.department, jobTitle: ov.jobTitle, branchId: ov.branchId, joinDate: ov.joinDate ? String(ov.joinDate).slice(0, 10) : '', active: ov.active !== false },
-      submitLabel: 'Simpan perubahan'
+      initial: { name: ov.name, nik: ov.nik, department: ov.department, jobTitle: ov.jobTitle, branchId: ov.branchId, joinDate: ov.joinDate ? String(ov.joinDate).slice(0, 10) : '', active: ov.active !== false, ...personal, nikKtp: rawNik, birthDate: personal.birthDate ? String(personal.birthDate).slice(0, 10) : '' },
+      submitLabel: 'Tinjau & simpan'
     });
     if (!value) return;
-    try {
-      const result = await api(`/api/employees/${params.id}`, { method: 'PATCH', body: value });
-      invalidate(`master:${params.id}`); invalidate('employees');
-      const pending = result && result.pendingChanges && result.pendingChanges.fields;
-      if (pending && pending.length) toast('Sebagian menunggu persetujuan', `${pending.length} field diajukan sebagai usulan (maker-checker).`, 'amber');
-      else toast('Data karyawan diperbarui', ov.name || '');
-      rerender();
-    } catch (e) { toast('Perubahan gagal', e.message, 'coral'); }
+    const BASIC = ['name', 'nik', 'department', 'jobTitle', 'branchId', 'joinDate', 'active'];
+    const PERSONAL = ['nikKtp', 'birthPlace', 'birthDate', 'gender', 'maritalStatus', 'religion', 'bloodType', 'phone', 'personalEmail', 'address'];
+    const LBL = { name: 'Nama', nik: 'NIP', department: 'Departemen', jobTitle: 'Jabatan', branchId: 'Cabang', joinDate: 'Tgl gabung', active: 'Status aktif', nikKtp: 'NIK KTP', birthPlace: 'Tempat lahir', birthDate: 'Tgl lahir', gender: 'Jenis kelamin', maritalStatus: 'Status kawin', religion: 'Agama', bloodType: 'Gol. darah', phone: 'Telepon', personalEmail: 'Email', address: 'Alamat' };
+    const basicBody = {}, personalBody = {}, diffs = [];
+    for (const k of BASIC) {                                   // data pokok: bandingkan apa adanya (boleh kosongkan jabatan)
+      const oldV = k === 'active' ? String(ov.active !== false) : (ov[k] != null ? (k === 'joinDate' ? String(ov[k]).slice(0, 10) : String(ov[k])) : '');
+      const newV = k === 'active' ? String(!!value.active) : (value[k] != null ? String(value[k]) : '');
+      if (newV !== oldV) { basicBody[k] = k === 'active' ? !!value.active : value[k]; if (k !== 'branchId') diffs.push(`${LBL[k]}: ${oldV || '(kosong)'} → ${newV || '(kosong)'}`); else diffs.push('Cabang: diperbarui'); }
+    }
+    for (const k of PERSONAL) {                                // data pribadi: kosong = tidak diubah
+      const nv = value[k] == null ? '' : String(value[k]).trim();
+      if (nv === '') continue;
+      const oldV = k === 'nikKtp' ? rawNik : (personal[k] != null ? (k === 'birthDate' ? String(personal[k]).slice(0, 10) : String(personal[k])) : '');
+      if (nv !== String(oldV)) { personalBody[k] = value[k]; diffs.push(k === 'nikKtp' ? 'NIK KTP: diperbarui (terenkripsi)' : `${LBL[k]}: ${oldV || '(kosong)'} → ${nv}`); }
+    }
+    if (!diffs.length) { toast('Tidak ada perubahan', 'Ubah minimal satu field untuk menyimpan.', 'amber'); return; }
+    const confirm = await actionDialog({ title: `Tinjau Perubahan — ${diffs.length} item`, description: `Berikut akan disimpan & tercatat di audit trail:  ${diffs.join('  ·  ')}`, confirmLabel: 'Simpan perubahan' });
+    if (confirm === null) return;
+    const errs = []; let pendingFields = [];
+    if (Object.keys(basicBody).length) { try { const r = await api(`/api/employees/${params.id}`, { method: 'PATCH', body: basicBody }); if (r && r.pendingChanges && r.pendingChanges.fields) pendingFields = r.pendingChanges.fields; } catch (e) { errs.push('Data pokok: ' + e.message); } }
+    if (Object.keys(personalBody).length) { try { await api(`/api/masters/employees/${params.id}/personal`, { method: 'POST', body: personalBody, idempotencyKey: newIdemKey() }); } catch (e) { errs.push('Data pribadi: ' + e.message); } }
+    invalidate(`master:${params.id}`); invalidate('employees');
+    if (errs.length) toast('Sebagian gagal disimpan', errs.join(' · '), 'coral');
+    else if (pendingFields.length) toast('Tersimpan — sebagian menunggu persetujuan', `${pendingFields.length} field sensitif diajukan (maker-checker).`, 'amber');
+    else toast('Data karyawan diperbarui', 'Seluruh perubahan tersimpan & tercatat di audit trail.');
+    rerender();
   };
 
   const openIdentityUpdate = async (params, overview, rerender) => {
@@ -547,7 +581,7 @@
             <div><div class="mk-id-tags"><h1>${esc(ov.name || ov.employeeCode)}</h1><span class="mk-badge emerald">${MK('shieldCheck')} ${esc(ov.lifecycleStatus || 'ACTIVE')}</span>${ov.department ? `<span class="mk-badge blue">ORG: ${esc(ov.department)}</span>` : ''}</div>
               <div class="mk-meta"><span>Kode: <b>${esc(ov.employeeCode || '—')}</b></span><i>•</i><span>Posisi: <b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></span><i>•</i><span>Lokasi: <b>${esc(ov.branchName || '—')}</b></span><i>•</i><span>Atasan: <b>${esc(sup.supervisorName || '—')}</b></span></div>
             </div></div>
-          <div class="mk-actions">${editable ? `<button class="mk-btn" data-mk-photo>${MK('camera')} Ganti Foto</button>` : ''}<a class="mk-btn" href="/api/masters/employees/${esc(params.id)}/id-card-pdf" target="_blank" rel="noopener">${MK('idCard')} Kartu ID (PDF)</a><button class="mk-btn" data-mk-export>${MK('printer')} Export Summary</button>${editable ? `<button class="mk-btn" data-mk-edit>${MK('edit')} Edit Data</button><button class="mk-btn primary" data-mk-identity>${MK('edit')} Pengkinian Data</button>` : ''}<input type="file" id="mkPhotoInput" accept="image/png,image/jpeg,image/webp" hidden></div>
+          <div class="mk-actions">${editable ? `<button class="mk-btn" data-mk-photo>${MK('camera')} Ganti Foto</button>` : ''}<a class="mk-btn" href="/api/masters/employees/${esc(params.id)}/id-card-pdf" target="_blank" rel="noopener">${MK('idCard')} Kartu ID (PDF)</a><button class="mk-btn" data-mk-export>${MK('printer')} Export Summary</button>${editable ? `<button class="mk-btn primary" data-mk-manage>${MK('edit')} Ubah Data</button>` : ''}<input type="file" id="mkPhotoInput" accept="image/png,image/jpeg,image/webp" hidden></div>
         </div></section>
 
         <div class="mk-surface mk-tabbar"><div class="mk-groups" role="tablist">${MK_GROUPS.map((g, i) => `<button class="mk-group${i === 0 ? ' active' : ''}" data-mk-group="${g.id}" role="tab">${MK(g.icon)} ${esc(g.label)}<span class="mk-group-n">${g.tabs.length}</span></button>`).join('')}</div><div class="mk-subtabs" data-mk-subtabs role="tablist"></div></div>
@@ -729,7 +763,7 @@
       const wireCommon = (root) => {
         root.querySelectorAll('[data-mk-copy]').forEach((b) => b.addEventListener('click', async () => { try { await navigator.clipboard.writeText(b.dataset.mkCopy); toast('Disalin', b.dataset.mkCopy); } catch (_) { toast('Gagal menyalin', '', 'coral'); } }));
         root.querySelectorAll('[data-mk-identity]').forEach((b) => b.addEventListener('click', () => openIdentityUpdate(params, ov, () => this.render(main, params))));
-        root.querySelectorAll('[data-mk-edit]').forEach((b) => b.addEventListener('click', () => openEmployeeEdit(params, ov, () => this.render(main, params))));
+        root.querySelectorAll('[data-mk-manage]').forEach((b) => b.addEventListener('click', () => openEmployeeManage(params, ov, () => this.render(main, params))));
         root.querySelectorAll('[data-mk-export]').forEach((b) => b.addEventListener('click', () => toast('Menyiapkan ringkasan profil…', 'Export PDF akan tersedia.')));
         const mkPhotoInput = root.querySelector('#mkPhotoInput');
         root.querySelectorAll('[data-mk-photo]').forEach((b) => { b.addEventListener('click', () => mkPhotoInput && mkPhotoInput.click()); b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mkPhotoInput && mkPhotoInput.click(); } }); });
