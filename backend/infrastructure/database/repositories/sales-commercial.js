@@ -284,4 +284,63 @@ async function overview(client, user) {
   return { ...camel(row), marginItems, readyMilestones };
 }
 
-module.exports = { assessMargin, marginStatus, decideMargin, assertMarginRelease, calculateAvailability, availability, assertAvailabilityRelease, createContract, contracts, submitContract, decideContract, releaseContract, createMilestones, milestones, markMilestoneReady, invoiceMilestone, refreshBackorders, backorders, overview };
+// Sales Command Center (order-to-cash cockpit): funnel per tahap, KPI revenue/
+// AR/win-rate, tren 6 bulan, top customer, aging piutang. Ter-scope cabang.
+async function salesDashboard(client, user) {
+  const glob = permissions.CROSS_BRANCH_ROLES.includes(user.role) || user.branchScope === '*';
+  const P = glob ? [] : [user.branchId];
+  const S = glob ? 'true' : 'branch_id=$1';
+  const PAID = "COALESCE(NULLIF(payload->>'paid','')::numeric,0)";
+  const funnelRows = (await client.query(`SELECT document_type dt,
+      count(*) FILTER (WHERE status NOT IN ('VOID','CANCELLED'))::int c,
+      COALESCE(sum(amount) FILTER (WHERE status NOT IN ('VOID','CANCELLED')),0)::bigint v,
+      count(*) FILTER (WHERE status NOT IN ('VOID','CANCELLED','REJECTED','COMPLETED','CLOSED','EXPIRED','ARCHIVED'))::int oc,
+      COALESCE(sum(amount) FILTER (WHERE status NOT IN ('VOID','CANCELLED','REJECTED','COMPLETED','CLOSED','EXPIRED','ARCHIVED')),0)::bigint ov
+    FROM business_documents WHERE ${S} AND document_type IN ('CUSTOMER_INQUIRY','QUOTATION','SALES_ORDER','DELIVERY','INVOICE') GROUP BY 1`, P)).rows;
+  const fm = {}; funnelRows.forEach((r) => { fm[r.dt] = r; });
+  const st = (dt) => { const r = fm[dt] || {}; return { count: r.c || 0, value: Number(r.v || 0), openCount: r.oc || 0, openValue: Number(r.ov || 0) }; };
+  const funnel = [
+    { stage: 'inquiry', label: 'Inquiry', ...st('CUSTOMER_INQUIRY') },
+    { stage: 'quotation', label: 'Penawaran', ...st('QUOTATION') },
+    { stage: 'sales_order', label: 'Sales Order', ...st('SALES_ORDER') },
+    { stage: 'delivery', label: 'Pengiriman', ...st('DELIVERY') },
+    { stage: 'invoice', label: 'Invoice', ...st('INVOICE') }
+  ];
+  const inv = (await client.query(`SELECT COALESCE(sum(amount),0)::bigint invoiced, COALESCE(sum(${PAID}),0)::bigint collected,
+      COALESCE(sum(amount-${PAID}) FILTER (WHERE status<>'CLOSED'),0)::bigint outstanding,
+      COALESCE(sum(amount-${PAID}) FILTER (WHERE status<>'CLOSED' AND due_date<current_date),0)::bigint overdue
+    FROM business_documents WHERE ${S} AND document_type='INVOICE' AND status NOT IN ('VOID','CANCELLED','REJECTED','DRAFT')`, P)).rows[0];
+  const q = (await client.query(`SELECT count(*) FILTER (WHERE status IN ('COMPLETED','CLOSED'))::int won,
+      count(*) FILTER (WHERE status IN ('REJECTED','EXPIRED'))::int lost,
+      count(*) FILTER (WHERE status NOT IN ('VOID','CANCELLED','DRAFT'))::int total
+    FROM business_documents WHERE ${S} AND document_type='QUOTATION'`, P)).rows[0];
+  const pipe = (await client.query(`SELECT COALESCE(sum(amount),0)::bigint v, count(*)::int c FROM business_documents
+    WHERE ${S} AND document_type IN ('QUOTATION','SALES_ORDER') AND status NOT IN ('VOID','CANCELLED','REJECTED','COMPLETED','CLOSED','EXPIRED','ARCHIVED')`, P)).rows[0];
+  const so = (await client.query(`SELECT count(*)::int c, COALESCE(avg(amount),0)::bigint avg FROM business_documents
+    WHERE ${S} AND document_type='SALES_ORDER' AND status NOT IN ('VOID','CANCELLED','REJECTED','COMPLETED','CLOSED')`, P)).rows[0];
+  const trend = (await client.query(`SELECT to_char(date_trunc('month',created_at),'YYYY-MM') ym, COALESCE(sum(amount),0)::bigint v
+    FROM business_documents WHERE ${S} AND document_type='INVOICE' AND status NOT IN ('VOID','CANCELLED','REJECTED','DRAFT')
+      AND created_at>=date_trunc('month',current_date)-interval '5 months' GROUP BY 1 ORDER BY 1`, P)).rows.map((r) => ({ month: r.ym, value: Number(r.v) }));
+  const topCustomers = (await client.query(`SELECT party_name name, COALESCE(sum(amount),0)::bigint v, count(*)::int c
+    FROM business_documents WHERE ${S} AND document_type='INVOICE' AND status NOT IN ('VOID','CANCELLED','REJECTED','DRAFT') AND party_name IS NOT NULL
+    GROUP BY 1 ORDER BY 2 DESC LIMIT 5`, P)).rows.map((r) => ({ name: r.name, value: Number(r.v), invoices: r.c }));
+  const ag = (await client.query(`SELECT COALESCE(sum(due) FILTER (WHERE b=0),0)::bigint c0, COALESCE(sum(due) FILTER (WHERE b=1),0)::bigint c1,
+      COALESCE(sum(due) FILTER (WHERE b=2),0)::bigint c2, COALESCE(sum(due) FILTER (WHERE b=3),0)::bigint c3
+    FROM (SELECT (amount-${PAID}) due, CASE WHEN due_date>=current_date THEN 0 WHEN due_date>=current_date-30 THEN 1 WHEN due_date>=current_date-60 THEN 2 ELSE 3 END b
+      FROM business_documents WHERE ${S} AND document_type='INVOICE' AND status NOT IN ('CLOSED','VOID','CANCELLED','REJECTED','DRAFT') AND (amount-${PAID})>0) t`, P)).rows[0];
+  const recent = (await client.query(`SELECT document_number, document_type, party_name, amount::bigint, status, created_at
+    FROM business_documents WHERE ${S} AND document_type IN ('CUSTOMER_INQUIRY','QUOTATION','SALES_ORDER','DELIVERY','INVOICE') AND status NOT IN ('VOID','CANCELLED')
+    ORDER BY created_at DESC LIMIT 8`, P)).rows.map(camel);
+  const decided = q.won + q.lost;
+  return {
+    funnel,
+    kpi: { invoiced: Number(inv.invoiced), collected: Number(inv.collected), outstanding: Number(inv.outstanding), overdue: Number(inv.overdue),
+      openPipeline: Number(pipe.v), openPipelineCount: pipe.c, winRate: decided ? Math.round(q.won / decided * 100) : 0,
+      quotationsWon: q.won, quotationsLost: q.lost, quotationsTotal: q.total, activeOrders: so.c, avgOrder: Number(so.avg) },
+    trend, topCustomers,
+    aging: { current: Number(ag.c0), d1_30: Number(ag.c1), d31_60: Number(ag.c2), d60p: Number(ag.c3) },
+    recent, asOf: new Date().toISOString()
+  };
+}
+
+module.exports = { assessMargin, marginStatus, decideMargin, assertMarginRelease, calculateAvailability, availability, assertAvailabilityRelease, createContract, contracts, submitContract, decideContract, releaseContract, createMilestones, milestones, markMilestoneReady, invoiceMilestone, refreshBackorders, backorders, overview, salesDashboard };

@@ -1878,6 +1878,45 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .mk-dir .enterprise-table tbody td{padding:15px 18px;border-bottom:1px solid rgba(230,235,243,.7)}
 .mk-dir .enterprise-table tbody tr{transition:background .16s,box-shadow .16s}
 .mk-dir .enterprise-table tbody tr:hover{background:linear-gradient(90deg,rgba(37,99,235,.06),rgba(37,99,235,.012));box-shadow:inset 3px 0 0 var(--mk-blue)}
+/* ── Sales Command Center (order-to-cash) — claymorphism premium ─────────── */
+.oc-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.oc-panel{padding:22px 24px;margin-bottom:18px}
+.oc-head{margin-bottom:16px}.oc-head .eyebrow{margin:0 0 2px}.oc-head h2{margin:0;font:800 17px 'Plus Jakarta Sans';color:#1e293b}
+.oc-grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}.oc-grid2 .oc-panel{margin-bottom:0}
+.oc-funnel{display:flex;flex-direction:column;gap:14px}
+.oc-stage-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.oc-stage-label{font:800 12.5px 'Plus Jakarta Sans';color:#475569}
+.oc-conv{font:700 10.5px ui-monospace,monospace;color:#059669;background:#ecfdf5;padding:1px 7px;border-radius:20px}
+.oc-track{height:14px;border-radius:20px;background:#eef2f8;overflow:hidden;box-shadow:inset 2px 2px 4px #dce2ec,inset -2px -2px 4px #fff}
+.oc-track.sm{height:8px}
+.oc-fill{height:100%;border-radius:20px;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:8px;width:0}
+.oc-c0{background:linear-gradient(90deg,#93c5fd,#60a5fa)}.oc-c1{background:linear-gradient(90deg,#818cf8,#6366f1)}
+.oc-c2{background:linear-gradient(90deg,#2563eb,#1d4ed8)}.oc-c3{background:linear-gradient(90deg,#0ea5e9,#0284c7)}.oc-c4{background:linear-gradient(90deg,#059669,#047857)}
+.oc-stage-bot{display:flex;justify-content:space-between;margin-top:5px;font-size:11.5px;color:#94a3b8}
+.oc-stage-bot b{color:#1e293b;font-size:13px}.oc-open{color:#2563eb;font-weight:700}
+.oc-trend{display:flex;align-items:flex-end;gap:12px;height:180px;padding-top:8px}
+.oc-tcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.oc-tcol>b{font:800 11px 'Plus Jakarta Sans';color:#475569}
+.oc-twrap{width:100%;flex:1;display:flex;align-items:flex-end}
+.oc-tbar{width:100%;border-radius:10px 10px 4px 4px;background:linear-gradient(180deg,#60a5fa,#2563eb);transition:height .6s cubic-bezier(.4,0,.2,1);min-height:6px;height:0}
+.oc-tcol>span{font-size:10.5px;color:#94a3b8;font-weight:700}
+.oc-aging{display:flex;flex-direction:column;gap:10px}
+.oc-age{display:flex;justify-content:space-between;align-items:center;padding:12px 15px;border-radius:14px;background:#f7f9fc;border-left:4px solid #cbd5e1}
+.oc-age span{font-weight:700;font-size:12.5px;color:#475569}.oc-age b{font:800 14px 'Plus Jakarta Sans';color:#1e293b}
+.oc-age.a0{border-left-color:#10b981}.oc-age.a1{border-left-color:#f59e0b}.oc-age.a2{border-left-color:#f97316}.oc-age.a3{border-left-color:#ef4444;background:#fef2f2}
+.oc-tops{display:flex;flex-direction:column;gap:14px}
+.oc-top{display:flex;align-items:center;gap:12px}
+.oc-rank{flex:none;width:26px;height:26px;border-radius:9px;display:grid;place-items:center;font:800 12px 'Plus Jakarta Sans';color:#fff;background:linear-gradient(135deg,#4f6bed,#3548c7)}
+.oc-top-body{flex:1;min-width:0}.oc-top-row{display:flex;justify-content:space-between;margin-bottom:5px}
+.oc-top-row b{font-weight:700;font-size:12.5px;color:#1e293b}.oc-top-row span{font:800 12px 'Plus Jakarta Sans';color:#475569}
+.oc-recent{display:flex;flex-direction:column;gap:8px}
+.oc-rec{display:flex;align-items:center;gap:12px;padding:10px 13px;border-radius:12px;background:#f7f9fc;text-decoration:none;transition:background .15s,transform .15s}
+.oc-rec:hover{background:#eef2fb;transform:translateX(2px)}
+.oc-rec-t{flex:none;font:700 9.5px 'Plus Jakarta Sans';letter-spacing:.03em;color:#2563eb;background:#e6edfb;padding:3px 9px;border-radius:20px;text-transform:uppercase}
+.oc-rec-c{flex:1;min-width:0;display:flex;flex-direction:column}.oc-rec-c b{font-weight:700;font-size:12px;color:#1e293b}.oc-rec-c small{color:#94a3b8;font-size:10.5px}
+.oc-rec-amt{font:800 12px 'Plus Jakarta Sans';color:#475569}
+@media(max-width:1100px){.oc-kpis{grid-template-columns:repeat(3,1fr)}.oc-grid2{grid-template-columns:1fr}}
+@media(max-width:640px){.oc-kpis{grid-template-columns:repeat(2,1fr)}}
 .dq-cell{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
 .dq-cell b{font-size:11.5px;font-weight:800;color:var(--text)}
 .dq-mini{-webkit-appearance:none;appearance:none;width:54px;height:6px;border:0;border-radius:6px;overflow:hidden;background:#eef0f5}

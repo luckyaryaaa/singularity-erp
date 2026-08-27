@@ -300,6 +300,69 @@
     } catch (error) { toast('Gagal merekam PO pelanggan', error.message, 'coral'); }
   }
 
+  // Sales Command Center (order-to-cash cockpit) — claymorphism premium.
+  const jtM = (v) => { v = Number(v) || 0; const a = Math.abs(v); if (a >= 1e9) return 'Rp ' + (v / 1e9).toLocaleString('id-ID', { maximumFractionDigits: 2 }) + ' M'; if (a >= 1e6) return 'Rp ' + Math.round(v / 1e6).toLocaleString('id-ID') + ' jt'; return fmtIDR(v); };
+  const salesCommandCenter = {
+    permission: 'sales_order.view',
+    async render(main, _params, signal) {
+      const d = await api('/api/sales/dashboard', { signal });
+      const k = d.kpi;
+      const metric = (label, value, note, tone, icon) => `<article class="mk-surface mk-metric"><div class="mk-m-copy"><span class="mk-m-k">${esc(label)}</span><div class="mk-m-v">${esc(value)}</div><span class="mk-m-note mk-mu">${esc(note)}</span></div><div class="mk-m-ic mk-ic-${tone}">${ICONS[icon] || ''}</div></article>`;
+      const maxF = Math.max(...d.funnel.map((f) => f.value), 1), maxT = Math.max(...d.trend.map((t) => t.value), 1), maxC = Math.max(...d.topCustomers.map((c) => c.value), 1);
+      const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      const mlabel = (ym) => { const [y, m] = ym.split('-'); return MON[Number(m) - 1] + ' ' + y.slice(2); };
+      const TYPE = { CUSTOMER_INQUIRY: 'Inquiry', QUOTATION: 'Penawaran', SALES_ORDER: 'Sales Order', DELIVERY: 'Pengiriman', INVOICE: 'Invoice' };
+      const recRoute = (t) => t === 'QUOTATION' ? 'quotations' : t === 'CUSTOMER_INQUIRY' ? 'inquiries' : t === 'INVOICE' ? 'orders' : 'orders';
+      main.innerHTML = `<div class="master-shell mk-dir">` + pageHead({ eyebrow: 'PENJUALAN · ORDER-TO-CASH', title: 'Sales Command Center', sub: 'Funnel penjualan, revenue, piutang, dan performa dalam satu kokpit real-time.', actions: `<a class="btn secondary" href="#/sales/commercial-control">${ICONS.doc} Commercial Control</a><a class="btn primary" href="#/sales/quotations/new">${ICONS.plus} Penawaran baru</a>` }) + `
+        <div class="mk-kpi-strip"><div class="oc-kpis">
+          ${metric('Revenue (Ditagih)', jtM(k.invoiced), 'Total nilai invoice', 'blue', 'cart')}
+          ${metric('Terkumpul', jtM(k.collected), 'Sudah dibayar pelanggan', 'mint', 'checkCircle')}
+          ${metric('Piutang (AR)', jtM(k.outstanding), jtM(k.overdue) + ' jatuh tempo', k.overdue > 0 ? 'coral' : 'blue', 'inbox')}
+          ${metric('Open Pipeline', jtM(k.openPipeline), k.openPipelineCount + ' dokumen aktif', 'purple', 'doc')}
+          ${metric('Win Rate', k.winRate + '%', k.quotationsWon + ' dari ' + (k.quotationsWon + k.quotationsLost) + ' penawaran', 'amber', 'checkCircle')}
+          ${metric('Sales Order Aktif', String(k.activeOrders), 'Rata-rata ' + jtM(k.avgOrder), 'blue', 'cart')}
+        </div></div>
+        <section class="mk-surface oc-panel">
+          <div class="oc-head"><p class="eyebrow">FUNNEL ORDER-TO-CASH</p><h2>Alur penjualan per tahap</h2></div>
+          <div class="oc-funnel">
+            ${d.funnel.map((f, i) => { const w = Math.max(7, Math.round(f.value / maxF * 100)); const conv = i > 0 && d.funnel[i - 1].count ? Math.round(f.count / d.funnel[i - 1].count * 100) : null; return `<div class="oc-stage">
+              <div class="oc-stage-top"><span class="oc-stage-label">${esc(f.label)}</span>${conv !== null ? `<span class="oc-conv">${conv}%</span>` : ''}</div>
+              <div class="oc-track"><div class="oc-fill oc-c${i}" data-w="${w}"></div></div>
+              <div class="oc-stage-bot"><span><b>${f.count}</b> dok · ${jtM(f.value)}</span><span class="oc-open">${f.openCount} aktif</span></div>
+            </div>`; }).join('')}
+          </div>
+        </section>
+        <div class="oc-grid2">
+          <section class="mk-surface oc-panel">
+            <div class="oc-head"><p class="eyebrow">REVENUE</p><h2>Tren invoice 6 bulan</h2></div>
+            <div class="oc-trend">${d.trend.length ? d.trend.map((t) => `<div class="oc-tcol"><b>${jtM(t.value)}</b><div class="oc-twrap"><div class="oc-tbar" data-h="${Math.max(4, Math.round(t.value / maxT * 100))}"></div></div><span>${esc(mlabel(t.month))}</span></div>`).join('') : '<p class="mk-mu">Belum ada data.</p>'}</div>
+          </section>
+          <section class="mk-surface oc-panel">
+            <div class="oc-head"><p class="eyebrow">PIUTANG</p><h2>Aging AR</h2></div>
+            <div class="oc-aging">
+              <div class="oc-age a0"><span>Belum jatuh tempo</span><b>${jtM(d.aging.current)}</b></div>
+              <div class="oc-age a1"><span>1–30 hari</span><b>${jtM(d.aging.d1_30)}</b></div>
+              <div class="oc-age a2"><span>31–60 hari</span><b>${jtM(d.aging.d31_60)}</b></div>
+              <div class="oc-age a3"><span>60+ hari</span><b>${jtM(d.aging.d60p)}</b></div>
+            </div>
+          </section>
+        </div>
+        <div class="oc-grid2">
+          <section class="mk-surface oc-panel">
+            <div class="oc-head"><p class="eyebrow">PELANGGAN</p><h2>Top customer (revenue)</h2></div>
+            <div class="oc-tops">${d.topCustomers.length ? d.topCustomers.map((c, i) => `<div class="oc-top"><span class="oc-rank">${i + 1}</span><div class="oc-top-body"><div class="oc-top-row"><b>${esc(c.name)}</b><span>${jtM(c.value)}</span></div><div class="oc-track sm"><div class="oc-fill oc-c2" data-w="${Math.max(5, Math.round(c.value / maxC * 100))}"></div></div></div></div>`).join('') : '<p class="mk-mu">Belum ada.</p>'}</div>
+          </section>
+          <section class="mk-surface oc-panel">
+            <div class="oc-head"><p class="eyebrow">AKTIVITAS</p><h2>Dokumen terbaru</h2></div>
+            <div class="oc-recent">${d.recent.map((r) => `<a class="oc-rec" href="#/sales/${recRoute(r.documentType)}"><span class="oc-rec-t">${esc(TYPE[r.documentType] || r.documentType)}</span><div class="oc-rec-c"><b>${esc(r.documentNumber)}</b><small>${esc(r.partyName || '—')}</small></div><span class="oc-rec-amt">${jtM(r.amount)}</span></a>`).join('') || '<p class="mk-mu">Belum ada aktivitas.</p>'}</div>
+          </section>
+        </div>
+      </div>`;
+      main.querySelectorAll('.oc-fill[data-w]').forEach((el) => { el.style.width = el.dataset.w + '%'; });
+      main.querySelectorAll('.oc-tbar[data-h]').forEach((el) => { el.style.height = el.dataset.h + '%'; });
+    }
+  };
+
   const commercialControl = {
     permission: 'sales_order.view',
     async render(main, _params, signal) {
@@ -429,6 +492,7 @@
     empty: { icon: 'inbox', title: 'Belum ada PO pelanggan', note: 'Klik "Rekam PO pelanggan" saat customer mengirimkan PO mereka.' }
   }));
   R('/sales/orders', docListPage({ type: 'SALES_ORDER', module: 'sales_order', title: 'Sales order', eyebrow: 'PENJUALAN' }));
+  R('/sales/dashboard', salesCommandCenter);
   R('/sales/commercial-control', commercialControl);
   R('/sales/projects', docListPage({ type: 'PROJECT', module: 'project', title: 'Proyek', eyebrow: 'PENJUALAN' }));
 })();

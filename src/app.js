@@ -33,6 +33,9 @@
       id: 'sales', label: 'Penjualan', shortLabel: 'Sales', i18nKey: 'nav.group.sales', icon: 'trend', tone: 'gold', archetype: 'workbench',
       description: 'Peluang, komersial, order, proyek, dan layanan pelanggan.',
       sections: [
+        { id: 'cockpit', label: 'Kokpit', items: [
+          route('#/sales/dashboard', 'Command Center', 'chart', 'sales_order.view', { art: 'commercial-control' })
+        ] },
         { id: 'presales', label: 'Pre-sales', items: [
           route('#/sales/inquiries', 'Inquiry', 'help', 'inquiry.view', { art: 'inquiry' }),
           route('#/sales/quotations', 'Penawaran', 'doc', 'quotation.view', { art: 'quotation' })

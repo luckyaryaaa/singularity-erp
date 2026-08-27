@@ -44,6 +44,7 @@ async function dispatch(client, req, url, ctx) {
     return idempotent('rma.create', body, 201, () => salesO2c.createRma(client, { user: ctx.user, sourceDocumentId: body.sourceDocumentId, warrantyClaim: body.warrantyClaim, reasonCode: body.reasonCode, lines: body.lines, requestId: ctx.requestId }));
   }
   if(method==='GET'&&pathname==='/api/sales/commercial/overview'){assertPermission(ctx.user,'sales_order.view');return commercial.overview(client,ctx.user);}
+  if(method==='GET'&&pathname==='/api/sales/dashboard'){assertPermission(ctx.user,'sales_order.view');return commercial.salesDashboard(client,ctx.user);}
   if(method==='GET'&&pathname==='/api/sales/contracts'){assertPermission(ctx.user,'sales_order.view');return{items:await commercial.contracts(client,ctx.user)};}
   if(method==='POST'&&pathname==='/api/sales/contracts'){assertPermission(ctx.user,'sales_order.create');const body=await readBody(req);return idempotent('sales.contract.create',body,201,()=>commercial.createContract(client,body,ctx.user));}
   match=pathname.match(/^\/api\/sales\/contracts\/([0-9a-f-]{36})\/submit$/);
