@@ -51,7 +51,9 @@
         { id: 'addresses', label: 'Alamat', sub: 'addresses', cols: [['addressType','Jenis'],['label','Label'],['city','Kota'],['isDefault','Default','bool']],
           form: [{name:'addressType',label:'Jenis',type:'select',options:[['BILLING','Penagihan'],['DELIVERY','Pengiriman'],['SITE','Lokasi proyek']],required:true},{name:'label',label:'Label'},{name:'address',label:'Alamat',type:'textarea',required:true},{name:'city',label:'Kota'},{name:'province',label:'Provinsi'},{name:'postalCode',label:'Kode pos'},{name:'isDefault',label:'Jadikan default',type:'checkbox'}] },
         { id: 'prices', label: 'Harga Khusus', sub: 'prices', cols: [['productId','Produk'],['price','Harga','money'],['effectiveFrom','Berlaku','date'],['status','Status','chip']],
-          form: async () => { const products = await api('/api/products?limit=200'); return [{name:'productId',label:'Produk',type:'select',options:products.items.map(x=>[x.id,`${x.code} · ${x.name}`]),required:true},{name:'price',label:'Harga khusus',type:'number',min:0,required:true},{name:'effectiveFrom',label:'Berlaku sejak',type:'date',required:true},{name:'expiryDate',label:'Kedaluwarsa',type:'date'}]; } }
+          form: async () => { const products = await api('/api/products?limit=200'); return [{name:'productId',label:'Produk',type:'select',options:products.items.map(x=>[x.id,`${x.code} · ${x.name}`]),required:true},{name:'price',label:'Harga khusus',type:'number',min:0,required:true},{name:'effectiveFrom',label:'Berlaku sejak',type:'date',required:true},{name:'expiryDate',label:'Kedaluwarsa',type:'date'}]; } },
+        { id: 'ar', label: 'Piutang (AR)', custom: true, noAdd: true },
+        { id: 'orders', label: 'Riwayat Order', custom: true, noAdd: true }
       ]
     },
     suppliers: {
@@ -1392,6 +1394,39 @@
             const trace=await api(`/api/master-governance/products/${params.id}/cost-trace`);
             body.innerHTML=`<section class="kpi-grid"><article class="kpi"><span>Material cost</span><strong>${fmtIDR(trace.materialCost||0)}</strong><small>Berdasarkan BOM efektif dan Active HPP</small></article><article class="kpi"><span>Komponen</span><strong>${trace.lines.length}</strong><small>${trace.uncostedComponents||0} belum memiliki cost</small></article><article class="kpi"><span>Revisi BOM</span><strong>${esc(trace.bom?.revisionNo||'—')}</strong><small>${esc(trace.bom?.status||trace.message||'Belum efektif')}</small></article></section><div class="panel table-panel"><header><div><p class="eyebrow">TRACEABILITY</p><h2>Rincian sumber biaya</h2></div>${chip(trace.uncostedComponents?'PERLU DILENGKAPI':'TERKENDALI')}</header><div class="table-wrap"><table><thead><tr><th>Komponen</th><th>Qty + scrap</th><th>Sumber</th><th class="right">Unit cost</th><th class="right">Extended cost</th></tr></thead><tbody>${trace.lines.length?trace.lines.map(x=>`<tr><td><b>${esc(x.code)}</b><small>${esc(x.name)}</small></td><td>${esc(x.qty)} ${esc(x.uom)} · scrap ${esc(x.scrapPct)}%</td><td>${chip(x.costSource)}</td><td class="right money">${fmtIDR(x.unitCost)}</td><td class="right money">${fmtIDR(x.extendedCost)}</td></tr>`).join(''):`<tr><td colspan="5"><div class="empty-state"><h3>Belum ada BOM efektif</h3><p>Setujui dan efektifkan BOM untuk menghasilkan cost trace.</p></div></td></tr>`}</tbody></table></div></div>`;
           } catch(error){body.innerHTML=`<div class="panel"><div class="panel-body error-text">${esc(error.message)}</div></div>`;}
+          return;
+        }
+        if (tabId === 'ar' || tabId === 'orders') {
+          body.innerHTML = `<div class="panel"><div class="panel-body"><span class="spinner"></span> Memuat data komersial…</div></div>`;
+          try {
+            const d = await api(`/api/masters/customers/${params.id}/commercial`);
+            const jt = (v) => { v = Number(v) || 0; const a = Math.abs(v); return a >= 1e9 ? 'Rp ' + (v / 1e9).toFixed(2) + ' M' : a >= 1e6 ? 'Rp ' + Math.round(v / 1e6).toLocaleString('id-ID') + ' jt' : fmtIDR(v); };
+            const TYPE = { CUSTOMER_INQUIRY: 'Inquiry', QUOTATION: 'Penawaran', SALES_ORDER: 'Sales Order', DELIVERY: 'Pengiriman', INVOICE: 'Invoice' };
+            if (tabId === 'ar') {
+              const ar = d.ar, ag = d.aging;
+              body.innerHTML = `<section class="kpi-grid party-profile-kpis">
+                <article class="kpi"><span>Piutang Berjalan</span><strong>${jt(ar.exposure)}</strong><small>${ar.overdue > 0 ? jt(ar.overdue) + ' jatuh tempo' : 'lancar'}</small></article>
+                <article class="kpi"><span>Batas Kredit</span><strong>${ar.creditLimit > 0 ? jt(ar.creditLimit) : '∞'}</strong><small>${ar.available != null ? 'Tersedia ' + jt(ar.available) : 'tanpa batas'}</small></article>
+                <article class="kpi"><span>Utilisasi Kredit</span><strong>${ar.utilizationPct != null ? ar.utilizationPct + '%' : '—'}</strong><small>Termin ${ar.paymentTermDays} hari</small></article>
+                <article class="kpi"><span>Total Ditagih</span><strong>${jt(ar.invoiced)}</strong><small>Terkumpul ${jt(ar.collected)}</small></article>
+              </section>
+              ${ar.creditLimit > 0 ? `<div class="panel"><div class="panel-body"><div class="oc-track"><div class="oc-fill oc-c2" data-w="${Math.min(100, ar.utilizationPct || 0)}"></div></div><div class="oc-stage-bot"><span>Eksposur ${jt(ar.exposure)}</span><span>Limit ${jt(ar.creditLimit)}</span></div></div></div>` : ''}
+              <div class="dashboard-grid party-overview-grid">
+                <article class="panel table-panel"><header><div><p class="eyebrow">FAKTUR &amp; PEMBAYARAN</p><h2>Piutang per faktur</h2></div><span class="chip ${ar.overdue > 0 ? 'coral' : 'mint'}">${d.invoices.filter((i) => i.outstanding > 0).length} terbuka</span></header><div class="table-wrap"><table><thead><tr><th>No. Faktur</th><th>Jatuh tempo</th><th class="right">Nilai</th><th class="right">Sisa</th><th>Umur</th><th>Status</th></tr></thead><tbody>${d.invoices.map((i) => `<tr><td><b>${esc(i.documentNumber)}</b><small>${fmtDate(i.createdAt)}</small></td><td>${i.dueDate ? fmtDate(i.dueDate) : '—'}</td><td class="right money">${fmtIDR(i.amount)}</td><td class="right money">${i.outstanding > 0 ? fmtIDR(i.outstanding) : '<span class="chip mint">Lunas</span>'}</td><td>${i.daysOverdue > 0 ? `<span class="chip coral">${i.daysOverdue} hr</span>` : (i.outstanding > 0 ? '<span class="chip gray">—</span>' : '<span class="chip mint">✓</span>')}</td><td>${chip(i.status)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty-cell">Belum ada faktur.</td></tr>'}</tbody></table></div></article>
+                <article class="panel"><header><div><p class="eyebrow">AR AGING</p><h2>Umur piutang</h2></div></header><div class="panel-body"><div class="oc-aging"><div class="oc-age a0"><span>Belum jatuh tempo</span><b>${jt(ag.current)}</b></div><div class="oc-age a1"><span>1–30 hari</span><b>${jt(ag.d1_30)}</b></div><div class="oc-age a2"><span>31–60 hari</span><b>${jt(ag.d31_60)}</b></div><div class="oc-age a3"><span>60+ hari</span><b>${jt(ag.d60p)}</b></div></div></div></article>
+              </div>`;
+            } else {
+              const os = d.orderSummary;
+              body.innerHTML = `<section class="kpi-grid party-profile-kpis">
+                <article class="kpi"><span>Nilai Sales Order</span><strong>${jt(os.orderedValue)}</strong><small>${os.salesOrders} order</small></article>
+                <article class="kpi"><span>Penawaran</span><strong>${os.quotations}</strong><small>quotation</small></article>
+                <article class="kpi"><span>Sales Order</span><strong>${os.salesOrders}</strong><small>order</small></article>
+                <article class="kpi"><span>Invoice</span><strong>${os.invoices}</strong><small>faktur terbit</small></article>
+              </section>
+              <div class="panel table-panel"><header><div><p class="eyebrow">RIWAYAT ORDER</p><h2>Dokumen order-to-cash</h2></div><span class="chip blue">${d.orders.length} dokumen</span></header><div class="table-wrap"><table><thead><tr><th>Dokumen</th><th>Jenis</th><th>Judul</th><th class="right">Nilai</th><th>Tanggal</th><th>Status</th></tr></thead><tbody>${d.orders.map((o) => `<tr><td><b>${esc(o.documentNumber)}</b></td><td><span class="chip blue">${esc(TYPE[o.documentType] || o.documentType)}</span></td><td>${esc(o.title || '—')}</td><td class="right money">${fmtIDR(o.amount)}</td><td>${fmtDate(o.createdAt)}</td><td>${chip(o.status)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty-cell">Belum ada order.</td></tr>'}</tbody></table></div></div>`;
+            }
+            body.querySelectorAll('.oc-fill[data-w]').forEach((el) => { el.style.width = el.dataset.w + '%'; });
+          } catch (e) { body.innerHTML = `<div class="panel"><div class="panel-body error-text">${esc(e.message)}</div></div>`; }
           return;
         }
         if (tabId === 'performance') {

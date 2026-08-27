@@ -1467,4 +1467,42 @@ async function partyDirectorySummary(client, kind, user) {
   return { total: t.total, active: t.active, avgPerformance: t.perf, coiPending: t.coi_pending, notApproved: t.not_approved, avgQuality: t.quality };
 }
 
-module.exports = { REGISTRY, overview, partyDirectorySummary, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity, payslipData, paklaringData, spLetterData, pph1721Data, bpjsRincianData, settlementData, idCardData };
+// Customer 360 — Piutang (AR) + Riwayat Order dari business_documents (party_id).
+async function customerCommercial(client, id, user) {
+  assertPermission(user, 'customer.view');
+  const cust = await parentRow(client, 'customers', id);
+  const OUT = "(amount - COALESCE(NULLIF(payload->>'paid','')::numeric,0))";
+  const OPEN = "status NOT IN('CLOSED','VOID','CANCELLED','REJECTED','DRAFT')";
+  const NONVOID = "status NOT IN('VOID','CANCELLED','REJECTED','DRAFT')";
+  const invoices = (await client.query(`SELECT id, document_number, amount::bigint, COALESCE(NULLIF(payload->>'paid','')::numeric,0)::bigint paid, ${OUT}::bigint outstanding, status, created_at, due_date,
+      CASE WHEN due_date IS NULL THEN NULL WHEN due_date>=current_date THEN 0 ELSE (current_date-due_date) END days_overdue
+    FROM business_documents WHERE party_id=$1 AND document_type='INVOICE' AND ${NONVOID}
+    ORDER BY (status<>'CLOSED') DESC, due_date NULLS LAST, created_at DESC LIMIT 60`, [id])).rows.map(runtime.camel);
+  const ar = (await client.query(`SELECT
+      COALESCE(sum(${OUT}) FILTER(WHERE ${OPEN}),0)::bigint exposure,
+      COALESCE(sum(${OUT}) FILTER(WHERE ${OPEN} AND due_date<current_date),0)::bigint overdue,
+      COALESCE(sum(amount) FILTER(WHERE ${NONVOID}),0)::bigint invoiced,
+      COALESCE(sum(COALESCE(NULLIF(payload->>'paid','')::numeric,0)) FILTER(WHERE ${NONVOID}),0)::bigint collected
+    FROM business_documents WHERE party_id=$1 AND document_type='INVOICE'`, [id])).rows[0];
+  const aging = (await client.query(`SELECT COALESCE(sum(due) FILTER(WHERE b=0),0)::bigint c0, COALESCE(sum(due) FILTER(WHERE b=1),0)::bigint c1,
+      COALESCE(sum(due) FILTER(WHERE b=2),0)::bigint c2, COALESCE(sum(due) FILTER(WHERE b=3),0)::bigint c3
+    FROM (SELECT ${OUT} due, CASE WHEN due_date>=current_date THEN 0 WHEN due_date>=current_date-30 THEN 1 WHEN due_date>=current_date-60 THEN 2 ELSE 3 END b
+      FROM business_documents WHERE party_id=$1 AND document_type='INVOICE' AND ${OPEN} AND ${OUT}>0) t`, [id])).rows[0];
+  const orders = (await client.query(`SELECT id, document_number, document_type, title, amount::bigint, status, created_at, due_date
+    FROM business_documents WHERE party_id=$1 AND document_type IN('CUSTOMER_INQUIRY','QUOTATION','SALES_ORDER','DELIVERY','INVOICE') AND status NOT IN('VOID','CANCELLED')
+    ORDER BY created_at DESC LIMIT 60`, [id])).rows.map(runtime.camel);
+  const os = (await client.query(`SELECT count(*) FILTER(WHERE document_type='QUOTATION')::int quotations,
+      count(*) FILTER(WHERE document_type='SALES_ORDER')::int sales_orders, count(*) FILTER(WHERE document_type='INVOICE')::int invoices,
+      COALESCE(sum(amount) FILTER(WHERE document_type='SALES_ORDER' AND ${NONVOID}),0)::bigint ordered_value
+    FROM business_documents WHERE party_id=$1`, [id])).rows[0];
+  const limit = Number(cust.credit_limit_amount) || 0, exposure = Number(ar.exposure);
+  return {
+    ar: { exposure, overdue: Number(ar.overdue), invoiced: Number(ar.invoiced), collected: Number(ar.collected), creditLimit: limit,
+      available: limit > 0 ? limit - exposure : null, utilizationPct: limit > 0 ? Math.round(exposure / limit * 100) : null, paymentTermDays: Number(cust.payment_term_days) || 0 },
+    aging: { current: Number(aging.c0), d1_30: Number(aging.c1), d31_60: Number(aging.c2), d60p: Number(aging.c3) },
+    invoices, orders,
+    orderSummary: { quotations: os.quotations, salesOrders: os.sales_orders, invoices: os.invoices, orderedValue: Number(os.ordered_value) }
+  };
+}
+
+module.exports = { REGISTRY, overview, partyDirectorySummary, customerCommercial, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity, payslipData, paklaringData, spLetterData, pph1721Data, bpjsRincianData, settlementData, idCardData };
