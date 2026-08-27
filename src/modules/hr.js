@@ -104,12 +104,12 @@
     presentation: { subtitle: 'Klik profil untuk membuka Employee 360 — identitas, kepegawaian, kompensasi, pajak, BPJS, dan tata kelola data.', kpis: async () => { const d = await api('/api/hr/workforce-analytics').catch(() => ({})); const k = d.kpi || {}; return [{ label: 'Total Headcount', value: k.total || 0, note: `${k.active || 0} aktif`, tone: 'blue', icon: 'people' }, { label: 'Cakupan BPJS', value: k.bpjsCovered || 0, note: `dari ${k.total || 0} karyawan`, tone: 'emerald', icon: 'shield' }, { label: 'Rata-rata Data Quality', value: (k.avgQuality || 0) + '%', note: (k.avgQuality || 0) >= 80 ? 'golden record' : 'perlu dilengkapi', tone: 'amber', icon: 'checkCircle' }, { label: 'Hire Baru (90 hari)', value: k.newHires90d || 0, note: 'akuisisi talenta', tone: 'blue', icon: 'people' }]; } },
     fields:async()=>{const branches=await api('/api/branches');return[{name:'nik',label:'NIK',required:true},{name:'name',label:'Nama lengkap',required:true},{name:'department',label:'Departemen',required:true},{name:'jobTitle',label:'Jabatan'},{name:'baseSalary',label:'Gaji pokok',type:'number',min:0,required:true},{name:'branchId',label:'Lokasi kerja',type:'select',options:branches.items.map(x=>[x.id,`${x.code} · ${x.name}`]),required:true},{name:'joinDate',label:'Tanggal bergabung',type:'date'},{name:'bpjs',label:'Terdaftar BPJS',type:'checkbox'},{name:'active',label:'Karyawan aktif',type:'checkbox'}];},
     columns: [
-      { label: 'Karyawan', render: (r) => `<div class="emp-cell"><span class="emp-cell-av">${empInitials(r.name)}</span><span class="emp-cell-copy"><b>${esc(r.name)}</b><small>${esc(r.nik)} · ${esc(r.jobTitle || '—')}</small></span></div>` },
-      { label: 'Departemen', render: (r) => `<b>${esc(r.department || '—')}</b><small>${esc(r.branchName || '')}</small>` },
-      { label: 'Gaji pokok', right: true, render: (r) => can('payroll.view') ? `<span class="money">${fmtIDR(r.baseSalary)}</span>` : '<span class="chip gray">Tersembunyi</span>' },
+      { label: 'Karyawan', render: (r) => `<div class="emp-cell"><span class="emp-cell-av"><span class="emp-cell-fallback">${empInitials(r.name)}</span>${r.profileFileId ? `<img data-party-photo src="/api/files/${esc(r.profileFileId)}" alt="" loading="lazy" decoding="async">` : ''}</span><span class="emp-cell-copy"><b>${esc(r.name)}</b><small><span class="emp-code">${esc(r.employeeCode || '—')}</span><i>·</i>${esc(r.jobTitle || '—')}</small></span></div>` },
+      { label: 'Departemen & Lokasi', render: (r) => `<div class="emp-cell-copy"><b>${esc(r.department || '—')}</b><small>${esc(r.branchName || '—')}</small></div>` },
+      { label: 'Gaji Pokok', right: true, render: (r) => can('payroll.view') ? `<span class="money">${fmtIDR(r.baseSalary)}</span>` : '<span class="chip gray">Tersembunyi</span>' },
       { label: 'BPJS', render: (r) => r.bpjs ? '<span class="chip mint">Terdaftar</span>' : '<span class="chip gray">—</span>' },
       { label: 'Status', render: (r) => chip(r.lifecycleStatus || (r.active ? 'ACTIVE' : 'INACTIVE')) },
-      { label: 'Data quality', render: (r) => dqCell(r.dataQualityScore, r.qualityFlags) },
+      { label: 'Kualitas Data', render: (r) => dqCell(r.dataQualityScore, r.qualityFlags) },
       { label: 'Bergabung', render: (r) => fmtDate(r.joinDate) }
     ]
   }));

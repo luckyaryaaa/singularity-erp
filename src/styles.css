@@ -1847,9 +1847,14 @@ main{padding-left:clamp(16px,2.1vw,32px);padding-right:clamp(16px,2.1vw,32px)}
 .oc-empty{color:var(--muted);font-size:12px;justify-content:center}
 
 /* Employee list — avatar cell + data-quality indicator */
-.emp-cell{display:flex;align-items:center;gap:10px}
-.emp-cell-av{flex:none;width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:linear-gradient(140deg,#4f6bed,#3548c7);color:#fff;font:800 11px var(--font);letter-spacing:.02em}
-.emp-cell-copy{display:flex;flex-direction:column;min-width:0}.emp-cell-copy b{font-weight:700}
+.emp-cell{display:flex;align-items:center;gap:11px}
+.emp-cell-av{position:relative;overflow:hidden;flex:none;width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:linear-gradient(140deg,#4f6bed,#3548c7);color:#fff;font:800 12px var(--font);letter-spacing:.02em;box-shadow:0 1px 2px rgba(15,23,42,.12)}
+.emp-cell-fallback{position:absolute;inset:0;display:grid;place-items:center}
+.emp-cell-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.emp-cell-copy{display:flex;flex-direction:column;min-width:0;gap:2px}.emp-cell-copy b{font-weight:700}
+.emp-cell-copy small{display:flex;align-items:center;gap:6px;color:#64748b;min-width:0}
+.emp-cell-copy small i{font-style:normal;opacity:.45}
+.emp-code{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-weight:700;font-size:11px;color:#3548c7;background:#eef1fb;padding:1px 6px;border-radius:6px;letter-spacing:.02em;white-space:nowrap}
 .dq-cell{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
 .dq-cell b{font-size:11.5px;font-weight:800;color:var(--text)}
 .dq-mini{-webkit-appearance:none;appearance:none;width:54px;height:6px;border:0;border-radius:6px;overflow:hidden;background:#eef0f5}
