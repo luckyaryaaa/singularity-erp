@@ -186,6 +186,23 @@ function drawQr(page, x, y, size, value) {
   }
 }
 
+// Code 39 (self-checking 1D barcode) — untuk mesin absensi barcode. Charset:
+// 0-9 A-Z - . spasi. n=narrow, w=wide; indeks genap = bar, ganjil = spasi.
+const C39 = { '0': 'nnnwwnwnn', '1': 'wnnwnnnnw', '2': 'nnwwnnnnw', '3': 'wnwwnnnnn', '4': 'nnnwwnnnw', '5': 'wnnwwnnnn', '6': 'nnwwwnnnn', '7': 'nnnwnnwnw', '8': 'wnnwnnwnn', '9': 'nnwwnnwnn', 'A': 'wnnnnwnnw', 'B': 'nnwnnwnnw', 'C': 'wnwnnwnnn', 'D': 'nnnnwwnnw', 'E': 'wnnnwwnnn', 'F': 'nnwnwwnnn', 'G': 'nnnnnwwnw', 'H': 'wnnnnwwnn', 'I': 'nnwnnwwnn', 'J': 'nnnnwwwnn', 'K': 'wnnnnnnww', 'L': 'nnwnnnnww', 'M': 'wnwnnnnwn', 'N': 'nnnnwnnww', 'O': 'wnnnwnnwn', 'P': 'nnwnwnnwn', 'Q': 'nnnnnnwww', 'R': 'wnnnnnwwn', 'S': 'nnwnnnwwn', 'T': 'nnnnwnwwn', 'U': 'wwnnnnnnw', 'V': 'nwwnnnnnw', 'W': 'wwwnnnnnn', 'X': 'nwnnwnnnw', 'Y': 'wwnnwnnnn', 'Z': 'nwwnwnnnn', '-': 'nwnnnnwnw', '.': 'wwnnnnwnn', ' ': 'nwwnnnwnn', '*': 'nwnnwnwnn' };
+function drawBarcode(page, x, y, w, h, value) {
+  const text = '*' + String(value).toUpperCase().replace(/[^0-9A-Z\-. ]/g, '') + '*';
+  const nw = 1, wide = 2.6, gap = 1;
+  let units = 0;
+  for (const ch of text) { const pat = C39[ch]; if (!pat) continue; for (const e of pat) units += (e === 'w' ? wide : nw); units += gap; }
+  units -= gap;
+  const scale = w / units; let cx = x;
+  for (const ch of text) {
+    const pat = C39[ch]; if (!pat) continue;
+    for (let i = 0; i < 9; i++) { const ew = (pat[i] === 'w' ? wide : nw) * scale; if (i % 2 === 0) page.rect(cx, y, ew, h, { fill: '0 0 0' }); cx += ew; }
+    cx += gap * scale;
+  }
+}
+
 const TITLES = {
   INVOICE: 'FAKTUR / INVOICE', SUPPLIER_INVOICE: 'TAGIHAN SUPPLIER', QUOTATION: 'SURAT PENAWARAN',
   PURCHASE_ORDER: 'PURCHASE ORDER', SALES_ORDER: 'SALES ORDER', DELIVERY: 'SURAT JALAN',
@@ -516,12 +533,12 @@ function cardFront(p, x, y, W, H, ctx) {
   p.text(dx, y + hb + 58, 'NO. KARYAWAN', { size: 5.5, bold: true, color: MUTE });
   p.text(dx, y + hb + 70, String(code), { size: 12, bold: true, color: ACCENT });
   const qs = 46, qx = x + W - qs - 10, qy = y + H - qs - 12;
-  drawQr(p, qx, qy, qs, qrUrl);
-  p.center(qx + qs / 2, qy + qs + 6, 'Pindai verifikasi', { size: 4.8, color: MUTE });
+  drawQr(p, qx, qy, qs, String(code));                       // QR = kode karyawan → scan absensi
+  p.center(qx + qs / 2, qy + qs + 6, 'Scan absensi', { size: 4.8, color: MUTE });
   p.text(px, y + H - 10, `Bergabung ${emp.joinDate ? fmtDate(emp.joinDate) : '—'}`, { size: 6, color: SLATE });
 }
 function cardBack(p, x, y, W, H, ctx) {
-  const { org, orgName, qrUrl } = ctx;
+  const { org, orgName, qrUrl, code } = ctx;
   p.rect(x, y, W, H, { fill: '1 1 1' });
   p.rect(x, y, W, H, { stroke: HAIR, sw: 0.8 });
   const hb = 22;
@@ -536,11 +553,15 @@ function cardBack(p, x, y, W, H, ctx) {
   ty += 3;
   const addr = org.operationalAddress || org.legalAddress || '';
   wrapCard(p, `Jika ditemukan, mohon kembalikan ke ${orgName}${addr ? ' — ' + addr : ''}${org.phone ? ' · ' + org.phone : ''}.`, x + 12, ty, W - 24 - 52, 6.5, 8.5, MUTE);
-  const qs = 40, qx = x + W - qs - 10, qy = y + H - qs - 30;
+  // Penerbit (ringkas) + barcode absensi (Code 39) kiri-bawah, QR verifikasi kanan-bawah.
+  const bx = x + 12, bw = 132, bh = 15, byy = y + H - 40;
+  p.text(bx, byy - 16, `Diterbitkan: ${((org.signatory && org.signatory.name) || 'HRD ' + orgName).slice(0, 30)}`, { size: 6, color: SLATE });
+  p.text(bx, byy - 5, 'BARCODE ABSENSI', { size: 5, bold: true, color: MUTE });
+  drawBarcode(p, bx, byy, bw, bh, code);
+  p.text(bx, byy + bh + 8, String(code), { size: 7, bold: true, color: INK });
+  const qs = 40, qx = x + W - qs - 12, qy = y + H - qs - 12;
   drawQr(p, qx, qy, qs, qrUrl);
-  p.text(x + 12, y + H - 26, 'Diterbitkan oleh', { size: 5.5, color: MUTE });
-  p.text(x + 12, y + H - 16, ((org.signatory && org.signatory.name) || `HRD ${orgName}`).slice(0, 34), { size: 7.5, bold: true, color: INK });
-  p.text(x + 12, y + H - 8, ((org.signatory && org.signatory.positionTitle) || 'Human Resources').slice(0, 34), { size: 6, color: MUTE });
+  p.center(qx + qs / 2, qy + qs + 5, 'Verifikasi', { size: 4.5, color: MUTE });
 }
 // data: { document (employeeCode/name/jobTitle/department/joinDate + org snapshot), assets:{logo,photo} }
 function renderIdCard(data) {

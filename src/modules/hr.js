@@ -23,11 +23,32 @@
           ${kpiCard({ label: 'Cuti / sakit', value: String((counts.LEAVE || 0) + (counts.SICK || 0)), note: `${counts.LEAVE || 0} cuti · ${counts.SICK || 0} sakit`, orb: 'clock', orbTone: 'amber' })}
           ${kpiCard({ label: 'Data tercatat', value: String(attendance.total), note: `Periode ${period}`, orb: 'people', orbTone: 'blue' })}
         </section>
+        ${entry ? `<section class="scan-attend">
+          <div class="scan-attend-copy"><p class="eyebrow">ABSENSI KARTU</p><h2>Scan QR / Barcode Kartu Pegawai</h2><p class="muted">Arahkan pemindai ke kartu pegawai, atau ketik kode karyawan lalu tekan Enter. Scan pertama hari ini = <b>masuk</b>, scan berikutnya = <b>keluar</b>.</p></div>
+          <form class="scan-attend-form" id="scanAttendForm"><input id="scanAttendInput" class="scan-attend-input" placeholder="EMP-MAT-0001" autocomplete="off" spellcheck="false"><button class="btn primary" type="submit">${ICONS.checkCircle || ICONS.plus} Rekam</button></form>
+          <div class="scan-attend-out" id="scanAttendOut" aria-live="polite"></div>
+        </section>` : ''}
         <section class="dashboard-grid">
-          <article class="panel"><header><div><p class="eyebrow">KEHADIRAN</p><h2>Catatan harian</h2></div></header><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Karyawan</th><th>Masuk–keluar</th><th>Status</th><th>Sumber</th></tr></thead><tbody>${attendance.items.map(r => `<tr><td>${fmtDate(r.workDate)}</td><td><b>${esc(r.employeeName)}</b><small>${esc(r.nik)} · ${esc(r.department)}</small></td><td>${r.checkIn ? fmtDateTime(r.checkIn) : '—'}<small>${r.checkOut ? fmtDateTime(r.checkOut) : 'Belum keluar'}</small></td><td>${chip(r.status)}</td><td><span class="chip gray">${esc(r.source)}</span></td></tr>`).join('') || '<tr><td colspan="5" class="table-loading">Belum ada data kehadiran.</td></tr>'}</tbody></table></div></article>
+          <article class="panel"><header><div><p class="eyebrow">KEHADIRAN</p><h2>Catatan harian</h2></div></header><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Karyawan</th><th>Masuk–keluar</th><th>Status</th><th>Sumber</th></tr></thead><tbody>${attendance.items.map(r => `<tr><td>${fmtDate(r.workDate)}</td><td><b>${esc(r.employeeName)}</b><small>${esc(r.employeeCode || r.nik)} · ${esc(r.department)}</small></td><td>${r.checkIn ? fmtDateTime(r.checkIn) : '—'}<small>${r.checkOut ? fmtDateTime(r.checkOut) : 'Belum keluar'}</small></td><td>${chip(r.status)}</td><td><span class="chip gray">${esc(r.source)}</span></td></tr>`).join('') || '<tr><td colspan="5" class="table-loading">Belum ada data kehadiran.</td></tr>'}</tbody></table></div></article>
           <article class="panel"><header><div><p class="eyebrow">SALDO CUTI</p><h2>Hak tahun ${esc(period.slice(0, 4))}</h2></div></header><div class="panel-body stack">${balances.items.slice(0, 12).map(r => `<div class="stat-row"><span><b>${esc(r.employeeName)}</b><small>${esc(r.department)}</small></span><b>${Number(r.remaining)} / ${Number(r.entitlement)} hari</b></div>`).join('') || '<p class="muted">Belum ada saldo cuti.</p>'}</div></article>
         </section>`;
       main.querySelector('#attendancePeriod').addEventListener('change', e => { this.period = e.target.value; this.render(main); });
+      const scanForm = main.querySelector('#scanAttendForm');
+      scanForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const inp = main.querySelector('#scanAttendInput'), out = main.querySelector('#scanAttendOut'), code = inp.value.trim();
+        if (!code) return;
+        const LBL = { CHECK_IN: 'MASUK', CHECK_OUT: 'KELUAR', ALREADY_IN: 'sudah masuk', COMPLETE: 'sudah lengkap' };
+        const TONE = { CHECK_IN: 'mint', CHECK_OUT: 'blue', ALREADY_IN: 'amber', COMPLETE: 'gray' };
+        try {
+          const r = await api('/api/hr/attendance/scan', { method: 'POST', body: { code } });
+          const t = TONE[r.action] || 'gray';
+          out.innerHTML = `<div class="scan-attend-card ${t}"><b>${esc(r.employeeName)}</b><span class="chip ${t}">${LBL[r.action] || r.action}</span><small>${esc(r.employeeCode || '')}${r.checkIn ? ' · masuk ' + esc(r.checkIn) : ''}${r.checkOut ? ' · keluar ' + esc(r.checkOut) : ''}</small></div>`;
+          toast(`${r.employeeName} — ${LBL[r.action] || r.action}`, r.checkOut ? `Keluar ${r.checkOut}` : `Masuk ${r.checkIn || ''}`, r.action === 'COMPLETE' ? 'amber' : 'mint');
+          inp.value = ''; inp.focus();
+          if (r.action === 'CHECK_IN' || r.action === 'CHECK_OUT') setTimeout(() => this.render(main), 1400);
+        } catch (err) { out.innerHTML = `<div class="scan-attend-card coral"><b>Gagal</b><small>${esc(err.message)}</small></div>`; toast('Scan gagal', err.message, 'coral'); inp.select(); }
+      });
       main.querySelector('#attendanceCreate')?.addEventListener('click', async () => { try { const employees = editable ? await api('/api/employees?limit=250') : null; const fields = [{ name: 'workDate', label: 'Tanggal kerja', type: 'date', value: new Date().toISOString().slice(0, 10), required: true }, { name: 'status', label: 'Status', type: 'select', options: editable ? [['PRESENT', 'Hadir'], ['LATE', 'Terlambat'], ['ABSENT', 'Tidak hadir'], ['LEAVE', 'Cuti'], ['SICK', 'Sakit'], ['REMOTE', 'Remote']] : [['PRESENT', 'Hadir'], ['REMOTE', 'Remote']], required: true }, { name: 'checkIn', label: 'Waktu masuk', type: 'datetime-local' }, { name: 'checkOut', label: 'Waktu keluar', type: 'datetime-local' }, { name: 'notes', label: 'Catatan', type: 'textarea' }]; if (editable) fields.unshift({ name: 'employeeId', label: 'Karyawan', type: 'select', options: employees.items.map(x => [x.id, `${x.nik} · ${x.name}`]), required: true }); const value = await formDialog({ title: 'Catat kehadiran', description: 'Data pada tanggal yang sama akan diperbarui, bukan diduplikasi.', fields, submitLabel: 'Simpan kehadiran' }); if (!value) return; await api('/api/hr/attendance', { method: 'POST', body: value }); toast('Kehadiran tersimpan'); this.render(main); } catch (error) { toast('Penyimpanan gagal', error.message, 'coral'); } });
       const picker = main.querySelector('#attendanceFile'); main.querySelector('#attendanceImport')?.addEventListener('click', () => picker.click()); picker?.addEventListener('change', async () => { const file = picker.files[0]; if (!file) return; try { const saved = await uploadFile('/api/files?module=attendance', file); await api('/api/jobs', { method: 'POST', body: { type: 'IMPORT_CSV', params: { module: 'attendance', fileId: saved.id } } }); toast('Import dijadwalkan', 'Format: nik, work_date, check_in, check_out, status, notes.'); } catch (error) { toast('Import gagal', error.message, 'coral'); } });
     }
