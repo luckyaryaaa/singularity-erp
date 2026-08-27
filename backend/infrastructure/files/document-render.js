@@ -483,6 +483,96 @@ function renderDocument(data) {
 function statusFill(status) {
   return { APPROVED: '0.16 0.55 0.34', COMPLETED: '0.16 0.55 0.34', CLOSED: '0.4 0.4 0.4', PAID: '0.16 0.55 0.34', DRAFT: '0.6 0.6 0.6', VOID: '0.7 0.2 0.2', REJECTED: '0.7 0.2 0.2' }[status] || '0.2 0.4 0.7';
 }
+
+// ── Kartu Identitas Pegawai (ID card) ───────────────────────────────────────
+const cardInitials = (n) => String(n || '?').trim().split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+function wrapCard(p, text, x, y, maxW, size, lh, color) {
+  let line = '';
+  for (const w of String(text).split(/\s+/)) {
+    const test = line ? line + ' ' + w : w;
+    if (line && strWidth(test, size, false) > maxW) { p.text(x, y, line, { size, color: color || SLATE }); y += lh; line = w; }
+    else line = test;
+  }
+  if (line) { p.text(x, y, line, { size, color: color || SLATE }); y += lh; }
+  return y;
+}
+function cardFront(p, x, y, W, H, ctx) {
+  const { emp, orgName, code, logo, photo, fit, qrUrl } = ctx;
+  p.rect(x, y, W, H, { fill: '1 1 1' });
+  p.rect(x, y, W, H, { stroke: HAIR, sw: 0.8 });
+  const hb = 30;
+  p.rect(x, y, W, hb, { fill: ACCENT });
+  if (logo) { const d = fit(logo, 20, 20); p.image(x + 8, y + (hb - d.h) / 2, d.w, d.h, logo.index); }
+  p.text(x + 34, y + 13, String(orgName).slice(0, 30), { size: 9, bold: true, color: '1 1 1' });
+  p.text(x + 34, y + 24, 'KARTU IDENTITAS PEGAWAI', { size: 5.5, color: '0.90 0.93 0.98' });
+  const px = x + 12, py = y + hb + 12, pw = 54, ph = 68;
+  if (photo) { const d = fit(photo, pw, ph); p.rect(px, py, pw, ph, { fill: SOFT }); p.image(px + (pw - d.w) / 2, py + (ph - d.h) / 2, d.w, d.h, photo.index); }
+  else { p.rect(px, py, pw, ph, { fill: SOFT }); p.center(px + pw / 2, py + ph / 2 + 7, cardInitials(emp.name), { size: 21, bold: true, color: MUTE }); }
+  p.rect(px, py, pw, ph, { stroke: HAIR, sw: 0.6 });
+  const dx = px + pw + 12;
+  p.text(dx, y + hb + 18, String(emp.name || '-').slice(0, 24), { size: 11, bold: true, color: INK });
+  p.text(dx, y + hb + 31, String(emp.jobTitle || '-').slice(0, 30), { size: 7.5, color: SLATE });
+  p.text(dx, y + hb + 41, String(emp.department || '-').slice(0, 30), { size: 7.5, color: MUTE });
+  p.text(dx, y + hb + 58, 'NO. KARYAWAN', { size: 5.5, bold: true, color: MUTE });
+  p.text(dx, y + hb + 70, String(code), { size: 12, bold: true, color: ACCENT });
+  const qs = 46, qx = x + W - qs - 10, qy = y + H - qs - 12;
+  drawQr(p, qx, qy, qs, qrUrl);
+  p.center(qx + qs / 2, qy + qs + 6, 'Pindai verifikasi', { size: 4.8, color: MUTE });
+  p.text(px, y + H - 10, `Bergabung ${emp.joinDate ? fmtDate(emp.joinDate) : '—'}`, { size: 6, color: SLATE });
+}
+function cardBack(p, x, y, W, H, ctx) {
+  const { org, orgName, qrUrl } = ctx;
+  p.rect(x, y, W, H, { fill: '1 1 1' });
+  p.rect(x, y, W, H, { stroke: HAIR, sw: 0.8 });
+  const hb = 22;
+  p.rect(x, y, W, hb, { fill: SLATE });
+  p.text(x + 12, y + 15, 'KETENTUAN PEMEGANG KARTU', { size: 7.5, bold: true, color: '1 1 1' });
+  let ty = y + hb + 13;
+  [`1. Kartu ini milik ${orgName} dan merupakan identitas resmi pegawai.`,
+    '2. Wajib dikenakan selama berada di lingkungan perusahaan.',
+    '3. Kartu dikembalikan saat berakhirnya hubungan kerja.',
+    '4. Penyalahgunaan kartu diproses sesuai peraturan perusahaan.'
+  ].forEach((ln) => { ty = wrapCard(p, ln, x + 12, ty, W - 24, 6.5, 8.5, SLATE) + 1; });
+  ty += 3;
+  const addr = org.operationalAddress || org.legalAddress || '';
+  wrapCard(p, `Jika ditemukan, mohon kembalikan ke ${orgName}${addr ? ' — ' + addr : ''}${org.phone ? ' · ' + org.phone : ''}.`, x + 12, ty, W - 24 - 52, 6.5, 8.5, MUTE);
+  const qs = 40, qx = x + W - qs - 10, qy = y + H - qs - 30;
+  drawQr(p, qx, qy, qs, qrUrl);
+  p.text(x + 12, y + H - 26, 'Diterbitkan oleh', { size: 5.5, color: MUTE });
+  p.text(x + 12, y + H - 16, ((org.signatory && org.signatory.name) || `HRD ${orgName}`).slice(0, 34), { size: 7.5, bold: true, color: INK });
+  p.text(x + 12, y + H - 8, ((org.signatory && org.signatory.positionTitle) || 'Human Resources').slice(0, 34), { size: 6, color: MUTE });
+}
+// data: { document (employeeCode/name/jobTitle/department/joinDate + org snapshot), assets:{logo,photo} }
+function renderIdCard(data) {
+  const emp = data.document || {};
+  const org = emp.organizationIdentitySnapshot || data.org || {};
+  const assets = data.assets || {};
+  const p = new Page();
+  const images = [];
+  const addImage = (asset) => {
+    if (!asset || !asset.buffer) return null;
+    const img = decodeImage(Buffer.isBuffer(asset.buffer) ? asset.buffer : Buffer.from(asset.buffer), asset.mimeType);
+    if (!img) return null; images.push(img); return { index: images.length - 1, w: img.width, h: img.height };
+  };
+  const logo = addImage(assets.logo), photo = addImage(assets.photo);
+  const fit = (img, maxW, maxH) => { const s = Math.min(maxW / img.w, maxH / img.h); return { w: img.w * s, h: img.h * s }; };
+  const orgName = org.tradeName || org.legalName || 'Perusahaan';
+  const code = emp.employeeCode || '-';
+  const qrCode = codeFor(String(code));
+  const qrUrl = verificationUrl(String(code), qrCode);
+  const CW = 242.6, CH = 153, cx = (PW - CW) / 2;
+  const crop = (x, y, w, h) => { const m = 7; [[x, y, 1, 0], [x, y, 0, 1], [x + w, y, -1, 0], [x + w, y, 0, 1], [x, y + h, 1, 0], [x, y + h, 0, -1], [x + w, y + h, -1, 0], [x + w, y + h, 0, -1]].forEach(([qx, qy, dx, dy]) => p.line(qx, qy, qx + dx * m, qy + dy * m, 0.4, MUTE)); };
+  p.center(PW / 2, 46, 'KARTU IDENTITAS PEGAWAI', { size: 13, bold: true, color: INK });
+  p.center(PW / 2, 62, String(orgName).toUpperCase(), { size: 8.5, color: MUTE });
+  const ctx = { emp, org, orgName, code, logo, photo, fit, qrUrl };
+  const fy = 96; cardFront(p, cx, fy, CW, CH, ctx); crop(cx, fy, CW, CH);
+  p.center(PW / 2, fy + CH + 15, 'SISI DEPAN', { size: 6.5, bold: true, color: MUTE });
+  const by = fy + CH + 46; cardBack(p, cx, by, CW, CH, ctx); crop(cx, by, CW, CH);
+  p.center(PW / 2, by + CH + 15, 'SISI BELAKANG', { size: 6.5, bold: true, color: MUTE });
+  p.center(PW / 2, by + CH + 38, 'Ukuran CR80 (85,6 × 54 mm) · cetak skala 100%, potong pada tanda sudut, lalu laminasi.', { size: 7.5, color: SLATE });
+  const buffer = buildPdf([p], images, null, { title: `Kartu Identitas ${emp.name || ''}`.trim(), subject: `${orgName} — ${code}` });
+  return { buffer, code: qrCode, verificationUrl: qrUrl, pageCount: 1 };
+}
 const MONTHS_LONG = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 function fmtDate(v) {
   if (!v) return '-';
@@ -490,4 +580,4 @@ function fmtDate(v) {
   return `${String(d.getDate()).padStart(2, '0')} ${MONTHS_LONG[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-module.exports = { renderDocument, terbilangRupiah, TEMPLATE_VERSION };
+module.exports = { renderDocument, renderIdCard, terbilangRupiah, TEMPLATE_VERSION };

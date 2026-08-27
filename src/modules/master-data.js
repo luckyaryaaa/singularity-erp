@@ -332,6 +332,7 @@
     award: '<circle cx="12" cy="8" r="5"/><path d="M8.2 12 7 21l5-3 5 3-1.2-9"/>',
     calCheck: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="m9 16 2 2 4-4"/>',
     idCard: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M14 9h4M14 13h4M6.5 16a2.5 2.5 0 0 1 5 0"/>',
+    camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/>',
     sparkles: '<path d="M12 3l1.5 4L18 8.5 13.5 10 12 14l-1.5-4L6 8.5 10.5 7z"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
     copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
@@ -506,11 +507,11 @@
       main.innerHTML = `<div class="mk360">
         <div class="mk-topbar"><a class="mk-back" href="#/hr/employees">${MK('chevronLeft') || '‹'} Kembali ke Direktori Karyawan</a><span class="mk-crumb">Karyawan <i>›</i> ${esc(ov.name || 'Employee 360')}</span></div>
         <section class="mk-surface mk-banner"><div class="mk-banner-row">
-          <div class="mk-id"><div class="mk-avatar${ov.profileFileId ? ' has-photo' : ''}">${photo || esc(mkInitials(ov.name))}<span class="mk-dot" title="Aktif"></span></div>
+          <div class="mk-id"><div class="mk-avatar${ov.profileFileId ? ' has-photo' : ''}${editable ? ' mk-avatar-edit' : ''}"${editable ? ' data-mk-photo role="button" tabindex="0" title="Klik untuk ganti foto profil"' : ''}>${photo || esc(mkInitials(ov.name))}<span class="mk-dot" title="Aktif"></span>${editable ? `<span class="mk-avatar-cam" aria-hidden="true">${MK('camera')}</span>` : ''}</div>
             <div><div class="mk-id-tags"><h1>${esc(ov.name || ov.employeeCode)}</h1><span class="mk-badge emerald">${MK('shieldCheck')} ${esc(ov.lifecycleStatus || 'ACTIVE')}</span>${ov.department ? `<span class="mk-badge blue">ORG: ${esc(ov.department)}</span>` : ''}</div>
               <div class="mk-meta"><span>Kode: <b>${esc(ov.employeeCode || '—')}</b></span><i>•</i><span>Posisi: <b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></span><i>•</i><span>Lokasi: <b>${esc(ov.branchName || '—')}</b></span><i>•</i><span>Atasan: <b>${esc(sup.supervisorName || '—')}</b></span></div>
             </div></div>
-          <div class="mk-actions"><button class="mk-btn" data-mk-export>${MK('printer')} Export Summary</button>${editable ? `<button class="mk-btn primary" data-mk-identity>${MK('edit')} Pengkinian Data</button>` : ''}</div>
+          <div class="mk-actions">${editable ? `<button class="mk-btn" data-mk-photo>${MK('camera')} Ganti Foto</button>` : ''}<a class="mk-btn" href="/api/masters/employees/${esc(params.id)}/id-card-pdf" target="_blank" rel="noopener">${MK('idCard')} Kartu ID (PDF)</a><button class="mk-btn" data-mk-export>${MK('printer')} Export Summary</button>${editable ? `<button class="mk-btn primary" data-mk-identity>${MK('edit')} Pengkinian Data</button>` : ''}<input type="file" id="mkPhotoInput" accept="image/png,image/jpeg,image/webp" hidden></div>
         </div></section>
 
         <div class="mk-surface mk-tabbar"><div class="mk-groups" role="tablist">${MK_GROUPS.map((g, i) => `<button class="mk-group${i === 0 ? ' active' : ''}" data-mk-group="${g.id}" role="tab">${MK(g.icon)} ${esc(g.label)}<span class="mk-group-n">${g.tabs.length}</span></button>`).join('')}</div><div class="mk-subtabs" data-mk-subtabs role="tablist"></div></div>
@@ -693,6 +694,20 @@
         root.querySelectorAll('[data-mk-copy]').forEach((b) => b.addEventListener('click', async () => { try { await navigator.clipboard.writeText(b.dataset.mkCopy); toast('Disalin', b.dataset.mkCopy); } catch (_) { toast('Gagal menyalin', '', 'coral'); } }));
         root.querySelectorAll('[data-mk-identity]').forEach((b) => b.addEventListener('click', () => openIdentityUpdate(params, ov, () => this.render(main, params))));
         root.querySelectorAll('[data-mk-export]').forEach((b) => b.addEventListener('click', () => toast('Menyiapkan ringkasan profil…', 'Export PDF akan tersedia.')));
+        const mkPhotoInput = root.querySelector('#mkPhotoInput');
+        root.querySelectorAll('[data-mk-photo]').forEach((b) => { b.addEventListener('click', () => mkPhotoInput && mkPhotoInput.click()); b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mkPhotoInput && mkPhotoInput.click(); } }); });
+        mkPhotoInput && mkPhotoInput.addEventListener('change', async () => {
+          const file = mkPhotoInput.files && mkPhotoInput.files[0]; if (!file) return;
+          if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) { toast('Foto tidak valid', 'Gunakan PNG, JPG, atau WebP maksimal 5 MB.', 'coral'); mkPhotoInput.value = ''; return; }
+          toast('Mengunggah foto…', file.name);
+          try {
+            const saved = await uploadFile('/api/files?module=employee', file);
+            const linked = await api(`/api/masters/employees/${params.id}/profile-photo`, { method: 'POST', body: { fileId: saved.id } });
+            invalidate(`master:${params.id}`);
+            toast('Foto profil diperbarui', linked && linked.profileScanStatus === 'CLEAN' ? 'Foto siap digunakan.' : 'Foto ditautkan & sedang dipindai keamanan.');
+            this.render(main, params);
+          } catch (e) { toast('Gagal mengunggah foto', e.message, 'coral'); mkPhotoInput.value = ''; }
+        });
       };
       const loaded = {};
       const wireTab = (key, panel) => {

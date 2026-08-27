@@ -1269,6 +1269,16 @@ async function settlementData(client, id, offbId, user, org) {
   return { document: { documentType: 'PERHITUNGAN_PESANGON', documentNumber: num, status: rec.status === 'COMPLETED' ? 'COMPLETED' : 'DRAFT', createdAt: new Date().toISOString(), amount: net, partyName: ov.name }, body, options: { title: 'PERHITUNGAN PESANGON', signatureLabel: 'Hormat kami,', showTerbilang: false, receiverBox: true, receiverLabel: 'Diterima & disetujui karyawan,' } };
 }
 
+// Kartu Identitas Pegawai (ID card CR80 + QR). Foto dimuat di route lewat profileFileId.
+async function idCardData(client, id, user, org) {
+  assertPermission(user, 'employee.view');
+  const ov = await overview(client, 'employees', id, user), pos = (ov.enterpriseSummary || {}).currentPosition || {};
+  return {
+    document: { documentType: 'KARTU_PEGAWAI', employeeCode: ov.employeeCode || ov.nik || String(id).slice(0, 8), name: ov.name, jobTitle: pos.positionTitle || ov.jobTitle, department: ov.department, branchName: ov.branchName, joinDate: ov.joinDate },
+    photoFileId: ov.profileFileId || null
+  };
+}
+
 // ── Surat Peringatan (SP) & Disiplin ───────────────────────────────────────
 const SP_LEVELS = ['TEGURAN', 'SP1', 'SP2', 'SP3'];
 async function listDisciplinary(client, id, user) {
@@ -1436,4 +1446,4 @@ async function decideDisciplinary(client, id, spId, action, user, requestId) {
   return { revoked: spId };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity, payslipData, paklaringData, spLetterData, pph1721Data, bpjsRincianData, settlementData };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity, payslipData, paklaringData, spLetterData, pph1721Data, bpjsRincianData, settlementData, idCardData };

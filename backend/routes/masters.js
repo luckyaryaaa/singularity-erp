@@ -165,6 +165,18 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m){await renderHrDoc(client,ctx,'bpjsRincianData',[m[1]],'rincian-bpjs.pdf');return null;}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/offboarding\/([0-9a-f-]{36})\/settlement-pdf$/);
   if(method==='GET'&&m){await renderHrDoc(client,ctx,'settlementData',[m[1],m[2]],'perhitungan-pesangon.pdf');return null;}
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/id-card-pdf$/);
+  if(method==='GET'&&m){
+    const profile=await organization.overview(client,ctx.user);
+    const snap={legalName:profile.legalName,tradeName:profile.tradeName,tagline:profile.tagline,npwp:profile.npwp,operationalAddress:profile.operationalAddress||profile.legalAddress,legalAddress:profile.legalAddress,phone:profile.phone,email:profile.email,website:profile.website,signatory:profile.signatory};
+    const {document,photoFileId}=await masterData.idCardData(client,m[1],ctx.user,snap);
+    document.organizationIdentitySnapshot=snap;
+    const assets=await organization.documentAssets(client,null).catch(()=>({}));
+    if(photoFileId){try{const st=require('../infrastructure/files/private-storage');const dl=await st.download(client,photoFileId);assets.photo={buffer:dl.buffer,mimeType:dl.item.mimeType};}catch{/* foto belum CLEAN / hilang → fallback inisial */}}
+    const rendered=docRender.renderIdCard({document,assets});
+    ctx.download={item:{originalFilename:`kartu-pegawai-${document.employeeCode||m[1].slice(0,8)}.pdf`,mimeType:'application/pdf',disposition:'inline'},buffer:rendered.buffer};
+    return null;
+  }
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/goals$/);
   if(method==='GET'&&m)return masterData.listGoals(client,m[1],ctx.user);
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/goals\/([0-9a-f-]{36})\/progress$/);
