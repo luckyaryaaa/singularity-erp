@@ -265,6 +265,42 @@
     return y ? `${y} th${m ? ` ${m} bln` : ''}` : `${m} bln`;
   };
 
+  // Perbaiki data POKOK kepegawaian (nama, NIP, departemen, jabatan, cabang,
+  // tgl gabung, status) — mis. salah input saat Tambah Karyawan. Gaji lewat tab
+  // Kompensasi; NIK KTP lewat Pengkinian Data. PATCH /api/employees/:id.
+  const openEmployeeEdit = async (params, ov, rerender) => {
+    const branches = await api('/api/branches').catch(() => ({ items: [] }));
+    let depts = [];
+    try { const emps = await api('/api/employees?limit=250'); depts = [...new Set(emps.items.map((e) => e.department).filter(Boolean))]; } catch (_) { /* opsional */ }
+    const deptList = [...new Set([...depts, 'Produksi', 'Engineering', 'Quality Control', 'Finance', 'HRD', 'Procurement', 'Warehouse', 'Sales & Marketing', 'IT', 'General Affairs', 'Maintenance'])];
+    const value = await formDialog({
+      title: `Edit Data Karyawan — ${ov.name || ''}`,
+      description: 'Perbaiki data pokok kepegawaian (mis. salah ketik saat input). Perubahan tercatat di audit trail. Gaji diubah di tab Kompensasi; NIK KTP di Pengkinian Data.',
+      fields: [
+        { type: 'section', label: 'Identitas Karyawan', icon: ICONS.people, hint: `Kode Karyawan ${ov.employeeCode || ''} dibuat otomatis & tidak dapat diubah.` },
+        { name: 'name', label: 'Nama lengkap', required: true },
+        { name: 'nik', label: 'No. Induk / NIP internal', required: true, hint: 'Nomor kepegawaian internal — BUKAN NIK KTP.' },
+        { type: 'section', label: 'Penempatan', icon: ICONS.building },
+        { name: 'department', label: 'Departemen', required: true, list: deptList, hint: 'Pilih dari daftar atau ketik baru.' },
+        { name: 'jobTitle', label: 'Jabatan' },
+        { name: 'branchId', label: 'Lokasi kerja / cabang', type: 'select', options: branches.items.map((x) => [x.id, `${x.code} · ${x.name}`]), required: true },
+        { name: 'joinDate', label: 'Tanggal bergabung', type: 'date' },
+        { name: 'active', label: 'Karyawan aktif', type: 'checkbox' }
+      ],
+      initial: { name: ov.name, nik: ov.nik, department: ov.department, jobTitle: ov.jobTitle, branchId: ov.branchId, joinDate: ov.joinDate ? String(ov.joinDate).slice(0, 10) : '', active: ov.active !== false },
+      submitLabel: 'Simpan perubahan'
+    });
+    if (!value) return;
+    try {
+      const result = await api(`/api/employees/${params.id}`, { method: 'PATCH', body: value });
+      invalidate(`master:${params.id}`); invalidate('employees');
+      const pending = result && result.pendingChanges && result.pendingChanges.fields;
+      if (pending && pending.length) toast('Sebagian menunggu persetujuan', `${pending.length} field diajukan sebagai usulan (maker-checker).`, 'amber');
+      else toast('Data karyawan diperbarui', ov.name || '');
+      rerender();
+    } catch (e) { toast('Perubahan gagal', e.message, 'coral'); }
+  };
+
   const openIdentityUpdate = async (params, overview, rerender) => {
     let personal = {};
     try { const r = await api(`/api/masters/employees/${params.id}/personal`); personal = (r.items && r.items[0]) || (r && r.nikKtp !== undefined ? r : {}); } catch (_) { /* profil belum ada */ }
@@ -511,7 +547,7 @@
             <div><div class="mk-id-tags"><h1>${esc(ov.name || ov.employeeCode)}</h1><span class="mk-badge emerald">${MK('shieldCheck')} ${esc(ov.lifecycleStatus || 'ACTIVE')}</span>${ov.department ? `<span class="mk-badge blue">ORG: ${esc(ov.department)}</span>` : ''}</div>
               <div class="mk-meta"><span>Kode: <b>${esc(ov.employeeCode || '—')}</b></span><i>•</i><span>Posisi: <b>${esc(pos.positionTitle || ov.jobTitle || '—')}</b></span><i>•</i><span>Lokasi: <b>${esc(ov.branchName || '—')}</b></span><i>•</i><span>Atasan: <b>${esc(sup.supervisorName || '—')}</b></span></div>
             </div></div>
-          <div class="mk-actions">${editable ? `<button class="mk-btn" data-mk-photo>${MK('camera')} Ganti Foto</button>` : ''}<a class="mk-btn" href="/api/masters/employees/${esc(params.id)}/id-card-pdf" target="_blank" rel="noopener">${MK('idCard')} Kartu ID (PDF)</a><button class="mk-btn" data-mk-export>${MK('printer')} Export Summary</button>${editable ? `<button class="mk-btn primary" data-mk-identity>${MK('edit')} Pengkinian Data</button>` : ''}<input type="file" id="mkPhotoInput" accept="image/png,image/jpeg,image/webp" hidden></div>
+          <div class="mk-actions">${editable ? `<button class="mk-btn" data-mk-photo>${MK('camera')} Ganti Foto</button>` : ''}<a class="mk-btn" href="/api/masters/employees/${esc(params.id)}/id-card-pdf" target="_blank" rel="noopener">${MK('idCard')} Kartu ID (PDF)</a><button class="mk-btn" data-mk-export>${MK('printer')} Export Summary</button>${editable ? `<button class="mk-btn" data-mk-edit>${MK('edit')} Edit Data</button><button class="mk-btn primary" data-mk-identity>${MK('edit')} Pengkinian Data</button>` : ''}<input type="file" id="mkPhotoInput" accept="image/png,image/jpeg,image/webp" hidden></div>
         </div></section>
 
         <div class="mk-surface mk-tabbar"><div class="mk-groups" role="tablist">${MK_GROUPS.map((g, i) => `<button class="mk-group${i === 0 ? ' active' : ''}" data-mk-group="${g.id}" role="tab">${MK(g.icon)} ${esc(g.label)}<span class="mk-group-n">${g.tabs.length}</span></button>`).join('')}</div><div class="mk-subtabs" data-mk-subtabs role="tablist"></div></div>
@@ -693,6 +729,7 @@
       const wireCommon = (root) => {
         root.querySelectorAll('[data-mk-copy]').forEach((b) => b.addEventListener('click', async () => { try { await navigator.clipboard.writeText(b.dataset.mkCopy); toast('Disalin', b.dataset.mkCopy); } catch (_) { toast('Gagal menyalin', '', 'coral'); } }));
         root.querySelectorAll('[data-mk-identity]').forEach((b) => b.addEventListener('click', () => openIdentityUpdate(params, ov, () => this.render(main, params))));
+        root.querySelectorAll('[data-mk-edit]').forEach((b) => b.addEventListener('click', () => openEmployeeEdit(params, ov, () => this.render(main, params))));
         root.querySelectorAll('[data-mk-export]').forEach((b) => b.addEventListener('click', () => toast('Menyiapkan ringkasan profil…', 'Export PDF akan tersedia.')));
         const mkPhotoInput = root.querySelector('#mkPhotoInput');
         root.querySelectorAll('[data-mk-photo]').forEach((b) => { b.addEventListener('click', () => mkPhotoInput && mkPhotoInput.click()); b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mkPhotoInput && mkPhotoInput.click(); } }); });
