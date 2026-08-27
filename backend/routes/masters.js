@@ -163,6 +163,8 @@ async function dispatch(client, req, url, ctx) {
   if(method==='GET'&&m){await renderHrDoc(client,ctx,'pph1721Data',[m[1],{year:url.searchParams.get('year')?Number(url.searchParams.get('year')):undefined}],'bukti-potong-1721.pdf');return null;}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/bpjs-pdf$/);
   if(method==='GET'&&m){await renderHrDoc(client,ctx,'bpjsRincianData',[m[1]],'rincian-bpjs.pdf');return null;}
+  m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/offboarding\/([0-9a-f-]{36})\/settlement-pdf$/);
+  if(method==='GET'&&m){await renderHrDoc(client,ctx,'settlementData',[m[1],m[2]],'perhitungan-pesangon.pdf');return null;}
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/goals$/);
   if(method==='GET'&&m)return masterData.listGoals(client,m[1],ctx.user);
   m=p.match(/^\/api\/masters\/employees\/([0-9a-f-]{36})\/goals\/([0-9a-f-]{36})\/progress$/);

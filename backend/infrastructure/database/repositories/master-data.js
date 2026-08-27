@@ -1158,6 +1158,16 @@ function pesangonCompute(reason, tenureYears, monthlyWage, unusedLeaveDays) {
   const separation = r.sep ? Math.round(wage) : 0;
   return { up, upmk, uph, separation, total: up + upmk + uph + separation, label: r.label, upX: r.up * upMultiplier(tenureYears), upmkX: r.upmk * upmkMultiplier(tenureYears) };
 }
+// PPh 21 final atas uang pesangon dibayar sekaligus (PP 68/2009): 0% s/d 50jt,
+// 5% >50–100jt, 15% >100–500jt, 25% >500jt (progresif berlapis).
+function pesangonPph21Final(base) {
+  base = Math.max(0, Math.round(Number(base) || 0));
+  let rem = base, tax = 0;
+  for (const [width, rate] of [[50e6, 0], [50e6, 0.05], [400e6, 0.15], [Infinity, 0.25]]) {
+    if (rem <= 0) break; const slab = Math.min(rem, width); tax += slab * rate; rem -= slab;
+  }
+  return Math.round(tax);
+}
 async function offboardingBasis(client, emp) {
   const tenure = emp.join_date ? Number(((Date.now() - new Date(emp.join_date).getTime()) / (365.25 * 86400000)).toFixed(2)) : 0;
   const comp = (await client.query(`SELECT base_salary, fixed_allowance FROM employee_compensation_history WHERE employee_id=$1 AND approval_status='APPROVED' ORDER BY effective_from DESC LIMIT 1`, [emp.id])).rows[0] || {};
@@ -1215,6 +1225,48 @@ async function decideOffboarding(client, id, offbId, action, user, requestId) {
   await client.query(`UPDATE employees SET active=false, lifecycle_status='ARCHIVED', updated_at=now() WHERE id=$1`, [id]);
   await runtime.audit(client, { userId: user.id, action: 'OFFBOARDING_COMPLETE', module: 'employee', entityType: 'EMPLOYEE_OFFBOARDING', entityId: id, newValue: { reason: offb.reason, total: Number(offb.total_amount) }, requestId, branchId: user.branchId });
   return runtime.camel(row);
+}
+
+// Dokumen resmi "Perhitungan Hak & Penyelesaian Akhir" (final settlement) via mesin dokumen terpadu.
+async function settlementData(client, id, offbId, user, org) {
+  assertPermission(user, 'employee.view');
+  if (!canSeeSalary(user)) throw new AppError('PERMISSION_DENIED', 'Dokumen penyelesaian akhir membutuhkan izin payroll.');
+  const emp = await parentRow(client, 'employees', id);
+  const ov = await overview(client, 'employees', id, user), pos = (ov.enterpriseSummary || {}).currentPosition || {};
+  const rec = (await client.query('SELECT * FROM employee_offboarding WHERE id=$2 AND employee_id=$1', [id, offbId])).rows[0];
+  if (!rec) throw new AppError('RESOURCE_NOT_FOUND', 'Proses offboarding tidak ditemukan.');
+  const r = OFFB_REASONS[rec.reason] || OFFB_REASONS.LAINNYA;
+  const up = Number(rec.up_amount) || 0, upmk = Number(rec.upmk_amount) || 0, uph = Number(rec.uph_amount) || 0, sep = Number(rec.separation_pay) || 0;
+  const gross = up + upmk + uph + sep, pph = pesangonPph21Final(up + upmk + uph), net = gross - pph;
+  const wage = Number(rec.monthly_wage) || 0, tenure = Number(rec.tenure_years) || 0, leaveDays = Number(rec.unused_leave_days) || 0;
+  const upX = +(r.up * upMultiplier(tenure)).toFixed(2), upmkX = +(r.upmk * upmkMultiplier(tenure)).toFixed(2);
+  const num = `PSG/HRD/${new Date(rec.effective_date).getFullYear()}/${String(ov.nik || id).slice(-4)}`;
+  const { terbilangRupiah } = require('../../files/document-render');
+  const rows = [
+    ['Uang Pesangon (UP)', `${upX}× upah`, rpNum(up)],
+    ['Uang Penghargaan Masa Kerja (UPMK)', `${upmkX}× upah`, rpNum(upmk)],
+    ['Uang Penggantian Hak (UPH)', `${leaveDays} hari sisa cuti`, rpNum(uph)]
+  ];
+  if (sep > 0) rows.push(['Uang Pisah', '1× upah', rpNum(sep)]);
+  const grossIdx = rows.length; rows.push(['Jumlah Bruto', '', rpNum(gross)]);
+  if (pph > 0) rows.push(['Dikurangi PPh 21 Final (PP 68/2009)', '', '(' + rpNum(pph) + ')']);
+  const body = [
+    { type: 'heading', text: 'Perhitungan Hak & Penyelesaian Akhir', size: 10.5, rule: true },
+    { type: 'space', h: 2 },
+    { type: 'kv2', labelW: 100, rows: [
+      [['Nama', ov.name || '-'], ['Alasan Berhenti', r.label]],
+      [['NIK', ov.nik || '-'], ['Tanggal Efektif', fmtLongDate(rec.effective_date)]],
+      [['Jabatan', pos.positionTitle || ov.jobTitle || '-'], ['Masa Kerja', `${tenure} tahun`]],
+      [['Tgl Bergabung', fmtLongDate(emp.join_date)], ['Upah Dasar / bln', rpNum(wage)]]
+    ] },
+    { type: 'space', h: 4 },
+    { type: 'table', head: ['KOMPONEN HAK', 'DASAR', 'JUMLAH'], widths: [300, 105, 110], right: [false, false, true], strongRows: [grossIdx], rows },
+    { type: 'total', label: 'JUMLAH DITERIMA (NETO)', value: rpNum(net), width: 320 },
+    { type: 'space', h: 6 },
+    { type: 'para', text: `Terbilang: ${terbilangRupiah(net)}.`, size: 9 },
+    { type: 'para', text: 'Perhitungan mengacu pada UU 6/2023 (Cipta Kerja) jo. PP 35/2021 (uang pesangon UP + UPMK + UPH) dan PP 68/2009 (PPh 21 final atas uang pesangon dibayar sekaligus). Dengan menandatangani, karyawan menyatakan telah menerima seluruh hak dan menyelesaikan kewajibannya.', size: 8, color: '0.470 0.518 0.588' }
+  ];
+  return { document: { documentType: 'PERHITUNGAN_PESANGON', documentNumber: num, status: rec.status === 'COMPLETED' ? 'COMPLETED' : 'DRAFT', createdAt: new Date().toISOString(), amount: net, partyName: ov.name }, body, options: { title: 'PERHITUNGAN PESANGON', signatureLabel: 'Hormat kami,', showTerbilang: false, receiverBox: true, receiverLabel: 'Diterima & disetujui karyawan,' } };
 }
 
 // ── Surat Peringatan (SP) & Disiplin ───────────────────────────────────────
@@ -1384,4 +1436,4 @@ async function decideDisciplinary(client, id, spId, action, user, requestId) {
   return { revoked: spId };
 }
 
-module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity, payslipData, paklaringData, spLetterData, pph1721Data, bpjsRincianData };
+module.exports = { REGISTRY, overview, listSub, createSub, approveSupplierBank, decideSupplierDocument, decideEmployeeSensitive, employeeAudit, setProfilePhoto, autoTaxProfile, activateCostRevision, promoteRevision, lifecycle, myProfile, submitIdentityRequest, listSelfUpdates, decideSelfUpdate, employeeTimeline, compensationAnalysis, workforceAnalytics, employeeTalent, updateTalent, pph21Annual, listLoans, requestLoan, decideLoan, closeLoan, saveBpjsConfig, terMonthlyRate, ptkpToCatBE, BPJS_PROGRAMS_BE, listFamily, saveFamily, deleteFamily, getOffboarding, initiateOffboarding, updateOffboardingClearance, decideOffboarding, listDisciplinary, addDisciplinary, decideDisciplinary, employeeAlerts, listGoals, updateGoalProgress, listReviews, createReview, updateReview, listImportBatches, companyIdentity, payslipData, paklaringData, spLetterData, pph1721Data, bpjsRincianData, settlementData };

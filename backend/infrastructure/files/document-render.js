@@ -286,6 +286,7 @@ function renderDocument(data) {
       if (blk.type === 'heading') { yy += 6; p.text(ML, yy + 9, String(blk.text), { size: blk.size || 11, bold: true, color: INK }); yy += (blk.size || 11) + 6; if (blk.rule) { p.line(ML, yy - 2, MR, yy - 2, 0.6, HAIR); yy += 4; } continue; }
       if (blk.type === 'para') { yy += 3; para(blk.text, blk); yy += (blk.gap ?? 7); continue; }
       if (blk.type === 'meta') { const lw = blk.labelW || 120, ind = blk.indent || 0; (blk.rows || []).forEach(([k, v]) => { p.text(ML + ind, yy + 10, k, { size: 9, color: MUTE }); p.text(ML + ind + lw, yy + 10, `: ${v}`, { size: 9, bold: blk.bold !== false, color: INK }); yy += 15; }); yy += (blk.gap ?? 6); continue; }
+      if (blk.type === 'kv2') { const colW = CW / 2, lw = blk.labelW || 110; (blk.rows || []).forEach((row) => { (row || []).forEach((pair, ci) => { if (!pair) return; const bx = ML + ci * colW; p.text(bx, yy + 10, String(pair[0]), { size: 9, color: MUTE }); p.text(bx + lw, yy + 10, `: ${String(pair[1]).slice(0, 30)}`, { size: 9, bold: true, color: INK }); }); yy += 15; }); yy += (blk.gap ?? 6); continue; }
       if (blk.type === 'table') {
         const heads = blk.head || [], rows = blk.rows || [], n = heads.length || 1;
         const widths = blk.widths || heads.map(() => CW / n);
