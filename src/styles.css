@@ -1417,6 +1417,21 @@ main[data-workbench]{--workbench-tint:color-mix(in srgb,var(--space-soft) 62%,#f
 .party-profile-kpis{gap:10px}.party-profile-kpis .kpi{min-height:105px;border-radius:18px}.party-profile-kpis .kpi strong{font-size:clamp(17px,1.7vw,23px)}.party-overview-grid{grid-template-columns:minmax(0,1.12fr) minmax(320px,.88fr)}.party-overview-grid>.panel{min-width:0}.party-overview-grid .detail-dl{grid-template-columns:repeat(2,minmax(0,1fr))}
 
 @media(max-width:1100px){.party-directory-intro{grid-template-columns:1fr}.party-directory-facts{justify-self:start}.party-profile-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.party-overview-grid{grid-template-columns:1fr}}
+/* ── Party 360 detail — skin claymorphism white premium (selaras Employee 360) ── */
+.party-profile-hero{background:linear-gradient(135deg,#ffffff,#f6f9fc);border:1px solid rgba(255,255,255,.9);border-radius:24px;box-shadow:12px 12px 30px #dce2ec,-12px -12px 30px #fff;min-height:auto;padding:26px 30px 24px}
+.party-profile-name h2{color:#1e293b;letter-spacing:-.03em}
+.party-profile-name>p{font-size:12px;color:#64748b}
+.party-profile-tags>span:first-child{font-size:8.5px;padding:5px 10px;border-radius:8px}
+.party-profile-facts{gap:12px;margin-top:22px}
+.party-profile-facts>div{background:#fff;border:1px solid #eef2f8;border-radius:16px;box-shadow:6px 6px 14px #e5eaf2,-6px -6px 14px #fff;backdrop-filter:none;padding:13px 15px}
+.party-profile-facts>div>span{width:34px;height:34px;background:#eef2f8;box-shadow:none}
+.party-profile-facts svg{width:16px;height:16px}
+.party-profile-facts small{font-size:9.5px;color:#94a3b8}
+.party-profile-facts strong{font-size:12.5px;color:#1e293b}
+.party-photo-action .btn{border-radius:11px}
+.party-profile-hero+.master-tabs{background:#fff;border:1px solid #eef2f8;border-radius:16px;box-shadow:6px 6px 16px #e5eaf2,-6px -6px 16px #fff;backdrop-filter:none;padding:6px}
+.party-profile-hero+.master-tabs .master-tab{font-size:11px;padding:9px 14px;border-radius:10px}
+.party-profile-hero+.master-tabs .master-tab.active{background:#eef2fb;color:#2563eb}
 @media(max-width:760px){.party-directory-intro{padding:22px;border-radius:20px}.party-directory-facts{width:100%}.party-directory-facts>span{min-width:0;padding:12px}.party-profile-hero{padding:21px;border-radius:21px}.party-profile-identity{grid-template-columns:auto 1fr;gap:15px}.party-photo-action{grid-column:1/-1;justify-items:start}.party-avatar-lg{width:88px;height:88px;border-radius:27px}.party-avatar-lg .party-avatar-fallback,.party-avatar-lg img{border-radius:21px}.party-profile-facts{grid-template-columns:1fr 1fr}.party-profile-hero+.master-tabs{top:31px}.party-overview-grid .detail-dl{grid-template-columns:1fr}}
 @media(max-width:480px){.party-directory-intro{padding:19px}.party-directory-facts{grid-template-columns:1fr}.party-directory-facts>span{grid-template-columns:1fr auto;align-items:center;border-top:1px solid #e7ecf3;border-left:0}.party-directory-facts>span:first-child{border-top:0}.party-directory-facts strong{text-align:right}.party-profile-hero{padding:18px}.party-profile-identity{grid-template-columns:1fr}.party-avatar-lg{width:78px;height:78px}.party-profile-name h2{font-size:24px}.party-profile-facts{grid-template-columns:1fr}.party-profile-orbit{opacity:.55}.party-profile-hero+.master-tabs{top:29px}.party-profile-kpis{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.party-avatar{transition:none}.party-directory-table tbody tr:hover .party-avatar{transform:none}}
