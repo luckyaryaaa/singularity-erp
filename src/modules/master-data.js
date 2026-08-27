@@ -515,7 +515,7 @@
           <button class="mk-btn sm" data-mk-export>${MK('printer')}<span>Export</span></button>
         </div></div></article></div>`;
 
-      const dataPribadi = `<section class="mk-surface mk-ovh"><div class="mk-section-head"><h2>${MK('idCard')} Data Master Pribadi · Identitas Diri</h2><div class="mk-hdr-meta">${personal.nikKtp ? '<span class="mk-badge emerald">' + MK('check') + ' Terverifikasi</span>' : '<span class="mk-badge amber">Belum lengkap</span>'}${editable ? `<button class="mk-btn sm" data-mk-identity>${MK('edit')} Pengkinian</button>` : ''}</div></div>
+      const dataPribadi = `<section class="mk-surface mk-ovh"><div class="mk-section-head"><h2>${MK('idCard')} Data Master Pribadi · Identitas Diri</h2><div class="mk-hdr-meta">${personal.nikKtp ? '<span class="mk-badge emerald">' + MK('check') + ' Terverifikasi</span>' : '<span class="mk-badge amber">Belum lengkap</span>'}${editable ? `<span class="mk-hdr-note">${MK('info')} Ubah via tombol <b>Ubah Data</b></span>` : ''}</div></div>
         <div class="mk-section-body mk-g mk-g4">
           ${mkField('NIK KTP (16 Digit)', personal.nikKtp || '—', { mono: true, copy: personal.nikKtp && !String(personal.nikKtp).includes('•') ? personal.nikKtp : '' })}
           ${mkField('Tempat, Tanggal Lahir', null, { html: `${esc(personal.birthPlace || '—')}${personal.birthDate ? `, ${fmtDate(personal.birthDate)}` : ''}${age != null ? ` <span class="mk-mu">(${age} TH)</span>` : ''}` })}
