@@ -763,9 +763,9 @@ async function payslipData(client, id, { period, bonus } = {}, user) {
   const per = /^\d{4}-\d{2}$/.test(period || '') ? period : new Date().toISOString().slice(0, 7);
   const perLabel = new Date(per + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
   const document = {
-    documentType: 'PAYSLIP', documentNumber: `SLIP/${per}/${ov.nik || String(id).slice(0, 8)}`,
+    documentType: 'PAYSLIP', documentNumber: `SLIP/${per}/${ov.employeeCode || ov.nik || String(id).slice(0, 8)}`,
     status: 'APPROVED', amount: net, partyName: ov.name || '-', createdAt: new Date().toISOString(),
-    payload: { period: perLabel, customerAddress: `${pos.positionTitle || ov.jobTitle || '-'}${ov.department ? ' · ' + ov.department : ''}`, attn: `NIK ${ov.nik || '-'}`, terms: perLabel }
+    payload: { period: perLabel, customerAddress: `${pos.positionTitle || ov.jobTitle || '-'}${ov.department ? ' · ' + ov.department : ''}`, attn: `No. Karyawan ${ov.employeeCode || '-'}`, terms: perLabel }
   };
   return { document, lines, net, period: per };
 }
@@ -781,12 +781,12 @@ async function paklaringData(client, id, user, org) {
   const ov = await overview(client, 'employees', id, user);
   const s = ov.enterpriseSummary || {}, pos = s.currentPosition || {}, emp = s.employment || {};
   const join = ov.joinDate ? new Date(ov.joinDate) : null, coName = org.legalName || org.tradeName || 'perusahaan';
-  const num = `SKK/HRD/${new Date().getFullYear()}/${String(ov.nik || id).slice(-4)}`;
+  const num = `SKK/HRD/${new Date().getFullYear()}/${String(ov.employeeCode || ov.nik || id).slice(-4)}`;
   const body = [
     { type: 'letterhead', number: num, subject: 'Surat Keterangan Kerja', place: orgCity(org), date: fmtLongDate(new Date()) },
     { type: 'space', h: 2 },
     { type: 'para', text: `Yang bertanda tangan di bawah ini, manajemen ${coName}, dengan ini menerangkan bahwa:` },
-    { type: 'meta', indent: 24, labelW: 130, rows: [['Nama', ov.name || '-'], ['NIK Karyawan', ov.nik || '-'], ['Jabatan', pos.positionTitle || ov.jobTitle || '-'], ['Departemen', ov.department || '-'], ['Status Kerja', emp.employmentType || 'PKWTT']] },
+    { type: 'meta', indent: 24, labelW: 130, rows: [['Nama', ov.name || '-'], ['No. Karyawan', ov.employeeCode || '-'], ['Jabatan', pos.positionTitle || ov.jobTitle || '-'], ['Departemen', ov.department || '-'], ['Status Kerja', emp.employmentType || 'PKWTT']] },
     { type: 'para', text: `adalah benar karyawan ${coName}${join ? ` terhitung sejak ${fmtLongDate(join)} dengan masa kerja ${tenureText(join)}` : ''}. Sampai surat ini diterbitkan, yang bersangkutan masih tercatat sebagai karyawan aktif dan menjalankan tugas serta kewajibannya dengan baik.` },
     { type: 'para', text: 'Surat keterangan ini dibuat dengan sebenarnya untuk dapat dipergunakan sebagaimana mestinya. Atas perhatian dan kerja samanya, kami ucapkan terima kasih.' }
   ];
@@ -799,12 +799,12 @@ async function spLetterData(client, id, spId, user, org) {
   if (!sp) throw new AppError('RESOURCE_NOT_FOUND', 'Surat peringatan tidak ditemukan.');
   const LVL = { TEGURAN: 'SURAT TEGURAN', SP1: 'SURAT PERINGATAN PERTAMA (SP-1)', SP2: 'SURAT PERINGATAN KEDUA (SP-2)', SP3: 'SURAT PERINGATAN KETIGA (SP-3)' }[sp.level] || String(sp.level);
   const HEAD = sp.level === 'TEGURAN' ? 'SURAT TEGURAN' : 'SURAT PERINGATAN';   // judul kop ringkas; jenjang lengkap tetap di Perihal
-  const coName = org.legalName || 'perusahaan', num = `${sp.level}/HRD/${new Date(sp.issued_date).getFullYear()}/${String(ov.nik || id).slice(-4)}`;
+  const coName = org.legalName || 'perusahaan', num = `${sp.level}/HRD/${new Date(sp.issued_date).getFullYear()}/${String(ov.employeeCode || ov.nik || id).slice(-4)}`;
   const body = [
     { type: 'letterhead', number: num, subject: LVL, place: orgCity(org), date: fmtLongDate(sp.issued_date) },
     { type: 'space', h: 2 },
     { type: 'para', text: `Dengan surat ini, manajemen ${coName} menyampaikan ${LVL.toLowerCase()} kepada karyawan berikut:` },
-    { type: 'meta', indent: 24, labelW: 130, rows: [['Nama', ov.name || '-'], ['NIK', ov.nik || '-'], ['Jabatan', pos.positionTitle || ov.jobTitle || '-'], ['Departemen', ov.department || '-']] },
+    { type: 'meta', indent: 24, labelW: 130, rows: [['Nama', ov.name || '-'], ['No. Karyawan', ov.employeeCode || '-'], ['Jabatan', pos.positionTitle || ov.jobTitle || '-'], ['Departemen', ov.department || '-']] },
     { type: 'para', text: `sehubungan dengan pelanggaran yang bersangkutan, yaitu: ${sp.violation}.` },
     { type: 'para', text: `Surat peringatan ini berlaku${sp.expiry_date ? ` sampai dengan ${fmtLongDate(sp.expiry_date)}` : ' selama 6 (enam) bulan'}. Yang bersangkutan diharapkan memperbaiki diri dan tidak mengulangi pelanggaran serupa. Apabila pelanggaran terulang, perusahaan dapat mengambil tindakan lebih lanjut sesuai peraturan perusahaan dan ketentuan yang berlaku.` },
     { type: 'para', text: 'Demikian surat peringatan ini dibuat untuk menjadi perhatian dan dilaksanakan sebagaimana mestinya.' }
@@ -827,7 +827,7 @@ async function pph1721Data(client, id, { year } = {}, user, org) {
   const body = [
     { type: 'heading', text: 'Formulir 1721-A1 — Pemotongan PPh Pasal 21', size: 10.5, rule: true },
     { type: 'space', h: 2 },
-    { type: 'kv2', labelW: 95, rows: [[['Masa Pajak', `Januari – Desember ${yr}`], ['Status PTKP', tax.ptkpStatus || 'TK/0']], [['Nama Penerima', ov.name || '-'], ['Ber-NPWP', tax.npwp === false ? 'Tidak' : 'Ya']], [['NIK', ov.nik || '-'], ['Jabatan', pos.positionTitle || ov.jobTitle || '-']]] },
+    { type: 'kv2', labelW: 95, rows: [[['Masa Pajak', `Januari – Desember ${yr}`], ['Status PTKP', tax.ptkpStatus || 'TK/0']], [['Nama Penerima', ov.name || '-'], ['Ber-NPWP', tax.npwp === false ? 'Tidak' : 'Ya']], [['No. Karyawan', ov.employeeCode || '-'], ['Jabatan', pos.positionTitle || ov.jobTitle || '-']]] },
     { type: 'space', h: 4 },
     { type: 'table', head: ['URAIAN', 'JUMLAH'], widths: [365, 150], right: [false, true], rows: [
       ['Penghasilan Bruto Setahun', rpNum(brutoYr)],
@@ -841,7 +841,7 @@ async function pph1721Data(client, id, { year } = {}, user, org) {
     { type: 'space', h: 6 },
     { type: 'para', text: 'Bukti pemotongan ini diterbitkan sesuai UU HPP dan PP 58/2023. Pemotongan bulanan menggunakan Tarif Efektif Rata-rata (TER); jumlah di atas merupakan rekonsiliasi PPh 21 tahunan.', size: 8, color: '0.470 0.518 0.588' }
   ];
-  return { document: { documentType: 'BUKTI_POTONG_1721', documentNumber: `1721A1/${yr}/${String(ov.nik || id).slice(-4)}`, status: 'APPROVED', createdAt: new Date().toISOString(), amount: pph, partyName: ov.name }, body, options: { title: 'BUKTI POTONG PPh 21', signatureLabel: 'Pemotong Pajak,', showTerbilang: false, receiverBox: false } };
+  return { document: { documentType: 'BUKTI_POTONG_1721', documentNumber: `1721A1/${yr}/${String(ov.employeeCode || ov.nik || id).slice(-4)}`, status: 'APPROVED', createdAt: new Date().toISOString(), amount: pph, partyName: ov.name }, body, options: { title: 'BUKTI POTONG PPh 21', signatureLabel: 'Pemotong Pajak,', showTerbilang: false, receiverBox: false } };
 }
 async function bpjsRincianData(client, id, user, org) {
   assertPermission(user, 'employee.view');
@@ -858,14 +858,14 @@ async function bpjsRincianData(client, id, user, org) {
   const rows = progs.map(([name, dasar, er, ee]) => { const cEr = Math.round(dasar * er), cEe = Math.round(dasar * ee); totEr += cEr; totEe += cEe; return [name, rpNum(dasar), rpNum(cEr), rpNum(cEe), rpNum(cEr + cEe)]; });
   rows.push(['TOTAL IURAN / BULAN', '', rpNum(totEr), rpNum(totEe), rpNum(totEr + totEe)]);
   const body = [
-    { type: 'meta', labelW: 150, rows: [['Nama Karyawan', ov.name || '-'], ['NIK', ov.nik || '-'], ['Dasar Upah (pokok + tetap)', rpNum(upah)]] },
+    { type: 'meta', labelW: 150, rows: [['Nama Karyawan', ov.name || '-'], ['No. Karyawan', ov.employeeCode || '-'], ['Dasar Upah (pokok + tetap)', rpNum(upah)]] },
     { type: 'space', h: 4 },
     { type: 'table', head: ['PROGRAM', 'DASAR UPAH', 'PERUSAHAAN', 'KARYAWAN', 'TOTAL/BLN'], widths: [175, 85, 85, 85, 85], right: [false, true, true, true, true], strongRows: [progs.length], rows },
     { type: 'space', h: 6 },
     { type: 'total', label: 'DIPOTONG DARI KARYAWAN / BULAN', value: rpNum(totEe), width: 320 },
     { type: 'para', text: 'Rincian iuran BPJS bulanan sesuai skema kepesertaan aktif. Porsi perusahaan menjadi beban perusahaan; porsi karyawan dipotong dari gaji setiap bulan.', size: 8, color: '0.470 0.518 0.588' }
   ];
-  return { document: { documentType: 'RINCIAN_BPJS', documentNumber: `BPJS/${new Date().toISOString().slice(0, 7)}/${String(ov.nik || id).slice(-4)}`, status: 'APPROVED', createdAt: new Date().toISOString(), amount: totEe, partyName: ov.name }, body, options: { title: 'RINCIAN IURAN BPJS', signatureLabel: 'Mengetahui, Bagian HRD', showTerbilang: false, receiverBox: false } };
+  return { document: { documentType: 'RINCIAN_BPJS', documentNumber: `BPJS/${new Date().toISOString().slice(0, 7)}/${String(ov.employeeCode || ov.nik || id).slice(-4)}`, status: 'APPROVED', createdAt: new Date().toISOString(), amount: totEe, partyName: ov.name }, body, options: { title: 'RINCIAN IURAN BPJS', signatureLabel: 'Mengetahui, Bagian HRD', showTerbilang: false, receiverBox: false } };
 }
 
 // Performance & Talent — 9-box (baris = performance rendah/med/tinggi,
@@ -1240,7 +1240,7 @@ async function settlementData(client, id, offbId, user, org) {
   const gross = up + upmk + uph + sep, pph = pesangonPph21Final(up + upmk + uph), net = gross - pph;
   const wage = Number(rec.monthly_wage) || 0, tenure = Number(rec.tenure_years) || 0, leaveDays = Number(rec.unused_leave_days) || 0;
   const upX = +(r.up * upMultiplier(tenure)).toFixed(2), upmkX = +(r.upmk * upmkMultiplier(tenure)).toFixed(2);
-  const num = `PSG/HRD/${new Date(rec.effective_date).getFullYear()}/${String(ov.nik || id).slice(-4)}`;
+  const num = `PSG/HRD/${new Date(rec.effective_date).getFullYear()}/${String(ov.employeeCode || ov.nik || id).slice(-4)}`;
   const { terbilangRupiah } = require('../../files/document-render');
   const rows = [
     ['Uang Pesangon (UP)', `${upX}× upah`, rpNum(up)],
@@ -1255,7 +1255,7 @@ async function settlementData(client, id, offbId, user, org) {
     { type: 'space', h: 2 },
     { type: 'kv2', labelW: 100, rows: [
       [['Nama', ov.name || '-'], ['Alasan Berhenti', r.label]],
-      [['NIK', ov.nik || '-'], ['Tanggal Efektif', fmtLongDate(rec.effective_date)]],
+      [['No. Karyawan', ov.employeeCode || '-'], ['Tanggal Efektif', fmtLongDate(rec.effective_date)]],
       [['Jabatan', pos.positionTitle || ov.jobTitle || '-'], ['Masa Kerja', `${tenure} tahun`]],
       [['Tgl Bergabung', fmtLongDate(emp.join_date)], ['Upah Dasar / bln', rpNum(wage)]]
     ] },
